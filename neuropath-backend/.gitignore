@@ -1,0 +1,17 @@
+# Security
+.env
+
+# Environments
+venv/
+env/
+
+# Python / Django Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+db.sqlite3
+
+# OS Files
+.DS_Store
+Thumbs.db
