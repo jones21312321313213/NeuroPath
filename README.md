@@ -38,7 +38,7 @@ pip install -r requirements.txt
 
 4. Set up the Environment Variables:
 * Create a file named exactly .env inside the neuropath-backend folder.
-* Ask the lead developer (Zyla) for the database connection string.
+* Ask the lead developer (asd) for the database connection string.
 * Paste the string inside the .env file. (Note: DO NOT push this file to GitHub!)
 
 5. Run the database migrations and start the server:
