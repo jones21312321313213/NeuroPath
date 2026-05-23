@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import StudentProfile
+from .models import StudentProfile, Teacher
+
 
 class StudentProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -38,18 +39,34 @@ class ValidationService(serializers.ModelSerializer):
                 raise serializers.ValidationError("A student under 4 years old cannot be in a grade higher than Kindergarten.")
         return data
     
+
 # =====================================================================
 # SDD COMPONENT: TeacherValidationService
-# Description: Validates payload schemas for teacher account registration.
+# Description: Validates payload schemas for teacher account registration
+#              and synchronizes data across authentication and profile tables.
 # =====================================================================
 class TeacherSerializer(serializers.ModelSerializer):
     class Meta:
-        # Note: Replace with your custom Teacher model if you aren't using the default User model
         model = User 
         fields = ['id', 'username', 'email', 'password', 'first_name', 'last_name']
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
-        # Securely hashes the password before storing it in PostgreSQL
+        # 1. Create the secure Django login account (auth_user table)
         user = User.objects.create_user(**validated_data)
+        
+        # 2. Format the name for your custom table
+        first = validated_data.get('first_name', '')
+        last = validated_data.get('last_name', '')
+        full_name = f"{first} {last}".strip() if first or last else user.username
+
+        # 3. Synchronize and create the record in your custom 'users_teacher' table
+        Teacher.objects.create(
+            name=full_name,
+            email=validated_data.get('email', ''),
+            # Security Best Practice: We save the encrypted hash from Django
+            # rather than saving a plain text password like "test123"
+            passwordHash=user.password 
+        )
+        
         return user
