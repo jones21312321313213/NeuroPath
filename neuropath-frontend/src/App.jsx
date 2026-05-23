@@ -72,7 +72,7 @@ function Router() {
     setPage(to);
   };
 
-  if (user) return <Dashboard />;
+  if (user || page === "dashboard") return <Dashboard />;
 
   return (
     <>
@@ -82,6 +82,7 @@ function Router() {
       {page === "login" && (
         <LoginPage
           onNavigateRegister={() => navigate("register")}
+          onLoginSuccess={() => navigate("dashboard")}
           successMessage={successMessage}
           onClearMessage={() => setSuccessMessage("")}
         />
