@@ -18,7 +18,17 @@ from django.contrib import admin
 from django.urls import path,include
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    # This routes all React traffic through your new API views
+path('admin/', admin.site.urls),
+    
+    # Module 1: User Management App
     path('api/users/', include('users.urls')),
+    
+    # Module 2: IEP Management App (Add this line!)
+    path('api/iep/', include('iep_management.urls')),
+    
+    # Module 3: Resources / Instructional Support App (Add this line!)
+    path('api/resources/', include('resources.urls')),
+    
+    # Optional: Built-in login screen for direct browser testing
+    path('api-auth/', include('rest_framework.urls')),
 ]
