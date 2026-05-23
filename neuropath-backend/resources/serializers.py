@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from users.models import Teacher
-from .models import LessonPlan,VisualAid
+from .models import LessonPlan,VisualAid,TeachingStrategy
 
 # =====================================================================
 # SDD COMPONENT: UserContextSerializer
@@ -90,3 +90,82 @@ class VisualAidSerializer(serializers.ModelSerializer):
         if not value.startswith('http'):
             raise serializers.ValidationError("The visual aid asset must be a valid URL starting with http or https.")
         return value
+    
+# =====================================================================
+# SDD COMPONENT: StrategyUpdateValidationSerializer
+# Description: Executes inbound format validations and payload maps. 
+#              Transforms complex query logs into flat JSON objects.
+# =====================================================================
+class StrategyUpdateValidationSerializer(serializers.ModelSerializer):
+    # Flatten the student name for easy React rendering
+    studentName = serializers.CharField(source='student.name', read_only=True)
+
+    class Meta:
+        model = TeachingStrategy
+        fields = ['strategyID', 'iep', 'student', 'studentName', 'title', 'strategyContent', 'dateCreated']
+
+    def validate_strategyContent(self, value):
+        # Ensure the teacher (or AI) actually provides actionable content
+        if not value or len(value.strip()) < 10:
+            raise serializers.ValidationError("Strategy content must be detailed and actionable.")
+        return value
+    
+class StrategyParameterSerializer(serializers.Serializer):
+    studentID = serializers.IntegerField(required=True)
+    iepGoalID = serializers.IntegerField(required=True)
+
+    def validate(self, data):
+        if data['studentID'] <= 0 or data['iepGoalID'] <= 0:
+            raise serializers.ValidationError("Student ID and IEP Goal ID must be valid positive integers.")
+        return data
+    
+
+class StrategyGenerationService:
+    @staticmethod
+    def execute_compilation_workflow(student_profile, iep_record):
+        # 1. SDD Privacy Requirement: Anonymize the profile record
+        # We strip the full name and only use a generic identifier for the AI
+        anonymized_identifier = f"Student {student_profile.pk}"
+        
+        # 2. Apply specialized pedagogical system prompts
+        ai_prompt = (
+            f"Act as a Special Education Specialist. Design an actionable, evidence-based "
+            f"teaching strategy for {anonymized_identifier} targeting the following IEP goal ID: {iep_record.pk}."
+        )
+        
+        # 3. Simulate the orchestration layer returning standard instructional text vectors
+        mock_generated_text = (
+            f"Recommended Strategy for Target Goal:\n"
+            f"1. Pre-teach vocabulary before the main lesson.\n"
+            f"2. Use visual schedules to map out the activity.\n"
+            f"3. Provide frequent, specific praise for approximations of the target behavior."
+        )
+        
+        return {
+            "applied_prompt": ai_prompt,
+            "strategyContent": mock_generated_text
+        }
+        
+
+# =====================================================================
+# SDD COMPONENT: StrategyRetrievalSerializer
+# Description: Data transformation component mapping raw database structures 
+#              into clean, standardized JSON objects for front-end rendering.
+# =====================================================================
+class StrategyRetrievalSerializer(serializers.ModelSerializer):
+    # Flatten the student data
+    studentName = serializers.CharField(source='student.name', read_only=True)
+    
+    # Format chronological timestamps into a clean, human-readable string
+    formattedDate = serializers.DateTimeField(source='dateCreated', format="%B %d, %Y", read_only=True)
+
+    class Meta:
+        model = TeachingStrategy
+        # Removed 'status' so it perfectly matches your active database model!
+        fields = [
+            'strategyID', 
+            'studentName', 
+            'title', 
+            'strategyContent', 
+            'formattedDate'
+        ]
