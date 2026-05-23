@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.contrib.auth.models import User
 from .models import StudentProfile
 
 class StudentProfileSerializer(serializers.ModelSerializer):
@@ -36,3 +37,19 @@ class ValidationService(serializers.ModelSerializer):
             if data['age'] < 4 and data['grade'] > 0:
                 raise serializers.ValidationError("A student under 4 years old cannot be in a grade higher than Kindergarten.")
         return data
+    
+# =====================================================================
+# SDD COMPONENT: TeacherValidationService
+# Description: Validates payload schemas for teacher account registration.
+# =====================================================================
+class TeacherSerializer(serializers.ModelSerializer):
+    class Meta:
+        # Note: Replace with your custom Teacher model if you aren't using the default User model
+        model = User 
+        fields = ['id', 'username', 'email', 'password', 'first_name', 'last_name']
+        extra_kwargs = {'password': {'write_only': True}}
+
+    def create(self, validated_data):
+        # Securely hashes the password before storing it in PostgreSQL
+        user = User.objects.create_user(**validated_data)
+        return user
