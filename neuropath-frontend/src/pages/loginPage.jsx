@@ -107,12 +107,10 @@ export default function LoginPage({ onNavigateRegister, successMessage, onClearM
             <div className="space-y-1.5">
               <label htmlFor="email" className="text-xs font-bold text-slate-700 uppercase tracking-wider">Email Address</label>
               <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none">✉️</span>
                 <input
                   id="email" 
                   name="email" 
                   type="email"
-                  placeholder="name@school.edu"
                   value={form.email} 
                   onChange={handleChange}
                   autoComplete="email"
@@ -125,12 +123,11 @@ export default function LoginPage({ onNavigateRegister, successMessage, onClearM
             <div className="space-y-1.5">
               <label htmlFor="password" className="text-xs font-bold text-slate-700 uppercase tracking-wider">Password</label>
               <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none">🔒</span>
                 <input
                   id="password" 
                   name="password"
                   type={showPass ? 'text' : 'password'} 
-                  placeholder="••••••••"
+                  
                   value={form.password} 
                   onChange={handleChange}
                   autoComplete="current-password"

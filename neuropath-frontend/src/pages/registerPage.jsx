@@ -101,11 +101,6 @@ export default function RegisterPage({ onNavigateLogin }) {
             </li>
           </ul>
         </div>
-
-        {/* Bottom Context Pill */}
-        <div className="relative z-10 text-xs text-slate-500">
-          🔒 FERPA Compliant Documentation Platform
-        </div>
       </div>
 
       {/* RIGHT REGISTER FIELDS FORM */}
@@ -162,9 +157,8 @@ export default function RegisterPage({ onNavigateLogin }) {
             <div className="space-y-1.5">
               <label htmlFor="reg-email" className="text-xs font-bold text-slate-700 uppercase tracking-wider">Email Address</label>
               <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none">✉️</span>
                 <input 
-                  id="reg-email" name="email" type="email" placeholder="you@school.edu"
+                  id="reg-email" name="email" type="email" 
                   value={form.email} onChange={handleChange}
                   className={`w-full pl-10 pr-4 py-3 bg-white border rounded-xl text-sm font-medium shadow-sm outline-none transition-all focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 ${errors.email ? 'border-rose-300 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500/10' : 'border-slate-200'}`} 
                 />
@@ -176,10 +170,9 @@ export default function RegisterPage({ onNavigateLogin }) {
             <div className="space-y-1.5">
               <label htmlFor="reg-password" className="text-xs font-bold text-slate-700 uppercase tracking-wider">Password</label>
               <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none">🔒</span>
                 <input 
                   id="reg-password" name="password"
-                  type={showPass ? 'text' : 'password'} placeholder="••••••••"
+                  type={showPass ? 'text' : 'password'} 
                   value={form.password} onChange={handleChange}
                   className={`w-full pl-10 pr-12 py-3 bg-white border rounded-xl text-sm font-medium shadow-sm outline-none transition-all focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 ${errors.password ? 'border-rose-300 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500/10' : 'border-slate-200'}`} 
                 />
@@ -199,10 +192,10 @@ export default function RegisterPage({ onNavigateLogin }) {
             <div className="space-y-1.5">
               <label htmlFor="confirmPassword" className="text-xs font-bold text-slate-700 uppercase tracking-wider">Confirm Password</label>
               <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none">🔒</span>
+              
                 <input 
                   id="confirmPassword" name="confirmPassword"
-                  type={showPass ? 'text' : 'password'} placeholder="••••••••"
+                  type={showPass ? 'text' : 'password'} 
                   value={form.confirmPassword} onChange={handleChange}
                   className={`w-full pl-10 pr-4 py-3 bg-white border rounded-xl text-sm font-medium shadow-sm outline-none transition-all focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 ${errors.confirmPassword ? 'border-rose-300 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500/10' : 'border-slate-200'}`} 
                 />
