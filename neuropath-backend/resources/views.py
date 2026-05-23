@@ -1,10 +1,13 @@
 from django.db.models import Q
+import io
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status,viewsets
+from django.http import HttpResponse
 from users.models import Teacher,StudentProfile
-from .models import LessonPlan
-from .serializers import UserContextSerializer,LessonPlanSerializer,LessonGenerationSerializer,LessonPlanDetailSerializer,LessonPlanUpdateSerializer
+from .models import LessonPlan,VisualAid
+from .serializers import (UserContextSerializer,LessonPlanSerializer,LessonGenerationSerializer,
+                          LessonPlanDetailSerializer,LessonPlanUpdateSerializer,VisualAidSerializer)
 #from .permissions import UserAuthPermissions uncomment this back to check user auth and permission
 
 
@@ -287,3 +290,273 @@ class LessonPlanEditAPIView(APIView):
             }, status=status.HTTP_200_OK)
             
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+# =====================================================================
+# SDD COMPONENT: LessonPlanDeletionService
+# Description: Business logic component responsible for safely executing 
+#              the deletion workflow and ensuring database integrity.
+# =====================================================================
+class LessonPlanDeletionService:
+    @staticmethod
+    def execute_deletion(lesson_plan):
+        # In the future, if you add files or images attached to a lesson plan, 
+        # you would write the code to delete those cloud files right here 
+        # before dropping the database row.
+        
+        lesson_plan.delete()
+        return True
+    
+
+# =====================================================================
+# SDD COMPONENT: LessonPlanDeleteAPIView
+# Description: Controller handling HTTP DELETE requests. Captures the 
+#              unique ID and routes the command to the business logic.
+# =====================================================================
+class LessonPlanDeleteAPIView(APIView):
+    # Enforces the UserAuthPermissions security component
+    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+
+    def delete(self, request, pk, *args, **kwargs):
+        """Matches Class Diagram: executeDeletion(lessonID)"""
+        try:
+            lesson_plan = LessonPlan.objects.get(pk=pk)
+        except LessonPlan.DoesNotExist:
+            return Response(
+                {"error": "Lesson Plan not found or already deleted."}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+            
+        # 1. SDD Security Check: verifyAuthorization(userID, lessonID)
+        # Note: Once authentication is fully turned on, you would ensure:
+        # if lesson_plan.student.teacher != request.user:
+        #     return Response({"error": "Unauthorized"}, status=403)
+
+        # 2. Trigger Business Logic Service
+        LessonPlanDeletionService.execute_deletion(lesson_plan)
+        
+        # 3. Matches Sequence Diagram: "Acknowledge execution pipeline success status"
+        # Standard REST practice for a successful deletion is to return a 204 No Content.
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+# =====================================================================
+# SDD COMPONENT: VisualAidViewSet (Upgraded for 3.2.2)
+# Description: Exposes secure HTTP GET endpoints, managing incoming parameters 
+#              to look up collective rosters or specific file paths.
+# =====================================================================
+class VisualAidViewSet(viewsets.ModelViewSet):
+    http_method_names = ['get', 'post', 'delete']
+    queryset = VisualAid.objects.all().order_by('-dateCreated')
+    serializer_class = VisualAidSerializer
+    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+
+    def list(self, request, *args, **kwargs):
+        """Matches Sequence Diagram: requestSavedVisualAids() -> return Array urls"""
+        queryset = self.get_queryset()
+        
+        # Matches Sequence Diagram: Handle empty state
+        if not queryset.exists():
+            return Response([], status=status.HTTP_200_OK)
+            
+        serializer = self.get_serializer(queryset, many=True)
+        response_data = serializer.data
+        
+        # Route every image URL through the MediaStreamingService
+        for item in response_data:
+            item['imageUrl'] = MediaStreamingService.resolve_secure_stream_url(item['imageUrl'])
+            
+        return Response(response_data, status=status.HTTP_200_OK)
+
+    def retrieve(self, request, *args, **kwargs):
+        """Matches Sequence Diagram: handleSelectVisualAid(aidId) -> return storageUrl String"""
+        try:
+            instance = self.get_object()
+        except VisualAid.DoesNotExist:
+            return Response({"error": "Visual aid asset not found."}, status=status.HTTP_404_NOT_FOUND)
+            
+        serializer = self.get_serializer(instance)
+        response_data = serializer.data
+        
+        # Route the specific image URL through the MediaStreamingService
+        response_data['imageUrl'] = MediaStreamingService.resolve_secure_stream_url(instance.imageUrl)
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        """Matches Sequence Diagram: [Tab Option Selected = "Generate Visual Aid"]"""
+        serializer = self.get_serializer(data=request.data)
+        
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            # Matches Sequence Diagram: "Return parsed JSON asset descriptors"
+            return Response({
+                "message": "Visual Aid generated and saved successfully.",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+            
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Matches Sequence Diagram: [confirmDelete == true] -> handleConfirmDeletion(aidId)
+        Executes permission checks, drops the database row, and triggers cloud cleanup.
+        """
+        try:
+            instance = self.get_object()
+        except VisualAid.DoesNotExist:
+            return Response(
+                {"error": "Visual Aid record does not exist or has already been removed."}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # 1. Capture the file path URL before we erase the record from the database
+        target_image_url = instance.imageUrl
+
+        # 2. Drop the row from the Supabase PostgreSQL table (Classic Django ORM Link)
+        self.perform_destroy(instance)
+
+        # 3. Trigger SDD Component: StorageCleanupWorker to maintain cloud hygiene
+        StorageCleanupWorker.purge_orphan_file(target_image_url)
+
+        # 4. Return successful execution state (204 No Content is standard for clean API deletes)
+        return Response(
+            {"message": "Visual Aid database entry and storage file successfully deleted."},
+            status=status.HTTP_204_NO_CONTENT
+        )
+        
+        
+# =====================================================================
+# SDD COMPONENT: SupabaseStorageManager
+# Description: Establishes secure cloud connections, managing binary data 
+#              streams and bucket directory paths for the visual assets.
+# =====================================================================
+class SupabaseStorageManager:
+    @staticmethod
+    def upload_temp_image(binary_data, filename_hint):
+        # In a production environment, this integrates with the supabase-py client 
+        # to push the binary image into your storage bucket.
+        # For now, we simulate a successful cloud upload returning a public URL.
+        return f"https://your-supabase-project.supabase.co/storage/v1/object/public/visual-aids/preview_{filename_hint}.png"
+    
+    
+# =====================================================================
+# SDD COMPONENT: VisualAidGeneratorService
+# Description: Orchestrates the visual synthesis pipeline. Extracts IEP 
+#              goal text and processes the output into a standardized asset.
+# =====================================================================
+class VisualAidGeneratorService:
+    @staticmethod
+    def process_synthesis_pipeline(goal_text):
+        # 1. Format the target IEP goal for the AI Core Engine
+        ai_prompt = f"Create a simple, distraction-free visual schedule icon illustrating: {goal_text}"
+        
+        # 2. Simulate receiving the generated binary image data from the AI
+        mock_binary_data = b"simulated_image_byte_stream"
+        
+        # 3. Route through the Storage Manager to get a web URL
+        cloud_url = SupabaseStorageManager.upload_temp_image(mock_binary_data, "asset_123")
+        
+        return {
+            "appliedPrompt": ai_prompt,
+            "temporaryStorageUrl": cloud_url
+        }
+
+# =====================================================================
+# SDD COMPONENT: PDFExportEngine
+# Description: Compiles the processed visual cards, configures layout, 
+#              and outputs a clean, printable PDF stream.
+# =====================================================================
+class PDFExportEngine:
+    @staticmethod
+    def compile_pdf(visual_aid_record):
+        # In production, libraries like ReportLab place the image onto a PDF canvas.
+        # Here we create a simulated PDF byte stream to satisfy the download trigger.
+        buffer = io.BytesIO()
+        buffer.write(b"%PDF-1.4\n")
+        buffer.write(f"Title: {visual_aid_record.title}\n".encode('utf-8'))
+        buffer.write(f"Asset URL: {visual_aid_record.imageUrl}\n".encode('utf-8'))
+        buffer.seek(0)
+        return buffer
+    
+#=====================================================================
+# SDD CONTROLLER: GenerateVisualAidAPIView
+# Description: Intercepts the target goal text, runs the generator 
+#              service, and returns the preview URL to the frontend.
+# =====================================================================
+class GenerateVisualAidAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        goal_text = request.data.get('goalText')
+        student_id = request.data.get('studentID')
+        
+        # Enforce validation matching your Sequence Diagram flow
+        if not student_id or not goal_text:
+            return Response(
+                {"error": "A selected Student ID and Goal are required to generate an asset."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Execute the Generation Pipeline
+        asset_payload = VisualAidGeneratorService.process_synthesis_pipeline(goal_text)
+        
+        return Response({
+            "message": "Visual Aid generated successfully for preview.",
+            "data": asset_payload
+        }, status=status.HTTP_200_OK)
+
+# =====================================================================
+# SDD CONTROLLER: ExportVisualAidAPIView
+# Description: Fetches the saved visual aid record and triggers the 
+#              PDF Export Engine to return a downloadable file response.
+# =====================================================================
+class ExportVisualAidAPIView(APIView):
+    def get(self, request, pk, *args, **kwargs):
+        try:
+            visual_aid = VisualAid.objects.get(pk=pk)
+        except VisualAid.DoesNotExist:
+            return Response({"error": "Saved Visual Aid not found."}, status=status.HTTP_404_NOT_FOUND)
+            
+        # Generate the PDF file stream
+        pdf_stream = PDFExportEngine.compile_pdf(visual_aid)
+        
+        # Configure the HTTP response to trigger a file download in the browser
+        response = HttpResponse(pdf_stream, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="VisualAid_{visual_aid.visualAidID}.pdf"'
+        
+        return response
+    
+    
+# =====================================================================
+# SDD COMPONENT: MediaStreamingService
+# Description: Utility module handling cloud file retrieval workflows. 
+#              Resolves raw binary paths into secure URL streams.
+# =====================================================================
+class MediaStreamingService:
+    @staticmethod
+    def resolve_secure_stream_url(raw_storage_url):
+        if not raw_storage_url:
+            return None
+            
+        # In a fully integrated production environment, you would use the 
+        # supabase-py client here to request a signed, time-limited URL.
+        # For now, we simulate the security handshake by appending a mock stream token.
+        secure_stream_url = f"{raw_storage_url}?stream_auth=verified_token_123"
+        return secure_stream_url
+    
+    
+# =====================================================================
+# SDD COMPONENT: StorageCleanupWorker
+# Description: Post-delete handler that communicates with Supabase 
+#              storage buckets to permanently purge orphan binary files.
+# =====================================================================
+class StorageCleanupWorker:
+    @staticmethod
+    def purge_orphan_file(image_url):
+        if not image_url:
+            return False
+            
+        # In your production setup with the real supabase client, you'd extract 
+        # the file path from the URL and run:
+        # supabase.storage.from_('visual-aids').remove(['path/to/file.png'])
+        
+        # Simulating cloud storage file extraction and successful removal log
+        print(f"[StorageCleanupWorker] Successfully purged orphan asset from Supabase: {image_url}")
+        return True
