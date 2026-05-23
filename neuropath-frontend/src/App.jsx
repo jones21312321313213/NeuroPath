@@ -1,122 +1,103 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState } from "react";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import LandingPage from "./pages/LandingPage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import Sidebar from "./components/layout/Sidebar";
+import Topbar from "./components/layout/Topbar";
+import Overview from "./pages/Overview";
+import CreateStudentProfile from "./pages/CreateStudentProfile";
+import "./App.css";
 
-function App() {
-  const [count, setCount] = useState(0)
+const breadcrumbMap = {
+  overview: "DASHBOARD/Overview",
+  "create-student-profile": "DASHBOARD/Student Profiling",
+  "view-student-profile": "DASHBOARD/Student Profiling",
+  "update-student-profile": "DASHBOARD/Student Profiling",
+  "ai-insight": "DASHBOARD/Student Profiling",
+  "iep-generation": "DASHBOARD/AI-Based IEP Generation",
+};
+
+function Placeholder({ title }) {
+  return (
+    <div className="page-content">
+      <div className="placeholder-page">
+        <h2>{title}</h2>
+        <p>This page is under construction.</p>
+      </div>
+    </div>
+  );
+}
+
+function renderPage(activePage, setActivePage) {
+  switch (activePage) {
+    case "overview":
+      return <Overview setActivePage={setActivePage} />;
+    case "create-student-profile":
+      return <CreateStudentProfile onBack={() => setActivePage("overview")} />;
+    case "view-student-profile":
+      return <Placeholder title="View Student Profile" />;
+    case "update-student-profile":
+      return <Placeholder title="Update Student Profile" />;
+    case "ai-insight":
+      return <Placeholder title="Analyze & Generate AI Insight" />;
+    case "iep-generation":
+      return <Placeholder title="AI-Based IEP Generation" />;
+    default:
+      return <Overview setActivePage={setActivePage} />;
+  }
+}
+
+function Dashboard() {
+  const [activePage, setActivePage] = useState("overview");
+
+  return (
+    <div className="app-layout">
+      <Sidebar activePage={activePage} setActivePage={setActivePage} />
+      <div className="main-area">
+        <Topbar breadcrumb={breadcrumbMap[activePage] || "DASHBOARD"} />
+        {renderPage(activePage, setActivePage)}
+      </div>
+    </div>
+  );
+}
+
+function Router() {
+  const { user } = useAuth();
+  const [page, setPage] = useState("landing");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const navigate = (to, msg = "") => {
+    setSuccessMessage(msg);
+    setPage(to);
+  };
+
+  if (user || page === "dashboard") return <Dashboard />;
 
   return (
     <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
+      {page === "landing" && (
+        <LandingPage onGetStarted={() => navigate("login")} />
+      )}
+      {page === "login" && (
+        <LoginPage
+          onNavigateRegister={() => navigate("register")}
+          onLoginSuccess={() => navigate("dashboard")}
+          successMessage={successMessage}
+          onClearMessage={() => setSuccessMessage("")}
+        />
+      )}
+      {page === "register" && (
+        <RegisterPage onNavigateLogin={(msg) => navigate("login", msg)} />
+      )}
     </>
-  )
+  );
 }
 
-export default App
+export default function App() {
+  return (
+    <AuthProvider>
+      <Router />
+    </AuthProvider>
+  );
+}
