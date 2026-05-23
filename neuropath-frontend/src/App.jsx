@@ -6,6 +6,7 @@ import RegisterPage from "./pages/RegisterPage";
 import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
 import Overview from "./pages/Overview";
+import ManageVisualAids from "./pages/ManageVisualAids";
 import CreateStudentProfile from "./pages/CreateStudentProfile";
 import "./App.css";
 
@@ -16,6 +17,9 @@ const breadcrumbMap = {
   "update-student-profile": "DASHBOARD/Student Profiling",
   "ai-insight": "DASHBOARD/Student Profiling",
   "iep-generation": "DASHBOARD/AI-Based IEP Generation",
+  "manage-lesson-plans": "DASHBOARD/Instructional Support",
+  "manage-visual-aids": "DASHBOARD/Instructional Support",
+  "manage-teaching-strategies": "DASHBOARD/Instructional Support",
 };
 
 function Placeholder({ title }) {
@@ -43,6 +47,12 @@ function renderPage(activePage, setActivePage) {
       return <Placeholder title="Analyze & Generate AI Insight" />;
     case "iep-generation":
       return <Placeholder title="AI-Based IEP Generation" />;
+    case "manage-lesson-plans":
+      return <Placeholder title="Manage Lesson Plans" />;
+    case "manage-visual-aids":
+      return <ManageVisualAids />;
+    case "manage-teaching-strategies":
+      return <Placeholder title="Manage Teaching Strategies" />;
     default:
       return <Overview setActivePage={setActivePage} />;
   }
