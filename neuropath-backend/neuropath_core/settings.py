@@ -43,7 +43,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'neuropath_core'
+    'users',
+    'iep_management',
+    'tracking',
+    'resources'
 ]
 
 MIDDLEWARE = [
