@@ -5,9 +5,12 @@ from rest_framework.response import Response
 from rest_framework import status,viewsets
 from django.http import HttpResponse
 from users.models import Teacher,StudentProfile
-from .models import LessonPlan,VisualAid
+from iep_management.models import IEP
+from .models import LessonPlan,VisualAid,TeachingStrategy
 from .serializers import (UserContextSerializer,LessonPlanSerializer,LessonGenerationSerializer,
-                          LessonPlanDetailSerializer,LessonPlanUpdateSerializer,VisualAidSerializer)
+                          LessonPlanDetailSerializer,LessonPlanUpdateSerializer,VisualAidSerializer,
+                          StrategyUpdateValidationSerializer,StrategyParameterSerializer,StrategyGenerationService,
+                          StrategyRetrievalSerializer)
 #from .permissions import UserAuthPermissions uncomment this back to check user auth and permission
 
 
@@ -560,3 +563,271 @@ class StorageCleanupWorker:
         # Simulating cloud storage file extraction and successful removal log
         print(f"[StorageCleanupWorker] Successfully purged orphan asset from Supabase: {image_url}")
         return True
+    
+    
+# =====================================================================
+# SDD COMPONENT: StrategyGenerationManagerService
+# Description: Orchestrates automated strategy generation sequences. 
+#              Processes criteria and formats data matrices for storage.
+# =====================================================================
+class StrategyGenerationManagerService:
+    @staticmethod
+    def generate_strategy_content(title, student_name):
+        # 1. Format the target prompt for the AI Core Engine
+        ai_prompt = f"Generate an actionable teaching strategy for {student_name} focusing on: {title}"
+        
+        # 2. Simulate the AI processing the pedagogical criteria
+        mock_generated_text = (
+            f"Strategy Overview for {title}:\n"
+            f"- Break down the target task into smaller, manageable micro-steps.\n"
+            f"- Provide immediate positive reinforcement upon completion of each step.\n"
+            f"- Utilize multi-sensory physical materials to maintain engagement."
+        )
+        
+        return mock_generated_text
+    
+
+# =====================================================================
+# SDD COMPONENT: TeachingStrategyViewSet
+# Description: Centralized API controller handling inbound pathways. 
+#              Delegates execution for create, list, retrieve, update, destroy.
+# =====================================================================
+class TeachingStrategyViewSet(viewsets.ModelViewSet):
+    queryset = TeachingStrategy.objects.all().order_by('-dateCreated')
+    serializer_class = StrategyUpdateValidationSerializer
+    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+
+    def create(self, request, *args, **kwargs):
+        """Matches Sequence Diagram: [Strategy Route Option = "Generate Teaching Strategy" Tab]"""
+        serializer = self.get_serializer(data=request.data)
+        
+        if serializer.is_valid():
+            # Check if the frontend provided content. If not, trigger the AI Generation Service.
+            if not serializer.validated_data.get('strategyContent'):
+                student_profile = serializer.validated_data['student']
+                title = serializer.validated_data['title']
+                
+                # Execute the SDD Service
+                generated_content = StrategyGenerationManagerService.generate_strategy_content(
+                    title=title, 
+                    student_name=student_profile.name
+                )
+                
+                # Inject the generated content into the validated payload before saving
+                serializer.validated_data['strategyContent'] = generated_content
+            
+            # Commit to the Supabase Database
+            self.perform_create(serializer)
+            
+            return Response({
+                "message": "Teaching Strategy successfully generated and securely saved.",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+            
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+# =====================================================================
+# SDD COMPONENT: TeachingStrategyGenerationController
+# Description: Primary back-end routing hub processing incoming GET 
+#              directory requests and POST execution requests.
+# =====================================================================
+class TeachingStrategyGenerationController(APIView):
+    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+
+    def get(self, request, *args, **kwargs):
+        """Matches Sequence Diagram: getInitializationData()"""
+        students = StudentProfile.objects.all()
+        
+        # Alternative Flow: Empty State
+        if not students.exists():
+            return Response(
+                {"message": "No active student profiles available. Please add a student first."}, 
+                status=status.HTTP_200_OK
+            )
+            
+        # Standard Flow: Return serialized student and target goal arrays
+        directory_payload = []
+        for student in students:
+            # Fetch linked IEP goals for this specific student
+            student_ieps = IEP.objects.filter(student=student)
+            iep_list = [{"iepID": iep.pk, "status": iep.status} for iep in student_ieps]
+            
+            directory_payload.append({
+                "studentID": student.pk,
+                "studentName": student.name,
+                "availableGoals": iep_list
+            })
+            
+        return Response({"directory": directory_payload}, status=status.HTTP_200_OK)
+
+    def post(self, request, *args, **kwargs):
+        """Matches Sequence Diagram: executeStrategyGeneration()"""
+        serializer = StrategyParameterSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            student_id = serializer.validated_data['studentID']
+            iep_id = serializer.validated_data['iepGoalID']
+            
+            try:
+                student = StudentProfile.objects.get(pk=student_id)
+                iep = IEP.objects.get(pk=iep_id)
+            except (StudentProfile.DoesNotExist, IEP.DoesNotExist):
+                return Response(
+                    {"error": "Targeted Student or IEP Goal could not be located."}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+            # Drive the orchestration layer
+            draft_payload = StrategyGenerationService.execute_compilation_workflow(student, iep)
+            
+            return Response({
+                "message": "Teaching strategy successfully compiled for review.",
+                "data": draft_payload
+            }, status=status.HTTP_200_OK)
+            
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+# =====================================================================
+# SDD COMPONENT: TeachingStrategyGenerationController
+# Description: Primary back-end routing hub processing incoming GET 
+#              directory requests and POST execution requests.
+# =====================================================================
+class TeachingStrategyGenerationController(APIView):
+    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+
+    def get(self, request, *args, **kwargs):
+        """Matches Sequence Diagram: getInitializationData()"""
+        students = StudentProfile.objects.all()
+        
+        # Alternative Flow: Empty State
+        if not students.exists():
+            return Response(
+                {"message": "No active student profiles available. Please add a student first."}, 
+                status=status.HTTP_200_OK
+            )
+            
+        # Standard Flow: Return serialized student and target goal arrays
+        directory_payload = []
+        for student in students:
+            # Fetch linked IEP goals for this specific student
+            student_ieps = IEP.objects.filter(student=student)
+            
+            # FIX: Removed the non-existent 'status' field and replaced it with a safe string label!
+            iep_list = [{"iepID": iep.pk, "label": str(iep)} for iep in student_ieps]
+            
+            directory_payload.append({
+                "studentID": student.pk,
+                "studentName": student.name,
+                "availableGoals": iep_list
+            })
+            
+        return Response({"directory": directory_payload}, status=status.HTTP_200_OK)
+
+    def post(self, request, *args, **kwargs):
+        """Matches Sequence Diagram: executeStrategyGeneration()"""
+        serializer = StrategyParameterSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            student_id = serializer.validated_data['studentID']
+            iep_id = serializer.validated_data['iepGoalID']
+            
+            try:
+                student = StudentProfile.objects.get(pk=student_id)
+                iep = IEP.objects.get(pk=iep_id)
+            except (StudentProfile.DoesNotExist, IEP.DoesNotExist):
+                return Response(
+                    {"error": "Targeted Student or IEP Goal could not be located."}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+            # Drive the orchestration layer
+            draft_payload = StrategyGenerationService.execute_compilation_workflow(student, iep)
+            
+            return Response({
+                "message": "Teaching strategy successfully compiled for review.",
+                "data": draft_payload
+            }, status=status.HTTP_200_OK)
+            
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+# =====================================================================
+# SDD COMPONENT: StrategyQueryFilterService
+# Description: Isolates table rows, evaluates data health, and strips 
+#              out nested rows if structural prerequisite items fail.
+# =====================================================================
+class StrategyQueryFilterService:
+    @staticmethod
+    def get_filtered_strategies(queryset, student_id):
+        # 1. Evaluate data collection health (ensure student_id is valid)
+        if not student_id:
+            return queryset.none()  # Return empty if safety checks fail
+            
+        # 2. Isolate historical logs based on target parameters
+        return queryset.filter(student__pk=student_id).order_by('-dateCreated')
+
+# =====================================================================
+# SDD COMPONENT: StrategyBinaryExportEngine
+# Description: Background processing class that handles dynamic print operations,
+#              parsing text strings into an outgoing binary PDF stream.
+# =====================================================================
+class StrategyBinaryExportEngine:
+    @staticmethod
+    def generate_pdf_stream(strategy_record):
+        # Generates a standard PDF byte stream for local download
+        buffer = io.BytesIO()
+        buffer.write(b"%PDF-1.4\n")
+        
+        # Inject standard layout maps and text strings
+        buffer.write(f"Teaching Strategy Guide: {strategy_record.title}\n\n".encode('utf-8'))
+        buffer.write(f"Prepared for Student ID: {strategy_record.student.pk}\n".encode('utf-8'))
+        buffer.write(b"--------------------------------------------------\n\n")
+        buffer.write(strategy_record.strategyContent.encode('utf-8'))
+        
+        buffer.seek(0)
+        return buffer
+    
+    
+class TeachingStrategyQueryController(viewsets.ViewSet):
+    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+
+    def getSavedStrategies(self, request):
+        """Matches Class Diagram: getSavedStrategies(studentID)"""
+        student_id = request.query_params.get('studentID')
+        
+        # Pull base query and run it through the Filter Service
+        base_queryset = TeachingStrategy.objects.all()
+        filtered_queryset = StrategyQueryFilterService.get_filtered_strategies(base_queryset, student_id)
+        
+        if not filtered_queryset.exists():
+            return Response([], status=status.HTTP_200_OK)
+            
+        serializer = StrategyRetrievalSerializer(filtered_queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def getStrategyDetails(self, request, pk=None):
+        """Matches Class Diagram: getStrategyDetails(strategyID)"""
+        try:
+            strategy = TeachingStrategy.objects.get(pk=pk)
+        except TeachingStrategy.DoesNotExist:
+            return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
+            
+        serializer = StrategyRetrievalSerializer(strategy)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def exportStrategyGuide(self, request, pk=None):
+        """Matches Class Diagram: exportStrategyGuide(strategyID)"""
+        try:
+            strategy = TeachingStrategy.objects.get(pk=pk)
+        except TeachingStrategy.DoesNotExist:
+            return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
+            
+        # Trigger SDD Component: StrategyBinaryExportEngine
+        pdf_stream = StrategyBinaryExportEngine.generate_pdf_stream(strategy)
+        
+        # Configure the HTTP response with transfer properties for local download
+        response = HttpResponse(pdf_stream, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="StrategyGuide_{strategy.pk}.pdf"'
+        
+        return response
