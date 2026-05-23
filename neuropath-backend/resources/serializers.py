@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from users.models import Teacher
-from .models import LessonPlan
+from .models import LessonPlan,VisualAid
 
 # =====================================================================
 # SDD COMPONENT: UserContextSerializer
@@ -71,3 +71,22 @@ class LessonPlanUpdateSerializer(serializers.ModelSerializer):
         model = LessonPlan
         # Only include fields that physically exist in your original model
         fields = ['title', 'status']
+        
+# =====================================================================
+# SDD COMPONENT: VisualAidSerializer
+# Description: Data transformation and verification component. Enforces 
+#              structural schema type-safety and parses entities to JSON.
+# =====================================================================
+class VisualAidSerializer(serializers.ModelSerializer):
+    # Pull the student's name directly into the payload for the React UI
+    studentName = serializers.CharField(source='student.name', read_only=True)
+
+    class Meta:
+        model = VisualAid
+        fields = ['visualAidID', 'iep', 'student', 'studentName', 'title', 'imageUrl', 'dateCreated']
+
+    def validate_imageUrl(self, value):
+        # Enforce type-safety to ensure we only save web-accessible image links
+        if not value.startswith('http'):
+            raise serializers.ValidationError("The visual aid asset must be a valid URL starting with http or https.")
+        return value
