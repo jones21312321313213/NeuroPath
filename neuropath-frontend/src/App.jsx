@@ -7,6 +7,7 @@ import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
 import Overview from "./pages/Overview";
 import ManageVisualAids from "./pages/ManageVisualAids";
+import ManageTeachingStrategies from "./pages/ManageTeachingStrategies";
 import CreateStudentProfile from "./pages/CreateStudentProfile";
 import "./App.css";
 
@@ -52,7 +53,7 @@ function renderPage(activePage, setActivePage) {
     case "manage-visual-aids":
       return <ManageVisualAids />;
     case "manage-teaching-strategies":
-      return <Placeholder title="Manage Teaching Strategies" />;
+      return <ManageTeachingStrategies />;
     default:
       return <Overview setActivePage={setActivePage} />;
   }
