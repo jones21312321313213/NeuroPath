@@ -1,32 +1,63 @@
-from django.shortcuts import render
-
 from rest_framework import generics, status
 from rest_framework.response import Response
 from .models import StudentProfile
-from .serializers import StudentProfileSerializer
+
+# Import the newly named ValidationService
+from .serializers import StudentProfileSerializer, ValidationService 
 
 class StudentProfileListCreateView(generics.ListCreateAPIView):
     queryset = StudentProfile.objects.all()
     serializer_class = StudentProfileSerializer
 
-    # This method matches your Activity Diagram flow step-by-step
     def create(self, request, *args, **kwargs):
-        # 1. Receive data from the React ProfileUI Form
         serializer = self.get_serializer(data=request.data)
 
-        # 2. Valid Details? (Diamond block in Activity Diagram)
         if serializer.is_valid():
-            # 3. Store Student Details, ASD Background, and Assessments
             self.perform_create(serializer)
             
-            # 4. Generate Summary and Confirm
             return Response({
                 "message": "Student profile successfully created and saved.",
                 "data": serializer.data
             }, status=status.HTTP_201_CREATED)
 
-        # 5. If Validation Fails, send errors back to React
         return Response({
             "message": "Validation failed. Please check the entered details.",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+# =====================================================================
+# SDD COMPONENT: ProfileUpdateController
+# Description: Intercepts PUT requests and routes traffic.
+# =====================================================================
+class ProfileUpdateController(generics.RetrieveUpdateAPIView):
+    queryset = StudentProfile.objects.all()
+    
+    # SDD COMPONENT: ValidationService is triggered here
+    serializer_class = ValidationService
+
+    def update(self, request, *args, **kwargs):
+        # SDD COMPONENT: ProfileService
+        # Description: Handles missing record exceptions and verifies existence
+        try:
+            instance = self.get_object() 
+        except Exception:
+            return Response({"error": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Passes data to the ValidationService
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            # SDD COMPONENT: StudentProfileManager
+            # Description: Communicates with PostgreSQL to execute SQL update query
+            self.perform_update(serializer)
+            
+            return Response({
+                "message": "Student profile updated successfully.",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            "message": "Update failed. Invalid input provided.",
             "errors": serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
