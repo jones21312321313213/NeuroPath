@@ -14,8 +14,6 @@ const navItems = [
     children: [
       { label: "Create Student Profile", key: "create-student-profile" },
       { label: "View Student Profile", key: "view-student-profile" },
-      { label: "Update Student Profile", key: "update-student-profile" },
-      { label: "Analyze & Generate AI Insight", key: "ai-insight" },
     ],
   },
   {

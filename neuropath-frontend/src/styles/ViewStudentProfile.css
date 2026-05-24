@@ -1,0 +1,25 @@
+.student-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .student-table th,
+  .student-table td {
+    padding: 10px;
+    text-align: center;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .student-table thead tr {
+    background: #f0f4f8;
+  }
+  
+  .view-button {
+    padding: 6px 10px;
+    background: #3d9de8;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
