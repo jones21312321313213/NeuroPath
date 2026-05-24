@@ -52,16 +52,6 @@ export default function IEPGenerationPage() {
       {/* ── MAIN DISPLAY VIEW (LEFT PANEL REMOVED) ── */}
       <div className="flex-1 flex flex-col min-w-0">
         
-        {/* BRAND CRUMB HEADER */}
-        <header className="h-14 bg-white border-b border-gray-200 px-8 flex items-center justify-between shrink-0 shadow-sm">
-          <div className="text-xs font-semibold text-gray-400 tracking-wider uppercase">
-            DASHBOARD / AI-Based IEP Generation — Step {step} of 3
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gray-200 rounded-full" />
-            <span className="text-xs font-medium text-gray-500">Teacher Name</span>
-          </div>
-        </header>
 
         {/* CONTAINER FLANKED BY EXACTLY 0.5 INCH (mx-8) MARGINS */}
         <main className="flex-1 overflow-y-auto p-8">
