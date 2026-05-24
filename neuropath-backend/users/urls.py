@@ -6,6 +6,8 @@ from .views import( StudentProfileListCreateView,
                    TeacherCreateController)
 
 urlpatterns = [
+    path('register/', TeacherCreateController.as_view(), name='teacher-register'),
+    
     path('teachers/', TeacherCreateController.as_view(), name='teacher-create'),
     
     #students

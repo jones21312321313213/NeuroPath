@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback } from 'react'
 import { authAPI } from '../api/client'
+import axios from "axios";
 
 const AuthContext = createContext(null)
 
@@ -13,6 +14,8 @@ export function AuthProvider({ children }) {
     }
   })
 
+
+  
   const saveSession = useCallback((data) => {
     localStorage.setItem('neuropath_access_token', data.access)
     localStorage.setItem('neuropath_refresh_token', data.refresh)
@@ -33,10 +36,16 @@ export function AuthProvider({ children }) {
     return data
   }, [saveSession])
 
-  const register = useCallback(async (payload) => {
-    const data = await authAPI.register(payload)
-    return data
-  }, [])
+  // const register = useCallback(async (payload) => {
+  //   const data = await authAPI.register(payload)
+  //   return data
+  // }, [])
+
+  const register = async (userData) => {
+    // Hits your TeacherCreateController 
+    const response = await axios.post('http://127.0.0.1:8000/api/users/register/', userData);
+    return response.data; // Returns the success message and user data
+  };
 
   const logout = useCallback(async () => {
     try {
