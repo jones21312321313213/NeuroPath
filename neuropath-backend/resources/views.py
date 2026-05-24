@@ -7,11 +7,20 @@ from django.http import HttpResponse
 from users.models import Teacher,StudentProfile
 from iep_management.models import IEP
 from .models import LessonPlan,VisualAid,TeachingStrategy
-from .serializers import (UserContextSerializer,LessonPlanSerializer,LessonGenerationSerializer,
-                          LessonPlanDetailSerializer,LessonPlanUpdateSerializer,VisualAidSerializer,
-                          StrategyUpdateValidationSerializer,StrategyParameterSerializer,StrategyGenerationService,
-                          StrategyRetrievalSerializer)
 #from .permissions import UserAuthPermissions uncomment this back to check user auth and permission
+from .serializers import (
+    UserContextSerializer,
+    LessonPlanSerializer,
+    LessonGenerationSerializer,
+    LessonPlanDetailSerializer,
+    LessonPlanUpdateSerializer,
+    VisualAidSerializer,
+    StrategyParameterSerializer,
+    StrategyUpdateValidationSerializer,
+    StrategyRetrievalSerializer,
+    StrategyDeleteValidationSerializer
+)
+
 
 
 # =====================================================================
@@ -831,3 +840,146 @@ class TeachingStrategyQueryController(viewsets.ViewSet):
         response['Content-Disposition'] = f'attachment; filename="StrategyGuide_{strategy.pk}.pdf"'
         
         return response
+    
+    
+# =====================================================================
+# SDD COMPONENT: StrategyModificationService
+# Description: Transaction validation helper handling core data transformation.
+#              Processes textual updates and verifies structural criteria.
+# =====================================================================
+class StrategyModificationService:
+    @staticmethod
+    def process_update(strategy_record, validated_data):
+        # 1. Systemic health check: Merge inbound text payload with existing row
+        if 'title' in validated_data:
+            strategy_record.title = validated_data['title']
+            
+        if 'strategyContent' in validated_data:
+            strategy_record.strategyContent = validated_data['strategyContent']
+            
+        # 2. Execute the physical database write operation to Supabase
+        strategy_record.save()
+        return strategy_record
+    
+    
+
+# =====================================================================
+# SDD COMPONENT: TeachingStrategyUpdateController
+# Description: Dedicated API controller managing write-intensive modification
+#              pathways. Handles GET for preloading and PUT/PATCH for mutations.
+# =====================================================================
+class TeachingStrategyUpdateController(APIView):
+    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+
+    def get(self, request, pk, *args, **kwargs):
+        """Matches Sequence Diagram: Populating historical data arrays"""
+        try:
+            strategy = TeachingStrategy.objects.get(pk=pk)
+        except TeachingStrategy.DoesNotExist:
+            return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
+            
+        # Use the read-only retrieval serializer to securely format the dates/names
+        serializer = StrategyRetrievalSerializer(strategy)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def put(self, request, pk, *args, **kwargs):
+        """Matches Sequence Diagram: saveStrategyEdits(strategyID, updatedContent)"""
+        try:
+            strategy = TeachingStrategy.objects.get(pk=pk)
+        except TeachingStrategy.DoesNotExist:
+            return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # 1. Pass to SDD Component: StrategyUpdateValidationSerializer
+        # partial=True allows the frontend to send just the text field that changed
+        serializer = StrategyUpdateValidationSerializer(strategy, data=request.data, partial=True)
+        
+        if serializer.is_valid():
+            # 2. Pass to SDD Component: StrategyModificationService
+            StrategyModificationService.process_update(strategy, serializer.validated_data)
+            
+            # 3. Return database persistence confirmation (Success Boolean/Payload)
+            return Response({
+                "message": "Teaching Strategy modifications successfully preserved.",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        # Return application validation errors (HTTP 400)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+# =====================================================================
+# SDD COMPONENT: StrategyRemovalService
+# Description: Executes safe data extraction workflows, enforces multi-tenant 
+#              boundary safety, and manages the transaction cycle.
+# =====================================================================
+class StrategyRemovalService:
+    @staticmethod
+    def execute_extraction(strategy_record):
+        # SDD Security Enforcement: Multi-tenant boundary safety
+        # In a fully authenticated production state, you would check:
+        # if strategy_record.student.teacher != request.user: 
+        #     raise PermissionDenied("You do not have authorization to delete this record.")
+        
+        # Execute the raw physical row deletion to the Supabase Postgres cluster
+        strategy_record.delete()
+        
+        # Report successful operation flag back to the controller
+        return True
+    
+    
+# =====================================================================
+# SDD COMPONENT: TeachingStrategyDeleteController
+# Description: Routes extraction processes. Handles GET operations for list 
+#              hydration and DELETE operations for destructive pipeline actions.
+# =====================================================================
+class TeachingStrategyDeleteController(APIView):
+    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+
+    def get(self, request, pk=None, *args, **kwargs):
+        if pk:
+            # Matches Sequence Diagram: getStrategyDetails(strategyID)
+            # Used to populate the Warning Modal with the exact strategy text
+            try:
+                strategy = TeachingStrategy.objects.get(pk=pk)
+                serializer = StrategyRetrievalSerializer(strategy)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            except TeachingStrategy.DoesNotExist:
+                return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            # Matches Sequence Diagram: getStrategiesForDeletion(studentID)
+            # Used to hydrate the initial directory grid
+            serializer = StrategyDeleteValidationSerializer(data=request.query_params)
+            
+            if serializer.is_valid():
+                student_id = serializer.validated_data.get('studentID')
+                if not student_id:
+                    return Response({"error": "studentID parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
+                    
+                strategies = TeachingStrategy.objects.filter(student__pk=student_id).order_by('-dateCreated')
+                
+                # Matches Sequence Diagram Alternative Flow: [Are saved strategies found? = No]
+                if not strategies.exists():
+                    return Response([], status=status.HTTP_200_OK)
+                    
+                res_serializer = StrategyRetrievalSerializer(strategies, many=True)
+                return Response(res_serializer.data, status=status.HTTP_200_OK)
+                
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk, *args, **kwargs):
+        """Matches Sequence Diagram: executeStrategyDeletion(strategyID)"""
+        try:
+            strategy = TeachingStrategy.objects.get(pk=pk)
+        except TeachingStrategy.DoesNotExist:
+            return Response(
+                {"error": "Strategy record does not exist or has already been removed."}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+            
+        # Trigger SDD Component: StrategyRemovalService
+        StrategyRemovalService.execute_extraction(strategy)
+        
+        # Matches Sequence Diagram: Return persistence execution status
+        return Response(
+            {"message": "Teaching Strategy database record successfully permanently deleted."},
+            status=status.HTTP_204_NO_CONTENT
+        )

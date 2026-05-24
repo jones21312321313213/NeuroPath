@@ -1,8 +1,20 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import (InstructionalSupportDashboardAPIView, LessonPlanViewSet, GenerateLessonPlanAPIView, LessonPlanReadOnlyViewSet,
-LessonPlanEditAPIView,LessonPlanDeleteAPIView,VisualAidViewSet,GenerateVisualAidAPIView,ExportVisualAidAPIView,TeachingStrategyViewSet,
-TeachingStrategyGenerationController,TeachingStrategyQueryController)
+from .views import (
+    InstructionalSupportDashboardAPIView, 
+    LessonPlanViewSet, 
+    GenerateLessonPlanAPIView,
+    LessonPlanReadOnlyViewSet,
+    LessonPlanEditAPIView,
+    LessonPlanDeleteAPIView,
+    VisualAidViewSet,
+    GenerateVisualAidAPIView,
+    ExportVisualAidAPIView,
+    TeachingStrategyViewSet,
+    TeachingStrategyGenerationController,
+    TeachingStrategyQueryController,
+    TeachingStrategyUpdateController,
+    TeachingStrategyDeleteController)
 
 # Initialize the router for the ViewSets
 router = DefaultRouter()
@@ -51,4 +63,11 @@ urlpatterns = [
     path('query-strategies/', TeachingStrategyQueryController.as_view({'get': 'getSavedStrategies'}), name='query-strategies-list'),
     path('query-strategies/<int:pk>/', TeachingStrategyQueryController.as_view({'get': 'getStrategyDetails'}), name='query-strategies-detail'),
     path('query-strategies/<int:pk>/export/', TeachingStrategyQueryController.as_view({'get': 'exportStrategyGuide'}), name='query-strategies-export'),
+    
+    # Edit Teaching Strategy Workflow (Module 3.3.3)
+    path('edit-strategy/<int:pk>/', TeachingStrategyUpdateController.as_view(), name='edit-teaching-strategy'),
+    
+    # Delete Teaching Strategy Workflows (Module 3.3.4)
+    path('delete-strategy/', TeachingStrategyDeleteController.as_view(), name='delete-strategy-hydration'),
+    path('delete-strategy/<int:pk>/', TeachingStrategyDeleteController.as_view(), name='delete-strategy-execution'),
 ]
