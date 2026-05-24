@@ -3,10 +3,13 @@ from .views import( StudentProfileListCreateView,
                    ProfileUpdateController,
                    ProfileViewController,
                    AIInsightController,
-                   TeacherCreateController)
+                   TeacherCreateController,
+                   TeacherLoginController)
 
 urlpatterns = [
     path('register/', TeacherCreateController.as_view(), name='teacher-register'),
+    path('login/', TeacherLoginController.as_view(), name='teacher-login'),
+    
     
     path('teachers/', TeacherCreateController.as_view(), name='teacher-create'),
     

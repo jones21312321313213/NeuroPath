@@ -7,6 +7,7 @@ export default function LoginPage({
   successMessage,
   onClearMessage,
 }) {
+  
   const { login } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
@@ -25,10 +26,24 @@ export default function LoginPage({
     setError("");
   };
 
-  // HARDCODED: goes directly to Overview — restore real login() call when backend is ready
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onLoginSuccess();
+  const handleSubmit = async (e) => {
+      e.preventDefault();
+      setLoading(true);
+      setError(""); // 📑 Fixed spelling: removed the "s"
+
+      try {
+        // pulling email and password safely out of your form state object
+        await login(form.email.trim().toLowerCase(), form.password);
+        
+        // 2. Trigger your existing App.jsx view shift callback on success
+        onLoginSuccess(); 
+      } catch (err) {
+        // Catch-all for incorrect passwords or unmapped profiles
+        const errorMsg = err.response?.data?.error || "Invalid email or password.";
+        setError(errorMsg); // 📑 Fixed spelling: removed the "s"
+      } finally {
+        setLoading(false);
+      }
   };
 
   return (
