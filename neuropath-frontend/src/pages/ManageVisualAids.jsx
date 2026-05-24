@@ -1,112 +1,127 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import "../styles/ManageVisualAids.css";
+import { visualAidsAPI, studentsAPI } from "../api/client";
+
 const TABS = [
   { key: "generate", label: "Generate Visual Aids" },
   { key: "view", label: "View Visual Aids" },
   { key: "delete", label: "Delete Visual Aids" },
 ];
 
-// Placeholder student data — replace with real API data later
-const MOCK_STUDENTS = [
-  { id: 1, name: "John Clyde Perez", grade: 3 },
-  { id: 2, name: "Maria Santos", grade: 2 },
-  { id: 3, name: "Carlo Reyes", grade: 4 },
-];
+function EmptyState({ message = "No records found." }) {
+  return (
+    <div className="va-empty">
+      <span style={{ fontSize: 32, display: "block", marginBottom: 8 }}>
+        📭
+      </span>
+      {message}
+    </div>
+  );
+}
 
 // ── Generate Tab ───────────────────────────────────────────────────────────────
 function GenerateTab() {
+  const [students, setStudents] = useState([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [form, setForm] = useState({ topic: "", type: "", notes: "" });
-  const [generated, setGenerated] = useState(false);
+  const [form, setForm] = useState({ goalText: "" });
+  const [generated, setGenerated] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleGenerate = () => {
-    if (!selectedStudent || !form.topic || !form.type) return;
+  useEffect(() => {
+    studentsAPI
+      .list()
+      .then(setStudents)
+      .catch(() => setError("Failed to load students."))
+      .finally(() => setLoadingStudents(false));
+  }, []);
+
+  const handleGenerate = async () => {
+    if (!selectedStudent || !form.goalText) return;
     setLoading(true);
-    // Simulate generation — replace with real API call
-    setTimeout(() => {
+    setError("");
+    try {
+      const data = await visualAidsAPI.generate({
+        studentID: selectedStudent.studentID,
+        goalText: form.goalText,
+      });
+      setGenerated(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
       setLoading(false);
-      setGenerated(true);
-    }, 1200);
+    }
   };
 
   const handleReset = () => {
     setSelectedStudent(null);
-    setForm({ topic: "", type: "", notes: "" });
-    setGenerated(false);
+    setForm({ goalText: "" });
+    setGenerated(null);
+    setError("");
   };
 
   return (
     <div className="va-generate">
+      {error && (
+        <div
+          className="va-card"
+          style={{ color: "#c0392b", fontWeight: 600, fontSize: 13 }}
+        >
+          ⚠️ {error}
+        </div>
+      )}
+
       {/* Step 1 — Pick student */}
       <div className="va-card">
         <p className="va-card-title">Step 1 — Select a Student</p>
-        <div className="va-student-list">
-          {MOCK_STUDENTS.map((s) => (
-            <div
-              key={s.id}
-              className={`va-student-row ${selectedStudent?.id === s.id ? "selected" : ""}`}
-            >
-              <div className="va-student-avatar" />
-              <div className="va-student-info">
-                <span className="va-student-name">{s.name}</span>
-                <span className="va-student-grade">Grade – {s.grade}</span>
-              </div>
-              <button
-                className={`va-select-btn ${selectedStudent?.id === s.id ? "selected" : ""}`}
-                onClick={() => setSelectedStudent(s)}
+        {loadingStudents ? (
+          <p className="va-empty">Loading students…</p>
+        ) : students.length === 0 ? (
+          <EmptyState message="No students found. Add a student profile first." />
+        ) : (
+          <div className="va-student-list">
+            {students.map((s) => (
+              <div
+                key={s.studentID}
+                className={`va-student-row ${selectedStudent?.studentID === s.studentID ? "selected" : ""}`}
               >
-                {selectedStudent?.id === s.id ? "Selected ✓" : "Select"}
-              </button>
-            </div>
-          ))}
-        </div>
+                <div className="va-student-avatar" />
+                <div className="va-student-info">
+                  <span className="va-student-name">{s.name}</span>
+                  <span className="va-student-grade">Grade – {s.grade}</span>
+                </div>
+                <button
+                  className={`va-select-btn ${selectedStudent?.studentID === s.studentID ? "selected" : ""}`}
+                  onClick={() => setSelectedStudent(s)}
+                >
+                  {selectedStudent?.studentID === s.studentID
+                    ? "Selected ✓"
+                    : "Select"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Step 2 — Fill details */}
-      {selectedStudent && (
+      {selectedStudent && !generated && (
         <div className="va-card">
           <p className="va-card-title">
             Step 2 — Visual Aid Details for{" "}
             <strong>{selectedStudent.name}</strong>
           </p>
-          <div className="form-grid-2">
-            <div className="form-group">
-              <label className="form-label">Topic / Subject</label>
-              <input
-                className="form-input"
-                placeholder="e.g. Counting 1–10"
-                value={form.topic}
-                onChange={(e) => setForm({ ...form, topic: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Visual Aid Type</label>
-              <select
-                className="form-select"
-                value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
-              >
-                <option value="">Select type…</option>
-                <option value="flashcard">Flashcard</option>
-                <option value="chart">Chart / Diagram</option>
-                <option value="picture-schedule">Picture Schedule</option>
-                <option value="social-story">Social Story</option>
-                <option value="worksheet">Worksheet</option>
-              </select>
-            </div>
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-              <label className="form-label">Additional Notes (optional)</label>
-              <textarea
-                className="form-textarea"
-                placeholder="Any specific requirements or accommodations…"
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                style={{ minHeight: 80 }}
-              />
-            </div>
+          <div className="form-group">
+            <label className="form-label">IEP Goal / Topic</label>
+            <textarea
+              className="form-textarea"
+              placeholder="Describe the IEP goal this visual aid should support…"
+              value={form.goalText}
+              onChange={(e) => setForm({ goalText: e.target.value })}
+              style={{ minHeight: 90 }}
+            />
           </div>
-
           <div className="va-actions">
             <button className="btn btn-back" onClick={handleReset}>
               Reset
@@ -114,7 +129,7 @@ function GenerateTab() {
             <button
               className="btn btn-submit"
               onClick={handleGenerate}
-              disabled={!form.topic || !form.type || loading}
+              disabled={!form.goalText || loading}
             >
               {loading ? "Generating…" : "Generate Visual Aid"}
             </button>
@@ -129,19 +144,22 @@ function GenerateTab() {
           <div className="va-result-preview">
             <span className="va-result-icon">🖼️</span>
             <p className="va-result-label">
-              <strong>{form.type}</strong> — "{form.topic}" for{" "}
+              <strong>{generated.data?.title || "Visual Aid"}</strong> for{" "}
               {selectedStudent?.name}
             </p>
-            <p className="va-result-sub">
-              AI-generated content will appear here once connected to the
-              backend.
-            </p>
+            {generated.data?.imageUrl && (
+              <img
+                src={generated.data.imageUrl}
+                alt="Generated visual aid"
+                style={{ maxWidth: "100%", borderRadius: 8, marginTop: 10 }}
+              />
+            )}
+            <p className="va-result-sub">{generated.message}</p>
           </div>
           <div className="va-actions">
             <button className="btn btn-back" onClick={handleReset}>
               Generate Another
             </button>
-            <button className="btn btn-submit">Save Visual Aid</button>
           </div>
         </div>
       )}
@@ -151,57 +169,67 @@ function GenerateTab() {
 
 // ── View Tab ───────────────────────────────────────────────────────────────────
 function ViewTab() {
-  const mockAids = [
-    {
-      id: 1,
-      student: "John Clyde Perez",
-      topic: "Counting 1–10",
-      type: "Flashcard",
-      date: "2026-05-20",
-    },
-    {
-      id: 2,
-      student: "Maria Santos",
-      topic: "Daily Schedule",
-      type: "Picture Schedule",
-      date: "2026-05-18",
-    },
-    {
-      id: 3,
-      student: "Carlo Reyes",
-      topic: "Emotions",
-      type: "Chart / Diagram",
-      date: "2026-05-15",
-    },
-  ];
+  const [aids, setAids] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const fetchAids = useCallback(() => {
+    setLoading(true);
+    visualAidsAPI
+      .list()
+      .then(setAids)
+      .catch(() => setError("Failed to load visual aids."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchAids();
+  }, [fetchAids]);
+
+  if (loading)
+    return (
+      <div className="va-card">
+        <p className="va-empty">Loading…</p>
+      </div>
+    );
+  if (error)
+    return (
+      <div className="va-card">
+        <p className="va-empty">⚠️ {error}</p>
+      </div>
+    );
 
   return (
     <div className="va-card">
       <p className="va-card-title">Saved Visual Aids</p>
-      {mockAids.length === 0 ? (
-        <p className="va-empty">No visual aids saved yet.</p>
+      {aids.length === 0 ? (
+        <EmptyState message="No visual aids saved yet. Generate one first." />
       ) : (
         <table className="va-table">
           <thead>
             <tr>
               <th>Student</th>
-              <th>Topic</th>
-              <th>Type</th>
+              <th>Title</th>
               <th>Date Created</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            {mockAids.map((aid) => (
-              <tr key={aid.id}>
-                <td>{aid.student}</td>
-                <td>{aid.topic}</td>
+            {aids.map((aid) => (
+              <tr key={aid.visualAidID}>
+                <td>{aid.studentName}</td>
+                <td>{aid.title}</td>
+                <td>{new Date(aid.dateCreated).toLocaleDateString()}</td>
                 <td>
-                  <span className="va-badge">{aid.type}</span>
-                </td>
-                <td>{aid.date}</td>
-                <td>
-                  <button className="va-view-btn">View</button>
+                  <a
+                    href={visualAidsAPI.exportUrl(aid.visualAidID)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="va-view-btn"
+                    style={{ textDecoration: "none" }}
+                  >
+                    View
+                  </a>
                 </td>
               </tr>
             ))}
@@ -214,60 +242,76 @@ function ViewTab() {
 
 // ── Delete Tab ─────────────────────────────────────────────────────────────────
 function DeleteTab() {
-  const [aids, setAids] = useState([
-    {
-      id: 1,
-      student: "John Clyde Perez",
-      topic: "Counting 1–10",
-      type: "Flashcard",
-    },
-    {
-      id: 2,
-      student: "Maria Santos",
-      topic: "Daily Schedule",
-      type: "Picture Schedule",
-    },
-    {
-      id: 3,
-      student: "Carlo Reyes",
-      topic: "Emotions",
-      type: "Chart / Diagram",
-    },
-  ]);
+  const [aids, setAids] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [toDelete, setToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const confirmDelete = () => {
-    setAids((prev) => prev.filter((a) => a.id !== toDelete));
-    setToDelete(null);
+  const fetchAids = useCallback(() => {
+    setLoading(true);
+    visualAidsAPI
+      .list()
+      .then(setAids)
+      .catch(() => setError("Failed to load visual aids."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchAids();
+  }, [fetchAids]);
+
+  const confirmDelete = async () => {
+    setDeleting(true);
+    try {
+      await visualAidsAPI.delete(toDelete);
+      setAids((prev) => prev.filter((a) => a.visualAidID !== toDelete));
+      setToDelete(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDeleting(false);
+    }
   };
+
+  if (loading)
+    return (
+      <div className="va-card">
+        <p className="va-empty">Loading…</p>
+      </div>
+    );
+  if (error)
+    return (
+      <div className="va-card">
+        <p className="va-empty">⚠️ {error}</p>
+      </div>
+    );
 
   return (
     <div className="va-card">
       <p className="va-card-title">Delete Visual Aids</p>
       {aids.length === 0 ? (
-        <p className="va-empty">No visual aids to delete.</p>
+        <EmptyState message="No visual aids to delete." />
       ) : (
         <table className="va-table">
           <thead>
             <tr>
               <th>Student</th>
-              <th>Topic</th>
-              <th>Type</th>
+              <th>Title</th>
+              <th>Date Created</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {aids.map((aid) => (
-              <tr key={aid.id}>
-                <td>{aid.student}</td>
-                <td>{aid.topic}</td>
-                <td>
-                  <span className="va-badge">{aid.type}</span>
-                </td>
+              <tr key={aid.visualAidID}>
+                <td>{aid.studentName}</td>
+                <td>{aid.title}</td>
+                <td>{new Date(aid.dateCreated).toLocaleDateString()}</td>
                 <td>
                   <button
                     className="va-delete-btn"
-                    onClick={() => setToDelete(aid.id)}
+                    onClick={() => setToDelete(aid.visualAidID)}
                   >
                     Delete
                   </button>
@@ -278,7 +322,6 @@ function DeleteTab() {
         </table>
       )}
 
-      {/* Confirm modal */}
       {toDelete && (
         <div className="va-modal-overlay">
           <div className="va-modal">
@@ -291,11 +334,16 @@ function DeleteTab() {
               <button
                 className="btn btn-back"
                 onClick={() => setToDelete(null)}
+                disabled={deleting}
               >
                 Cancel
               </button>
-              <button className="btn va-btn-danger" onClick={confirmDelete}>
-                Yes, Delete
+              <button
+                className="btn va-btn-danger"
+                onClick={confirmDelete}
+                disabled={deleting}
+              >
+                {deleting ? "Deleting…" : "Yes, Delete"}
               </button>
             </div>
           </div>
@@ -311,7 +359,6 @@ export default function ManageVisualAids() {
 
   return (
     <div className="page-content">
-      {/* Page header with tabs */}
       <div className="va-header">
         <span className="va-header-title">Manage Visual Aids</span>
         <div className="va-tabs">
@@ -326,8 +373,6 @@ export default function ManageVisualAids() {
           ))}
         </div>
       </div>
-
-      {/* Tab content */}
       <div className="va-body">
         {activeTab === "generate" && <GenerateTab />}
         {activeTab === "view" && <ViewTab />}
