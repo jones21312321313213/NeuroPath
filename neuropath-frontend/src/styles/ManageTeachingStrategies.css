@@ -1,0 +1,166 @@
+.ts-header .va-tab {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.ts-centered-title {
+  text-align: center;
+  font-size: 16px;
+}
+
+.ts-student-row {
+  min-height: 68px;
+}
+
+.ts-student-info {
+  align-items: center;
+  text-align: center;
+}
+
+.ts-goal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 8px 6px 4px;
+}
+
+.ts-goal-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 14px;
+  color: #222;
+}
+
+.ts-goal-item input {
+  width: 16px;
+  height: 16px;
+  accent-color: #5aabf0;
+}
+
+.ts-center-actions {
+  justify-content: center;
+}
+
+.ts-detail-card {
+  max-width: 860px;
+  margin: 0 auto;
+  line-height: 1.55;
+}
+
+.ts-detail-card h2,
+.ts-detail-card h3 {
+  margin: 0 0 18px;
+  text-align: center;
+  font-size: 18px;
+  color: #111;
+}
+
+.ts-detail-card p {
+  font-size: 14px;
+  color: #333;
+  margin: 0 0 12px;
+}
+
+.ts-detail-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 22px 46px;
+  margin-top: 10px;
+}
+
+.ts-detail-grid h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #222;
+}
+
+.ts-wide {
+  grid-column: 1 / -1;
+}
+
+.ts-page-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 24px;
+}
+
+.ts-edit-card {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.ts-edit-card h2 {
+  text-align: center;
+  font-size: 18px;
+  margin: 0 0 20px;
+}
+
+.ts-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px 28px;
+}
+
+.ts-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #222;
+}
+
+.ts-form-grid label:nth-child(1),
+.ts-form-grid label:nth-child(2),
+.ts-form-grid label:nth-child(3),
+.ts-form-grid label:nth-child(5) {
+  grid-column: 1 / -1;
+}
+
+.ts-form-grid input,
+.ts-form-grid textarea {
+  width: 100%;
+  border: 1px solid #c9cdd2;
+  border-radius: 4px;
+  background: #f7f7f7;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  color: #333;
+  outline: none;
+}
+
+.ts-form-grid textarea {
+  min-height: 82px;
+  resize: vertical;
+}
+
+.ts-form-grid input:focus,
+.ts-form-grid textarea:focus {
+  border-color: #5aabf0;
+  background: #fff;
+}
+
+@media (max-width: 980px) {
+  .ts-header {
+    flex-direction: column;
+    align-items: stretch;
+    padding-left: 0;
+  }
+
+  .ts-header .va-header-title {
+    padding: 14px 18px;
+  }
+
+  .ts-header .va-tabs {
+    overflow-x: auto;
+  }
+
+  .ts-detail-grid,
+  .ts-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
