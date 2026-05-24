@@ -1,242 +1,461 @@
-import { useState } from 'react'
-import { useAuth } from '../context/AuthContext'
+import { useState } from "react";
+import { useAuth } from "../context/AuthContext";
 
 export default function RegisterPage({ onNavigateLogin }) {
-  const { register } = useAuth()
+  const { register } = useAuth();
   const [form, setForm] = useState({
-    firstName: '', 
-    lastName: '', 
-    email: '',
-    role: 'special_ed_teacher', // Defaulted to the only available role
-    password: '', 
-    confirmPassword: '',
-  })
-  const [errors, setErrors] = useState({})
-  const [loading, setLoading] = useState(false)
-  const [showPass, setShowPass] = useState(false)
+    firstName: "",
+    lastName: "",
+    email: "",
+    role: "special_ed_teacher",
+    password: "",
+    confirmPassword: "",
+  });
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [showPass, setShowPass] = useState(false);
 
   const validate = () => {
-    const e = {}
-    if (!form.firstName.trim()) e.firstName = 'First name is required.'
-    if (!form.lastName.trim()) e.lastName = 'Last name is required.'
-    if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email)) {
-  e.email = 'Enter a valid email.'
-}
-    if (form.password.length < 6) e.password = 'Password must be at least 6 characters.'
-    if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match.'
-    return e
-  }
+    const e = {};
+    if (!form.firstName.trim()) e.firstName = "First name is required.";
+    if (!form.lastName.trim()) e.lastName = "Last name is required.";
+    if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email))
+      e.email = "Enter a valid email.";
+    if (form.password.length < 6)
+      e.password = "Password must be at least 6 characters.";
+    if (form.password !== form.confirmPassword)
+      e.confirmPassword = "Passwords do not match.";
+    return e;
+  };
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value })
-    setErrors({ ...errors, [e.target.name]: '' })
-  }
+    setForm({ ...form, [e.target.name]: e.target.value });
+    setErrors({ ...errors, [e.target.name]: "" });
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    const errs = validate()
-    if (Object.keys(errs).length > 0) { setErrors(errs); return }
+    e.preventDefault();
+    const errs = validate();
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
 
-    setLoading(true)
+    setLoading(true);
     try {
+      // Mapping the data to match Django's exact Serializer expectations
       const data = await register({
-        firstName: form.firstName.trim(),
-        lastName: form.lastName.trim(),
+        username: form.email.trim().toLowerCase(), // Django requires a username!
         email: form.email.trim().toLowerCase(),
+        first_name: form.firstName.trim(),         // Converted to snake_case
+        last_name: form.lastName.trim(),           // Converted to snake_case
         password: form.password,
-        role: form.role,
-      })
-      onNavigateLogin(`Account created for ${data.teacher.firstName}! Please sign in.`)
+        // role: form.role // (You can pass this if you add a role field to your backend model later)
+      });
+
+      onNavigateLogin(
+        `Account created for ${form.firstName.trim()}! Please sign in.`,
+      );
     } catch (err) {
-      const msg = err.message || 'Registration failed.'
-      if (msg.toLowerCase().includes('email')) {
-        setErrors({ email: msg })
+      const msg = err.response?.data?.message || err.message || "Registration failed.";
+      
+      // Django often returns a dictionary of specific field errors
+      const fieldErrors = err.response?.data?.errors;
+      
+      if (fieldErrors?.username || fieldErrors?.email) {
+        setErrors({ email: "This email is already registered." });
       } else {
-        setErrors({ general: msg })
+        setErrors({ general: msg });
       }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+  
+  const inputStyle = {
+    background: "#fff",
+    border: "1.5px solid #b3dff7",
+    color: "#1a3a4a",
+    boxShadow: "0 1px 4px rgba(130,199,255,0.1)",
+  };
+  const inputFocus = (e) => {
+    e.target.style.border = "1.5px solid #82C7FF";
+    e.target.style.boxShadow = "0 0 0 4px rgba(130,199,255,0.2)";
+  };
+  const inputBlur = (e) => {
+    e.target.style.border = "1.5px solid #b3dff7";
+    e.target.style.boxShadow = "0 1px 4px rgba(130,199,255,0.1)";
+  };
+  const inputErrorStyle = {
+    background: "#fff0f0",
+    border: "1.5px solid #ffc9c9",
+    color: "#1a3a4a",
+  };
 
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-12 bg-slate-50 text-slate-800 font-sans">
-      
+    <div
+      className="min-h-screen grid grid-cols-1 lg:grid-cols-12 font-sans"
+      style={{ background: "#fff" }}
+    >
       {/* LEFT VISUAL SIDEBAR */}
-      <div className="hidden lg:flex lg:col-span-5 bg-gradient-to-br from-slate-900 via-slate-950 to-blue-950 p-12 flex-col justify-between relative overflow-hidden text-left">
-        {/* Background Decorative Ambient Blobs */}
-        <div className="absolute top-[-10%] left-[-10%] w-[350px] h-[350px] bg-sky-500/10 rounded-full blur-[80px] pointer-events-none" />
-        <div className="absolute bottom-[10%] right-[-10%] w-[350px] h-[350px] bg-blue-500/10 rounded-full blur-[80px] pointer-events-none" />
-        
-        {/* Top Header Logo */}
-        <div className="flex items-center gap-2 select-none relative z-10">
-          <span className="text-2xl text-sky-400">⚡</span>
-          <span className="text-xl font-bold tracking-tight text-white">NeuroPath</span>
-        </div>
+      <div
+        className="hidden lg:flex lg:col-span-5 p-12 flex-col items-center justify-center relative overflow-hidden text-left"
+        style={{
+          background:
+            "linear-gradient(135deg, #1a6fa8 0%, #2589c7 40%, #82C7FF 100%)",
+        }}
+      >
+        {/* Decorative blobs */}
+        <div
+          className="absolute top-[-10%] left-[-10%] w-[350px] h-[350px] rounded-full blur-[80px] pointer-events-none"
+          style={{ background: "rgba(255,255,255,0.15)" }}
+        />
+        <div
+          className="absolute bottom-[10%] right-[-10%] w-[350px] h-[350px] rounded-full blur-[80px] pointer-events-none"
+          style={{ background: "rgba(255,255,255,0.1)" }}
+        />
 
-        {/* Process Steps Card Component */}
-        <div className="relative z-10 my-auto max-w-sm w-full bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl p-6 shadow-2xl">
-          <p className="text-white font-bold text-lg mb-6">Getting started is easy</p>
+        {/* Steps card — centered */}
+        <div
+          className="relative z-10 max-w-sm w-full rounded-2xl p-6 shadow-2xl"
+          style={{
+            background: "rgba(255,255,255,0.15)",
+            border: "1px solid rgba(255,255,255,0.3)",
+            backdropFilter: "blur(12px)",
+          }}
+        >
+          {/* Logo inside card */}
+          <div className="flex items-center gap-2 select-none mb-6">
+            <span className="text-2xl">⚡</span>
+            <span className="text-xl font-bold tracking-tight text-white">
+              NeuroPath
+            </span>
+          </div>
+
+          <p className="text-white font-bold text-lg mb-6">
+            Getting started is easy
+          </p>
+
           <ul className="space-y-6">
-            <li className="flex gap-4 items-start">
-              <span className="w-7 h-7 shrink-0 rounded-lg bg-sky-500/10 border border-sky-400/20 text-sky-400 font-bold text-sm flex items-center justify-center">1</span>
-              <div>
-                <strong className="block text-white text-sm font-semibold">Create your account</strong>
-                <span className="text-xs text-slate-400">Takes less than a minute</span>
-              </div>
-            </li>
-            <li className="flex gap-4 items-start">
-              <span className="w-7 h-7 shrink-0 rounded-lg bg-white/5 border border-white/10 text-slate-400 font-bold text-sm flex items-center justify-center">2</span>
-              <div>
-                <strong className="block text-white/80 text-sm font-semibold">Add your students</strong>
-                <span className="text-xs text-slate-400">Import or add individually</span>
-              </div>
-            </li>
-            <li className="flex gap-4 items-start">
-              <span className="w-7 h-7 shrink-0 rounded-lg bg-white/5 border border-white/10 text-slate-400 font-bold text-sm flex items-center justify-center">3</span>
-              <div>
-                <strong className="block text-white/80 text-sm font-semibold">Build your first IEP</strong>
-                <span className="text-xs text-slate-400">Guided templates included</span>
-              </div>
-            </li>
+            {[
+              {
+                n: "1",
+                title: "Create your account",
+                sub: "Takes less than a minute",
+                active: true,
+              },
+              {
+                n: "2",
+                title: "Add your students",
+                sub: "Import or add individually",
+                active: false,
+              },
+              {
+                n: "3",
+                title: "Build your first IEP",
+                sub: "Guided templates included",
+                active: false,
+              },
+            ].map((step) => (
+              <li key={step.n} className="flex gap-4 items-start">
+                <span
+                  className="w-7 h-7 shrink-0 rounded-lg font-bold text-sm flex items-center justify-center"
+                  style={
+                    step.active
+                      ? {
+                          background: "rgba(255,255,255,0.3)",
+                          border: "1px solid rgba(255,255,255,0.5)",
+                          color: "#fff",
+                        }
+                      : {
+                          background: "rgba(255,255,255,0.1)",
+                          border: "1px solid rgba(255,255,255,0.2)",
+                          color: "rgba(255,255,255,0.6)",
+                        }
+                  }
+                >
+                  {step.n}
+                </span>
+                <div>
+                  <strong
+                    className="block text-sm font-semibold"
+                    style={{
+                      color: step.active ? "#fff" : "rgba(255,255,255,0.75)",
+                    }}
+                  >
+                    {step.title}
+                  </strong>
+                  <span
+                    className="text-xs"
+                    style={{ color: "rgba(255,255,255,0.55)" }}
+                  >
+                    {step.sub}
+                  </span>
+                </div>
+              </li>
+            ))}
           </ul>
+
+          {/* Footer note inside card */}
+          <p
+            className="text-xs mt-6"
+            style={{ color: "rgba(255,255,255,0.5)" }}
+          >
+            🔒 FERPA Compliant Documentation Platform
+          </p>
         </div>
       </div>
 
-      {/* RIGHT REGISTER FIELDS FORM */}
-      <div className="col-span-1 lg:col-span-7 flex items-center justify-center p-6 sm:p-12 md:p-16 overflow-y-auto">
+      {/* RIGHT FORM */}
+      <div
+        className="col-span-1 lg:col-span-7 flex items-center justify-center p-6 sm:p-12 md:p-16 overflow-y-auto"
+        style={{ background: "#fff" }}
+      >
         <div className="w-full max-w-md flex flex-col text-left">
-          
-          {/* Header */}
           <div className="mb-8">
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 mb-2">Create your account</h1>
-            <p className="text-sm text-slate-500 font-medium">Join NeuroPath and start building better IEPs</p>
+            <h1
+              className="text-2xl sm:text-3xl font-black tracking-tight mb-2"
+              style={{ color: "#1a6fa8" }}
+            >
+              Create your account
+            </h1>
+            <p className="text-sm font-medium" style={{ color: "#5a9dbf" }}>
+              Join NeuroPath and start building better IEPs
+            </p>
           </div>
 
-          {/* General Alert Banner */}
           {errors.general && (
-            <div className="mb-6 flex items-center gap-2.5 bg-rose-50 border border-rose-100 text-rose-700 text-sm p-3.5 rounded-xl">
+            <div
+              className="mb-6 flex items-center gap-2.5 text-sm p-3.5 rounded-xl"
+              style={{
+                background: "#fff0f0",
+                border: "1px solid #ffc9c9",
+                color: "#c0392b",
+              }}
+            >
               <span className="text-base">⚠️</span>
               <p className="font-medium">{errors.general}</p>
             </div>
           )}
 
-          {/* Core Form Element */}
           <form className="space-y-4" onSubmit={handleSubmit}>
-            
-            {/* First Name & Last Name Grid Layout Row */}
+            {/* First + Last name */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label htmlFor="firstName" className="text-xs font-bold text-slate-700 uppercase tracking-wider">First Name</label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none">👤</span>
-                  <input 
-                    id="firstName" name="firstName" type="text" placeholder="Lyster"
-                    value={form.firstName} onChange={handleChange}
-                    className={`w-full pl-10 pr-4 py-3 bg-white border rounded-xl text-sm font-medium shadow-sm outline-none transition-all focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 ${errors.firstName ? 'border-rose-300 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500/10' : 'border-slate-200'}`} 
-                  />
-                </div>
-                {errors.firstName && <span className="block text-xs font-bold text-rose-600 mt-1">{errors.firstName}</span>}
+                <label
+                  htmlFor="firstName"
+                  className="text-xs font-bold uppercase tracking-wider"
+                  style={{ color: "#1a6fa8" }}
+                >
+                  First Name
+                </label>
+                <input
+                  id="firstName"
+                  name="firstName"
+                  type="text"
+                  placeholder="John"
+                  value={form.firstName}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl text-sm font-medium outline-none transition-all"
+                  style={errors.firstName ? inputErrorStyle : inputStyle}
+                  onFocus={inputFocus}
+                  onBlur={inputBlur}
+                />
+                {errors.firstName && (
+                  <span
+                    className="block text-xs font-bold mt-1"
+                    style={{ color: "#c0392b" }}
+                  >
+                    {errors.firstName}
+                  </span>
+                )}
               </div>
-              
               <div className="space-y-1.5">
-                <label htmlFor="lastName" className="text-xs font-bold text-slate-700 uppercase tracking-wider">Last Name</label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none">👤</span>
-                  <input 
-                    id="lastName" name="lastName" type="text" placeholder="Palautog"
-                    value={form.lastName} onChange={handleChange}
-                    className={`w-full pl-10 pr-4 py-3 bg-white border rounded-xl text-sm font-medium shadow-sm outline-none transition-all focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 ${errors.lastName ? 'border-rose-300 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500/10' : 'border-slate-200'}`} 
-                  />
-                </div>
-                {errors.lastName && <span className="block text-xs font-bold text-rose-600 mt-1">{errors.lastName}</span>}
+                <label
+                  htmlFor="lastName"
+                  className="text-xs font-bold uppercase tracking-wider"
+                  style={{ color: "#1a6fa8" }}
+                >
+                  Last Name
+                </label>
+                <input
+                  id="lastName"
+                  name="lastName"
+                  type="text"
+                  placeholder="Doe"
+                  value={form.lastName}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl text-sm font-medium outline-none transition-all"
+                  style={errors.lastName ? inputErrorStyle : inputStyle}
+                  onFocus={inputFocus}
+                  onBlur={inputBlur}
+                />
+                {errors.lastName && (
+                  <span
+                    className="block text-xs font-bold mt-1"
+                    style={{ color: "#c0392b" }}
+                  >
+                    {errors.lastName}
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* Email Address Field Block */}
+            {/* Email */}
             <div className="space-y-1.5">
-              <label htmlFor="reg-email" className="text-xs font-bold text-slate-700 uppercase tracking-wider">Email Address</label>
-              <div className="relative">
-                <input 
-                  id="reg-email" name="email" type="email" 
-                  value={form.email} onChange={handleChange}
-                  className={`w-full pl-10 pr-4 py-3 bg-white border rounded-xl text-sm font-medium shadow-sm outline-none transition-all focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 ${errors.email ? 'border-rose-300 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500/10' : 'border-slate-200'}`} 
-                />
-              </div>
-              {errors.email && <span className="block text-xs font-bold text-rose-600 mt-1">{errors.email}</span>}
+              <label
+                htmlFor="reg-email"
+                className="text-xs font-bold uppercase tracking-wider"
+                style={{ color: "#1a6fa8" }}
+              >
+                Email Address
+              </label>
+              <input
+                id="reg-email"
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={handleChange}
+                className="w-full px-4 py-3 rounded-xl text-sm font-medium outline-none transition-all"
+                style={errors.email ? inputErrorStyle : inputStyle}
+                onFocus={inputFocus}
+                onBlur={inputBlur}
+              />
+              {errors.email && (
+                <span
+                  className="block text-xs font-bold mt-1"
+                  style={{ color: "#c0392b" }}
+                >
+                  {errors.email}
+                </span>
+              )}
             </div>
 
-            {/* Password Field Block */}
+            {/* Password */}
             <div className="space-y-1.5">
-              <label htmlFor="reg-password" className="text-xs font-bold text-slate-700 uppercase tracking-wider">Password</label>
+              <label
+                htmlFor="reg-password"
+                className="text-xs font-bold uppercase tracking-wider"
+                style={{ color: "#1a6fa8" }}
+              >
+                Password
+              </label>
               <div className="relative">
-                <input 
-                  id="reg-password" name="password"
-                  type={showPass ? 'text' : 'password'} 
-                  value={form.password} onChange={handleChange}
-                  className={`w-full pl-10 pr-12 py-3 bg-white border rounded-xl text-sm font-medium shadow-sm outline-none transition-all focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 ${errors.password ? 'border-rose-300 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500/10' : 'border-slate-200'}`} 
+                <input
+                  id="reg-password"
+                  name="password"
+                  type={showPass ? "text" : "password"}
+                  value={form.password}
+                  onChange={handleChange}
+                  className="w-full pl-4 pr-12 py-3 rounded-xl text-sm font-medium outline-none transition-all"
+                  style={errors.password ? inputErrorStyle : inputStyle}
+                  onFocus={inputFocus}
+                  onBlur={inputBlur}
                 />
-                <button 
-                  type="button" 
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-sm hover:bg-slate-100 active:scale-95 transition-all"
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-sm transition-all"
                   onClick={() => setShowPass(!showPass)}
                   aria-label="Toggle password visibility"
                 >
-                  {showPass ? '🙈' : '👁️'}
+                  {showPass ? "🙈" : "👁️"}
                 </button>
               </div>
-              {errors.password && <span className="block text-xs font-bold text-rose-600 mt-1">{errors.password}</span>}
+              {errors.password && (
+                <span
+                  className="block text-xs font-bold mt-1"
+                  style={{ color: "#c0392b" }}
+                >
+                  {errors.password}
+                </span>
+              )}
             </div>
 
-            {/* Confirm Password Field Block */}
+            {/* Confirm Password */}
             <div className="space-y-1.5">
-              <label htmlFor="confirmPassword" className="text-xs font-bold text-slate-700 uppercase tracking-wider">Confirm Password</label>
-              <div className="relative">
-              
-                <input 
-                  id="confirmPassword" name="confirmPassword"
-                  type={showPass ? 'text' : 'password'} 
-                  value={form.confirmPassword} onChange={handleChange}
-                  className={`w-full pl-10 pr-4 py-3 bg-white border rounded-xl text-sm font-medium shadow-sm outline-none transition-all focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 ${errors.confirmPassword ? 'border-rose-300 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500/10' : 'border-slate-200'}`} 
-                />
-              </div>
-              {errors.confirmPassword && <span className="block text-xs font-bold text-rose-600 mt-1">{errors.confirmPassword}</span>}
+              <label
+                htmlFor="confirmPassword"
+                className="text-xs font-bold uppercase tracking-wider"
+                style={{ color: "#1a6fa8" }}
+              >
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type={showPass ? "text" : "password"}
+                value={form.confirmPassword}
+                onChange={handleChange}
+                className="w-full px-4 py-3 rounded-xl text-sm font-medium outline-none transition-all"
+                style={errors.confirmPassword ? inputErrorStyle : inputStyle}
+                onFocus={inputFocus}
+                onBlur={inputBlur}
+              />
+              {errors.confirmPassword && (
+                <span
+                  className="block text-xs font-bold mt-1"
+                  style={{ color: "#c0392b" }}
+                >
+                  {errors.confirmPassword}
+                </span>
+              )}
             </div>
 
-            {/* Submit Action Button */}
-            <button 
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-semibold py-3.5 px-4 rounded-xl shadow-md shadow-sky-500/5 hover:shadow-lg hover:shadow-sky-500/15 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none text-sm mt-2" 
-              type="submit" 
+            {/* Submit */}
+            <button
+              className="w-full flex items-center justify-center gap-2 text-white font-bold py-3.5 px-4 rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none text-sm mt-2"
+              style={{
+                background: "linear-gradient(135deg, #2589c7 0%, #82C7FF 100%)",
+                boxShadow: "0 4px 14px rgba(130,199,255,0.4)",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.boxShadow =
+                  "0 6px 20px rgba(130,199,255,0.55)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.boxShadow =
+                  "0 4px 14px rgba(130,199,255,0.4)")
+              }
+              type="submit"
               disabled={loading}
             >
               {loading ? (
                 <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                <>Create Account <span className="text-base">→</span></>
+                <>
+                  Create Account <span className="text-base">→</span>
+                </>
               )}
             </button>
           </form>
 
-          {/* Form Bottom Nav Switch Link Row */}
+          {/* Divider */}
           <div className="flex items-center my-6">
-            <div className="flex-1 h-[1px] bg-slate-200" />
-            <span className="text-xs font-bold text-slate-400 px-3 uppercase tracking-wider select-none">or</span>
-            <div className="flex-1 h-[1px] bg-slate-200" />
+            <div className="flex-1 h-[1px]" style={{ background: "#c9e8f9" }} />
+            <span
+              className="text-xs font-bold px-3 uppercase tracking-wider select-none"
+              style={{ color: "#82C7FF" }}
+            >
+              or
+            </span>
+            <div className="flex-1 h-[1px]" style={{ background: "#c9e8f9" }} />
           </div>
 
-          <p className="text-sm font-medium text-slate-500 text-center">
-            Already have an account?{' '}
-            <button 
-              className="text-sky-600 hover:text-sky-700 font-bold hover:underline transition-colors outline-none focus:underline" 
-              onClick={() => onNavigateLogin('')}
+          <p
+            className="text-sm font-medium text-center"
+            style={{ color: "#5a9dbf" }}
+          >
+            Already have an account?{" "}
+            <button
+              className="font-bold hover:underline transition-colors outline-none"
+              style={{ color: "#2589c7" }}
+              onClick={() => onNavigateLogin("")}
             >
               Sign in here
             </button>
           </p>
-
         </div>
       </div>
-
     </div>
-  )
+  );
 }

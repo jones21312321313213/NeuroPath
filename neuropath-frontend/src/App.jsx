@@ -6,6 +6,11 @@ import RegisterPage from "./pages/RegisterPage";
 import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
 import Overview from "./pages/Overview";
+import ManageLessonPlans from "./pages/ManageLessonPlans";
+import ManageVisualAids from "./pages/ManageVisualAids";
+import ManageTeachingStrategies from "./pages/ManageTeachingStrategies";
+import ViewStudentRecords from "./pages/ViewStudentRecords";
+import ViewProgressDashboard from "./pages/ViewProgressDashboard";
 import CreateStudentProfile from "./pages/CreateStudentProfile";
 import IEPGenerationPage from "./pages/IEPGenerationPage";
 import "./App.css";
@@ -17,6 +22,12 @@ const breadcrumbMap = {
   "update-student-profile": "DASHBOARD/Student Profiling",
   "ai-insight": "DASHBOARD/Student Profiling",
   "iep-generation": "DASHBOARD/AI-Based IEP Generation",
+  "manage-lesson-plans": "DASHBOARD/Instructional Support",
+  "manage-visual-aids": "DASHBOARD/Instructional Support",
+  "manage-teaching-strategies": "DASHBOARD/Instructional Support",
+  "view-student-records": "DASHBOARD/Outcome Monitoring/ View Student Record",
+  "view-progress-dashboard":
+    "DASHBOARD/Outcome Monitoring/ View Progress Dashboard",
 };
 
 function Placeholder({ title }) {
@@ -43,9 +54,22 @@ function renderPage(activePage, setActivePage) {
     case "ai-insight":
       return <Placeholder title="Analyze & Generate AI Insight" />;
     case "iep-generation":
+ 
       return <IEPGenerationPage />;
+      return <Placeholder title="AI-Based IEP Generation" />;
+    case "manage-lesson-plans":
+      return <ManageLessonPlans />;
+    case "manage-visual-aids":
+      return <ManageVisualAids />;
+    case "manage-teaching-strategies":
+      return <ManageTeachingStrategies />;
+
     default:
       return <Overview setActivePage={setActivePage} />;
+    case "view-student-records":
+      return <ViewStudentRecords />;
+    case "view-progress-dashboard":
+      return <ViewProgressDashboard />;
   }
 }
 

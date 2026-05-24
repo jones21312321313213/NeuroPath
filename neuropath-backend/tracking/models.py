@@ -29,3 +29,19 @@ class AIGenerationLog(models.Model):
     prompt_text = models.TextField()
     ai_response = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
+    
+    
+# =====================================================================
+# UML CLASS DIAGRAM: StudentProgressModel
+# Description: Defines the tracking matrix coordinates and historical 
+#              performance logs for outcome monitoring.
+# =====================================================================
+class StudentProgress(models.Model):
+    progressID = models.AutoField(primary_key=True)
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, db_column='studentID')
+    subjectName = models.CharField(max_length=255)
+    performanceScore = models.IntegerField()
+    dateLogged = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.student.name} - {self.subjectName}: {self.performanceScore}%"
