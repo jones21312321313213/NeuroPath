@@ -99,7 +99,6 @@ class VisualAidSerializer(serializers.ModelSerializer):
 class StrategyUpdateValidationSerializer(serializers.ModelSerializer):
     # Flatten the student name for easy React rendering
     studentName = serializers.CharField(source='student.name', read_only=True)
-
     class Meta:
         model = TeachingStrategy
         fields = ['strategyID', 'iep', 'student', 'studentName', 'title', 'strategyContent', 'dateCreated']
@@ -171,22 +170,26 @@ class StrategyRetrievalSerializer(serializers.ModelSerializer):
         ]
         
 # =====================================================================
-# SDD COMPONENT: StrategyUpdateValidationSerializer
+# SDD COMPONENT: TeachingStrategySerializer
 # Description: Executes inbound format validations. Screens modifications 
 #              passed from React workspace to confirm schema requirements.
 # =====================================================================
-class StrategyUpdateValidationSerializer(serializers.ModelSerializer):
+class TeachingStrategySerializer(serializers.ModelSerializer):
+    # Flatten the student name for easy React rendering
+    studentName = serializers.CharField(source='student.name', read_only=True)
+    
+    # NEW: Allow this to be blank so the AI Generation Service can fill it!
+    strategyContent = serializers.CharField(required=False, allow_blank=True)
+
     class Meta:
         model = TeachingStrategy
-        # Only expose the fields that the teacher is actually allowed to edit!
-        fields = ['title', 'strategyContent']
+        fields = ['strategyID', 'iep', 'student', 'studentName', 'title', 'strategyContent', 'dateCreated']
 
     def validate_strategyContent(self, value):
-        # Enforce character bounds and logic checks required by the SDD
-        if not value or len(value.strip()) < 10:
-            raise serializers.ValidationError("Modified strategy content must be detailed and actionable.")
+        # Only enforce length if the user physically typed something in
+        if value and len(value.strip()) < 10:
+            raise serializers.ValidationError("Strategy content must be detailed and actionable.")
         return value
-    
 # =====================================================================
 # SDD COMPONENT: StrategyDeleteValidationSerializer
 # Description: Parses incoming client payloads, confirming relational 

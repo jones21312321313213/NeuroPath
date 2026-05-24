@@ -12,6 +12,10 @@ import ManageTeachingStrategies from "./pages/ManageTeachingStrategies";
 import ViewStudentRecords from "./pages/ViewStudentRecords";
 import ViewProgressDashboard from "./pages/ViewProgressDashboard";
 import CreateStudentProfile from "./pages/CreateStudentProfile";
+import IEPGenerationPage from "./pages/IEPGenerationPage";
+import ViewStudentProfile from "./pages/StudentProfiling/ViewStudentProfile";
+import ViewSelectedStudentProfile from "./pages/StudentProfiling/ViewSelectedStudentProfile";
+import UpdateStudentProfile from "./pages/StudentProfiling/UpdateStudentProfile";
 import "./App.css";
 
 const breadcrumbMap = {
@@ -40,19 +44,39 @@ function Placeholder({ title }) {
   );
 }
 
-function renderPage(activePage, setActivePage) {
-  switch (activePage) {
+function renderPage(activePage, setActivePage, selectedStudentId, setSelectedStudentId)
+{ 
+switch (activePage) {
     case "overview":
       return <Overview setActivePage={setActivePage} />;
     case "create-student-profile":
       return <CreateStudentProfile onBack={() => setActivePage("overview")} />;
     case "view-student-profile":
-      return <Placeholder title="View Student Profile" />;
-    case "update-student-profile":
-      return <Placeholder title="Update Student Profile" />;
+      return (
+        <ViewStudentProfile
+          setActivePage={setActivePage}
+          setSelectedStudentId={setSelectedStudentId}
+        />
+      );
+    case "view-student-detail":
+      return (
+        <ViewSelectedStudentProfile
+          studentId={selectedStudentId}
+          setActivePage={setActivePage}
+        />
+      );
+      case "update-student-profile":
+        return (
+          <UpdateStudentProfile
+            studentId={selectedStudentId}
+            onBack={() => setActivePage("view-student-profile")}
+          />
+        );      
     case "ai-insight":
       return <Placeholder title="Analyze & Generate AI Insight" />;
     case "iep-generation":
+ 
+      return <IEPGenerationPage />;
       return <Placeholder title="AI-Based IEP Generation" />;
     case "manage-lesson-plans":
       return <ManageLessonPlans />;
@@ -60,6 +84,7 @@ function renderPage(activePage, setActivePage) {
       return <ManageVisualAids />;
     case "manage-teaching-strategies":
       return <ManageTeachingStrategies />;
+
     default:
       return <Overview setActivePage={setActivePage} />;
     case "view-student-records":
@@ -71,13 +96,15 @@ function renderPage(activePage, setActivePage) {
 
 function Dashboard() {
   const [activePage, setActivePage] = useState("overview");
+  const [selectedStudentId, setSelectedStudentId] = useState(null);
+
 
   return (
     <div className="app-layout">
       <Sidebar activePage={activePage} setActivePage={setActivePage} />
       <div className="main-area">
         <Topbar breadcrumb={breadcrumbMap[activePage] || "DASHBOARD"} />
-        {renderPage(activePage, setActivePage)}
+        {renderPage(activePage, setActivePage, selectedStudentId, setSelectedStudentId)}
       </div>
     </div>
   );
