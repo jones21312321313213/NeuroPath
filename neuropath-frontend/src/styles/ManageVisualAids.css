@@ -1,6 +1,3 @@
-/* ── Manage Visual Aids ────────────────────────────────── */
-
-/* Header bar with tabs */
 .va-header {
   display: flex;
   align-items: center;
@@ -32,7 +29,9 @@
   font-weight: 500;
   color: #777;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
   white-space: nowrap;
 }
 .va-tab:hover {
@@ -62,7 +61,7 @@
   background: #fff;
   border-radius: 8px;
   padding: 24px 28px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .va-card-title {
@@ -253,7 +252,7 @@
 .va-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.35);
+  background: rgba(0, 0, 0, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -265,7 +264,7 @@
   padding: 32px 36px;
   max-width: 400px;
   width: 90%;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
 }
 .va-modal-title {
   font-size: 17px;
