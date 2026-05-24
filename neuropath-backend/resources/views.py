@@ -16,7 +16,8 @@ from .serializers import (
     LessonPlanUpdateSerializer,
     VisualAidSerializer,
     StrategyParameterSerializer,
-    StrategyUpdateValidationSerializer,
+    TeachingStrategySerializer,           # <--- ADD THIS NEW ONE
+    StrategyUpdateValidationSerializer,   # <--- KEEP THIS
     StrategyRetrievalSerializer,
     StrategyDeleteValidationSerializer
 )
@@ -124,7 +125,7 @@ class LessonPlanViewSet(viewsets.ModelViewSet):
 
 # =====================================================================
 # SDD COMPONENT: LessonPlanGeneratorService
-# Description: Business logic component responsible for drafting content. 
+# Description: Business logic component responsible for drafting content.
 #              Processes validated inputs through the prompt engine.
 # =====================================================================
 class LessonPlanGeneratorService:
@@ -134,26 +135,32 @@ class LessonPlanGeneratorService:
         topic = validated_data.get('topic')
         goals = validated_data.get('specificGoals', 'Standard comprehension.')
         
-        # 1. Compile the Engineering Prompt
+        # 1. Compile the Engineering Prompt with Cloud Delimiters and New Context
         prompt = (
-            f"Generate a lesson plan for {student_profile.name}. "
-            f"Subject: {subject}. Topic: {topic}. "
-            f"Specific Goals: {goals}."
+            f"☁️system☁️Act as an expert Special Education Curriculum Designer.☁️/system☁️\n"
+            f"☁️user☁️\n"
+            f"Generate a customized lesson plan for {student_profile.name}.\n"
+            f"- Subject: {subject} | Topic: {topic}\n"
+            f"- Specific Goals: {goals}\n"
+            f"- Learning Style: {student_profile.learning_style}\n"
+            f"- High-Interest Areas: {student_profile.interests}\n"
+            f"- Required Accommodations: {student_profile.support_needs}\n"
+            f"☁️/user☁️"
         )
         
         # 2. Simulated AI Response (Swap with real LLM HTTP request later)
         draft_content = {
-            "introduction": f"Begin by introducing {topic} in the context of {subject}.",
-            "core_activity": "Interactive whiteboard session.",
+            "introduction": f"Begin by introducing {topic} using visual/tactile references to {student_profile.interests}.",
+            "core_activity": f"Interactive session optimized for a {student_profile.learning_style} learner.",
             "assessment": goals,
-            "materials_needed": ["Whiteboard", "Markers", "Visual Aids"]
+            "materials_needed": ["Custom Visual Aids", "Sensory-friendly tools"]
         }
         
         return {
             "generated_prompt": prompt,
             "draft_content": draft_content
         }
-
+        
 # =====================================================================
 # SDD COMPONENT: GenerateLessonPlanAPIView
 # Description: Controller component handling the generation workflow. 
@@ -450,27 +457,6 @@ class SupabaseStorageManager:
         return f"https://your-supabase-project.supabase.co/storage/v1/object/public/visual-aids/preview_{filename_hint}.png"
     
     
-# =====================================================================
-# SDD COMPONENT: VisualAidGeneratorService
-# Description: Orchestrates the visual synthesis pipeline. Extracts IEP 
-#              goal text and processes the output into a standardized asset.
-# =====================================================================
-class VisualAidGeneratorService:
-    @staticmethod
-    def process_synthesis_pipeline(goal_text):
-        # 1. Format the target IEP goal for the AI Core Engine
-        ai_prompt = f"Create a simple, distraction-free visual schedule icon illustrating: {goal_text}"
-        
-        # 2. Simulate receiving the generated binary image data from the AI
-        mock_binary_data = b"simulated_image_byte_stream"
-        
-        # 3. Route through the Storage Manager to get a web URL
-        cloud_url = SupabaseStorageManager.upload_temp_image(mock_binary_data, "asset_123")
-        
-        return {
-            "appliedPrompt": ai_prompt,
-            "temporaryStorageUrl": cloud_url
-        }
 
 # =====================================================================
 # SDD COMPONENT: PDFExportEngine
@@ -488,32 +474,67 @@ class PDFExportEngine:
         buffer.write(f"Asset URL: {visual_aid_record.imageUrl}\n".encode('utf-8'))
         buffer.seek(0)
         return buffer
-    
-#=====================================================================
+
+
+# =====================================================================
+# SDD COMPONENT: VisualAidGeneratorService
+# Description: Orchestrates the visual synthesis pipeline.
+#              Extracts IEP goal text and sensory data into a standard asset.
+# =====================================================================
+class VisualAidGeneratorService:
+    @staticmethod
+    def process_synthesis_pipeline(goal_text, student_profile):
+        # 1. Format the target IEP goal using the new sensory guardrails
+        ai_prompt = (
+            f"Create a distraction-free visual schedule icon illustrating: '{goal_text}'. "
+            f"Incorporate the student's interest in '{student_profile.interests}' if appropriate, "
+            f"while strictly adhering to their sensory preferences: '{student_profile.sensory_preferences}'. "
+            f"Maintain low-visual clutter."
+        )
+        
+        # 2. Simulate receiving the generated binary image data from the AI
+        mock_binary_data = b"simulated_image_byte_stream"
+        
+        # 3. Route through the Storage Manager to get a web URL
+        cloud_url = SupabaseStorageManager.upload_temp_image(mock_binary_data, "asset_123")
+        
+        return {
+            "appliedPrompt": ai_prompt,
+            "temporaryStorageUrl": cloud_url
+        }
+
+# =====================================================================
 # SDD CONTROLLER: GenerateVisualAidAPIView
 # Description: Intercepts the target goal text, runs the generator 
 #              service, and returns the preview URL to the frontend.
 # =====================================================================
 class GenerateVisualAidAPIView(APIView):
+    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+
     def post(self, request, *args, **kwargs):
         goal_text = request.data.get('goalText')
         student_id = request.data.get('studentID')
         
-        # Enforce validation matching your Sequence Diagram flow
         if not student_id or not goal_text:
             return Response(
                 {"error": "A selected Student ID and Goal are required to generate an asset."}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
             
-        # Execute the Generation Pipeline
-        asset_payload = VisualAidGeneratorService.process_synthesis_pipeline(goal_text)
+        # NEW: Securely look up the student profile to retrieve sensory data
+        try:
+            student = StudentProfile.objects.get(pk=student_id)
+        except StudentProfile.DoesNotExist:
+            return Response({"error": "Student not found."}, status=status.HTTP_404_NOT_FOUND)
+            
+        # Execute the Generation Pipeline passing the full student context
+        asset_payload = VisualAidGeneratorService.process_synthesis_pipeline(goal_text, student)
         
         return Response({
             "message": "Visual Aid generated successfully for preview.",
             "data": asset_payload
         }, status=status.HTTP_200_OK)
-
+        
 # =====================================================================
 # SDD CONTROLLER: ExportVisualAidAPIView
 # Description: Fetches the saved visual aid record and triggers the 
@@ -576,34 +597,42 @@ class StorageCleanupWorker:
     
 # =====================================================================
 # SDD COMPONENT: StrategyGenerationManagerService
-# Description: Orchestrates automated strategy generation sequences. 
+# Description: Orchestrates automated strategy generation sequences.
 #              Processes criteria and formats data matrices for storage.
 # =====================================================================
 class StrategyGenerationManagerService:
     @staticmethod
-    def generate_strategy_content(title, student_name):
+    def generate_strategy_content(title, student_profile):
         # 1. Format the target prompt for the AI Core Engine
-        ai_prompt = f"Generate an actionable teaching strategy for {student_name} focusing on: {title}"
+        ai_prompt = (
+            f"☁️system☁️Act as a Special Education Behavioral Specialist.☁️/system☁️\n"
+            f"☁️user☁️\n"
+            f"Generate an actionable teaching strategy focusing on: {title}.\n"
+            f"Student Profile Context:\n"
+            f"- Diagnosis: {student_profile.diagnosis}\n"
+            f"- Support Needs: {student_profile.support_needs}\n"
+            f"- Sensory Profile: {student_profile.sensory_preferences}\n"
+            f"- Interests/Reinforcers: {student_profile.interests}\n"
+            f"☁️/user☁️"
+        )
         
         # 2. Simulate the AI processing the pedagogical criteria
         mock_generated_text = (
             f"Strategy Overview for {title}:\n"
-            f"- Break down the target task into smaller, manageable micro-steps.\n"
-            f"- Provide immediate positive reinforcement upon completion of each step.\n"
-            f"- Utilize multi-sensory physical materials to maintain engagement."
+            f"- Break down the target task into smaller, manageable micro-steps tailored to a {student_profile.learning_style} learner.\n"
+            f"- Utilize {student_profile.interests} as a primary motivational token system.\n"
+            f"- Ensure environment accommodates the following sensory needs: {student_profile.sensory_preferences}."
         )
         
         return mock_generated_text
-    
 
 # =====================================================================
 # SDD COMPONENT: TeachingStrategyViewSet
-# Description: Centralized API controller handling inbound pathways. 
-#              Delegates execution for create, list, retrieve, update, destroy.
+# Description: Centralized API controller handling inbound pathways.
 # =====================================================================
 class TeachingStrategyViewSet(viewsets.ModelViewSet):
     queryset = TeachingStrategy.objects.all().order_by('-dateCreated')
-    serializer_class = StrategyUpdateValidationSerializer
+    serializer_class = TeachingStrategySerializer
     # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
 
     def create(self, request, *args, **kwargs):
@@ -611,21 +640,18 @@ class TeachingStrategyViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         
         if serializer.is_valid():
-            # Check if the frontend provided content. If not, trigger the AI Generation Service.
             if not serializer.validated_data.get('strategyContent'):
                 student_profile = serializer.validated_data['student']
                 title = serializer.validated_data['title']
                 
-                # Execute the SDD Service
+                # NEW: Pass the entire student_profile object, not just the name string!
                 generated_content = StrategyGenerationManagerService.generate_strategy_content(
                     title=title, 
-                    student_name=student_profile.name
+                    student_profile=student_profile 
                 )
                 
-                # Inject the generated content into the validated payload before saving
                 serializer.validated_data['strategyContent'] = generated_content
             
-            # Commit to the Supabase Database
             self.perform_create(serializer)
             
             return Response({
@@ -634,7 +660,6 @@ class TeachingStrategyViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_201_CREATED)
             
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
 
 # =====================================================================
 # SDD COMPONENT: TeachingStrategyGenerationController

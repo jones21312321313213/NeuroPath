@@ -22,6 +22,11 @@ class StudentProfile(models.Model):
     preferences = models.TextField()
     assessmentResult = models.TextField()
     profileStatus = models.BooleanField(default=True)
+    diagnosis = models.TextField(blank=True, null=True)
+    support_needs = models.TextField(blank=True, null=True)
+    learning_style = models.CharField(max_length=100, blank=True, null=True)
+    interests = models.TextField(blank=True, null=True)
+    sensory_preferences = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return self.name
