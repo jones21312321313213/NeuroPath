@@ -1,0 +1,217 @@
+.lp-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.lp-search-input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.lp-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lp-filter-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+}
+
+.lp-filter-select {
+  width: auto;
+  min-width: 90px;
+  padding: 8px 28px 8px 10px;
+  font-size: 13px;
+}
+
+/* Plan list rows in View tab */
+.lp-plan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lp-plan-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  background: #f7fafd;
+  border: 1.5px solid #e3eaf2;
+  border-radius: 7px;
+  transition: border-color 0.15s;
+}
+.lp-plan-row:hover {
+  border-color: #5aabf0;
+}
+
+.lp-plan-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+/* Detail view */
+.lp-detail-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: #f7fafd;
+  border-radius: 7px;
+  border: 1px solid #e3eaf2;
+}
+
+.lp-detail-row {
+  display: flex;
+  gap: 10px;
+  font-size: 13.5px;
+  color: #333;
+}
+
+.lp-detail-label {
+  font-weight: 700;
+  min-width: 100px;
+  color: #555;
+}
+
+.lp-detail-section {
+  margin-bottom: 18px;
+}
+
+.lp-detail-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #3d9de8;
+  margin: 0 0 8px;
+}
+
+.lp-detail-body {
+  font-size: 13.5px;
+  color: #444;
+  line-height: 1.7;
+  margin: 0;
+  padding: 12px 16px;
+  background: #f7fafd;
+  border-radius: 7px;
+  border: 1px solid #e3eaf2;
+}
+
+/* Actions row */
+.lp-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+/* Status badges */
+.lp-status {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.lp-status.active {
+  background: #dcfce7;
+  color: #16a34a;
+}
+.lp-status.draft {
+  background: #fef9c3;
+  color: #92400e;
+}
+
+/* Edit tab action buttons */
+.lp-edit-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lp-edit-btn {
+  padding: 5px 12px;
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.lp-edit-btn.activity {
+  background: #5aabf0;
+  color: #fff;
+}
+.lp-edit-btn.activity:hover {
+  background: #3d9de8;
+}
+.lp-edit-btn.objective {
+  background: #e0f0ff;
+  color: #3d9de8;
+  border: 1px solid #b0d8f8;
+}
+.lp-edit-btn.objective:hover {
+  background: #c7e5fb;
+}
+
+/* Edit form context line */
+.lp-edit-context {
+  font-size: 13.5px;
+  color: #666;
+  margin: 0 0 4px;
+}
+
+/* Delete modal YES button */
+.lp-modal-yes {
+  background: #3d9de8;
+  color: #fff;
+}
+.lp-modal-yes:hover {
+  background: #2e8fd8;
+}
+
+/* Generate placeholder */
+.lp-placeholder-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 40px;
+  text-align: center;
+  gap: 14px;
+}
+
+.lp-placeholder-icon {
+  font-size: 48px;
+}
+
+.lp-placeholder-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
+  margin: 0;
+}
+
+.lp-placeholder-desc {
+  font-size: 14px;
+  color: #888;
+  line-height: 1.7;
+  max-width: 440px;
+  margin: 0;
+}
+
+/* Empty state */
+.lp-empty {
+  text-align: center;
+  color: #aaa;
+  padding: 32px 0;
+  font-size: 14px;
+  margin: 0;
+}

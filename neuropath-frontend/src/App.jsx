@@ -6,6 +6,7 @@ import RegisterPage from "./pages/RegisterPage";
 import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
 import Overview from "./pages/Overview";
+import ManageLessonPlans from "./pages/ManageLessonPlans";
 import ManageVisualAids from "./pages/ManageVisualAids";
 import CreateStudentProfile from "./pages/CreateStudentProfile";
 import "./App.css";
@@ -48,7 +49,7 @@ function renderPage(activePage, setActivePage) {
     case "iep-generation":
       return <Placeholder title="AI-Based IEP Generation" />;
     case "manage-lesson-plans":
-      return <Placeholder title="Manage Lesson Plans" />;
+      return <ManageLessonPlans />;
     case "manage-visual-aids":
       return <ManageVisualAids />;
     case "manage-teaching-strategies":
