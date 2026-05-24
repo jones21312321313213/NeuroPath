@@ -43,20 +43,27 @@ export default function RegisterPage({ onNavigateLogin }) {
 
     setLoading(true);
     try {
+      // Mapping the data to match Django's exact Serializer expectations
       const data = await register({
-        firstName: form.firstName.trim(),
-        lastName: form.lastName.trim(),
+        username: form.email.trim().toLowerCase(), // Django requires a username!
         email: form.email.trim().toLowerCase(),
+        first_name: form.firstName.trim(),         // Converted to snake_case
+        last_name: form.lastName.trim(),           // Converted to snake_case
         password: form.password,
-        role: form.role,
+        // role: form.role // (You can pass this if you add a role field to your backend model later)
       });
+
       onNavigateLogin(
-        `Account created for ${data.teacher.firstName}! Please sign in.`,
+        `Account created for ${form.firstName.trim()}! Please sign in.`,
       );
     } catch (err) {
-      const msg = err.message || "Registration failed.";
-      if (msg.toLowerCase().includes("email")) {
-        setErrors({ email: msg });
+      const msg = err.response?.data?.message || err.message || "Registration failed.";
+      
+      // Django often returns a dictionary of specific field errors
+      const fieldErrors = err.response?.data?.errors;
+      
+      if (fieldErrors?.username || fieldErrors?.email) {
+        setErrors({ email: "This email is already registered." });
       } else {
         setErrors({ general: msg });
       }
@@ -64,7 +71,7 @@ export default function RegisterPage({ onNavigateLogin }) {
       setLoading(false);
     }
   };
-
+  
   const inputStyle = {
     background: "#fff",
     border: "1.5px solid #b3dff7",
