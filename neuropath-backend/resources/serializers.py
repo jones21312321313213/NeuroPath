@@ -169,3 +169,33 @@ class StrategyRetrievalSerializer(serializers.ModelSerializer):
             'strategyContent', 
             'formattedDate'
         ]
+        
+# =====================================================================
+# SDD COMPONENT: StrategyUpdateValidationSerializer
+# Description: Executes inbound format validations. Screens modifications 
+#              passed from React workspace to confirm schema requirements.
+# =====================================================================
+class StrategyUpdateValidationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TeachingStrategy
+        # Only expose the fields that the teacher is actually allowed to edit!
+        fields = ['title', 'strategyContent']
+
+    def validate_strategyContent(self, value):
+        # Enforce character bounds and logic checks required by the SDD
+        if not value or len(value.strip()) < 10:
+            raise serializers.ValidationError("Modified strategy content must be detailed and actionable.")
+        return value
+    
+# =====================================================================
+# SDD COMPONENT: StrategyDeleteValidationSerializer
+# Description: Parses incoming client payloads, confirming relational 
+#              student context parameters are validly structured.
+# =====================================================================
+class StrategyDeleteValidationSerializer(serializers.Serializer):
+    studentID = serializers.IntegerField(required=False)
+    
+    def validate_studentID(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Target Student ID must be a valid positive integer.")
+        return value
