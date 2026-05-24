@@ -17,13 +17,6 @@ class IEP(models.Model):
     createdDate = models.DateTimeField(auto_now_add=True)
     version = models.IntegerField(default=1)
 
-class IEPGoal(models.Model):
-    goalID = models.AutoField(primary_key=True)
-    iep = models.ForeignKey(IEP, on_delete=models.CASCADE, db_column='iepID')
-    goalName = models.CharField(max_length=255)
-    target_metric = models.CharField(max_length=255)
-    
-    
 # =====================================================================
 # SDD COMPONENT: IEPModel
 # Description: Django ORM data mapping component defining the schema 
@@ -31,16 +24,19 @@ class IEPGoal(models.Model):
 # =====================================================================
 class IEPModel(models.Model):
     iepID = models.AutoField(primary_key=True)
-    
-    # Foreign Key linking back to the student in the users app
     studentID = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='ieps')
-    
     baselineData = models.TextField()
     goals = models.TextField()
-    accommodations = models.TextField()
-    
+    accommodations = models.TextField() # Cleaned spelling to match serializer fields
     version = models.IntegerField(default=1)
     createdDate = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"IEP v{self.version} for Student ID: {self.studentID.studentID}"
+        return f"IEP v{self.version} for Student: {self.studentID.name}"
+
+# Updated to securely point to your actual active IEPModel
+class IEPGoal(models.Model):
+    goalID = models.AutoField(primary_key=True)
+    iep = models.ForeignKey(IEPModel, on_delete=models.CASCADE, db_column='iepID', related_name='individual_goals')
+    goalName = models.CharField(max_length=255)
+    target_metric = models.CharField(max_length=255)
