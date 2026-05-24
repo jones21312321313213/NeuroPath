@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 from .models import StudentProfile
 from django.contrib.auth.models import User
 from .serializers import StudentProfileSerializer, ValidationService,TeacherSerializer
+from django.contrib.auth import authenticate, login
 
 # =====================================================================
 # SDD MODULE: TEACHER REGISTRATION
@@ -189,3 +190,36 @@ class AIInsightController(APIView):
             "message": "AI Insight generated successfully.",
             "insightData": insight_text
         }, status=status.HTTP_200_OK)
+        
+# =====================================================================
+# SDD MODULE: TEACHER LOGIN
+# Component Name: TeacherLoginController
+# Description: Authenticates user credentials against the database and 
+#              establishes a secure server-side session.
+# =====================================================================
+class TeacherLoginController(APIView):
+    def post(self, request, *args, **kwargs):
+        # Your React app sends the email, which we saved as the username
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        # Check if the credentials match a user in the database
+        user = authenticate(request, username=email, password=password)
+
+        if user is not None:
+            # This creates the session in the database and drops a cookie in the browser
+            login(request, user)
+            
+            return Response({
+                "message": "Login successful",
+                "teacher": {
+                    "id": user.id,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name
+                }
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                "error": "Invalid email or password."
+            }, status=status.HTTP_401_UNAUTHORIZED)
