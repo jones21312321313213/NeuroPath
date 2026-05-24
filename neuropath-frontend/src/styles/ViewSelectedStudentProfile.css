@@ -1,0 +1,109 @@
+/* ── Form actions ─────────────────────────────────────── */
+.form-actions {
+    display: flex;
+    justify-content: flex-end;   /* align buttons to the right */
+    gap: 12px;                   /* spacing between buttons */
+    margin-top: 8px;
+    margin-bottom: 8px;
+  }
+  
+  .btn {
+    padding: 9px 22px;
+    border: none;
+    border-radius: 5px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.4px;
+    transition: background 0.2s ease, opacity 0.15s ease;
+  }
+  
+  .btn:hover {
+    opacity: 0.9;
+  }
+  
+  /* Back button styled consistently with sidebar blue */
+  .btn-back {
+    background: #5aabf0;
+    color: #fff;
+  }
+  
+  .btn-back:hover {
+    background: #4a9be0;
+  }
+  
+  /* Submit/update button styled with primary accent */
+  .btn-submit {
+    background: #3d9de8;
+    color: #fff;
+  }
+  
+  .btn-submit:hover {
+    background: #2c89d0;
+  }
+  
+  /* ── Tab header ───────────────────────────────────────── */
+.tab-header {
+    display: flex;
+    border-bottom: 2px solid #e0e0e0;
+    margin-bottom: 16px;
+  }
+  
+  .tab-btn {
+    flex: 1;
+    padding: 10px 0;
+    background: none;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #555;
+    transition: color 0.2s ease, border-bottom 0.2s ease;
+  }
+  
+  .tab-btn.active {
+    color: #3d9de8;
+    border-bottom: 3px solid #3d9de8;
+  }
+  
+  .tab-btn:hover {
+    color: #2c89d0;
+  }
+  
+  /* ── Tab content ─────────────────────────────────────── */
+  .tab-content {
+    padding: 12px 4px;
+  }
+  
+  /* ── Insight cards ───────────────────────────────────── */
+  .insight-history {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  
+  .insight-card {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 12px;
+  }
+  
+  .insight-card h4 {
+    margin: 0 0 8px;
+    font-size: 14px;
+    color: #333;
+  }
+  
+  .insight-card ul {
+    margin: 0;
+    padding-left: 18px;
+  }
+  
+  .insight-card li {
+    font-size: 13px;
+    color: #444;
+    margin-bottom: 4px;
+  }
+  
