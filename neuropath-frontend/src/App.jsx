@@ -12,6 +12,7 @@ import ManageTeachingStrategies from "./pages/ManageTeachingStrategies";
 import ViewStudentRecords from "./pages/ViewStudentRecords";
 import ViewProgressDashboard from "./pages/ViewProgressDashboard";
 import CreateStudentProfile from "./pages/CreateStudentProfile";
+import IEPGenerationPage from "./pages/IEPGenerationPage";
 import ViewStudentProfile from "./pages/StudentProfiling/ViewStudentProfile";
 import ViewSelectedStudentProfile from "./pages/StudentProfiling/ViewSelectedStudentProfile";
 import UpdateStudentProfile from "./pages/StudentProfiling/UpdateStudentProfile";
@@ -74,6 +75,8 @@ switch (activePage) {
     case "ai-insight":
       return <Placeholder title="Analyze & Generate AI Insight" />;
     case "iep-generation":
+ 
+      return <IEPGenerationPage />;
       return <Placeholder title="AI-Based IEP Generation" />;
     case "manage-lesson-plans":
       return <ManageLessonPlans />;
@@ -81,6 +84,7 @@ switch (activePage) {
       return <ManageVisualAids />;
     case "manage-teaching-strategies":
       return <ManageTeachingStrategies />;
+
     default:
       return <Overview setActivePage={setActivePage} />;
     case "view-student-records":
