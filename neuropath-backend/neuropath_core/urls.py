@@ -29,6 +29,9 @@ path('admin/', admin.site.urls),
     # Module 3: Resources / Instructional Support App (Add this line!)
     path('api/resources/', include('resources.urls')),
     
+    # Module 4: Map the tracking application endpoints
+    path('api/tracking/', include('tracking.urls')),
+    
     # Optional: Built-in login screen for direct browser testing
     path('api-auth/', include('rest_framework.urls')),
 ]
