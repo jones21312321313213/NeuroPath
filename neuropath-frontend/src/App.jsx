@@ -9,6 +9,8 @@ import Overview from "./pages/Overview";
 import ManageLessonPlans from "./pages/ManageLessonPlans";
 import ManageVisualAids from "./pages/ManageVisualAids";
 import ManageTeachingStrategies from "./pages/ManageTeachingStrategies";
+import ViewStudentRecords from "./pages/ViewStudentRecords";
+import ViewProgressDashboard from "./pages/ViewProgressDashboard";
 import CreateStudentProfile from "./pages/CreateStudentProfile";
 import "./App.css";
 
@@ -22,6 +24,9 @@ const breadcrumbMap = {
   "manage-lesson-plans": "DASHBOARD/Instructional Support",
   "manage-visual-aids": "DASHBOARD/Instructional Support",
   "manage-teaching-strategies": "DASHBOARD/Instructional Support",
+  "view-student-records": "DASHBOARD/Outcome Monitoring/ View Student Record",
+  "view-progress-dashboard":
+    "DASHBOARD/Outcome Monitoring/ View Progress Dashboard",
 };
 
 function Placeholder({ title }) {
@@ -57,6 +62,10 @@ function renderPage(activePage, setActivePage) {
       return <ManageTeachingStrategies />;
     default:
       return <Overview setActivePage={setActivePage} />;
+    case "view-student-records":
+      return <ViewStudentRecords />;
+    case "view-progress-dashboard":
+      return <ViewProgressDashboard />;
   }
 }
 

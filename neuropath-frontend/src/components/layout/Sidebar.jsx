@@ -1,6 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
-import LogoutModal from "./LogoutModal"; // Import your new modal
+import LogoutModal from "./LogoutModal";
 
 const navItems = [
   {
@@ -35,6 +35,14 @@ const navItems = [
       },
     ],
   },
+  {
+    label: "Outcome Monitoring",
+    key: "outcome-monitoring",
+    children: [
+      { label: "View Student Records", key: "view-student-records" },
+      { label: "View Progress Dashboard", key: "view-progress-dashboard" },
+    ],
+  },
 ];
 
 export default function Sidebar({ activePage, setActivePage }) {
@@ -48,18 +56,22 @@ export default function Sidebar({ activePage, setActivePage }) {
   // Safe Logout Execution - No React Router needed!
   const handleConfirmLogout = async () => {
     try {
-      await axios.post('http://127.0.0.1:8000/api/users/logout/', {}, {
-        withCredentials: true 
-      });
+      await axios.post(
+        "http://127.0.0.1:8000/api/users/logout/",
+        {},
+        {
+          withCredentials: true,
+        },
+      );
     } catch (error) {
       console.error("Logout failed:", error);
     } finally {
-      localStorage.clear(); 
+      localStorage.clear();
       sessionStorage.clear();
       setIsModalOpen(false);
-      
+
       // Native browser redirect prevents the Router error entirely
-      window.location.href = '/login'; 
+      window.location.href = "/login";
     }
   };
 
@@ -115,12 +127,21 @@ export default function Sidebar({ activePage, setActivePage }) {
 
         {/* ── Logout Button Section ─────────────────────────── */}
         <div className="sidebar-footer">
-          <button 
-            className="sidebar-logout-btn" 
+          <button
+            className="sidebar-logout-btn"
             onClick={() => setIsModalOpen(true)}
           >
             {/* Clean Logout SVG Icon */}
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
               <polyline points="16 17 21 12 16 7"></polyline>
               <line x1="21" y1="12" x2="9" y2="12"></line>
@@ -131,10 +152,10 @@ export default function Sidebar({ activePage, setActivePage }) {
       </aside>
 
       {/* Renders the modal without breaking the layout */}
-      <LogoutModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onConfirm={handleConfirmLogout} 
+      <LogoutModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onConfirm={handleConfirmLogout}
       />
     </>
   );
