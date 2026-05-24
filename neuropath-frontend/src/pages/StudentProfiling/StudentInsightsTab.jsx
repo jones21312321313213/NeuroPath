@@ -89,7 +89,6 @@ export default function StudentInsightsTab({ studentId }) {
           </div>
         )}
 
-        {/* Generate button moved to bottom */}
         <div className="form-actions" style={{ justifyContent: "flex-end", marginTop: "20px" }}>
           <button
             className="btn btn-submit"
