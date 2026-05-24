@@ -7,6 +7,7 @@ import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
 import Overview from "./pages/Overview";
 import CreateStudentProfile from "./pages/CreateStudentProfile";
+import IEPGenerationPage from "./pages/IEPGenerationPage";
 import "./App.css";
 
 const breadcrumbMap = {
@@ -42,7 +43,7 @@ function renderPage(activePage, setActivePage) {
     case "ai-insight":
       return <Placeholder title="Analyze & Generate AI Insight" />;
     case "iep-generation":
-      return <Placeholder title="AI-Based IEP Generation" />;
+      return <IEPGenerationPage />;
     default:
       return <Overview setActivePage={setActivePage} />;
   }
