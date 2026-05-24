@@ -10,6 +10,9 @@ import ManageLessonPlans from "./pages/ManageLessonPlans";
 import ManageVisualAids from "./pages/ManageVisualAids";
 import ManageTeachingStrategies from "./pages/ManageTeachingStrategies";
 import CreateStudentProfile from "./pages/CreateStudentProfile";
+import ViewStudentProfile from "./pages/StudentProfiling/ViewStudentProfile";
+import ViewSelectedStudentProfile from "./pages/StudentProfiling/ViewSelectedStudentProfile";
+import UpdateStudentProfile from "./pages/StudentProfiling/UpdateStudentProfile";
 import "./App.css";
 
 const breadcrumbMap = {
@@ -35,16 +38,34 @@ function Placeholder({ title }) {
   );
 }
 
-function renderPage(activePage, setActivePage) {
-  switch (activePage) {
+function renderPage(activePage, setActivePage, selectedStudentId, setSelectedStudentId)
+{ 
+switch (activePage) {
     case "overview":
       return <Overview setActivePage={setActivePage} />;
     case "create-student-profile":
       return <CreateStudentProfile onBack={() => setActivePage("overview")} />;
     case "view-student-profile":
-      return <Placeholder title="View Student Profile" />;
-    case "update-student-profile":
-      return <Placeholder title="Update Student Profile" />;
+      return (
+        <ViewStudentProfile
+          setActivePage={setActivePage}
+          setSelectedStudentId={setSelectedStudentId}
+        />
+      );
+    case "view-student-detail":
+      return (
+        <ViewSelectedStudentProfile
+          studentId={selectedStudentId}
+          setActivePage={setActivePage}
+        />
+      );
+      case "update-student-profile":
+        return (
+          <UpdateStudentProfile
+            studentId={selectedStudentId}
+            onBack={() => setActivePage("view-student-profile")}
+          />
+        );      
     case "ai-insight":
       return <Placeholder title="Analyze & Generate AI Insight" />;
     case "iep-generation":
@@ -62,13 +83,15 @@ function renderPage(activePage, setActivePage) {
 
 function Dashboard() {
   const [activePage, setActivePage] = useState("overview");
+  const [selectedStudentId, setSelectedStudentId] = useState(null);
+
 
   return (
     <div className="app-layout">
       <Sidebar activePage={activePage} setActivePage={setActivePage} />
       <div className="main-area">
         <Topbar breadcrumb={breadcrumbMap[activePage] || "DASHBOARD"} />
-        {renderPage(activePage, setActivePage)}
+        {renderPage(activePage, setActivePage, selectedStudentId, setSelectedStudentId)}
       </div>
     </div>
   );

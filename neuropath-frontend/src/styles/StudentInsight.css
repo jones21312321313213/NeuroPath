@@ -1,0 +1,187 @@
+/* ── Tab header ───────────────────────────────────────── */
+.tab-header {
+    display: flex;
+    border-bottom: 2px solid #e0e0e0;
+    margin-bottom: 16px;
+  }
+  
+  .tab-btn {
+    flex: 1;
+    padding: 10px 0;
+    background: none;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #555;
+    transition: color 0.2s ease, border-bottom 0.2s ease;
+  }
+  
+  .tab-btn.active {
+    color: #3d9de8;
+    border-bottom: 3px solid #3d9de8;
+  }
+  
+  .tab-btn:hover {
+    color: #2c89d0;
+  }
+  
+  /* ── Tab content ─────────────────────────────────────── */
+  .tab-content {
+    padding: 12px 4px;
+  }
+  
+  /* ── Insight history ─────────────────────────────────── */
+  .insight-history {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  
+  .insight-card {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 12px;
+    transition: box-shadow 0.2s ease;
+  }
+  
+  .insight-card:hover {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+  
+  .insight-card h4 {
+    margin: 0 0 8px;
+    font-size: 14px;
+    color: #333;
+  }
+  
+  .insight-card ul {
+    margin: 0;
+    padding-left: 18px;
+  }
+  
+  .insight-card li {
+    font-size: 13px;
+    color: #444;
+    margin-bottom: 4px;
+  }
+  
+  /* ── Placeholder message ─────────────────────────────── */
+  .placeholder-page {
+    font-size: 13.5px;
+    color: #777;
+    margin-top: 12px;
+    text-align: center;
+  }
+  
+
+  /* Row container */
+.insight-row {
+    display: flex;
+    gap: 20px;
+    margin-top: 16px;
+  }
+  
+  /* Each card */
+  .insight-card {
+    flex: 1;
+    background: #ffffff;
+    border: 1px solid #d0d7e2;
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .insight-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 14px rgba(0,0,0,0.12);
+  }
+  
+  /* Card header */
+  .insight-card h5 {
+    margin: 0 0 10px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #3d9de8;
+    text-align: center;
+    border-bottom: 2px solid #e5e9f0;
+    padding-bottom: 6px;
+  }
+  
+  /* List items */
+  .insight-card ul {
+    margin: 0;
+    padding-left: 18px;
+  }
+  
+  .insight-card li {
+    font-size: 13.5px;
+    color: #444;
+    margin-bottom: 6px;
+    line-height: 1.5;
+  }
+  /* Accordion block */
+.accordion-block {
+    margin: 0; /* remove extra spacing between accordions */
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  
+  /* Accordion header */
+  .accordion-header {
+    width: 100%;
+    background: #f7f9fc;
+    border: none;
+    padding: 16px 20px; /* more padding for a cleaner look */
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .accordion-header:hover {
+    background: #eaf2fb;
+  }
+  
+  .accordion-icon {
+    font-size: 12px;
+    color: #555;
+  }
+  
+  /* Accordion content */
+  .accordion-content {
+    padding: 20px; /* more padding inside content */
+    background: #fff;
+  }
+  
+  /* Row of cards */
+  .insight-row {
+    display: flex;
+    gap: 16px; /* slightly tighter gap between cards */
+  }
+  
+  /* Each card */
+  .insight-card {
+    flex: 1;
+    background: #fff;
+    border-radius: 8px;
+    padding: 18px; /* more padding inside cards */
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+  
+  .insight-card h5 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 6px;
+  }
+  

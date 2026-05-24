@@ -1,0 +1,95 @@
+.form-card { 
+    background: #fff; 
+    padding: 20px; 
+    border-radius: 8px; 
+  }
+  
+  .form-section { 
+    margin-bottom: 20px; 
+  }
+  
+  .form-section-title { 
+    font-size: 1.2rem; 
+    margin-bottom: 10px; 
+  }
+  
+  .form-grid-2 { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 15px; 
+  }
+  
+  .form-grid-preferences { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr 1fr; 
+    gap: 15px; 
+  }
+  
+  .form-group { 
+    display: flex; 
+    flex-direction: column; 
+  }
+  
+  .form-label { 
+    font-weight: bold; 
+    margin-bottom: 5px; 
+  }
+  
+  .form-input, 
+  .form-select, 
+  .form-textarea {
+    padding: 8px; 
+    border: 1px solid #ccc; 
+    border-radius: 4px;
+  }
+  
+  /* Make textareas larger by default */
+  .form-textarea { 
+    min-height: 150px;   /* increased from 100px */
+    resize: vertical;    /* allow vertical resizing */
+  }
+  
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  
+  .btn {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
+  .btn-back {
+    background: #ccc;
+    color: #333;
+  }
+  
+  .btn-back:hover {
+    background: #b3b3b3;
+  }
+  
+  .btn-submit {
+    background: #3d9de8;
+    color: #fff;
+  }
+  
+  .btn-submit:hover {
+    background: #2c89d0;
+  }
+  
+  /* Very light gray for prefilled values */
+  .form-input.gray-input,
+  .form-textarea.gray-input {
+    color: #aaa; /* lighter gray than before */
+  }
+  
+  /* When user focuses/edits, switch to black */
+  .form-input.gray-input:focus,
+  .form-textarea.gray-input:focus {
+    color: #000;
+  }
+  
