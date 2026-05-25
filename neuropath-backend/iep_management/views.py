@@ -1,10 +1,10 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
-from .serializers import IEPDataSerializer
+from rest_framework import status,generics 
+from .serializers import IEPDataSerializer,IEPListDetailSerializer, IEPUpdateSerializer
 from users.models import StudentProfile
 from tracking.models import AIGenerationLog
-from .models import Assessment, IEPGoal
+from .models import Assessment, IEPGoal, IEPModel
 import requests
 import json
 import re
@@ -171,3 +171,71 @@ class IEPGenerationAPIView(APIView):
 
         return Response({"error": "Invalid action specified."}, status=status.HTTP_400_BAD_REQUEST)
 
+# =====================================================================
+# SDD CONTROLLER: IEPListAPIView (READ - List)
+# Description: Retrieves all historical IEPs for a specific student.
+# =====================================================================
+class IEPListAPIView(generics.ListAPIView):
+    serializer_class = IEPListDetailSerializer
+
+    def get_queryset(self):
+        # Fetch the student ID from the URL path and filter the database
+        student_id = self.kwargs.get('student_id')
+        return IEPModel.objects.filter(studentID_id=student_id).order_by('-createdDate')
+
+# =====================================================================
+# SDD CONTROLLER: IEPDetailAPIView (READ - Detail)
+# Description: Retrieves a single, specific IEP record for the workspace.
+# =====================================================================
+class IEPDetailAPIView(generics.RetrieveAPIView):
+    queryset = IEPModel.objects.all()
+    serializer_class = IEPListDetailSerializer
+
+# =====================================================================
+# SDD CONTROLLER: IEPEditAPIView (UPDATE)
+# Description: Validates teacher modifications and re-synchronizes the 
+#              atomized goals table to prevent data drift.
+# =====================================================================
+class IEPEditAPIView(generics.UpdateAPIView):
+    queryset = IEPModel.objects.all()
+    serializer_class = IEPUpdateSerializer
+
+    def perform_update(self, serializer):
+        # 1. Save the new text modifications to the main IEP record
+        iep_instance = serializer.save()
+        
+        # 2. CRITICAL SAFETY FEATURE: Database Resynchronization
+        # If the teacher modified the goals block, we must destroy the old 
+        # tracking rows and generate new ones based on the edited text.
+        if 'goals' in serializer.validated_data:
+            IEPGoal.objects.filter(iep=iep_instance).delete()
+            
+            raw_goals_text = iep_instance.goals
+            goal_items = re.split(r'\n\d+\.\s*', raw_goals_text)
+            
+            for item in goal_items:
+                cleaned_goal = item.strip()
+                if cleaned_goal and len(cleaned_goal) > 10:
+                    extracted_metric = "Tracked via Teacher Data" if "tracking" in cleaned_goal else "Standard R-GORI Metric"
+                    
+                    IEPGoal.objects.create(
+                        iep=iep_instance,
+                        goalName=cleaned_goal[:200], 
+                        target_metric=extracted_metric
+                    )
+
+# =====================================================================
+# SDD CONTROLLER: IEPDeleteAPIView (DELETE)
+# Description: Safely purges an IEP from the PostgreSQL cluster.
+# =====================================================================
+class IEPDeleteAPIView(generics.DestroyAPIView):
+    queryset = IEPModel.objects.all()
+    
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        # 204 No Content is the industry standard for a clean REST API deletion
+        return Response(
+            {"message": "IEP record successfully permanently deleted."}, 
+            status=status.HTTP_204_NO_CONTENT
+        )
