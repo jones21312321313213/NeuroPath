@@ -1,5 +1,6 @@
+import { useState, useEffect, useCallback } from "react";
 import "../styles/ManageLessonPlans.css";
-import { useState } from "react";
+import { lessonPlansAPI, studentsAPI } from "../api/client";
 
 const TABS = [
   { key: "generate", label: "Generate Lesson Plan" },
@@ -8,63 +9,16 @@ const TABS = [
   { key: "delete", label: "Delete Lesson Plans" },
 ];
 
-const MOCK_STUDENTS = [
-  { id: 1, name: "John Clyde Perez", grade: 3, age: 9 },
-  { id: 2, name: "Maria Santos", grade: 2, age: 8 },
-  { id: 3, name: "Carlo Reyes", grade: 4, age: 10 },
-  { id: 4, name: "Ana Dela Cruz", grade: 3, age: 9 },
-];
-
-const MOCK_LESSON_PLANS = [
-  {
-    id: 1,
-    studentId: 1,
-    title: "Reading Comprehension",
-    dateCreated: "2026-05-01",
-    status: "Active",
-    activity:
-      "Students will read a short passage and answer comprehension questions to identify the main idea, supporting details, and vocabulary in context.",
-    objective:
-      "By the end of the lesson, the student will be able to identify the main idea and at least 3 supporting details from a given reading passage with 80% accuracy.",
-    grade: 3,
-  },
-  {
-    id: 2,
-    studentId: 1,
-    title: "Number Sense – Counting",
-    dateCreated: "2026-05-10",
-    status: "Active",
-    activity:
-      "Students will use manipulatives and number lines to count forward and backward from any given number within 100.",
-    objective:
-      "The student will count forward and backward by 1s and 10s from any given number up to 100 with 90% accuracy.",
-    grade: 3,
-  },
-  {
-    id: 3,
-    studentId: 2,
-    title: "Basic Addition",
-    dateCreated: "2026-05-08",
-    status: "Active",
-    activity:
-      "Using counters and visual aids, students will practice single-digit addition problems.",
-    objective:
-      "The student will solve single-digit addition problems with sums up to 20 with 85% accuracy.",
-    grade: 2,
-  },
-  {
-    id: 4,
-    studentId: 3,
-    title: "Science – Plant Life Cycle",
-    dateCreated: "2026-05-12",
-    status: "Draft",
-    activity:
-      "Students will observe and label diagrams of the plant life cycle and sequence the stages in order.",
-    objective:
-      "The student will correctly identify and sequence all 4 stages of the plant life cycle.",
-    grade: 4,
-  },
-];
+function EmptyState({ message = "No records found." }) {
+  return (
+    <div className="lp-empty">
+      <span style={{ fontSize: 32, display: "block", marginBottom: 8 }}>
+        📭
+      </span>
+      {message}
+    </div>
+  );
+}
 
 // ── Generate Tab ───────────────────────────────────────────────────────────────
 function GenerateTab() {
@@ -83,22 +37,41 @@ function GenerateTab() {
 
 // ── View Tab ───────────────────────────────────────────────────────────────────
 function ViewTab() {
+  const [students, setStudents] = useState([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [plans, setPlans] = useState([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+  const [viewingPlan, setViewingPlan] = useState(null);
   const [search, setSearch] = useState("");
   const [filterGrade, setFilterGrade] = useState("");
   const [filterAge, setFilterAge] = useState("");
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [viewingPlan, setViewingPlan] = useState(null);
+  const [error, setError] = useState("");
 
-  const filteredStudents = MOCK_STUDENTS.filter((s) => {
+  useEffect(() => {
+    studentsAPI
+      .list()
+      .then(setStudents)
+      .catch(() => setError("Failed to load students."))
+      .finally(() => setLoadingStudents(false));
+  }, []);
+
+  const handleSelectStudent = (s) => {
+    setSelectedStudent(s);
+    setLoadingPlans(true);
+    lessonPlansAPI
+      .list({ studentID: s.studentID })
+      .then(setPlans)
+      .catch(() => setError("Failed to load lesson plans."))
+      .finally(() => setLoadingPlans(false));
+  };
+
+  const filteredStudents = students.filter((s) => {
     const matchName = s.name.toLowerCase().includes(search.toLowerCase());
     const matchGrade = filterGrade ? s.grade === parseInt(filterGrade) : true;
     const matchAge = filterAge ? s.age === parseInt(filterAge) : true;
     return matchName && matchGrade && matchAge;
   });
-
-  const studentPlans = selectedStudent
-    ? MOCK_LESSON_PLANS.filter((p) => p.studentId === selectedStudent.id)
-    : [];
 
   // Detail view
   if (viewingPlan) {
@@ -110,24 +83,18 @@ function ViewTab() {
         <div className="lp-detail-meta">
           <div className="lp-detail-row">
             <span className="lp-detail-label">Student:</span>
-            <span>{selectedStudent?.name}</span>
+            <span>{viewingPlan.studentName}</span>
           </div>
           <div className="lp-detail-row">
-            <span className="lp-detail-label">Grade:</span>
-            <span>Grade {viewingPlan.grade}</span>
+            <span className="lp-detail-label">Status:</span>
+            <span>{viewingPlan.status}</span>
           </div>
           <div className="lp-detail-row">
             <span className="lp-detail-label">Date Created:</span>
-            <span>{viewingPlan.dateCreated}</span>
+            <span>
+              {new Date(viewingPlan.dateCreated).toLocaleDateString()}
+            </span>
           </div>
-        </div>
-        <div className="lp-detail-section">
-          <p className="lp-detail-section-title">Learning Activity</p>
-          <p className="lp-detail-body">{viewingPlan.activity}</p>
-        </div>
-        <div className="lp-detail-section">
-          <p className="lp-detail-section-title">Learning Objective</p>
-          <p className="lp-detail-body">{viewingPlan.objective}</p>
         </div>
         <div className="lp-actions">
           <button className="btn btn-back" onClick={() => setViewingPlan(null)}>
@@ -138,17 +105,19 @@ function ViewTab() {
     );
   }
 
-  // Student plan list view
+  // Student plan list
   if (selectedStudent) {
     return (
       <div className="lp-card">
         <p className="lp-card-title">{selectedStudent.name} – Lesson Plans</p>
-        {studentPlans.length === 0 ? (
-          <p className="lp-empty">No lesson plans found for this student.</p>
+        {loadingPlans ? (
+          <p className="lp-empty">Loading…</p>
+        ) : plans.length === 0 ? (
+          <EmptyState message="No lesson plans found for this student." />
         ) : (
           <div className="lp-plan-list">
-            {studentPlans.map((plan) => (
-              <div key={plan.id} className="lp-plan-row">
+            {plans.map((plan) => (
+              <div key={plan.lessonID} className="lp-plan-row">
                 <span className="lp-plan-title">{plan.title}</span>
                 <button
                   className="va-view-btn"
@@ -163,7 +132,10 @@ function ViewTab() {
         <div className="lp-actions">
           <button
             className="btn btn-back"
-            onClick={() => setSelectedStudent(null)}
+            onClick={() => {
+              setSelectedStudent(null);
+              setPlans([]);
+            }}
           >
             ← Back to Students
           </button>
@@ -172,10 +144,15 @@ function ViewTab() {
     );
   }
 
-  // Student selection view
+  // Student selection
   return (
     <div className="lp-card">
       <p className="lp-card-title">Select a Student</p>
+      {error && (
+        <p style={{ color: "#c0392b", fontSize: 13, marginBottom: 8 }}>
+          ⚠️ {error}
+        </p>
+      )}
       <div className="lp-search-bar">
         <input
           className="form-input lp-search-input"
@@ -191,12 +168,11 @@ function ViewTab() {
             onChange={(e) => setFilterGrade(e.target.value)}
           >
             <option value="">Grade</option>
-            <option value="1">Grade 1</option>
-            <option value="2">Grade 2</option>
-            <option value="3">Grade 3</option>
-            <option value="4">Grade 4</option>
-            <option value="5">Grade 5</option>
-            <option value="6">Grade 6</option>
+            {[1, 2, 3, 4, 5, 6].map((g) => (
+              <option key={g} value={g}>
+                Grade {g}
+              </option>
+            ))}
           </select>
           <select
             className="form-select lp-filter-select"
@@ -213,11 +189,13 @@ function ViewTab() {
         </div>
       </div>
       <div className="va-student-list" style={{ marginTop: 16 }}>
-        {filteredStudents.length === 0 ? (
-          <p className="lp-empty">No students match your search.</p>
+        {loadingStudents ? (
+          <p className="lp-empty">Loading students…</p>
+        ) : filteredStudents.length === 0 ? (
+          <EmptyState message="No students found." />
         ) : (
           filteredStudents.map((s) => (
-            <div key={s.id} className="va-student-row">
+            <div key={s.studentID} className="va-student-row">
               <div className="va-student-avatar" />
               <div className="va-student-info">
                 <span className="va-student-name">{s.name}</span>
@@ -225,7 +203,7 @@ function ViewTab() {
               </div>
               <button
                 className="va-select-btn"
-                onClick={() => setSelectedStudent(s)}
+                onClick={() => handleSelectStudent(s)}
               >
                 Select
               </button>
@@ -239,140 +217,221 @@ function ViewTab() {
 
 // ── Edit Tab ───────────────────────────────────────────────────────────────────
 function EditTab() {
-  const [editMode, setEditMode] = useState(null); // 'activity' | 'objective'
+  const [plans, setPlans] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [editingPlan, setEditingPlan] = useState(null);
-  const [plans, setPlans] = useState(MOCK_LESSON_PLANS);
-  const [formValue, setFormValue] = useState("");
+  const [formValue, setFormValue] = useState({ title: "", status: "" });
+  const [saving, setSaving] = useState(false);
 
-  const openEdit = (plan, mode) => {
+  const fetchPlans = useCallback(() => {
+    setLoading(true);
+    lessonPlansAPI
+      .list()
+      .then(setPlans)
+      .catch(() => setError("Failed to load lesson plans."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchPlans();
+  }, [fetchPlans]);
+
+  const openEdit = (plan) => {
     setEditingPlan(plan);
-    setEditMode(mode);
-    setFormValue(mode === "activity" ? plan.activity : plan.objective);
+    setFormValue({ title: plan.title, status: plan.status });
   };
 
-  const handleSave = () => {
-    setPlans((prev) =>
-      prev.map((p) =>
-        p.id === editingPlan.id
-          ? {
-              ...p,
-              [editMode === "activity" ? "activity" : "objective"]: formValue,
-            }
-          : p,
-      ),
-    );
-    setEditMode(null);
-    setEditingPlan(null);
+  const handleSave = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await lessonPlansAPI.update(
+        editingPlan.lessonID,
+        formValue,
+      );
+      setPlans((prev) =>
+        prev.map((p) =>
+          p.lessonID === editingPlan.lessonID ? { ...p, ...updated } : p,
+        ),
+      );
+      setEditingPlan(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // Edit form
-  if (editMode) {
-    const title =
-      editMode === "activity"
-        ? "Modify Learning Activity"
-        : "Modify Learning Objective";
+  if (editingPlan) {
     return (
       <div className="lp-card">
-        <p className="lp-card-title">{title}</p>
+        <p className="lp-card-title">Edit Lesson Plan</p>
         <p className="lp-edit-context">
-          Lesson Plan: <strong>{editingPlan.title}</strong>
+          Editing: <strong>{editingPlan.title}</strong>
         </p>
         <div className="form-group" style={{ marginTop: 12 }}>
-          <label className="form-label">{title}</label>
-          <textarea
-            className="form-textarea"
-            value={formValue}
-            onChange={(e) => setFormValue(e.target.value)}
-            style={{ minHeight: 140 }}
+          <label className="form-label">Title</label>
+          <input
+            className="form-input"
+            value={formValue.title}
+            onChange={(e) =>
+              setFormValue({ ...formValue, title: e.target.value })
+            }
           />
         </div>
-        <div className="lp-actions">
-          <button
-            className="btn btn-back"
-            onClick={() => {
-              setEditMode(null);
-              setEditingPlan(null);
-            }}
+        <div className="form-group" style={{ marginTop: 12 }}>
+          <label className="form-label">Status</label>
+          <select
+            className="form-select"
+            value={formValue.status}
+            onChange={(e) =>
+              setFormValue({ ...formValue, status: e.target.value })
+            }
           >
+            <option value="Active">Active</option>
+            <option value="Draft">Draft</option>
+            <option value="Generated">Generated</option>
+          </select>
+        </div>
+        {error && (
+          <p style={{ color: "#c0392b", fontSize: 13, marginTop: 8 }}>
+            ⚠️ {error}
+          </p>
+        )}
+        <div className="lp-actions">
+          <button className="btn btn-back" onClick={() => setEditingPlan(null)}>
             Cancel
           </button>
-          <button className="btn btn-submit" onClick={handleSave}>
-            Save Changes
+          <button
+            className="btn btn-submit"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? "Saving…" : "Save Changes"}
           </button>
         </div>
       </div>
     );
   }
 
-  // Templates table
+  if (loading)
+    return (
+      <div className="lp-card">
+        <p className="lp-empty">Loading…</p>
+      </div>
+    );
+
   return (
     <div className="lp-card">
       <p className="lp-card-title">Templates</p>
-      <table className="va-table">
-        <thead>
-          <tr>
-            <th>Lesson Plan</th>
-            <th>Date Created</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {plans.map((plan) => (
-            <tr key={plan.id}>
-              <td>{plan.title}</td>
-              <td>{plan.dateCreated}</td>
-              <td>
-                <span
-                  className={`lp-status ${plan.status === "Active" ? "active" : "draft"}`}
-                >
-                  {plan.status}
-                </span>
-              </td>
-              <td>
-                <div className="lp-edit-actions">
-                  <button
-                    className="lp-edit-btn activity"
-                    onClick={() => openEdit(plan, "activity")}
-                  >
-                    Modify Learning Activity
-                  </button>
-                  <button
-                    className="lp-edit-btn objective"
-                    onClick={() => openEdit(plan, "objective")}
-                  >
-                    Modify Learning Objective
-                  </button>
-                </div>
-              </td>
+      {error && (
+        <p style={{ color: "#c0392b", fontSize: 13, marginBottom: 8 }}>
+          ⚠️ {error}
+        </p>
+      )}
+      {plans.length === 0 ? (
+        <EmptyState message="No lesson plans found." />
+      ) : (
+        <table className="va-table">
+          <thead>
+            <tr>
+              <th>Lesson Plan</th>
+              <th>Student</th>
+              <th>Date Created</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {plans.map((plan) => (
+              <tr key={plan.lessonID}>
+                <td>{plan.title}</td>
+                <td>{plan.studentName}</td>
+                <td>{new Date(plan.dateCreated).toLocaleDateString()}</td>
+                <td>
+                  <span
+                    className={`lp-status ${plan.status === "Active" ? "active" : "draft"}`}
+                  >
+                    {plan.status}
+                  </span>
+                </td>
+                <td>
+                  <div className="lp-edit-actions">
+                    <button
+                      className="lp-edit-btn activity"
+                      onClick={() => openEdit(plan)}
+                    >
+                      Edit Plan
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
 
 // ── Delete Tab ─────────────────────────────────────────────────────────────────
 function DeleteTab() {
-  const [plans, setPlans] = useState(MOCK_LESSON_PLANS);
+  const [plans, setPlans] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [toDelete, setToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const confirmDelete = () => {
-    setPlans((prev) => prev.filter((p) => p.id !== toDelete));
-    setToDelete(null);
+  const fetchPlans = useCallback(() => {
+    setLoading(true);
+    lessonPlansAPI
+      .list()
+      .then(setPlans)
+      .catch(() => setError("Failed to load lesson plans."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchPlans();
+  }, [fetchPlans]);
+
+  const confirmDelete = async () => {
+    setDeleting(true);
+    try {
+      await lessonPlansAPI.delete(toDelete);
+      setPlans((prev) => prev.filter((p) => p.lessonID !== toDelete));
+      setToDelete(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDeleting(false);
+    }
   };
+
+  if (loading)
+    return (
+      <div className="lp-card">
+        <p className="lp-empty">Loading…</p>
+      </div>
+    );
 
   return (
     <div className="lp-card">
       <p className="lp-card-title">Templates</p>
+      {error && (
+        <p style={{ color: "#c0392b", fontSize: 13, marginBottom: 8 }}>
+          ⚠️ {error}
+        </p>
+      )}
       {plans.length === 0 ? (
-        <p className="lp-empty">No lesson plans to delete.</p>
+        <EmptyState message="No lesson plans to delete." />
       ) : (
         <table className="va-table">
           <thead>
             <tr>
               <th>Lesson Plan</th>
+              <th>Student</th>
               <th>Date Created</th>
               <th>Status</th>
               <th>Action</th>
@@ -380,9 +439,10 @@ function DeleteTab() {
           </thead>
           <tbody>
             {plans.map((plan) => (
-              <tr key={plan.id}>
+              <tr key={plan.lessonID}>
                 <td>{plan.title}</td>
-                <td>{plan.dateCreated}</td>
+                <td>{plan.studentName}</td>
+                <td>{new Date(plan.dateCreated).toLocaleDateString()}</td>
                 <td>
                   <span
                     className={`lp-status ${plan.status === "Active" ? "active" : "draft"}`}
@@ -393,7 +453,7 @@ function DeleteTab() {
                 <td>
                   <button
                     className="va-delete-btn"
-                    onClick={() => setToDelete(plan.id)}
+                    onClick={() => setToDelete(plan.lessonID)}
                   >
                     Delete
                   </button>
@@ -404,7 +464,6 @@ function DeleteTab() {
         </table>
       )}
 
-      {/* Confirm modal */}
       {toDelete && (
         <div className="va-modal-overlay">
           <div className="va-modal">
@@ -413,12 +472,17 @@ function DeleteTab() {
               Are you sure you want to permanently delete this lesson plan?
             </p>
             <div className="va-modal-actions">
-              <button className="btn lp-modal-yes" onClick={confirmDelete}>
-                YES
+              <button
+                className="btn lp-modal-yes"
+                onClick={confirmDelete}
+                disabled={deleting}
+              >
+                {deleting ? "Deleting…" : "YES"}
               </button>
               <button
                 className="btn btn-back"
                 onClick={() => setToDelete(null)}
+                disabled={deleting}
               >
                 NO
               </button>
@@ -450,7 +514,6 @@ export default function ManageLessonPlans() {
           ))}
         </div>
       </div>
-
       <div className="va-body">
         {activeTab === "generate" && <GenerateTab />}
         {activeTab === "view" && <ViewTab />}
