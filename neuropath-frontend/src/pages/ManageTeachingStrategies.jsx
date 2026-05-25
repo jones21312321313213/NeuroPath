@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import "../styles/ManageVisualAids.css";
 import "../styles/ManageTeachingStrategies.css";
+import { teachingStrategiesAPI } from "../api/client";
 
 const TABS = [
   { key: "generate", label: "Generate Teaching Strategies" },
@@ -9,181 +10,170 @@ const TABS = [
   { key: "delete", label: "Delete Teaching Strategies" },
 ];
 
-const MOCK_STUDENTS = [
-  {
-    id: 1,
-    name: "John Clyde Perez",
-    grade: 3,
-    goals: ["Reading Comprehension", "Problem-Solving Skills", "Social Skills"],
-  },
-  {
-    id: 2,
-    name: "Maria Santos",
-    grade: 2,
-    goals: ["Daily Routine", "Communication Skills", "Attention Span"],
-  },
-  {
-    id: 3,
-    name: "Carlo Reyes",
-    grade: 4,
-    goals: ["Emotional Regulation", "Following Instructions", "Peer Interaction"],
-  },
-];
+function EmptyState({ message = "No records found." }) {
+  return (
+    <div className="va-empty">
+      <span style={{ fontSize: 32, display: "block", marginBottom: 8 }}>
+        📭
+      </span>
+      {message}
+    </div>
+  );
+}
 
-const INITIAL_STRATEGIES = [
-  {
-    id: 1,
-    student: "John Clyde Perez",
-    title: "Be Calm and Positive",
-    goal: "Social Skills",
-    date: "2026-05-20",
-    overview:
-      "A classroom strategy that helps the student remain calm, participate positively, and respond appropriately during group activities.",
-    strategies:
-      "Use a speaker token for turn-taking. Provide short prompts before discussions. Pair the student with a supportive peer for modeling.",
-    tips: "Use short instructions, visual reminders, and calm verbal reinforcement.",
-    implementationTips:
-      "Start with small group activities, monitor participation, and record positive responses after each session.",
-  },
-  {
-    id: 2,
-    student: "Maria Santos",
-    title: "Daily Task Routine",
-    goal: "Daily Routine",
-    date: "2026-05-18",
-    overview:
-      "A step-by-step routine support strategy that improves task completion and independence.",
-    strategies:
-      "Break tasks into three visible steps. Give a checkmark after each completed activity. Review the routine before starting.",
-    tips: "Keep the routine consistent and praise each completed step.",
-    implementationTips:
-      "Use the same task board daily and gradually reduce verbal prompts as the student improves.",
-  },
-  {
-    id: 3,
-    student: "Carlo Reyes",
-    title: "Emotion Check-In",
-    goal: "Emotional Regulation",
-    date: "2026-05-15",
-    overview:
-      "A strategy that encourages the student to identify emotions and choose a calming action before class work.",
-    strategies:
-      "Use an emotion chart. Ask the student to point to a feeling. Let the student choose one coping action such as breathing or drawing.",
-    tips: "Keep the check-in private, short, and predictable.",
-    implementationTips:
-      "Do the check-in at the start of class and after transitions for two weeks.",
-  },
-];
-
+// ── Generate Tab ───────────────────────────────────────────────────────────────
 function GenerateTab({ onSave }) {
+  const [directory, setDirectory] = useState([]);
+  const [loadingDir, setLoadingDir] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [selectedGoals, setSelectedGoals] = useState([]);
+  const [selectedGoal, setSelectedGoal] = useState(null);
   const [generated, setGenerated] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const toggleGoal = (goal) => {
-    setSelectedGoals((prev) =>
-      prev.includes(goal) ? prev.filter((g) => g !== goal) : [...prev, goal]
-    );
-  };
+  useEffect(() => {
+    teachingStrategiesAPI
+      .getDirectory()
+      .then((data) => setDirectory(data.directory || []))
+      .catch(() => setError("Failed to load students and goals."))
+      .finally(() => setLoadingDir(false));
+  }, []);
 
   const selectStudent = (student) => {
     setSelectedStudent(student);
-    setSelectedGoals([]);
+    setSelectedGoal(null);
     setGenerated(null);
+    setError("");
   };
 
-  const handleGenerate = () => {
-    if (!selectedStudent || selectedGoals.length === 0) return;
-    const goalText = selectedGoals.join(", ");
-    setGenerated({
-      title: "Be Calm and Positive",
-      goal: goalText,
-      overview:
-        `This teaching strategy supports ${selectedStudent.name} with ${goalText.toLowerCase()} through structured prompts, peer modeling, and guided reflection.`,
-      strategies:
-        "Use visual scaffolding, short instructions, choice-based activities, and guided questioning. Allow the student to explain answers before moving to the next activity.",
-      tips:
-        "Keep directions brief, model the expected behavior, and give immediate positive feedback.",
-      implementationTips:
-        "Apply the strategy during small group work first, then gradually use it during whole-class activities. Track progress after each session.",
-    });
+  const handleGenerate = async () => {
+    if (!selectedStudent || !selectedGoal) return;
+    setLoading(true);
+    setError("");
+    try {
+      const data = await teachingStrategiesAPI.generate({
+        studentID: selectedStudent.studentID,
+        iepGoalID: selectedGoal.iepID,
+      });
+      setGenerated(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSave = () => {
-    if (!generated || !selectedStudent) return;
-    onSave({
-      id: Date.now(),
-      student: selectedStudent.name,
-      title: generated.title,
-      goal: generated.goal,
-      date: new Date().toISOString().slice(0, 10),
-      overview: generated.overview,
-      strategies: generated.strategies,
-      tips: generated.tips,
-      implementationTips: generated.implementationTips,
-    });
+    if (!generated) return;
+    onSave(generated.data);
     alert("Teaching strategy saved successfully.");
   };
 
   return (
     <div className="va-generate">
-      <div className="va-card">
-        <p className="va-card-title ts-centered-title">Step 1 — Select a Student</p>
-        <div className="va-student-list">
-          {MOCK_STUDENTS.map((student) => (
-            <div
-              key={student.id}
-              className={`va-student-row ts-student-row ${selectedStudent?.id === student.id ? "selected" : ""}`}
-            >
-              <div className="va-student-avatar" />
-              <div className="va-student-info ts-student-info">
-                <span className="va-student-name">{student.name}</span>
-                <span className="va-student-grade">Grade – {student.grade}</span>
-              </div>
-              <button className="va-select-btn" onClick={() => selectStudent(student)}>
-                {selectedStudent?.id === student.id ? "Selected" : "Select"}
-              </button>
-            </div>
-          ))}
+      {error && (
+        <div
+          className="va-card"
+          style={{ color: "#c0392b", fontWeight: 600, fontSize: 13 }}
+        >
+          ⚠️ {error}
         </div>
-      </div>
+      )}
 
-      {selectedStudent && (
-        <div className="va-card">
-          <p className="va-card-title">Step 2 — Select Student IEP Goal/s</p>
-          <div className="ts-goal-list">
-            {selectedStudent.goals.map((goal) => (
-              <label key={goal} className="ts-goal-item">
-                <input
-                  type="checkbox"
-                  checked={selectedGoals.includes(goal)}
-                  onChange={() => toggleGoal(goal)}
-                />
-                <span>{goal}</span>
-              </label>
+      {/* Step 1 — Pick student */}
+      <div className="va-card">
+        <p className="va-card-title ts-centered-title">
+          Step 1 — Select a Student
+        </p>
+        {loadingDir ? (
+          <p className="va-empty">Loading students…</p>
+        ) : directory.length === 0 ? (
+          <EmptyState message="No students found. Add a student profile first." />
+        ) : (
+          <div className="va-student-list">
+            {directory.map((student) => (
+              <div
+                key={student.studentID}
+                className={`va-student-row ts-student-row ${selectedStudent?.studentID === student.studentID ? "selected" : ""}`}
+              >
+                <div className="va-student-avatar" />
+                <div className="va-student-info ts-student-info">
+                  <span className="va-student-name">{student.studentName}</span>
+                </div>
+                <button
+                  className="va-select-btn"
+                  onClick={() => selectStudent(student)}
+                >
+                  {selectedStudent?.studentID === student.studentID
+                    ? "Selected"
+                    : "Select"}
+                </button>
+              </div>
             ))}
           </div>
+        )}
+      </div>
+
+      {/* Step 2 — Pick IEP goal */}
+      {selectedStudent && !generated && (
+        <div className="va-card">
+          <p className="va-card-title">
+            Step 2 — Select an IEP Goal for{" "}
+            <strong>{selectedStudent.studentName}</strong>
+          </p>
+          {selectedStudent.availableGoals.length === 0 ? (
+            <EmptyState message="No IEP goals found for this student." />
+          ) : (
+            <div className="ts-goal-list">
+              {selectedStudent.availableGoals.map((goal) => (
+                <label key={goal.iepID} className="ts-goal-item">
+                  <input
+                    type="radio"
+                    name="iepGoal"
+                    checked={selectedGoal?.iepID === goal.iepID}
+                    onChange={() => setSelectedGoal(goal)}
+                  />
+                  <span>{goal.label}</span>
+                </label>
+              ))}
+            </div>
+          )}
           <div className="va-actions ts-center-actions">
             <button
               className="btn btn-submit"
               onClick={handleGenerate}
-              disabled={selectedGoals.length === 0}
+              disabled={!selectedGoal || loading}
             >
-              Generate Teaching Strategy
+              {loading ? "Generating…" : "Generate Teaching Strategy"}
             </button>
           </div>
         </div>
       )}
 
+      {/* Result */}
       {generated && (
         <div className="va-card ts-detail-card">
-          <h3>{generated.title}</h3>
-          <p><strong>Overview:</strong> {generated.overview}</p>
-          <p><strong>Strategies:</strong> {generated.strategies}</p>
-          <p><strong>Tips:</strong> {generated.tips}</p>
-          <p><strong>Implementation Tips:</strong> {generated.implementationTips}</p>
+          <h3>{generated.data?.title || "Teaching Strategy"}</h3>
+          <div
+            style={{
+              background: "#f7fafd",
+              border: "1px solid #e3eaf2",
+              borderRadius: 7,
+              padding: 16,
+              fontSize: 13.5,
+              color: "#444",
+              lineHeight: 1.7,
+              whiteSpace: "pre-line",
+              marginBottom: 12,
+            }}
+          >
+            {generated.data?.strategyContent}
+          </div>
+          <p className="va-result-sub">{generated.message}</p>
           <div className="va-actions ts-center-actions">
-            <button className="btn btn-submit" onClick={handleSave}>Save Strategy</button>
+            <button className="btn btn-submit" onClick={handleSave}>
+              Save Strategy
+            </button>
           </div>
         </div>
       )}
@@ -191,114 +181,124 @@ function GenerateTab({ onSave }) {
   );
 }
 
+// ── Strategy Detail View ───────────────────────────────────────────────────────
 function StrategyDetails({ strategy, onBack }) {
   return (
     <div className="va-card ts-detail-card">
       <h2>{strategy.title}</h2>
       <div className="ts-detail-grid">
         <section>
-          <h4>Overview</h4>
-          <p>{strategy.overview}</p>
+          <h4>Student</h4>
+          <p>{strategy.studentName}</p>
         </section>
         <section>
-          <h4>Tips:</h4>
-          <p>{strategy.tips}</p>
+          <h4>Date Created</h4>
+          <p>{strategy.formattedDate}</p>
         </section>
         <section className="ts-wide">
-          <h4>Strategies:</h4>
-          <p>{strategy.strategies}</p>
-        </section>
-        <section className="ts-wide">
-          <h4>Implementation Tips</h4>
-          <p>{strategy.implementationTips}</p>
+          <h4>Strategy Content</h4>
+          <p style={{ whiteSpace: "pre-line" }}>{strategy.strategyContent}</p>
         </section>
       </div>
       <div className="ts-page-actions">
-        <button className="btn btn-back" onClick={onBack}>BACK</button>
-        <button className="btn btn-submit">EXPORT</button>
+        <button className="btn btn-back" onClick={onBack}>
+          BACK
+        </button>
+        <a
+          href={teachingStrategiesAPI.exportUrl(strategy.strategyID)}
+          target="_blank"
+          rel="noreferrer"
+          className="btn btn-submit"
+          style={{ textDecoration: "none" }}
+        >
+          EXPORT
+        </a>
       </div>
     </div>
   );
 }
 
-function ViewTab({ strategies }) {
+// ── View Tab ───────────────────────────────────────────────────────────────────
+function ViewTab() {
+  const [directory, setDirectory] = useState([]);
+  const [loadingDir, setLoadingDir] = useState(true);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [strategies, setStrategies] = useState([]);
+  const [loadingStrats, setLoadingStrats] = useState(false);
   const [selected, setSelected] = useState(null);
-  if (selected) return <StrategyDetails strategy={selected} onBack={() => setSelected(null)} />;
+  const [error, setError] = useState("");
 
-  return (
-    <div className="va-card">
-      <p className="va-card-title ts-centered-title">Saved Teaching Strategies</p>
-      <table className="va-table">
-        <thead>
-          <tr>
-            <th>Student</th>
-            <th>Strategy Title</th>
-            <th>Goal</th>
-            <th>Date Created</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {strategies.map((strategy) => (
-            <tr key={strategy.id}>
-              <td>{strategy.student}</td>
-              <td>{strategy.title}</td>
-              <td><span className="va-badge">{strategy.goal}</span></td>
-              <td>{strategy.date}</td>
-              <td><button className="va-view-btn" onClick={() => setSelected(strategy)}>View</button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+  useEffect(() => {
+    teachingStrategiesAPI
+      .getDirectory()
+      .then((data) => setDirectory(data.directory || []))
+      .catch(() => setError("Failed to load students."))
+      .finally(() => setLoadingDir(false));
+  }, []);
 
-function EditTab({ strategies, onUpdate }) {
-  const [selected, setSelected] = useState(null);
-  const [form, setForm] = useState(null);
-
-  const openEdit = (strategy) => {
-    setSelected(strategy);
-    setForm({ ...strategy });
+  const handleSelectStudent = (s) => {
+    setSelectedStudent(s);
+    setLoadingStrats(true);
+    teachingStrategiesAPI
+      .list(s.studentID)
+      .then(setStrategies)
+      .catch(() => setError("Failed to load strategies."))
+      .finally(() => setLoadingStrats(false));
   };
 
-  const saveEdit = () => {
-    onUpdate(form);
-    setSelected(null);
-    setForm(null);
-    alert("Teaching strategy updated successfully.");
-  };
-
-  if (selected && form) {
+  if (selected)
     return (
-      <div className="va-card ts-edit-card">
-        <h2>{selected.title}</h2>
-        <div className="ts-form-grid">
-          <label>
-            Strategy Title
-            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          </label>
-          <label>
-            Overview
-            <textarea value={form.overview} onChange={(e) => setForm({ ...form, overview: e.target.value })} />
-          </label>
-          <label>
-            Strategies
-            <textarea value={form.strategies} onChange={(e) => setForm({ ...form, strategies: e.target.value })} />
-          </label>
-          <label>
-            Tips
-            <textarea value={form.tips} onChange={(e) => setForm({ ...form, tips: e.target.value })} />
-          </label>
-          <label>
-            Implementation Tips
-            <textarea value={form.implementationTips} onChange={(e) => setForm({ ...form, implementationTips: e.target.value })} />
-          </label>
-        </div>
-        <div className="ts-page-actions">
-          <button className="btn btn-back" onClick={() => setSelected(null)}>BACK</button>
-          <button className="btn btn-submit" onClick={saveEdit}>SAVE</button>
+      <StrategyDetails strategy={selected} onBack={() => setSelected(null)} />
+    );
+
+  if (selectedStudent) {
+    return (
+      <div className="va-card">
+        <p className="va-card-title ts-centered-title">
+          {selectedStudent.studentName} – Teaching Strategies
+        </p>
+        {error && <p style={{ color: "#c0392b", fontSize: 13 }}>⚠️ {error}</p>}
+        {loadingStrats ? (
+          <p className="va-empty">Loading…</p>
+        ) : strategies.length === 0 ? (
+          <EmptyState message="No teaching strategies found for this student." />
+        ) : (
+          <table className="va-table">
+            <thead>
+              <tr>
+                <th>Strategy Title</th>
+                <th>Date Created</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {strategies.map((strategy) => (
+                <tr key={strategy.strategyID}>
+                  <td>{strategy.title}</td>
+                  <td>{strategy.formattedDate}</td>
+                  <td>
+                    <button
+                      className="va-view-btn"
+                      onClick={() => setSelected(strategy)}
+                    >
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <div className="ts-page-actions" style={{ marginTop: 16 }}>
+          <button
+            className="btn btn-back"
+            onClick={() => {
+              setSelectedStudent(null);
+              setStrategies([]);
+            }}
+          >
+            ← Back to Students
+          </button>
         </div>
       </div>
     );
@@ -306,103 +306,400 @@ function EditTab({ strategies, onUpdate }) {
 
   return (
     <div className="va-card">
-      <p className="va-card-title ts-centered-title">Edit Teaching Strategies</p>
-      <table className="va-table">
-        <thead>
-          <tr>
-            <th>Student</th>
-            <th>Strategy Title</th>
-            <th>Goal</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {strategies.map((strategy) => (
-            <tr key={strategy.id}>
-              <td>{strategy.student}</td>
-              <td>{strategy.title}</td>
-              <td><span className="va-badge">{strategy.goal}</span></td>
-              <td><button className="va-view-btn" onClick={() => openEdit(strategy)}>Edit</button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function DeleteTab({ strategies, onDelete }) {
-  const [toDelete, setToDelete] = useState(null);
-  const item = useMemo(
-    () => strategies.find((strategy) => strategy.id === toDelete),
-    [strategies, toDelete]
-  );
-
-  const confirmDelete = () => {
-    onDelete(toDelete);
-    setToDelete(null);
-  };
-
-  return (
-    <div className="va-card">
-      <p className="va-card-title ts-centered-title">Delete Teaching Strategies</p>
-      <table className="va-table">
-        <thead>
-          <tr>
-            <th>Student</th>
-            <th>Strategy Title</th>
-            <th>Goal</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {strategies.map((strategy) => (
-            <tr key={strategy.id}>
-              <td>{strategy.student}</td>
-              <td>{strategy.title}</td>
-              <td><span className="va-badge">{strategy.goal}</span></td>
-              <td>
-                <button className="va-delete-btn" onClick={() => setToDelete(strategy.id)}>
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {toDelete && (
-        <div className="va-modal-overlay">
-          <div className="va-modal">
-            <p className="va-modal-title">Delete Teaching Strategy?</p>
-            <p className="va-modal-body">
-              Are you sure you want to delete <strong>{item?.title}</strong>? This action cannot be undone.
-            </p>
-            <div className="va-modal-actions">
-              <button className="btn btn-back" onClick={() => setToDelete(null)}>Cancel</button>
-              <button className="btn va-btn-danger" onClick={confirmDelete}>Yes, Delete</button>
+      <p className="va-card-title ts-centered-title">
+        Saved Teaching Strategies
+      </p>
+      {error && <p style={{ color: "#c0392b", fontSize: 13 }}>⚠️ {error}</p>}
+      {loadingDir ? (
+        <p className="va-empty">Loading students…</p>
+      ) : directory.length === 0 ? (
+        <EmptyState message="No students found." />
+      ) : (
+        <div className="va-student-list">
+          {directory.map((s) => (
+            <div key={s.studentID} className="va-student-row">
+              <div className="va-student-avatar" />
+              <div className="va-student-info">
+                <span className="va-student-name">{s.studentName}</span>
+              </div>
+              <button
+                className="va-select-btn"
+                onClick={() => handleSelectStudent(s)}
+              >
+                Select
+              </button>
             </div>
-          </div>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
+// ── Edit Tab ───────────────────────────────────────────────────────────────────
+function EditTab() {
+  const [directory, setDirectory] = useState([]);
+  const [loadingDir, setLoadingDir] = useState(true);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [strategies, setStrategies] = useState([]);
+  const [loadingStrats, setLoadingStrats] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [form, setForm] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    teachingStrategiesAPI
+      .getDirectory()
+      .then((data) => setDirectory(data.directory || []))
+      .catch(() => setError("Failed to load students."))
+      .finally(() => setLoadingDir(false));
+  }, []);
+
+  const handleSelectStudent = (s) => {
+    setSelectedStudent(s);
+    setLoadingStrats(true);
+    teachingStrategiesAPI
+      .list(s.studentID)
+      .then(setStrategies)
+      .catch(() => setError("Failed to load strategies."))
+      .finally(() => setLoadingStrats(false));
+  };
+
+  const openEdit = (strategy) => {
+    setSelected(strategy);
+    setForm({
+      title: strategy.title,
+      strategyContent: strategy.strategyContent,
+    });
+  };
+
+  const saveEdit = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      await teachingStrategiesAPI.update(selected.strategyID, form);
+      setStrategies((prev) =>
+        prev.map((s) =>
+          s.strategyID === selected.strategyID ? { ...s, ...form } : s,
+        ),
+      );
+      setSelected(null);
+      setForm(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Edit form
+  if (selected && form) {
+    return (
+      <div className="va-card ts-edit-card">
+        <h2>{selected.title}</h2>
+        <div className="ts-form-grid">
+          <label>
+            Strategy Title
+            <input
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+            />
+          </label>
+          <label>
+            Strategy Content
+            <textarea
+              value={form.strategyContent}
+              onChange={(e) =>
+                setForm({ ...form, strategyContent: e.target.value })
+              }
+              style={{ minHeight: 160 }}
+            />
+          </label>
+        </div>
+        {error && (
+          <p style={{ color: "#c0392b", fontSize: 13, marginTop: 8 }}>
+            ⚠️ {error}
+          </p>
+        )}
+        <div className="ts-page-actions">
+          <button
+            className="btn btn-back"
+            onClick={() => {
+              setSelected(null);
+              setForm(null);
+            }}
+          >
+            BACK
+          </button>
+          <button
+            className="btn btn-submit"
+            onClick={saveEdit}
+            disabled={saving}
+          >
+            {saving ? "Saving…" : "SAVE"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Strategy list for selected student
+  if (selectedStudent) {
+    return (
+      <div className="va-card">
+        <p className="va-card-title ts-centered-title">
+          {selectedStudent.studentName} – Teaching Strategies
+        </p>
+        {error && <p style={{ color: "#c0392b", fontSize: 13 }}>⚠️ {error}</p>}
+        {loadingStrats ? (
+          <p className="va-empty">Loading…</p>
+        ) : strategies.length === 0 ? (
+          <EmptyState message="No teaching strategies found for this student." />
+        ) : (
+          <table className="va-table">
+            <thead>
+              <tr>
+                <th>Strategy Title</th>
+                <th>Date Created</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {strategies.map((strategy) => (
+                <tr key={strategy.strategyID}>
+                  <td>{strategy.title}</td>
+                  <td>{strategy.formattedDate}</td>
+                  <td>
+                    <button
+                      className="va-view-btn"
+                      onClick={() => openEdit(strategy)}
+                    >
+                      Edit
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <div className="ts-page-actions" style={{ marginTop: 16 }}>
+          <button
+            className="btn btn-back"
+            onClick={() => {
+              setSelectedStudent(null);
+              setStrategies([]);
+            }}
+          >
+            ← Back to Students
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Student selection
+  return (
+    <div className="va-card">
+      <p className="va-card-title ts-centered-title">
+        Edit Teaching Strategies
+      </p>
+      {error && <p style={{ color: "#c0392b", fontSize: 13 }}>⚠️ {error}</p>}
+      {loadingDir ? (
+        <p className="va-empty">Loading students…</p>
+      ) : directory.length === 0 ? (
+        <EmptyState message="No students found." />
+      ) : (
+        <div className="va-student-list">
+          {directory.map((s) => (
+            <div key={s.studentID} className="va-student-row">
+              <div className="va-student-avatar" />
+              <div className="va-student-info">
+                <span className="va-student-name">{s.studentName}</span>
+              </div>
+              <button
+                className="va-select-btn"
+                onClick={() => handleSelectStudent(s)}
+              >
+                Select
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Delete Tab ─────────────────────────────────────────────────────────────────
+function DeleteTab() {
+  const [directory, setDirectory] = useState([]);
+  const [loadingDir, setLoadingDir] = useState(true);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [strategies, setStrategies] = useState([]);
+  const [loadingStrats, setLoadingStrats] = useState(false);
+  const [toDelete, setToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+
+  const item = useMemo(
+    () => strategies.find((s) => s.strategyID === toDelete),
+    [strategies, toDelete],
+  );
+
+  useEffect(() => {
+    teachingStrategiesAPI
+      .getDirectory()
+      .then((data) => setDirectory(data.directory || []))
+      .catch(() => setError("Failed to load students."))
+      .finally(() => setLoadingDir(false));
+  }, []);
+
+  const handleSelectStudent = (s) => {
+    setSelectedStudent(s);
+    setLoadingStrats(true);
+    teachingStrategiesAPI
+      .listForDelete(s.studentID)
+      .then(setStrategies)
+      .catch(() => setError("Failed to load strategies."))
+      .finally(() => setLoadingStrats(false));
+  };
+
+  const confirmDelete = async () => {
+    setDeleting(true);
+    try {
+      await teachingStrategiesAPI.delete(toDelete);
+      setStrategies((prev) => prev.filter((s) => s.strategyID !== toDelete));
+      setToDelete(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // Strategy list for selected student
+  if (selectedStudent) {
+    return (
+      <div className="va-card">
+        <p className="va-card-title ts-centered-title">
+          {selectedStudent.studentName} – Teaching Strategies
+        </p>
+        {error && <p style={{ color: "#c0392b", fontSize: 13 }}>⚠️ {error}</p>}
+        {loadingStrats ? (
+          <p className="va-empty">Loading…</p>
+        ) : strategies.length === 0 ? (
+          <EmptyState message="No teaching strategies to delete for this student." />
+        ) : (
+          <table className="va-table">
+            <thead>
+              <tr>
+                <th>Strategy Title</th>
+                <th>Date Created</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {strategies.map((strategy) => (
+                <tr key={strategy.strategyID}>
+                  <td>{strategy.title}</td>
+                  <td>{strategy.formattedDate}</td>
+                  <td>
+                    <button
+                      className="va-delete-btn"
+                      onClick={() => setToDelete(strategy.strategyID)}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <div className="ts-page-actions" style={{ marginTop: 16 }}>
+          <button
+            className="btn btn-back"
+            onClick={() => {
+              setSelectedStudent(null);
+              setStrategies([]);
+            }}
+          >
+            ← Back to Students
+          </button>
+        </div>
+
+        {toDelete && (
+          <div className="va-modal-overlay">
+            <div className="va-modal">
+              <p className="va-modal-title">Delete Teaching Strategy?</p>
+              <p className="va-modal-body">
+                Are you sure you want to delete <strong>{item?.title}</strong>?
+                This action cannot be undone.
+              </p>
+              <div className="va-modal-actions">
+                <button
+                  className="btn btn-back"
+                  onClick={() => setToDelete(null)}
+                  disabled={deleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn va-btn-danger"
+                  onClick={confirmDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting…" : "Yes, Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Student selection
+  return (
+    <div className="va-card">
+      <p className="va-card-title ts-centered-title">
+        Delete Teaching Strategies
+      </p>
+      {error && <p style={{ color: "#c0392b", fontSize: 13 }}>⚠️ {error}</p>}
+      {loadingDir ? (
+        <p className="va-empty">Loading students…</p>
+      ) : directory.length === 0 ? (
+        <EmptyState message="No students found." />
+      ) : (
+        <div className="va-student-list">
+          {directory.map((s) => (
+            <div key={s.studentID} className="va-student-row">
+              <div className="va-student-avatar" />
+              <div className="va-student-info">
+                <span className="va-student-name">{s.studentName}</span>
+              </div>
+              <button
+                className="va-select-btn"
+                onClick={() => handleSelectStudent(s)}
+              >
+                Select
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Page ──────────────────────────────────────────────────────────────────
 export default function ManageTeachingStrategies() {
   const [activeTab, setActiveTab] = useState("generate");
-  const [strategies, setStrategies] = useState(INITIAL_STRATEGIES);
+  const [strategies, setStrategies] = useState([]);
 
   const saveStrategy = (strategy) => {
-    setStrategies((prev) => [strategy, ...prev]);
-  };
-
-  const updateStrategy = (updated) => {
-    setStrategies((prev) => prev.map((strategy) => strategy.id === updated.id ? updated : strategy));
-  };
-
-  const deleteStrategy = (id) => {
-    setStrategies((prev) => prev.filter((strategy) => strategy.id !== id));
+    if (strategy) setStrategies((prev) => [strategy, ...prev]);
   };
 
   return (
@@ -424,9 +721,9 @@ export default function ManageTeachingStrategies() {
 
       <div className="va-body">
         {activeTab === "generate" && <GenerateTab onSave={saveStrategy} />}
-        {activeTab === "view" && <ViewTab strategies={strategies} />}
-        {activeTab === "edit" && <EditTab strategies={strategies} onUpdate={updateStrategy} />}
-        {activeTab === "delete" && <DeleteTab strategies={strategies} onDelete={deleteStrategy} />}
+        {activeTab === "view" && <ViewTab />}
+        {activeTab === "edit" && <EditTab />}
+        {activeTab === "delete" && <DeleteTab />}
       </div>
     </div>
   );

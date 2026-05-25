@@ -1,10 +1,6 @@
 // Base URL — change for production
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
-/**
- * Core fetch wrapper. Attaches Bearer token if present.
- * Throws structured errors for easy handling in components.
- */
 async function request(endpoint, options = {}) {
   const token = localStorage.getItem("neuropath_access_token");
 
@@ -22,7 +18,6 @@ async function request(endpoint, options = {}) {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    // Flatten DRF validation errors into a readable string
     const errors = data.errors || data.detail || data;
     let message = "Something went wrong.";
     if (typeof errors === "string") {
@@ -37,35 +32,28 @@ async function request(endpoint, options = {}) {
   return data;
 }
 
-// ── Auth endpoints ────────────────────────────────────────────────────────
-
+// ── Auth ───────────────────────────────────────────────────────────────────────
 export const authAPI = {
   register: (payload) =>
     request("/auth/register/", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-
   login: (payload) =>
-    request("/auth/login/", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
-
+    request("/auth/login/", { method: "POST", body: JSON.stringify(payload) }),
   me: () => request("/auth/me/"),
-
   logout: (refreshToken) =>
     request("/auth/logout/", {
       method: "POST",
       body: JSON.stringify({ refresh: refreshToken }),
     }),
-
   refreshToken: (refresh) =>
     request("/auth/token/refresh/", {
       method: "POST",
       body: JSON.stringify({ refresh }),
     }),
 };
+
 // ── Students ───────────────────────────────────────────────────────────────────
 export const studentsAPI = {
   list: () => request("/users/students/"),
@@ -115,18 +103,32 @@ export const visualAidsAPI = {
 
 // ── Teaching Strategies ────────────────────────────────────────────────────────
 export const teachingStrategiesAPI = {
-  list: () => request("/resources/query-strategies/"),
-  get: (id) => request(`/resources/query-strategies/${id}/`),
+  // Generate tab — GET loads { directory: [{ studentID, studentName, availableGoals: [{ iepID, label }] }] }
+  getDirectory: () => request("/resources/generate-strategy/"),
+  // Generate tab — POST { studentID, iepGoalID } → { message, data: { strategyID, title, strategyContent, ... } }
   generate: (payload) =>
     request("/resources/generate-strategy/", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  // View tab — GET list filtered by studentID → [{ strategyID, studentName, title, strategyContent, formattedDate }]
+  list: (studentID) =>
+    request(`/resources/query-strategies/?studentID=${studentID}`),
+  // View tab — GET single strategy detail
+  get: (id) => request(`/resources/query-strategies/${id}/`),
+  // View/Export tab — returns a PDF download URL
+  exportUrl: (id) =>
+    `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/resources/query-strategies/${id}/export/`,
+  // Edit tab — PUT { title, strategyContent }
   update: (id, payload) =>
     request(`/resources/edit-strategy/${id}/`, {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
+  // Delete tab — GET list for deletion (same as list but separate endpoint)
+  listForDelete: (studentID) =>
+    request(`/resources/delete-strategy/?studentID=${studentID}`),
+  // Delete tab — DELETE
   delete: (id) =>
     request(`/resources/delete-strategy/${id}/`, { method: "DELETE" }),
 };
