@@ -132,3 +132,26 @@ export const teachingStrategiesAPI = {
   delete: (id) =>
     request(`/resources/delete-strategy/${id}/`, { method: "DELETE" }),
 };
+
+
+// ── IEP Generation / Viewing ─────────────────────────────────────────────────
+export const iepAPI = {
+  generate: (payload) =>
+    request("/iep/generate-iep/", {
+      method: "POST",
+      body: JSON.stringify({ action: "generate", ...payload }),
+    }),
+  save: (payload) =>
+    request("/iep/generate-iep/", {
+      method: "POST",
+      body: JSON.stringify({ action: "save", ...payload }),
+    }),
+  listByStudent: (studentID) => request(`/iep/student/${studentID}/`),
+  get: (id) => request(`/iep/${id}/`),
+  update: (id, payload) =>
+    request(`/iep/edit/${id}/`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  delete: (id) => request(`/iep/delete/${id}/`, { method: "DELETE" }),
+};
