@@ -1,70 +1,53 @@
-import { useState } from 'react'
-import '../styles/OutcomeMonitoring.css'
+import { useState, useEffect } from "react";
+import "../styles/OutcomeMonitoring.css";
+import { studentsAPI } from "../api/client";
 
-const MOCK_STUDENTS = [
-  {
-    id: 1,
-    name: 'John Doe',
-    grade: 3,
-    age: 10,
-    primaryDisability: 'Autism Spectrum Disorder (Level 2)',
-    plaafp: {
-      academics: 'Strong in visual math, reading one grade level below.',
-      communication: 'Limited verbal output, uses AAC device (requests basic needs), needs support with peer interactions.',
-      behavior: 'Sensory sensitivity to loud noises; responds well to structured schedules and visual cues.',
-    },
-    goals: [
-      { id: 1, area: 'Reading', goal: 'Student will identify the main idea of a passage with 80% accuracy across 4 out of 5 trials.' },
-      { id: 2, area: 'Communication', goal: 'Student will initiate greetings with peers using AAC device in 3 out of 5 opportunities.' },
-      { id: 3, area: 'Behavior', goal: 'Student will use a visual schedule independently for 80% of daily transitions.' },
-    ],
-  },
-  {
-    id: 2,
-    name: 'Maria Santos',
-    grade: 2,
-    age: 8,
-    primaryDisability: 'Specific Learning Disability (Dyslexia)',
-    plaafp: {
-      academics: 'Below grade level in reading and writing; strengths in oral comprehension and math.',
-      communication: 'Communicates well verbally; struggles with written expression.',
-      behavior: 'Generally on task; may avoid reading tasks.',
-    },
-    goals: [
-      { id: 1, area: 'Reading', goal: 'Student will decode CVC words with 85% accuracy.' },
-      { id: 2, area: 'Writing', goal: 'Student will write a 3-sentence paragraph with minimal errors in 4 out of 5 attempts.' },
-    ],
-  },
-  {
-    id: 3,
-    name: 'Carlo Reyes',
-    grade: 4,
-    age: 10,
-    primaryDisability: 'ADHD – Combined Presentation',
-    plaafp: {
-      academics: 'On grade level in math; reading comprehension needs support.',
-      communication: 'Talkative and social; struggles with turn-taking in conversation.',
-      behavior: 'Difficulty sustaining attention for more than 10 minutes; responds well to movement breaks.',
-    },
-    goals: [
-      { id: 1, area: 'Attention', goal: 'Student will remain on task for 15-minute intervals with one prompt in 4 out of 5 sessions.' },
-      { id: 2, area: 'Reading', goal: 'Student will answer comprehension questions with 75% accuracy.' },
-    ],
-  },
-]
+function EmptyState({ message }) {
+  return (
+    <div className="om-empty">
+      <span style={{ fontSize: 32, display: "block", marginBottom: 8 }}>
+        📭
+      </span>
+      {message}
+    </div>
+  );
+}
 
 export default function ViewStudentRecords() {
-  const [search, setSearch] = useState('')
-  const [filterGrade, setFilterGrade] = useState('')
-  const [filterAge, setFilterAge] = useState('')
-  const [selectedStudent, setSelectedStudent] = useState(null)
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [filterGrade, setFilterGrade] = useState("");
+  const [filterAge, setFilterAge] = useState("");
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [studentDetail, setStudentDetail] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
-  const filtered = MOCK_STUDENTS.filter((s) => {
-    const matchName = s.name.toLowerCase().includes(search.toLowerCase())
-    const matchGrade = filterGrade ? s.grade === parseInt(filterGrade) : true
-    const matchAge = filterAge ? s.age === parseInt(filterAge) : true
-    return matchName && matchGrade && matchAge
-  })
+  useEffect(() => {
+    studentsAPI
+      .list()
+      .then(setStudents)
+      .catch(() => setError("Failed to load students."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSelect = (s) => {
+    setSelectedStudent(s);
+    setLoadingDetail(true);
+    studentsAPI
+      .get(s.studentID)
+      .then((res) => setStudentDetail(res.data || res))
+      .catch(() => setError("Failed to load student record."))
+      .finally(() => setLoadingDetail(false));
+  };
+
+  const filtered = students.filter((s) => {
+    const matchName = s.name.toLowerCase().includes(search.toLowerCase());
+    const matchGrade = filterGrade ? s.grade === parseInt(filterGrade) : true;
+    const matchAge = filterAge ? s.age === parseInt(filterAge) : true;
+    return matchName && matchGrade && matchAge;
+  });
 
   // ── Student Record Detail ──────────────────────────────
   if (selectedStudent) {
@@ -74,67 +57,88 @@ export default function ViewStudentRecords() {
           <span className="om-header-title">View Student Records</span>
         </div>
         <div className="om-body">
-          <div className="om-record-card">
-            <h2 className="om-record-title">Student Record</h2>
-
-            {/* Student Profile */}
-            <div className="om-section">
-              <div className="om-section-header">STUDENT PROFILE</div>
-              <div className="om-profile-grid">
-                <div className="om-profile-field">
-                  <span className="om-field-label">Name:</span>
-                  <span>{selectedStudent.name}</span>
-                </div>
-                <div className="om-profile-field">
-                  <span className="om-field-label">Age:</span>
-                  <span>{selectedStudent.age}</span>
-                </div>
-                <div className="om-profile-field">
-                  <span className="om-field-label">Grade:</span>
-                  <span>{selectedStudent.grade}th</span>
-                </div>
-                <div className="om-profile-field full-width">
-                  <span className="om-field-label">Primary Disability:</span>
-                  <span>{selectedStudent.primaryDisability}</span>
-                </div>
-              </div>
+          {loadingDetail ? (
+            <div className="om-card">
+              <p className="om-empty">Loading record…</p>
             </div>
+          ) : (
+            <div className="om-record-card">
+              <h2 className="om-record-title">Student Record</h2>
 
-            {/* PLAAFP */}
-            <div className="om-section">
-              <div className="om-section-header">PRESENT LEVELS OF PERFORMANCE (PLAAFP)</div>
-              <div className="om-plaafp">
-                <p><strong>Academics:</strong> {selectedStudent.plaafp.academics}</p>
-                <p><strong>Communication:</strong> {selectedStudent.plaafp.communication}</p>
-                <p><strong>Behavior:</strong> {selectedStudent.plaafp.behavior}</p>
-              </div>
-            </div>
-
-            {/* Goals */}
-            <div className="om-section">
-              <div className="om-section-header">GOALS & OBJECTIVES</div>
-              <div className="om-goals">
-                {selectedStudent.goals.map((g) => (
-                  <div key={g.id} className="om-goal-row">
-                    <span className="om-goal-area">{g.area}</span>
-                    <span className="om-goal-text">{g.goal}</span>
+              {/* Student Profile */}
+              <div className="om-section">
+                <div className="om-section-header">STUDENT PROFILE</div>
+                <div className="om-profile-grid">
+                  <div className="om-profile-field">
+                    <span className="om-field-label">Name:</span>
+                    <span>{studentDetail?.name || selectedStudent.name}</span>
                   </div>
-                ))}
+                  <div className="om-profile-field">
+                    <span className="om-field-label">Age:</span>
+                    <span>{studentDetail?.age || selectedStudent.age}</span>
+                  </div>
+                  <div className="om-profile-field">
+                    <span className="om-field-label">Grade:</span>
+                    <span>
+                      Grade {studentDetail?.grade || selectedStudent.grade}
+                    </span>
+                  </div>
+                  <div className="om-profile-field">
+                    <span className="om-field-label">Gender:</span>
+                    <span>{studentDetail?.gender || "—"}</span>
+                  </div>
+                  <div className="om-profile-field full-width">
+                    <span className="om-field-label">Primary Disability:</span>
+                    <span>{studentDetail?.asdBackground || "—"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Present Levels */}
+              <div className="om-section">
+                <div className="om-section-header">
+                  PRESENT LEVELS OF PERFORMANCE (PLAAFP)
+                </div>
+                <div className="om-plaafp">
+                  <p>
+                    <strong>Assessment Results:</strong>{" "}
+                    {studentDetail?.assessmentResult || "—"}
+                  </p>
+                  <p>
+                    <strong>Preferences:</strong>{" "}
+                    {studentDetail?.preferences || "—"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Goals — shown from IEP when backend is ready */}
+              <div className="om-section">
+                <div className="om-section-header">GOALS & OBJECTIVES</div>
+                <div className="om-plaafp">
+                  <p style={{ color: "#aaa", fontStyle: "italic" }}>
+                    IEP goals will appear here once the IEP Generation module is
+                    connected.
+                  </p>
+                </div>
+              </div>
+
+              <div className="om-record-actions">
+                <button
+                  className="btn btn-back"
+                  onClick={() => {
+                    setSelectedStudent(null);
+                    setStudentDetail(null);
+                  }}
+                >
+                  ← Back
+                </button>
+                <button className="btn om-export-btn">EXPORT</button>
               </div>
             </div>
-
-            <div className="om-record-actions">
-              <button className="btn btn-back" onClick={() => setSelectedStudent(null)}>
-                ← Back
-              </button>
-              <button className="btn om-export-btn">
-                EXPORT
-              </button>
-            </div>
-          </div>
+          )}
         </div>
       </div>
-    )
+    );
   }
 
   // ── Student List ───────────────────────────────────────
@@ -146,6 +150,11 @@ export default function ViewStudentRecords() {
       <div className="om-body">
         <div className="om-card">
           <h2 className="om-list-title">List of Students</h2>
+          {error && (
+            <p style={{ color: "#c0392b", fontSize: 13, marginBottom: 8 }}>
+              ⚠️ {error}
+            </p>
+          )}
           <div className="om-search-bar">
             <input
               className="form-input om-search-input"
@@ -155,29 +164,50 @@ export default function ViewStudentRecords() {
             />
             <div className="om-filters">
               <span className="om-filter-label">Filter:</span>
-              <select className="form-select om-filter-select" value={filterGrade} onChange={(e) => setFilterGrade(e.target.value)}>
+              <select
+                className="form-select om-filter-select"
+                value={filterGrade}
+                onChange={(e) => setFilterGrade(e.target.value)}
+              >
                 <option value="">Grade</option>
-                {[1,2,3,4,5,6].map((g) => <option key={g} value={g}>Grade {g}</option>)}
+                {[1, 2, 3, 4, 5, 6].map((g) => (
+                  <option key={g} value={g}>
+                    Grade {g}
+                  </option>
+                ))}
               </select>
-              <select className="form-select om-filter-select" value={filterAge} onChange={(e) => setFilterAge(e.target.value)}>
+              <select
+                className="form-select om-filter-select"
+                value={filterAge}
+                onChange={(e) => setFilterAge(e.target.value)}
+              >
                 <option value="">Age</option>
-                {[6,7,8,9,10,11,12].map((a) => <option key={a} value={a}>{a}</option>)}
+                {[6, 7, 8, 9, 10, 11, 12].map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
 
           <div className="om-student-list">
-            {filtered.length === 0 ? (
-              <p className="om-empty">No students found.</p>
+            {loading ? (
+              <p className="om-empty">Loading students…</p>
+            ) : filtered.length === 0 ? (
+              <EmptyState message="No students found." />
             ) : (
               filtered.map((s) => (
-                <div key={s.id} className="om-student-row">
+                <div key={s.studentID} className="om-student-row">
                   <div className="va-student-avatar" />
                   <div className="va-student-info">
                     <span className="va-student-name">{s.name}</span>
                     <span className="va-student-grade">Grade – {s.grade}</span>
                   </div>
-                  <button className="va-select-btn" onClick={() => setSelectedStudent(s)}>
+                  <button
+                    className="va-select-btn"
+                    onClick={() => handleSelect(s)}
+                  >
                     Select
                   </button>
                 </div>
@@ -187,5 +217,5 @@ export default function ViewStudentRecords() {
         </div>
       </div>
     </div>
-  )
+  );
 }
