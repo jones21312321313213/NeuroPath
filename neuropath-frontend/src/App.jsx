@@ -16,6 +16,7 @@ import IEPGenerationPage from "./pages/IEPGenerationPage";
 import ViewStudentProfile from "./pages/StudentProfiling/ViewStudentProfile";
 import ViewSelectedStudentProfile from "./pages/StudentProfiling/ViewSelectedStudentProfile";
 import UpdateStudentProfile from "./pages/StudentProfiling/UpdateStudentProfile";
+import LoginSplash from "./components/LoginSplash";
 import "./App.css";
 
 const breadcrumbMap = {
@@ -46,9 +47,13 @@ function Placeholder({ title }) {
   );
 }
 
-function renderPage(activePage, setActivePage, selectedStudentId, setSelectedStudentId)
-{ 
-switch (activePage) {
+function renderPage(
+  activePage,
+  setActivePage,
+  selectedStudentId,
+  setSelectedStudentId,
+) {
+  switch (activePage) {
     case "overview":
       return <Overview setActivePage={setActivePage} />;
     case "create-student-profile":
@@ -67,13 +72,13 @@ switch (activePage) {
           setActivePage={setActivePage}
         />
       );
-      case "update-student-profile":
-        return (
-          <UpdateStudentProfile
-            studentId={selectedStudentId}
-            onBack={() => setActivePage("view-student-profile")}
-          />
-        );      
+    case "update-student-profile":
+      return (
+        <UpdateStudentProfile
+          studentId={selectedStudentId}
+          onBack={() => setActivePage("view-student-profile")}
+        />
+      );
     case "ai-insight":
       return <Placeholder title="Analyze & Generate AI Insight" />;
     case "iep-generation":
@@ -101,13 +106,17 @@ function Dashboard() {
   const [activePage, setActivePage] = useState("overview");
   const [selectedStudentId, setSelectedStudentId] = useState(null);
 
-
   return (
     <div className="app-layout">
       <Sidebar activePage={activePage} setActivePage={setActivePage} />
       <div className="main-area">
         <Topbar breadcrumb={breadcrumbMap[activePage] || "DASHBOARD"} />
-        {renderPage(activePage, setActivePage, selectedStudentId, setSelectedStudentId)}
+        {renderPage(
+          activePage,
+          setActivePage,
+          selectedStudentId,
+          setSelectedStudentId,
+        )}
       </div>
     </div>
   );
@@ -117,28 +126,45 @@ function Router() {
   const { user } = useAuth();
   const [page, setPage] = useState("landing");
   const [successMessage, setSuccessMessage] = useState("");
+  const [showSplash, setShowSplash] = useState(false);
 
   const navigate = (to, msg = "") => {
     setSuccessMessage(msg);
     setPage(to);
   };
 
-  if (user || page === "dashboard") return <Dashboard />;
+  const handleLoginSuccess = () => {
+    setShowSplash(true);
+  };
+
+  if (showSplash && !user) {
+    // User object not set yet but splash is showing — still show splash
+  }
+
+  if ((user || page === "dashboard") && !showSplash) return <Dashboard />;
 
   return (
     <>
-      {page === "landing" && (
+      {showSplash && (
+        <LoginSplash
+          onComplete={() => {
+            setShowSplash(false);
+            navigate("dashboard");
+          }}
+        />
+      )}
+      {!showSplash && page === "landing" && (
         <LandingPage onGetStarted={() => navigate("login")} />
       )}
-      {page === "login" && (
+      {!showSplash && page === "login" && (
         <LoginPage
           onNavigateRegister={() => navigate("register")}
-          onLoginSuccess={() => navigate("dashboard")}
+          onLoginSuccess={handleLoginSuccess}
           successMessage={successMessage}
           onClearMessage={() => setSuccessMessage("")}
         />
       )}
-      {page === "register" && (
+      {!showSplash && page === "register" && (
         <RegisterPage onNavigateLogin={(msg) => navigate("login", msg)} />
       )}
     </>
