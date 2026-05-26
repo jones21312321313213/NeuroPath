@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
@@ -121,27 +122,15 @@ function Dashboard() {
     </div>
   );
 }
-
-function Router() {
+function ProtectedRoute({ children }) {
   const { user } = useAuth();
-  const [page, setPage] = useState("landing");
+  return user ? children : <Navigate to="/login" replace />;
+}
+function AppRoutes() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [successMessage, setSuccessMessage] = useState("");
   const [showSplash, setShowSplash] = useState(false);
-
-  const navigate = (to, msg = "") => {
-    setSuccessMessage(msg);
-    setPage(to);
-  };
-
-  const handleLoginSuccess = () => {
-    setShowSplash(true);
-  };
-
-  if (showSplash && !user) {
-    // User object not set yet but splash is showing — still show splash
-  }
-
-  if ((user || page === "dashboard") && !showSplash) return <Dashboard />;
 
   return (
     <>
@@ -149,32 +138,119 @@ function Router() {
         <LoginSplash
           onComplete={() => {
             setShowSplash(false);
-            navigate("dashboard");
+            navigate("/dashboard");
           }}
         />
       )}
-      {!showSplash && page === "landing" && (
-        <LandingPage onGetStarted={() => navigate("login")} />
-      )}
-      {!showSplash && page === "login" && (
-        <LoginPage
-          onNavigateRegister={() => navigate("register")}
-          onLoginSuccess={handleLoginSuccess}
-          successMessage={successMessage}
-          onClearMessage={() => setSuccessMessage("")}
-        />
-      )}
-      {!showSplash && page === "register" && (
-        <RegisterPage onNavigateLogin={(msg) => navigate("login", msg)} />
+
+      {!showSplash && (
+        <Routes>
+          <Route
+            path="/"
+            element={<LandingPage onGetStarted={() => navigate("/login")} />}
+          />
+
+          <Route
+            path="/login"
+            element={
+              user ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <LoginPage
+                  onNavigateRegister={() => navigate("/register")}
+                  onLoginSuccess={() => setShowSplash(true)}
+                  successMessage={successMessage}
+                  onClearMessage={() => setSuccessMessage("")}
+                />
+              )
+            }
+          />
+
+          <Route
+            path="/register"
+            element={
+              user ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <RegisterPage
+                  onNavigateLogin={(msg) => {
+                    setSuccessMessage(msg);
+                    navigate("/login");
+                  }}
+                />
+              )
+            }
+          />
+
+          <Route
+            path="/dashboard/*"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       )}
     </>
   );
 }
+// function Router() {
+//   const { user } = useAuth();
+//   const [page, setPage] = useState("landing");
+//   const [successMessage, setSuccessMessage] = useState("");
+//   const [showSplash, setShowSplash] = useState(false);
+
+//   const navigate = (to, msg = "") => {
+//     setSuccessMessage(msg);
+//     setPage(to);
+//   };
+
+//   const handleLoginSuccess = () => {
+//     setShowSplash(true);
+//   };
+
+//   if (showSplash && !user) {
+//     // User object not set yet but splash is showing — still show splash
+//   }
+
+//   if ((user || page === "dashboard") && !showSplash) return <Dashboard />;
+
+//   return (
+//     <>
+//       {showSplash && (
+//         <LoginSplash
+//           onComplete={() => {
+//             setShowSplash(false);
+//             navigate("dashboard");
+//           }}
+//         />
+//       )}
+//       {!showSplash && page === "landing" && (
+//         <LandingPage onGetStarted={() => navigate("login")} />
+//       )}
+//       {!showSplash && page === "login" && (
+//         <LoginPage
+//           onNavigateRegister={() => navigate("register")}
+//           onLoginSuccess={handleLoginSuccess}
+//           successMessage={successMessage}
+//           onClearMessage={() => setSuccessMessage("")}
+//         />
+//       )}
+//       {!showSplash && page === "register" && (
+//         <RegisterPage onNavigateLogin={(msg) => navigate("login", msg)} />
+//       )}
+//     </>
+//   );
+// }
 
 export default function App() {
   return (
     <AuthProvider>
-      <Router />
+      <AppRoutes />
     </AuthProvider>
   );
 }
