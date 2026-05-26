@@ -38,8 +38,30 @@ class TeacherCreateController(generics.ListCreateAPIView):
 #              creation and roster generation.
 # =====================================================================
 class StudentProfileListCreateView(generics.ListCreateAPIView):
-    queryset = StudentProfile.objects.all()
     serializer_class = StudentProfileSerializer
+
+    def get_queryset(self):
+        """
+        Return only the students that belong to the requesting teacher.
+
+        The frontend passes the logged-in teacher's Django User ID as the
+        ?teacher_id= query parameter.  We resolve that User → Teacher record
+        and filter the queryset accordingly.  If no valid teacher_id is
+        supplied we return an empty queryset so no data leaks.
+        """
+        from django.contrib.auth.models import User
+        from .models import Teacher
+
+        teacher_id = self.request.query_params.get('teacher_id')
+        if not teacher_id:
+            return StudentProfile.objects.none()
+
+        try:
+            user = User.objects.get(pk=int(teacher_id))
+            teacher = Teacher.objects.get(email=user.email)
+            return StudentProfile.objects.filter(teacher=teacher)
+        except (User.DoesNotExist, Teacher.DoesNotExist, ValueError, TypeError):
+            return StudentProfile.objects.none()
 
     def create(self, request, *args, **kwargs):
         # 1. Receive data from the React Form

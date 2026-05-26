@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import "../../styles/ViewStudentProfile.css";
-
+import { useAuth } from "../../context/AuthContext";
 
 export default function ViewStudentProfile({
   setActivePage,
@@ -8,9 +8,18 @@ export default function ViewStudentProfile({
 }) {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/users/students/")
+    // Pass the logged-in teacher's User ID so the backend returns only
+    // students that belong to this teacher.
+    const teacherId = user?.id;
+    if (!teacherId) {
+      setLoading(false);
+      return;
+    }
+
+    fetch(`http://localhost:8000/api/users/students/?teacher_id=${teacherId}`)
       .then((res) => res.json())
       .then((data) => {
         setStudents(data);
@@ -20,7 +29,7 @@ export default function ViewStudentProfile({
         console.error(err);
         setLoading(false);
       });
-  }, []);
+  }, [user]);
 
   if (loading) {
     return (

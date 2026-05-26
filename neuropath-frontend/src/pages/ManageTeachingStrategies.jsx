@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import "../styles/ManageVisualAids.css";
 import "../styles/ManageTeachingStrategies.css";
 import { teachingStrategiesAPI } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 
 const TABS = [
   { key: "generate", label: "Generate Teaching Strategies" },
@@ -23,6 +24,7 @@ function EmptyState({ message = "No records found." }) {
 
 // ── Generate Tab ───────────────────────────────────────────────────────────────
 function GenerateTab({ onSave }) {
+  const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -33,7 +35,7 @@ function GenerateTab({ onSave }) {
 
   useEffect(() => {
     teachingStrategiesAPI
-      .getDirectory()
+      .getDirectory(user?.id)
       .then((data) => setDirectory(data.directory || []))
       .catch(() => setError("Failed to load students and goals."))
       .finally(() => setLoadingDir(false));
@@ -220,6 +222,7 @@ function StrategyDetails({ strategy, onBack }) {
 
 // ── View Tab ───────────────────────────────────────────────────────────────────
 function ViewTab() {
+  const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -230,7 +233,7 @@ function ViewTab() {
 
   useEffect(() => {
     teachingStrategiesAPI
-      .getDirectory()
+      .getDirectory(user?.id)
       .then((data) => setDirectory(data.directory || []))
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoadingDir(false));
@@ -338,6 +341,7 @@ function ViewTab() {
 
 // ── Edit Tab ───────────────────────────────────────────────────────────────────
 function EditTab() {
+  const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -350,7 +354,7 @@ function EditTab() {
 
   useEffect(() => {
     teachingStrategiesAPI
-      .getDirectory()
+      .getDirectory(user?.id)
       .then((data) => setDirectory(data.directory || []))
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoadingDir(false));
@@ -533,6 +537,7 @@ function EditTab() {
 
 // ── Delete Tab ─────────────────────────────────────────────────────────────────
 function DeleteTab() {
+  const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -549,7 +554,7 @@ function DeleteTab() {
 
   useEffect(() => {
     teachingStrategiesAPI
-      .getDirectory()
+      .getDirectory(user?.id)
       .then((data) => setDirectory(data.directory || []))
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoadingDir(false));
