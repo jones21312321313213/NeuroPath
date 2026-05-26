@@ -4,7 +4,7 @@ from rest_framework import status,generics
 from .serializers import IEPDataSerializer,IEPListDetailSerializer, IEPUpdateSerializer
 from users.models import StudentProfile
 from tracking.models import AIGenerationLog
-from .models import Assessment, IEPGoal, IEPModel
+from .models import Assessment, IEP_Goal, IEPModel
 import requests
 import json
 import re
@@ -156,7 +156,7 @@ class IEPGenerationAPIView(APIView):
                     if cleaned_goal and len(cleaned_goal) > 10:
                         extracted_metric = "Tracked via Teacher Data" if "tracking" in cleaned_goal else "Standard R-GORI Metric"
                         
-                        IEPGoal.objects.create(
+                        IEP_Goal.objects.create(
                             iep=iep_instance,
                             goalName=cleaned_goal[:200], 
                             target_metric=extracted_metric
@@ -208,7 +208,7 @@ class IEPEditAPIView(generics.UpdateAPIView):
         # If the teacher modified the goals block, we must destroy the old 
         # tracking rows and generate new ones based on the edited text.
         if 'goals' in serializer.validated_data:
-            IEPGoal.objects.filter(iep=iep_instance).delete()
+            IEP_Goal.objects.filter(iep=iep_instance).delete()
             
             raw_goals_text = iep_instance.goals
             goal_items = re.split(r'\n\d+\.\s*', raw_goals_text)
@@ -218,7 +218,7 @@ class IEPEditAPIView(generics.UpdateAPIView):
                 if cleaned_goal and len(cleaned_goal) > 10:
                     extracted_metric = "Tracked via Teacher Data" if "tracking" in cleaned_goal else "Standard R-GORI Metric"
                     
-                    IEPGoal.objects.create(
+                    IEP_Goal.objects.create(
                         iep=iep_instance,
                         goalName=cleaned_goal[:200], 
                         target_metric=extracted_metric
