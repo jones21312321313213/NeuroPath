@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import RotatingText from "../components/ui/RotatingText";
 const features = [
   {
@@ -30,7 +31,6 @@ const features = [
   {
     icon: "🔒",
     title: "Secure & Private",
-    desc: "FERPA-compliant data protection ensures every student's records stay safe and confidential.",
   },
 ];
 
@@ -82,7 +82,7 @@ export default function LandingPage({ onGetStarted }) {
   ];
   const [phraseIndex, setPhraseIndex] = useState(0);
   const [animating, setAnimating] = useState(false);
-
+  const navigate = useNavigate();
   useEffect(() => {
     const interval = setInterval(() => {
       setAnimating(true);
@@ -509,7 +509,7 @@ export default function LandingPage({ onGetStarted }) {
               their students' journeys.
             </p>
             <button
-              onClick={onGetStarted}
+              onClick={() => navigate("/register")}
               className="group flex items-center justify-center gap-2 font-bold px-6 py-4 rounded-xl shadow-lg active:scale-[0.98] transition-all w-full sm:w-auto text-sm"
               style={{ background: "#fff", color: "#1a6fa8" }}
               onMouseEnter={(e) =>
