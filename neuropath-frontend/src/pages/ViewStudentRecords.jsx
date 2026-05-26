@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import "../styles/OutcomeMonitoring.css";
 import { studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import StudentShimmer from "../components/StudentShimmer";
 
 function EmptyState({ message }) {
   return (
@@ -195,7 +196,7 @@ export default function ViewStudentRecords() {
 
           <div className="om-student-list">
             {loading ? (
-              <p className="om-empty">Loading students…</p>
+              <StudentShimmer />
             ) : filtered.length === 0 ? (
               <EmptyState message="No students found." />
             ) : (

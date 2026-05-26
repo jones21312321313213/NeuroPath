@@ -1,17 +1,25 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
+import { studentsAPI } from "../api/client";
+import CountUp from "../components/ui/CountUp";
 
 const stats = [
-  { label: "Total Students", value: "0", icon: "ti-users", color: "#378ADD" },
-  { label: "Active IEPs", value: "0", icon: "ti-file-text", color: "#1D9E75" },
+  {
+    label: "Total Students",
+    key: "students",
+    icon: "ti-users",
+    color: "#378ADD",
+  },
+  { label: "Active IEPs", key: "ieps", icon: "ti-file-text", color: "#1D9E75" },
   {
     label: "AI Insights Generated",
-    value: "0",
+    key: "insights",
     icon: "ti-brain",
     color: "#7F77DD",
   },
   {
     label: "Upcoming Reviews",
-    value: "0",
+    key: "reviews",
     icon: "ti-calendar-event",
     color: "#BA7517",
   },
@@ -42,7 +50,14 @@ const quickActions = [
 ];
 
 export default function Overview({ setActivePage }) {
+  const { user } = useAuth();
   const [greeting, setGreeting] = useState("Good morning");
+  const [counts, setCounts] = useState({
+    students: 0,
+    ieps: 0,
+    insights: 0,
+    reviews: 0,
+  });
 
   useEffect(() => {
     const h = new Date().getHours();
@@ -50,6 +65,20 @@ export default function Overview({ setActivePage }) {
     else if (h < 17) setGreeting("Good afternoon");
     else setGreeting("Good evening");
   }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    studentsAPI
+      .list(user.id)
+      .then((data) => {
+        const students = Array.isArray(data) ? data : [];
+        setCounts((prev) => ({
+          ...prev,
+          students: students.length,
+        }));
+      })
+      .catch(() => {});
+  }, [user]);
 
   return (
     <div className="page-content">
@@ -78,7 +107,15 @@ export default function Overview({ setActivePage }) {
                 aria-hidden="true"
                 style={{ color: s.color }}
               />
-              <span className="stat-value">{s.value}</span>
+              <span className="stat-value">
+                <CountUp
+                  from={0}
+                  to={counts[s.key]}
+                  duration={1.5}
+                  delay={0}
+                  direction="up"
+                />
+              </span>
               <span className="stat-label">{s.label}</span>
             </div>
           ))}

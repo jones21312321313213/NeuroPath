@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import "../styles/OutcomeMonitoring.css";
 import { studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import StudentShimmer from "../components/StudentShimmer";
 
 // NOTE: Progress data (subjects, chart data, summary) is mocked because
 // the Outcome Monitoring backend endpoints don't exist yet.
@@ -352,7 +353,7 @@ export default function ViewProgressDashboard() {
 
           <div className="om-student-list">
             {loading ? (
-              <p className="om-empty">Loading students…</p>
+              <StudentShimmer />
             ) : filtered.length === 0 ? (
               <EmptyState message="No students found." />
             ) : (
