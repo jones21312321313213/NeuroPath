@@ -1,10 +1,10 @@
 from django.db import models
 from users.models import StudentProfile
-from iep_management.models import IEP
+from iep_management.models import IEPModel
 
 class LessonPlan(models.Model):
     lessonID = models.AutoField(primary_key=True)
-    iep = models.ForeignKey(IEP, on_delete=models.CASCADE, db_column='iepID')
+    iep = models.ForeignKey(IEPModel, on_delete=models.CASCADE, db_column='iepID')
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, db_column='studentID')
     title = models.CharField(max_length=255)
     dateCreated = models.DateTimeField(auto_now_add=True)
@@ -12,7 +12,7 @@ class LessonPlan(models.Model):
 
 class VisualAid(models.Model):
     visualAidID = models.AutoField(primary_key=True)
-    iep = models.ForeignKey(IEP, on_delete=models.CASCADE, db_column='iepID')
+    iep = models.ForeignKey(IEPModel, on_delete=models.CASCADE, db_column='iepID')
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, db_column='studentID')
     title = models.CharField(max_length=255)
     imageUrl = models.URLField()
@@ -20,7 +20,7 @@ class VisualAid(models.Model):
 
 class TeachingStrategy(models.Model):
     strategyID = models.AutoField(primary_key=True)
-    iep = models.ForeignKey(IEP, on_delete=models.CASCADE, db_column='iepID')
+    iep = models.ForeignKey(IEPModel, on_delete=models.CASCADE, db_column='iepID')
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, db_column='studentID')
     title = models.CharField(max_length=255)
     strategyContent = models.TextField()

@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status,viewsets
 from django.http import HttpResponse
 from users.models import Teacher,StudentProfile
-from iep_management.models import IEP
+from iep_management.models import IEPModel
 from .models import LessonPlan,VisualAid,TeachingStrategy
 #from .permissions import UserAuthPermissions uncomment this back to check user auth and permission
 from .serializers import (
@@ -684,7 +684,7 @@ class TeachingStrategyGenerationController(APIView):
         directory_payload = []
         for student in students:
             # Fetch linked IEP goals for this specific student
-            student_ieps = IEP.objects.filter(student=student)
+            student_ieps = IEPModel.objects.filter(student=student)
             iep_list = [{"iepID": iep.pk, "status": iep.status} for iep in student_ieps]
             
             directory_payload.append({
@@ -705,8 +705,8 @@ class TeachingStrategyGenerationController(APIView):
             
             try:
                 student = StudentProfile.objects.get(pk=student_id)
-                iep = IEP.objects.get(pk=iep_id)
-            except (StudentProfile.DoesNotExist, IEP.DoesNotExist):
+                iep = IEPModel.objects.get(pk=iep_id)
+            except (StudentProfile.DoesNotExist, IEPModel.DoesNotExist):
                 return Response(
                     {"error": "Targeted Student or IEP Goal could not be located."}, 
                     status=status.HTTP_404_NOT_FOUND
@@ -758,7 +758,7 @@ class TeachingStrategyGenerationController(APIView):
         directory_payload = []
         for student in students:
             # Fetch linked IEP goals for this specific student
-            student_ieps = IEP.objects.filter(student=student)
+            student_ieps = IEPModel.objects.filter(student=student)
             
             # FIX: Removed the non-existent 'status' field and replaced it with a safe string label!
             iep_list = [{"iepID": iep.pk, "label": str(iep)} for iep in student_ieps]
@@ -781,8 +781,8 @@ class TeachingStrategyGenerationController(APIView):
             
             try:
                 student = StudentProfile.objects.get(pk=student_id)
-                iep = IEP.objects.get(pk=iep_id)
-            except (StudentProfile.DoesNotExist, IEP.DoesNotExist):
+                iep = IEPModel.objects.get(pk=iep_id)
+            except (StudentProfile.DoesNotExist, IEPModel.DoesNotExist):
                 return Response(
                     {"error": "Targeted Student or IEP Goal could not be located."}, 
                     status=status.HTTP_404_NOT_FOUND
