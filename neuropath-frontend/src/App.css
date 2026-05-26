@@ -878,3 +878,138 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Selected student summary for Generate IEP */
+.iep-selected-student-card {
+  min-width: 260px;
+  border: 1px solid #d8e1ea;
+  border-radius: 8px;
+  background: #f8fbff;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.iep-selected-student-card span {
+  font-size: 12px;
+  color: #7a8795;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.iep-selected-student-card strong {
+  color: #1f2d3d;
+  font-size: 16px;
+}
+
+.iep-selected-student-card small {
+  color: #6b7280;
+}
+
+/* Multi-select dropdown for Generate IEP learner goal areas */
+.iep-multiselect {
+  position: relative;
+  width: 100%;
+}
+
+.iep-multiselect-control {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #d6dde8;
+  border-radius: 6px;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.iep-selected-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.iep-tag {
+  background: #edf1f7;
+  border: 1px solid #d6dde8;
+  border-radius: 5px;
+  padding: 5px 8px;
+  font-size: 13px;
+  color: #3f4650;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.iep-tag button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-weight: 700;
+  color: #6b7280;
+  padding: 0;
+  line-height: 1;
+}
+
+.iep-tag-count {
+  background: #4b5563;
+  color: #fff;
+  border-radius: 5px;
+  padding: 5px 9px;
+  font-size: 13px;
+}
+
+.iep-placeholder {
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+.iep-chevron {
+  color: #6b7280;
+  font-size: 16px;
+  padding-left: 8px;
+}
+
+.iep-multiselect-menu {
+  position: absolute;
+  z-index: 30;
+  width: 100%;
+  background: #fff;
+  border: 1px solid #d6dde8;
+  border-radius: 6px;
+  margin-top: 6px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  padding: 8px 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.iep-multiselect-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+}
+
+.iep-multiselect-option:hover {
+  background: #f1f5f9;
+}
+
+.iep-multiselect-option input {
+  width: 16px;
+  height: 16px;
+  accent-color: #3d9de8;
+}
+
+.iep-final-generate {
+  gap: 12px;
+  flex-wrap: wrap;
+}

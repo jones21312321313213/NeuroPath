@@ -1,58 +1,69 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "../../styles/ViewSelectedStudentProfile.css";
 import StudentInsightsTab from "./StudentInsightsTab";
+
+function getProfileDetails(student) {
+  if (student?.profileDetails && typeof student.profileDetails === "object") {
+    return student.profileDetails;
+  }
+
+  if (!student?.preferences) return {};
+
+  if (typeof student.preferences === "string") {
+    try {
+      const parsed = JSON.parse(student.preferences);
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  return typeof student.preferences === "object" ? student.preferences : {};
+}
+
+function ReadOnlyInput({ label, value }) {
+  return (
+    <div className="form-group">
+      <label className="form-label">{label}:</label>
+      <input className="form-input" value={value || "—"} readOnly />
+    </div>
+  );
+}
+
+function ReadOnlyTextArea({ label, value, rows = 4 }) {
+  return (
+    <div className="form-group">
+      <label className="form-label">{label}</label>
+      <textarea className="form-textarea" rows={rows} value={value || "—"} readOnly />
+    </div>
+  );
+}
 
 export default function ViewSelectedStudentProfile({ studentId, setActivePage }) {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("info"); // "info" or "insights"
-  const [insights, setInsights] = useState([]);
-  const [generating, setGenerating] = useState(false);
+  const [activeTab, setActiveTab] = useState("info");
 
   useEffect(() => {
     if (!studentId) return;
 
-    // Fetch student info
-    fetch(`http://localhost:8000/api/users/students/${studentId}/`)
+    setLoading(true);
+
+    fetch(`http://localhost:8000/api/users/students/${studentId}/view/`)
       .then((res) => res.json())
-      .then((data) => {
-        setSelected(data);
+      .then((response) => {
+        setSelected(response?.data || response);
         setLoading(false);
       })
       .catch((err) => {
         console.error(err);
         setLoading(false);
       });
-
-    // Fetch existing insights history
-    fetch(`http://localhost:8000/api/users/students/${studentId}/generate-insight/`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.insights) setInsights(data.insights);
-      })
-      .catch((err) => console.error(err));
   }, [studentId]);
 
+  const details = useMemo(() => getProfileDetails(selected), [selected]);
   const handleBack = () => setActivePage("view-student-profile");
   const handleUpdate = () => setActivePage("update-student-profile");
-
-  const handleGenerateInsight = () => {
-    setGenerating(true);
-    fetch(`http://localhost:8000/api/users/students/${studentId}/generate-insight/`, {
-      method: "POST"
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.insights) {
-          setInsights(prev => [...prev, { timestamp: new Date(), items: data.insights }]);
-        }
-        setGenerating(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setGenerating(false);
-      });
-  };
 
   if (loading) {
     return (
@@ -62,23 +73,24 @@ export default function ViewSelectedStudentProfile({ studentId, setActivePage })
     );
   }
 
+  if (!selected) {
+    return (
+      <div className="page-content">
+        <div className="placeholder-page">No student details found.</div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-content">
-      <div className="form-card">
-
-        {/* ACTION BUTTONS (top) */}
-       {/* ACTION BUTTONS (top) */}
+      <div className="form-card iep-card">
         <div className="form-actions">
-        <button className="btn btn-back" onClick={handleBack}>←</button>
-
-        {/* Only show UPDATE if activeTab === "info" */}
-        {activeTab === "info" && (
+          <button className="btn btn-back" onClick={handleBack}>←</button>
+          {activeTab === "info" && (
             <button className="btn btn-submit" onClick={handleUpdate}>UPDATE</button>
-        )}
+          )}
         </div>
 
-
-        {/* TAB HEADERS */}
         <div className="tab-header">
           <button
             className={`tab-btn ${activeTab === "info" ? "active" : ""}`}
@@ -94,103 +106,70 @@ export default function ViewSelectedStudentProfile({ studentId, setActivePage })
           </button>
         </div>
 
-        {/* TAB CONTENT */}
         {activeTab === "info" && (
           <div className="tab-content">
-            {/* STUDENT INFORMATION */}
             <section className="form-section">
-              <h2 className="form-section-title">Student Information</h2>
+              <h2 className="form-section-title">Section A: Personal Information</h2>
               <div className="form-grid-2">
-                <div className="form-group">
-                  <label className="form-label">Full Name:</label>
-                  <input className="form-input" value={selected.name} readOnly />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Student ID:</label>
-                  <input className="form-input" value={selected.studentID} readOnly />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Age:</label>
-                  <input className="form-input" value={selected.age} readOnly />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Grade Level:</label>
-                  <input className="form-input" value={selected.grade} readOnly />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Gender:</label>
-                  <input className="form-input" value={selected.gender} readOnly />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Status:</label>
-                  <input className="form-input" value={selected.profileStatus ? "Active" : "Inactive"} readOnly />
-                </div>
+                <ReadOnlyInput label="Student Name" value={details.studentName || details.learnerName || selected.name} />
+                <ReadOnlyInput label="Student ID" value={selected.studentID} />
+                <ReadOnlyInput label="Age" value={selected.age} />
+                <ReadOnlyInput label="Grade Level" value={selected.grade} />
+                <ReadOnlyInput label="Gender" value={selected.gender} />
+                <ReadOnlyInput label="School" value={details.school} />
+                <ReadOnlyInput label="School Year" value={details.schoolYear} />
+                <ReadOnlyInput label="Birthdate" value={details.birthdate} />
+                <ReadOnlyInput label="Diagnosis" value={details.disabilityCategory || selected.diagnosis} />
+                <ReadOnlyInput label="Status" value={selected.profileStatus ? "Active" : "Inactive"} />
               </div>
+
+              <ReadOnlyTextArea
+                label="Assessment / Diagnosis Details"
+                value={details.diagnosisDetails || selected.asdBackground}
+                rows={3}
+              />
+
+              <ReadOnlyTextArea
+                label="Difficulties marked based on assessment"
+                value={(details.difficultyMarkers || []).join("\n") || "—"}
+                rows={4}
+              />
             </section>
 
-            {/* ASD BACKGROUND */}
             <section className="form-section">
-              <h2 className="form-section-title">ASD Background</h2>
-              <div className="form-group">
-                <label className="form-label">Background Notes:</label>
-                <textarea className="form-textarea" value={selected.asdBackground} readOnly />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Diagnosis:</label>
-                <input className="form-input" value={selected.diagnosis || "—"} readOnly />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Support Needs:</label>
-                <input className="form-input" value={selected.supportNeeds || "—"} readOnly />
-              </div>
-            </section>
-
-            {/* ASSESSMENT RESULTS */}
-            <section className="form-section">
-              <h2 className="form-section-title">Assessment Results</h2>
-              <div className="form-group">
-                <label className="form-label">Academic Level:</label>
-                <input className="form-input" value={selected.academicLevel || "—"} readOnly />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Behavioral Notes:</label>
-                <textarea className="form-textarea" value={selected.behavioralNotes || "—"} readOnly />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Assessment Result:</label>
-                <textarea className="form-textarea" value={selected.assessmentResult} readOnly />
-              </div>
-            </section>
-
-            {/* PREFERENCES */}
-            <section className="form-section">
-              <h2 className="form-section-title">Preferences</h2>
-              <div className="form-grid-preferences">
-                <div className="form-group">
-                  <label className="form-label">Learning Style:</label>
-                  <input className="form-input" value={selected.learningStyle || "—"} readOnly />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Interests:</label>
-                  <input className="form-input" value={selected.interests || "—"} readOnly />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Sensory Preferences:</label>
-                  <input className="form-input" value={selected.sensoryPreferences || "—"} readOnly />
-                </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Other Preferences:</label>
-                <textarea className="form-textarea" value={selected.preferences} readOnly />
-              </div>
+              <h2 className="form-section-title">Present Levels of Academic Achievement and/or Functional Performance</h2>
+              <ReadOnlyTextArea
+                label="Results of initial or most recent evaluation and results of school assessments"
+                value={details.presentEvaluation || selected.assessmentResult}
+                rows={5}
+              />
+              <ReadOnlyTextArea
+                label="Description of academic, developmental, and/or functional strengths"
+                value={details.academicStrengths}
+                rows={4}
+              />
+              <ReadOnlyTextArea
+                label="Description of academic, developmental, and/or functional needs"
+                value={details.academicNeeds || selected.support_needs}
+                rows={4}
+              />
+              <ReadOnlyTextArea
+                label="Parental concerns regarding the child’s education"
+                value={details.parentalConcerns}
+                rows={3}
+              />
+              <ReadOnlyTextArea
+                label="Impact of the disability on involvement and progress in the general education curriculum"
+                value={details.curriculumImpact}
+                rows={3}
+              />
             </section>
           </div>
         )}
 
         {activeTab === "insights" && (
-            <StudentInsightsTab studentId={studentId} />
+          <StudentInsightsTab studentId={studentId} />
         )}
-
       </div>
     </div>
   );

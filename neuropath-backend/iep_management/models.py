@@ -1,33 +1,29 @@
 from django.db import models
-from users.models import StudentProfile 
+from users.models import StudentProfile
+from django.conf import settings
 
 class Assessment(models.Model):
     assessmentID = models.AutoField(primary_key=True)
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, db_column='studentID')
     assessmentType = models.CharField(max_length=255)
-    result = models.TextField()
+    result = models.TextField(blank=True, default='')
     dateTaken = models.DateTimeField(auto_now_add=True)
 
 
-# =====================================================================
-# SDD COMPONENT: IEPModel
-# Description: Django ORM data mapping component defining the schema 
-#              for an Individualized Education Program (IEP).
-# =====================================================================
+
 class IEPModel(models.Model):
     iepID = models.AutoField(primary_key=True)
     studentID = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='ieps')
-    baselineData = models.TextField()
-    goals = models.TextField()
-    accommodations = models.TextField() # Cleaned spelling to match serializer fields
+    baselineData = models.TextField(blank=True, default='')
+    goals = models.TextField(blank=True, default='')
+    accommodations = models.TextField(blank=True, default='')
+    generatedDetails = models.JSONField(blank=True, default=dict)
     version = models.IntegerField(default=1)
     createdDate = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"IEP v{self.version} for Student: {self.studentID.name}"
+        return f'IEP v{self.version} for Student: {self.studentID.name}'
 
-from django.db import models
-from django.conf import settings
 
 # -------------------------------------------------------------------
 # SUBSYSTEM 1: THE CORE IEP DOCUMENT (Section B)
