@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import RotatingText from "../components/ui/RotatingText";
 const features = [
   {
     icon: "🎯",
@@ -73,6 +74,25 @@ export default function LandingPage({ onGetStarted }) {
     };
   }, []);
 
+  const rotatingPhrases = [
+    "deserves a path",
+    "has the potential",
+    "learns differently",
+    "deserves a champion",
+  ];
+  const [phraseIndex, setPhraseIndex] = useState(0);
+  const [animating, setAnimating] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setAnimating(true);
+      setTimeout(() => {
+        setPhraseIndex((i) => (i + 1) % rotatingPhrases.length);
+        setAnimating(false);
+      }, 400); // halfway through transition — swap text while faded out
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
   return (
     <div
       className="min-h-screen font-sans overflow-x-hidden"
@@ -178,19 +198,30 @@ export default function LandingPage({ onGetStarted }) {
             className="fade-in-init opacity-0 translate-y-4 transition-all duration-700 ease-out delay-75 text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.15] mb-6"
             style={{ color: "#1a3a4a" }}
           >
-            Every student <br />
-            <span
-              style={{
-                background: "linear-gradient(135deg, #2589c7, #82C7FF)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
-            >
-              deserves a path
-            </span>{" "}
+            Every student
             <br />
-            built for them.
+            <RotatingText
+              texts={[
+                "deserves a path",
+                "has the potential",
+                "learns differently",
+                "deserves a champion",
+              ]}
+              mainClassName="px-3 py-1 rounded-lg overflow-hidden justify-center"
+              elementLevelClassName="gradient-text-char"
+              staggerFrom="last"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "-120%" }}
+              staggerDuration={0.025}
+              splitLevelClassName="overflow-hidden pb-0.5"
+              transition={{ type: "spring", damping: 30, stiffness: 400 }}
+              rotationInterval={2500}
+              splitBy="characters"
+              auto
+              loop
+            />
+            <span style={{ color: "#1a3a4a" }}>built for them.</span>
           </h1>
 
           <p

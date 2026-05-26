@@ -23,7 +23,15 @@ const diagnosisOptions = [
 
 const genderOptions = ["Male", "Female", "Other", "Prefer not to say"];
 
-function FormField({ label, placeholder, value, onChange, type = "text" }) {
+function FormField({
+  label,
+  placeholder,
+  value,
+  onChange,
+  type = "text",
+  min,
+  max,
+}) {
   return (
     <div className="form-group">
       <label className="form-label">{label}:</label>
@@ -33,6 +41,8 @@ function FormField({ label, placeholder, value, onChange, type = "text" }) {
         value={value}
         onChange={onChange}
         className="form-input"
+        min={min}
+        max={max}
       />
     </div>
   );
@@ -202,6 +212,63 @@ export default function CreateStudentProfile({ onBack }) {
       }
     }
 
+    if (!/^[a-zA-Z\s.'-]+$/.test(form.learnerName.trim())) {
+      setError("Student name should contain letters only.");
+      return false;
+    }
+
+    const age = Number(form.age);
+    if (age < 2 || age > 18) {
+      setError("Age must be between 2 and 18.");
+      return false;
+    }
+
+    const grade = Number(form.gradeLevel);
+    if (grade < 1 || grade > 10) {
+      setError("Grade level must be between 1 and 10.");
+      return false;
+    }
+
+    if (age < 4 && grade > 0) {
+      setError(
+        "A student under 4 years old cannot be in a grade higher than Kindergarten.",
+      );
+      return false;
+    }
+    if (age < 6 && grade > 1) {
+      setError("A student under 6 years old is unlikely to be above Grade 1.");
+      return false;
+    }
+    if (age > 12 && grade < 4) {
+      setError("Grade level seems too low for the student's age.");
+      return false;
+    }
+
+    if (form.birthdate.trim()) {
+      const dateRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])-\d{4}$/;
+      if (!dateRegex.test(form.birthdate.trim())) {
+        setError("Birthdate must be in MM-DD-YYYY format.");
+        return false;
+      }
+
+      const [month, day, year] = form.birthdate.split("-").map(Number);
+      const birthDate = new Date(year, month - 1, day);
+      if (birthDate >= new Date()) {
+        setError("Birthdate must be a date in the past.");
+        return false;
+      }
+    }
+
+    if (form.schoolYear.trim()) {
+      const syRegex = /^\d{4}\s*-\s*\d{4}$/;
+      if (!syRegex.test(form.schoolYear.trim())) {
+        setError(
+          "School year must be in YYYY - YYYY format (e.g. 2025 - 2026).",
+        );
+        return false;
+      }
+    }
+
     setError("");
     return true;
   };
@@ -342,6 +409,8 @@ export default function CreateStudentProfile({ onBack }) {
                   label="Age"
                   placeholder="Enter age"
                   type="number"
+                  min={2}
+                  max={18}
                   value={form.age}
                   onChange={setField("age")}
                 />
@@ -349,6 +418,8 @@ export default function CreateStudentProfile({ onBack }) {
                   label="Grade Level"
                   placeholder="Enter grade level"
                   type="number"
+                  min={1}
+                  max={10}
                   value={form.gradeLevel}
                   onChange={setField("gradeLevel")}
                 />
