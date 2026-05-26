@@ -25,6 +25,8 @@ const breadcrumbMap = {
   "update-student-profile": "DASHBOARD/Student Profiling",
   "ai-insight": "DASHBOARD/Student Profiling",
   "iep-generation": "DASHBOARD/AI-Based IEP Generation",
+  "generate-iep": "DASHBOARD/AI-Based IEP Generation/ Generate IEP",
+  "view-iep": "DASHBOARD/AI-Based IEP Generation/ View IEP",
   "manage-lesson-plans": "DASHBOARD/Instructional Support",
   "manage-visual-aids": "DASHBOARD/Instructional Support",
   "manage-teaching-strategies": "DASHBOARD/Instructional Support",
@@ -75,9 +77,10 @@ switch (activePage) {
     case "ai-insight":
       return <Placeholder title="Analyze & Generate AI Insight" />;
     case "iep-generation":
- 
-      return <IEPGenerationPage />;
-      return <Placeholder title="AI-Based IEP Generation" />;
+    case "generate-iep":
+      return <IEPGenerationPage mode="generate" />;
+    case "view-iep":
+      return <IEPGenerationPage mode="view" />;
     case "manage-lesson-plans":
       return <ManageLessonPlans />;
     case "manage-visual-aids":
