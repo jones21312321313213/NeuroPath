@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class Teacher(models.Model):
     teacherID = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255)
@@ -10,23 +11,32 @@ class Teacher(models.Model):
     def __str__(self):
         return self.name
 
+
 class StudentProfile(models.Model):
     studentID = models.AutoField(primary_key=True)
-    # The ForeignKey below honors the 'Manages' line from your ERD
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, db_column='teacherID')
-    name = models.CharField(max_length=255)
-    age = models.IntegerField()
-    grade = models.IntegerField()
-    gender = models.CharField(max_length=50)
-    asdBackground = models.TextField()
-    preferences = models.TextField()
-    assessmentResult = models.TextField()
+
+    # Basic student fields used by existing student profiling pages
+    name = models.CharField(max_length=255, blank=True, default='')
+    age = models.IntegerField(default=0)
+    grade = models.IntegerField(default=0)
+    gender = models.CharField(max_length=50, blank=True, default='')
+
+    # Existing fields from the original backend. These are now optional so the
+    # new 2-step profile form will not fail with "This field may not be blank."
+    asdBackground = models.TextField(blank=True, default='')
+    preferences = models.TextField(blank=True, default='')
+    assessmentResult = models.TextField(blank=True, default='')
     profileStatus = models.BooleanField(default=True)
-    diagnosis = models.TextField(blank=True, null=True)
-    support_needs = models.TextField(blank=True, null=True)
-    learning_style = models.CharField(max_length=100, blank=True, null=True)
-    interests = models.TextField(blank=True, null=True)
-    sensory_preferences = models.TextField(blank=True, null=True)
+    diagnosis = models.TextField(blank=True, default='')
+    support_needs = models.TextField(blank=True, default='')
+    learning_style = models.CharField(max_length=100, blank=True, default='')
+    interests = models.TextField(blank=True, default='')
+    sensory_preferences = models.TextField(blank=True, default='')
+
+    # New JSON storage for the standard IEP profile Sections A and present levels.
+    # The frontend also mirrors this data into `preferences` for compatibility.
+    profileDetails = models.JSONField(blank=True, default=dict)
 
     def __str__(self):
-        return self.name
+        return self.name or f"Student {self.studentID}"
