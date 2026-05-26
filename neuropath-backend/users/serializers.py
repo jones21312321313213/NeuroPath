@@ -26,6 +26,9 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    # Accepts the Django User ID from the frontend (login response gives user.id)
+    # This is write-only — it's only used during create to look up the Teacher row.
+    teacher_user_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
 
     class Meta:
         model = StudentProfile
@@ -82,8 +85,24 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
+        from django.contrib.auth.models import User as DjangoUser
+
+        # Pop the write-only helper field — it is not a model field.
+        teacher_user_id = validated_data.pop('teacher_user_id', None)
+
+        # If the frontend supplied a Django User ID, resolve it to the
+        # matching Teacher row (linked by email at registration time).
+        if teacher_user_id and not validated_data.get('teacher'):
+            try:
+                django_user = DjangoUser.objects.get(pk=teacher_user_id)
+                validated_data['teacher'] = Teacher.objects.get(email=django_user.email)
+            except (DjangoUser.DoesNotExist, Teacher.DoesNotExist):
+                pass
+
+        # Last resort: fall back to the demo teacher so the record still saves.
         if not validated_data.get('teacher'):
             validated_data['teacher'] = get_default_teacher()
+
         return super().create(validated_data)
 
 

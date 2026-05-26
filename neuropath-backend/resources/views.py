@@ -732,8 +732,21 @@ class TeachingStrategyGenerationController(APIView):
 
     def get(self, request, *args, **kwargs):
         """Matches Sequence Diagram: getInitializationData()"""
-        students = StudentProfile.objects.all()
-        
+        from django.contrib.auth.models import User as DjangoUser
+        from users.models import Teacher
+
+        # Filter to only show the requesting teacher's students.
+        teacher_id = request.query_params.get("teacher_id")
+        if teacher_id:
+            try:
+                django_user = DjangoUser.objects.get(pk=int(teacher_id))
+                teacher = Teacher.objects.get(email=django_user.email)
+                students = StudentProfile.objects.filter(teacher=teacher)
+            except (DjangoUser.DoesNotExist, Teacher.DoesNotExist, ValueError, TypeError):
+                students = StudentProfile.objects.none()
+        else:
+            students = StudentProfile.objects.none()
+
         # Alternative Flow: Empty State
         if not students.exists():
             return Response(

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import "../styles/ManageVisualAids.css";
 import { visualAidsAPI, studentsAPI } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 
 const TABS = [
   { key: "generate", label: "Generate Visual Aids" },
@@ -21,6 +22,7 @@ function EmptyState({ message = "No records found." }) {
 
 // ── Generate Tab ───────────────────────────────────────────────────────────────
 function GenerateTab() {
+  const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -31,7 +33,7 @@ function GenerateTab() {
 
   useEffect(() => {
     studentsAPI
-      .list()
+      .list(user?.id)
       .then(setStudents)
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoadingStudents(false));

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import "../styles/ManageLessonPlans.css";
 import { lessonPlansAPI, studentsAPI } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 
 const TABS = [
   { key: "generate", label: "Generate Lesson Plan" },
@@ -37,6 +38,7 @@ function GenerateTab() {
 
 // ── View Tab ───────────────────────────────────────────────────────────────────
 function ViewTab() {
+  const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -50,7 +52,7 @@ function ViewTab() {
 
   useEffect(() => {
     studentsAPI
-      .list()
+      .list(user?.id)
       .then(setStudents)
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoadingStudents(false));
