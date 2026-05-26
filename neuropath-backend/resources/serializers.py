@@ -21,8 +21,8 @@ class UserContextSerializer(serializers.ModelSerializer):
 class LessonPlanSerializer(serializers.ModelSerializer):
     class Meta:
         model = LessonPlan
-        # Update 'studentID' to 'student' to align with your original model!
-        fields = ['lessonID', 'iep', 'student', 'title', 'dateCreated', 'status']
+        # 🚀 REWIRED: Point strictly to iep_goal
+        fields = ['lessonID', 'iep_goal', 'title', 'dateCreated', 'status']
 
     def validate_title(self, value):
         if not value or not value.strip():
@@ -35,11 +35,11 @@ class LessonPlanSerializer(serializers.ModelSerializer):
 #              generation requests to ensure parameters are safe.
 # =====================================================================
 class LessonGenerationSerializer(serializers.Serializer):
-    studentID = serializers.IntegerField(required=True)
+    # 🚀 REWIRED: We only need the precise Goal ID now!
+    goalID = serializers.IntegerField(required=True)
     subject = serializers.CharField(max_length=100, required=True)
     topic = serializers.CharField(max_length=255, required=True)
     
-    # Optional parameters based on teacher input
     gradeLevel = serializers.CharField(max_length=50, required=False, allow_blank=True)
     specificGoals = serializers.CharField(required=False, allow_blank=True)
 
@@ -55,12 +55,13 @@ class LessonGenerationSerializer(serializers.Serializer):
 #              complex database records into clean, read-only JSON.
 # =====================================================================
 class LessonPlanDetailSerializer(serializers.ModelSerializer):
-    studentName = serializers.CharField(source='student.name', read_only=True)
+    # 🚀 REWIRED: Traverse the foreign keys to find the student name safely
+    studentName = serializers.CharField(source='iep_goal.iep.studentID.name', read_only=True)
 
     class Meta:
         model = LessonPlan
-        # Removed 'content' and 'gradeLevel' since they aren't on your original model
         fields = ['lessonID', 'studentName', 'title', 'status', 'dateCreated']
+        
 # =====================================================================
 # SDD COMPONENT: LessonPlanUpdateSerializer
 # Description: Strict data validation component parsing incoming PUT 
@@ -78,15 +79,15 @@ class LessonPlanUpdateSerializer(serializers.ModelSerializer):
 #              structural schema type-safety and parses entities to JSON.
 # =====================================================================
 class VisualAidSerializer(serializers.ModelSerializer):
-    # Pull the student's name directly into the payload for the React UI
-    studentName = serializers.CharField(source='student.name', read_only=True)
+    # 🚀 REWIRED: Traverse the foreign keys
+    studentName = serializers.CharField(source='iep_goal.iep.studentID.name', read_only=True)
 
     class Meta:
         model = VisualAid
-        fields = ['visualAidID', 'iep', 'student', 'studentName', 'title', 'imageUrl', 'dateCreated']
+        # 🚀 REWIRED: Removed 'iep' and 'student', added 'iep_goal'
+        fields = ['visualAidID', 'iep_goal', 'studentName', 'title', 'imageUrl', 'dateCreated']
 
     def validate_imageUrl(self, value):
-        # Enforce type-safety to ensure we only save web-accessible image links
         if not value.startswith('http'):
             raise serializers.ValidationError("The visual aid asset must be a valid URL starting with http or https.")
         return value
@@ -97,42 +98,40 @@ class VisualAidSerializer(serializers.ModelSerializer):
 #              Transforms complex query logs into flat JSON objects.
 # =====================================================================
 class StrategyUpdateValidationSerializer(serializers.ModelSerializer):
-    # Flatten the student name for easy React rendering
-    studentName = serializers.CharField(source='student.name', read_only=True)
+    # 🚀 REWIRED: Traverse the path
+    studentName = serializers.CharField(source='iep_goal.iep.studentID.name', read_only=True)
+    
     class Meta:
         model = TeachingStrategy
-        fields = ['strategyID', 'iep', 'student', 'studentName', 'title', 'strategyContent', 'dateCreated']
+        # 🚀 REWIRED: Update fields
+        fields = ['strategyID', 'iep_goal', 'studentName', 'title', 'strategyContent', 'dateCreated']
 
     def validate_strategyContent(self, value):
-        # Ensure the teacher (or AI) actually provides actionable content
         if not value or len(value.strip()) < 10:
             raise serializers.ValidationError("Strategy content must be detailed and actionable.")
         return value
     
 class StrategyParameterSerializer(serializers.Serializer):
-    studentID = serializers.IntegerField(required=True)
-    iepGoalID = serializers.IntegerField(required=True)
+    # 🚀 REWIRED: Streamlined to just require the goal ID.
+    goalID = serializers.IntegerField(required=True)
 
     def validate(self, data):
-        if data['studentID'] <= 0 or data['iepGoalID'] <= 0:
-            raise serializers.ValidationError("Student ID and IEP Goal ID must be valid positive integers.")
+        if data['goalID'] <= 0:
+            raise serializers.ValidationError("IEP Goal ID must be a valid positive integer.")
         return data
     
 
 class StrategyGenerationService:
     @staticmethod
-    def execute_compilation_workflow(student_profile, iep_record):
-        # 1. SDD Privacy Requirement: Anonymize the profile record
-        # We strip the full name and only use a generic identifier for the AI
+    def execute_compilation_workflow(student_profile, target_goal):
         anonymized_identifier = f"Student {student_profile.pk}"
         
-        # 2. Apply specialized pedagogical system prompts
+        # 🚀 REWIRED: Use target_goal instead of iep_record
         ai_prompt = (
             f"Act as a Special Education Specialist. Design an actionable, evidence-based "
-            f"teaching strategy for {anonymized_identifier} targeting the following IEP goal ID: {iep_record.pk}."
+            f"teaching strategy for {anonymized_identifier} targeting the following IEP goal ID: {target_goal.pk}."
         )
         
-        # 3. Simulate the orchestration layer returning standard instructional text vectors
         mock_generated_text = (
             f"Recommended Strategy for Target Goal:\n"
             f"1. Pre-teach vocabulary before the main lesson.\n"
@@ -152,41 +151,39 @@ class StrategyGenerationService:
 #              into clean, standardized JSON objects for front-end rendering.
 # =====================================================================
 class StrategyRetrievalSerializer(serializers.ModelSerializer):
-    # Flatten the student data
-    studentName = serializers.CharField(source='student.name', read_only=True)
-    
-    # Format chronological timestamps into a clean, human-readable string
+    # 🚀 REWIRED: Complete data lineage traversal
+    studentName = serializers.CharField(source='iep_goal.iep.studentID.name', read_only=True)
+    studentID = serializers.IntegerField(source='iep_goal.iep.studentID.pk', read_only=True)
+    goalName = serializers.CharField(source='iep_goal.annual_goal', read_only=True)
     formattedDate = serializers.DateTimeField(source='dateCreated', format="%B %d, %Y", read_only=True)
 
     class Meta:
         model = TeachingStrategy
-        # Removed 'status' so it perfectly matches your active database model!
         fields = [
             'strategyID', 
             'studentName', 
+            'studentID', 
+            'goalName', 
             'title', 
             'strategyContent', 
             'formattedDate'
         ]
-        
 # =====================================================================
 # SDD COMPONENT: TeachingStrategySerializer
 # Description: Executes inbound format validations. Screens modifications 
 #              passed from React workspace to confirm schema requirements.
 # =====================================================================
 class TeachingStrategySerializer(serializers.ModelSerializer):
-    # Flatten the student name for easy React rendering
-    studentName = serializers.CharField(source='student.name', read_only=True)
-    
-    # NEW: Allow this to be blank so the AI Generation Service can fill it!
+    # 🚀 REWIRED: Traverse the path
+    studentName = serializers.CharField(source='iep_goal.iep.studentID.name', read_only=True)
     strategyContent = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = TeachingStrategy
-        fields = ['strategyID', 'iep', 'student', 'studentName', 'title', 'strategyContent', 'dateCreated']
+        # 🚀 REWIRED: Update fields
+        fields = ['strategyID', 'iep_goal', 'studentName', 'title', 'strategyContent', 'dateCreated']
 
     def validate_strategyContent(self, value):
-        # Only enforce length if the user physically typed something in
         if value and len(value.strip()) < 10:
             raise serializers.ValidationError("Strategy content must be detailed and actionable.")
         return value
