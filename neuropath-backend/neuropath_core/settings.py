@@ -145,3 +145,9 @@ CORS_ALLOWED_ORIGINS = [
 
 # Allows credential sharing and session syncing across your local ports
 CORS_ALLOW_CREDENTIALS = True
+
+# Add this right below your CORS settings!
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]

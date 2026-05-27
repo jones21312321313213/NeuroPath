@@ -4,10 +4,13 @@ from rest_framework import status, generics,viewsets
 from .serializers import IEPDataSerializer, IEPListDetailSerializer, IEPUpdateSerializer,StandaloneIEPGoalSerializer
 from users.models import StudentProfile
 from tracking.models import AIGenerationLog
-from .models import Assessment, IEPGoal, IEPModel,IEPObjectiveRow
+from .models import Assessment, IEPGoal, IEPModel,IEPObjectiveRow,GeneratedAIInsight,StudentProfile
 import json
 import re
-
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from django.shortcuts import get_object_or_404
+from .services import AIGenerationService
 
 class IEPGeneratorService:
     @staticmethod
@@ -246,3 +249,47 @@ class StandaloneIEPGoalViewSet(viewsets.ModelViewSet):
         if student_id:
             return queryset.filter(iep__studentID__pk=student_id)
         return queryset
+    
+    
+# 1. GENERATE INSIGHT ENDPOINT
+@api_view(['POST'])
+@permission_classes([IsAuthenticated]) # Forces the user to be logged in
+def generate_ai_insight(request, student_id):
+    student = get_object_or_404(StudentProfile, studentID=student_id)
+    teacher = request.user # <-- Django automatically knows who called the API based on their token!
+    
+    try:
+        # Pass both the student and the logged-in teacher to the service
+        insight = AIGenerationService.generate_and_save_summary(student, teacher)
+        
+        return Response({
+            "id": insight.id,
+            "summary_text": insight.summary_text,
+            "created_at": insight.created_at
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# 2. FETCH INSIGHTS SECURELY ENDPOINT (This answers your exact question!)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_student_insights(request, student_id):
+    # This query strictly filters by the student ID AND the Teacher ID. 
+    # It is impossible for them to fetch another teacher's generated insights.
+    insights = GeneratedAIInsight.objects.filter(
+        student_id=student_id, 
+        teacher=request.user
+    )
+    
+    # Format the data for React
+    data = [
+        {
+            "id": insight.id,
+            "summary_text": insight.summary_text,
+            "created_at": insight.created_at.strftime('%Y-%m-%d %H:%M')
+        } 
+        for insight in insights
+    ]
+    
+    return Response(data, status=status.HTTP_200_OK)
