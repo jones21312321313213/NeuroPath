@@ -1,35 +1,71 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "../../styles/StudentInsight.css";
+import { iepAPI } from "../../api/client";
 
 export default function StudentInsightsTab({ studentId }) {
+  // Use studentId === 4 for mock data fallback, otherwise start empty or fetch from DB
   const [insights, setInsights] = useState(studentId === 4 ? mockInsights : []);
   const [generating, setGenerating] = useState(false);
   const [openIndex, setOpenIndex] = useState(null);
+  const [error, setError] = useState(null);
 
-  const handleGenerate = () => {
+  // 1. Fetch real historical insights from the backend on tab mount
+  useEffect(() => {
+      if (!studentId || studentId === 4) return;
+
+      // 🎯 Use your client API instead of raw fetch
+      iepAPI.getInsights(studentId)
+        .then((data) => {
+          const mappedData = data.map(item => ({
+            id: item.id,
+            timestamp: item.created_at, 
+            summary_text: item.summary_text
+          }));
+          setInsights(mappedData);
+        })
+        .catch((err) => setError(err.message));
+    }, [studentId]);
+  
+
+     // 2. Trigger the local AI text generation pipeline via Django
+    const handleGenerate = async () => {
     setGenerating(true);
-    setTimeout(() => {
-      const newInsight = {
-        timestamp: new Date().toISOString(),
-        sections: {
-          strengths: [
-            "New strength insight generated for demo.",
-            "This is mock data until backend is ready."
-          ],
-          challenges: [
-            "New challenge insight generated for demo."
-          ],
-          recommendations: [
-            "Provide structured activities.",
-            "Encourage peer collaboration."
-          ]
-        }
-      };
-      setInsights(prev => [...prev, newInsight]);
-      setGenerating(false);
-    }, 1500);
-  };
+    setError(null);
 
+    // Mock Behavior for testing without backend active
+    if (studentId === 4) {
+      setTimeout(() => {
+        const mockNew = {
+          id: Date.now(),
+          timestamp: new Date().toLocaleString(),
+          summary_text: "Ethan Carter demonstrates high affinity for tactile spatial modules and mathematical patterns. However, he encounters processing delays with multi-sentence contexts. It is highly recommended to present text blocks inside short, discrete structural segments while managing structural auditory breaks."
+        };
+        setInsights(prev => [mockNew, ...prev]); // Prepend to show the newest at the top
+        setGenerating(false);
+        setOpenIndex(0); // Auto-open the newest generation accordion
+      }, 1500);
+      return;
+    }
+
+    try {
+      // 🎯 Use your client API instead of raw fetch
+      const newInsight = await iepAPI.generateInsight(studentId);
+      
+      const formattedNewInsight = {
+        id: newInsight.id,
+        timestamp: newInsight.created_at,
+        summary_text: newInsight.summary_text
+      };
+
+      setInsights(prev => [formattedNewInsight, ...prev]);
+      setOpenIndex(0);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGenerating(false);
+    }
+  };
+ 
   const toggleAccordion = (idx) => {
     setOpenIndex(openIndex === idx ? null : idx);
   };
@@ -39,48 +75,50 @@ export default function StudentInsightsTab({ studentId }) {
       <section className="form-section">
         <h2 className="form-section-title">Generated AI Insights</h2>
 
-        {/* Insights display */}
+        {error && (
+          <div className="error-banner" style={{ color: "#721c24", backgroundColor: "#f8d7da", padding: "12px", borderRadius: "6px", marginBottom: "15px", border: "1px solid #f5c6cb" }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        {/* --- INSIGHT DISPLAY LIST --- */}
         {insights.length === 0 ? (
           <p className="placeholder-page">
-            No insights yet. Click the button below to generate.
+            No insights yet. Click the button below to generate a professional student summary.
           </p>
         ) : (
           <div className="insight-history">
             {insights.map((entry, idx) => (
-              <div key={idx} className="accordion-block">
+              <div key={entry.id || idx} className="accordion-block" style={{ marginBottom: "10px" }}>
                 <button
                   className="accordion-header"
                   onClick={() => toggleAccordion(idx)}
+                  type="button"
                 >
-                  Generation {idx + 1} — {new Date(entry.timestamp).toLocaleString()}
+                  Generation {insights.length - idx} — {entry.timestamp}
                   <span className="accordion-icon">
                     {openIndex === idx ? "▲" : "▼"}
                   </span>
                 </button>
 
+                {/* --- SINGLE UNIFIED BOX OUTPUT --- */}
                 {openIndex === idx && (
-                  <div className="accordion-content">
-                    <div className="insight-row">
-                      <div className="insight-card strengths">
-                        <h5>Strengths</h5>
-                        <ul>
-                          {entry.sections.strengths.map((s, i) => <li key={i}>{s}</li>)}
-                        </ul>
-                      </div>
-
-                      <div className="insight-card challenges">
-                        <h5>Challenges</h5>
-                        <ul>
-                          {entry.sections.challenges.map((c, i) => <li key={i}>{c}</li>)}
-                        </ul>
-                      </div>
-
-                      <div className="insight-card recommendations">
-                        <h5>Recommendations</h5>
-                        <ul>
-                          {entry.sections.recommendations.map((r, i) => <li key={i}>{r}</li>)}
-                        </ul>
-                      </div>
+                  <div className="accordion-content" style={{ padding: "0" }}>
+                    <div 
+                      className="insight-summary-box"
+                      style={{
+                        padding: "20px",
+                        backgroundColor: "#f8f9fa",
+                        borderRadius: "0 0 8px 8px",
+                        border: "1px solid #e9ecef",
+                        borderTop: "none",
+                        fontSize: "15px",
+                        lineHeight: "1.6",
+                        color: "#212529",
+                        textAlign: "justify"
+                      }}
+                    >
+                      {entry.summary_text}
                     </div>
                   </div>
                 )}
@@ -89,13 +127,15 @@ export default function StudentInsightsTab({ studentId }) {
           </div>
         )}
 
+        {/* --- FORM ACTION GENERATE BUTTON --- */}
         <div className="form-actions" style={{ justifyContent: "flex-end", marginTop: "20px" }}>
           <button
             className="btn btn-submit"
             onClick={handleGenerate}
             disabled={generating}
+            type="button"
           >
-            {generating ? "Generating..." : "Generate and Analyze"}
+            {generating ? "Analyzing Profile..." : "Generate and Analyze"}
           </button>
         </div>
       </section>
@@ -103,38 +143,16 @@ export default function StudentInsightsTab({ studentId }) {
   );
 }
 
-// Mock data with 2 generations
+// Single-box unified history mock metrics
 const mockInsights = [
   {
-    timestamp: "2026-05-24T21:00:00Z",
-    sections: {
-      strengths: [
-        "John shows strong interest in visual learning activities.",
-        "He engages well with structured routines."
-      ],
-      challenges: [
-        "Struggles with sensory overload in noisy environments.",
-        "Needs support in peer interactions."
-      ],
-      recommendations: [
-        "Provide a quiet workspace and sensory breaks.",
-        "Encourage small group activities to build social skills."
-      ]
-    }
+    id: 101,
+    timestamp: "2026-05-24 21:00",
+    summary_text: "John demonstrates a strong affinity for visual learning frameworks and responds exceptionally well to predictable, structured schedules. However, he encounters significant obstacles managing processing loops in high-stimulus, noisy settings, which can impair group integration. Providing consistent access to specialized quiet zones and small-group pairings optimizes his overall transition stamina and communication progress."
   },
   {
-    timestamp: "2026-05-20T14:30:00Z",
-    sections: {
-      strengths: [
-        "John demonstrates persistence in problem-solving tasks."
-      ],
-      challenges: [
-        "Difficulty transitioning between activities."
-      ],
-      recommendations: [
-        "Use visual schedules to ease transitions.",
-        "Offer positive reinforcement for task completion."
-      ]
-    }
+    id: 102,
+    timestamp: "2026-05-20 14:30",
+    summary_text: "John displays high task persistence when interacting with logical problem-solving components. His primary processing block occurs when shifting rapidly between disconnected academic tracks without explicit visual milestones. Integrating targeted visual timelines and deploying positive token validation effectively eases performance friction during scheduling shifts."
   }
 ];
