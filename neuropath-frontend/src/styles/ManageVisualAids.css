@@ -283,3 +283,48 @@
   justify-content: flex-end;
   gap: 12px;
 }
+
+/* Skill category checkboxes */
+.va-skill-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.va-skill-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  color: #333;
+  cursor: pointer;
+  padding: 9px 14px;
+  border-radius: 7px;
+  border: 1.5px solid #e3eaf2;
+  background: #f7fafd;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+  user-select: none;
+}
+
+.va-skill-checkbox-label:hover {
+  border-color: #5aabf0;
+  background: #eef6fd;
+}
+
+.va-skill-checkbox-label:has(.va-skill-checkbox:checked) {
+  border-color: #5aabf0;
+  background: #eef6fd;
+  font-weight: 600;
+  color: #2a7cc7;
+}
+
+.va-skill-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #5aabf0;
+  cursor: pointer;
+  flex-shrink: 0;
+}

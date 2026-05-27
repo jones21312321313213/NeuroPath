@@ -28,7 +28,22 @@ function GenerateTab() {
   const [loadingStudents, setLoadingStudents] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [form, setForm] = useState({ goalText: "" });
+  const [selectedSkills, setSelectedSkills] = useState([]);
   const [generated, setGenerated] = useState(null);
+
+  const SKILL_CATEGORIES = [
+    "Mathematical Skills",
+    "Functional Academic Skills",
+    "Communication Skills",
+    "Social / Interpersonal Skills",
+    "Behavioral Skills",
+  ];
+
+  const toggleSkill = (skill) => {
+    setSelectedSkills((prev) =>
+      prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill],
+    );
+  };
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -48,6 +63,7 @@ function GenerateTab() {
       const data = await visualAidsAPI.generate({
         studentID: selectedStudent.studentID,
         goalText: form.goalText,
+        skillCategories: selectedSkills,
       });
       setGenerated(data);
     } catch (err) {
@@ -60,6 +76,7 @@ function GenerateTab() {
   const handleReset = () => {
     setSelectedStudent(null);
     setForm({ goalText: "" });
+    setSelectedSkills([]);
     setGenerated(null);
     setError("");
   };
@@ -124,6 +141,22 @@ function GenerateTab() {
               onChange={(e) => setForm({ goalText: e.target.value })}
               style={{ minHeight: 90 }}
             />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Skill Categories</label>
+            <div className="va-skill-checkboxes">
+              {SKILL_CATEGORIES.map((skill) => (
+                <label key={skill} className="va-skill-checkbox-label">
+                  <input
+                    type="checkbox"
+                    className="va-skill-checkbox"
+                    checked={selectedSkills.includes(skill)}
+                    onChange={() => toggleSkill(skill)}
+                  />
+                  <span>{skill}</span>
+                </label>
+              ))}
+            </div>
           </div>
           <div className="va-actions">
             <button className="btn btn-back" onClick={handleReset}>

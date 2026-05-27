@@ -106,11 +106,55 @@
 /* Actions row */
 .lp-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 20px;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
 }
 
+/* Beautiful Back Button Base */
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #ffffff;
+  border: 1px solid #e3eaf2;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #4b5563; /* Elegant slate gray */
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* The Icon Wrapper */
+.btn-back .arrow {
+  display: inline-block;
+  font-size: 16px;
+  color: #3d9de8; /* Matches your theme's signature blue */
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hover States */
+.btn-back:hover {
+  color: #1f2937; /* Darkens text slightly */
+  background: #f8fafc; /* Super soft cool gray flare */
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+/* The Magic: Smoothly slide the arrow left on hover */
+.btn-back:hover .arrow {
+  transform: translateX(-4px);
+}
+
+/* Active / Press State */
+.btn-back:active {
+  transform: scale(0.98);
+  background: #f1f5f9;
+}
 /* Status badges */
 .lp-status {
   display: inline-block;
