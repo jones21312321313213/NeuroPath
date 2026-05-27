@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import IEPModel
+from .models import IEPModel,IEPGoal,IEPObjectiveRow
 
 
 class IEPDataSerializer(serializers.ModelSerializer):
@@ -53,3 +53,78 @@ class IEPUpdateSerializer(serializers.ModelSerializer):
             'accommodations': {'required': False, 'allow_blank': True},
             'generatedDetails': {'required': False},
         }
+
+
+class StandaloneIEPGoalSerializer(serializers.ModelSerializer):
+    studentName = serializers.CharField(source='iep.studentID.name', read_only=True)
+    studentID = serializers.IntegerField(source='iep.studentID.pk', read_only=True)
+
+    class Meta:
+        model = IEPGoal
+        fields = [
+            'goalID',
+            'iep',
+            'studentID',
+            'studentName',
+            'subject_category',
+            'annual_goal',
+            'enroute_objectives',
+            'interventions_procedures',
+            'timeline_mins_session',
+            'individuals_responsible',
+            'progress_instructional',
+            'remarks'
+        ]
+        
+        
+class IEPObjectiveRowSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IEPObjectiveRow
+        fields = [
+            'rowID', 'enroute_objectives', 'interventions_procedures', 
+            'timeline_mins_session', 'individuals_responsible', 
+            'progress_instructional', 'remarks'
+        ]
+
+class StandaloneIEPGoalSerializer(serializers.ModelSerializer):
+    studentName = serializers.CharField(source='iep.studentID.name', read_only=True)
+    studentID = serializers.IntegerField(source='iep.studentID.pk', read_only=True)
+    
+    # 🚀 NESTED LIST: Serializer automatically manages the grid relation
+    objective_rows = IEPObjectiveRowSerializer(many=True, required=False)
+
+    class Meta:
+        model = IEPGoal
+        fields = [
+            'goalID', 'iep', 'studentID', 'studentName', 'goalName', 
+            'target_metric', 'subject_category', 'annual_goal', 'objective_rows'
+        ]
+
+    def create(self, validated_data):
+        # Extract the rows list out of the inbound data payload
+        rows_data = validated_data.pop('objective_rows', [])
+        
+        # 1. Create the parent header record
+        parent_goal = IEPGoal.objects.create(**validated_data)
+        
+        # 2. Spin up the child rows database assignments
+        for row in rows_data:
+            IEPObjectiveRow.objects.create(parent_goal=parent_goal, **row)
+            
+        return parent_goal
+
+    def update(self, instance, validated_data):
+        rows_data = validated_data.pop('objective_rows', None)
+        
+        # Update the parent goal details
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # If a grid update array is passed, clear old rows and re-populate
+        if rows_data is not None:
+            instance.objective_rows.all().delete()
+            for row in rows_data:
+                IEPObjectiveRow.objects.create(parent_goal=instance, **row)
+
+        return instance
