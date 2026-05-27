@@ -149,7 +149,8 @@ export const iepAPI = {
       method: "POST",
       body: JSON.stringify({ action: "save", ...payload }),
     }),
-  listByStudent: (studentID) => request(`/iep/student/${studentID}/`),
+  listByStudent: (studentID, teacherId) =>
+    request(`/iep/student/${studentID}/${teacherId ? `?teacher_id=${teacherId}` : ""}`),
   get: (id) => request(`/iep/${id}/`),
   update: (id, payload) =>
     request(`/iep/edit/${id}/`, {

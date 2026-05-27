@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { iepAPI, studentsAPI } from '../api/client'
+import { useAuth } from '../context/AuthContext'
 
 const difficultyOptions = [
   'Difficulty in Seeing',
@@ -535,6 +536,7 @@ function ViewIEPPanel({
 }
 
 export default function IEPGenerationPage({ mode = 'generate' }) {
+  const { user } = useAuth()
   const activeView = mode
   const [step, setStep] = useState(3)
   const [students, setStudents] = useState([])
@@ -550,6 +552,13 @@ export default function IEPGenerationPage({ mode = 'generate' }) {
   const [generatedAccommodations, setGeneratedAccommodations] = useState(defaultGeneratedAccommodations)
   const [generatedGoalDraft, setGeneratedGoalDraft] = useState('')
   const [generatingFinalIep, setGeneratingFinalIep] = useState(false)
+
+  useEffect(() => {
+    setSearchTerm('')
+    setSelectedStudent(null)
+    setIeps([])
+    setSelectedIep(null)
+  }, [activeView])
 
   const [form, setForm] = useState({
     region: '',
@@ -597,7 +606,7 @@ export default function IEPGenerationPage({ mode = 'generate' }) {
       setLoadingStudents(true)
       setViewError('')
       try {
-        const data = await studentsAPI.list()
+        const data = await studentsAPI.list(user?.id)
         if (mounted) setStudents(Array.isArray(data) ? data : data.results || [])
       } catch (error) {
         if (mounted) setViewError(error.message || 'Unable to load student records.')
@@ -607,7 +616,7 @@ export default function IEPGenerationPage({ mode = 'generate' }) {
     }
     loadStudents()
     return () => { mounted = false }
-  }, [activeView])
+  }, [activeView, user?.id])
 
   useEffect(() => {
     let mounted = true
@@ -620,7 +629,7 @@ export default function IEPGenerationPage({ mode = 'generate' }) {
       setLoadingIeps(true)
       setViewError('')
       try {
-        const data = await iepAPI.listByStudent(selectedStudent.studentID)
+        const data = await iepAPI.listByStudent(selectedStudent.studentID, user?.id)
         const list = Array.isArray(data) ? data : data.results || []
         if (mounted) {
           setIeps(list)
@@ -638,7 +647,7 @@ export default function IEPGenerationPage({ mode = 'generate' }) {
     }
     loadStudentIeps()
     return () => { mounted = false }
-  }, [selectedStudent])
+  }, [selectedStudent, user?.id])
 
   useEffect(() => {
     if (activeView !== 'generate' || !selectedStudent) return
@@ -732,6 +741,242 @@ export default function IEPGenerationPage({ mode = 'generate' }) {
     if (selectedGoalCategories.length === 0) {
       alert('Please select at least one goal area to generate.')
       return
+    }
+
+    setForm((prev) => {
+      const goalsToGenerate = selectedGoalCategories.map((goalType) => {
+        const template = goalTemplates[goalType]
+        return {
+          type: goalType,
+          annualGoal: template.annualGoal,
+          rows: template.rows.map((row) => ({ ...row, id: `${row.id}-${Date.now()}-${goalType}` })),
+        }
+      })
+
+      const goalsWithoutSelected = prev.learnerGoals.filter((goal) => !selectedGoalCategories.includes(goal.type))
+      return { ...prev, learnerGoals: [...goalsWithoutSelected, ...goalsToGenerate] }
+    })
+  }
+
+  const removeGoal = (goalType) => {
+    setSelectedGoalCategories((prev) => prev.filter((item) => item !== goalType))
+    setGeneratedGoalDraft('')
+  }
+
+  const buildGeneratedAccommodations = () => {
+    const difficulties = form.barrierRows.map((row) => row.difficulty).filter(Boolean).join(', ') || 'the identified learner difficulties'
+    const supports = form.assistiveTechnologies.join(', ') || 'appropriate visual and classroom supports'
+    const selectedGoals = selectedGoalCategories.join(', ') || 'selected learner goal areas'
+
+    return `Based on ${difficulties} and the selected goal areas (${selectedGoals}), AI recommends structured routines, shortened tasks, visual prompts, positive reinforcement, sensory or movement breaks when needed, and assistive supports such as ${supports}. The teacher may adjust these accommodations based on actual classroom observation and learner performance.`
+  }
+
+  const handleGenerateFinalIep = async () => {
+    if (!selectedStudent?.studentID) {
+      alert('Please select a student first.')
+      return
+    }
+
+    if (selectedGoalCategories.length === 0) {
+      alert('Please select at least one learner goal area.')
+      return
+    }
+
+    setGeneratingFinalIep(true)
+    setGeneratedGoalDraft('')
+
+    const accommodationText = buildGeneratedAccommodations()
+    setGeneratedAccommodations(accommodationText)
+
+    const baselineData = [
+      `Student: ${form.learnerName || selectedStudent.name || ''}`,
+      `Diagnosis: ${form.disabilityCategory || ''}`,
+      `Assessment / Diagnosis Details: ${form.diagnosisDetails || ''}`,
+      `Present Evaluation: ${form.presentEvaluation || ''}`,
+      `Academic Strengths: ${form.academicStrengths || ''}`,
+      `Academic Needs: ${form.academicNeeds || ''}`,
+      `Parental Concerns: ${form.parentalConcerns || ''}`,
+      `Curriculum Impact: ${form.curriculumImpact || ''}`,
+      `Section B Difficulties: ${form.barrierRows.map((row) => `${row.difficulty || 'Unspecified difficulty'} - ${row.barrierQualifier || 'No barrier listed'} - Facilitator/s: ${row.facilitator || 'None listed'}`).join('; ')}`,
+    ].join('\n')
+
+    try {
+      const result = await iepAPI.generate({
+        studentID: selectedStudent.studentID,
+        teacherID: user?.id,
+        baselineData,
+        domains: selectedGoalCategories.join(', '),
+      })
+
+      const draft = result?.draftData || result?.data || result
+      setGeneratedGoalDraft(draft?.draft_goals || draft?.goals || 'AI generated the learner goals successfully.')
+      setGeneratedAccommodations(draft?.draft_accommodations || accommodationText)
+    } catch (error) {
+      alert(error.message || 'Unable to generate final IEP content.')
+    } finally {
+      setGeneratingFinalIep(false)
+    }
+  }
+
+  const handleSaveIep = async () => {
+    if (!selectedStudent?.studentID) {
+      alert('Please select a student first.')
+      return
+    }
+
+    const accommodationText = buildGeneratedAccommodations()
+    setGeneratedAccommodations(accommodationText)
+
+    const goalsText = form.learnerGoals.length
+      ? form.learnerGoals.map((goal, index) => `${index + 1}. ${goal.type}: ${goal.annualGoal}`).join('\n')
+      : 'No learner goals selected.'
+
+    const baselineText = [
+      `Student: ${form.learnerName || selectedStudent.name || ''}`,
+      `Diagnosis: ${form.disabilityCategory || ''}`,
+      `Assessment / Diagnosis Details: ${form.diagnosisDetails || ''}`,
+      `Present Evaluation: ${form.presentEvaluation || ''}`,
+      `Academic Strengths: ${form.academicStrengths || ''}`,
+      `Academic Needs: ${form.academicNeeds || ''}`,
+      `Parental Concerns: ${form.parentalConcerns || ''}`,
+      `Curriculum Impact: ${form.curriculumImpact || ''}`,
+    ].join('\n')
+
+    const generatedDetails = {
+      ...form,
+      generatedAccommodations: accommodationText,
+    }
+
+    try {
+      const saved = await iepAPI.save({
+        studentID: selectedStudent.studentID,
+        teacherID: user?.id,
+        baselineData: baselineText,
+        goals: goalsText,
+        accommodations: accommodationText,
+        generatedDetails,
+      })
+
+      const savedData = saved?.data || saved
+      setIeps((prev) => [savedData, ...prev])
+      setSelectedIep(savedData)
+      alert('IEP saved successfully!')
+    } catch (error) {
+      alert(error.message || 'Unable to save IEP.')
+    }
+    loadStudentIeps()
+    return () => { mounted = false }
+  }, [selectedStudent])
+
+  useEffect(() => {
+    if (activeView !== 'generate' || !selectedStudent) return
+    const profileDetails = getStudentProfileDetails(selectedStudent)
+
+    setForm((prev) => ({
+      ...prev,
+      school: profileDetails.school || prev.school,
+      schoolYear: profileDetails.schoolYear || prev.schoolYear,
+      learnerName: profileDetails.studentName || profileDetails.learnerName || selectedStudent.name || prev.learnerName,
+      birthdate: profileDetails.birthdate || prev.birthdate,
+      disabilityCategory: profileDetails.disabilityCategory || selectedStudent.diagnosis || prev.disabilityCategory,
+      diagnosisDetails: profileDetails.diagnosisDetails || selectedStudent.asdBackground || selectedStudent.diagnosis || prev.diagnosisDetails,
+      difficultyMarkers: profileDetails.difficultyMarkers || prev.difficultyMarkers,
+      presentEvaluation: profileDetails.presentEvaluation || selectedStudent.assessmentResult || prev.presentEvaluation,
+      academicStrengths: profileDetails.academicStrengths || prev.academicStrengths,
+      academicNeeds: profileDetails.academicNeeds || selectedStudent.support_needs || prev.academicNeeds,
+      parentalConcerns: profileDetails.parentalConcerns || prev.parentalConcerns,
+      curriculumImpact: profileDetails.curriculumImpact || prev.curriculumImpact,
+    }))
+  }, [activeView, selectedStudent])
+
+  useEffect(() => {
+    setSelectedGoalCategories((prev) => prev.filter((goalType) => availableGoalTypes.includes(goalType)))
+  }, [availableGoalTypes])
+
+  const setField = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
+
+  const toggleListValue = (field, value) => {
+    setForm((prev) => {
+      const current = prev[field] || []
+      return { ...prev, [field]: current.includes(value) ? current.filter((item) => item !== value) : [...current, value] }
+    })
+  }
+
+  const updateBarrierRow = (index, field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      barrierRows: prev.barrierRows.map((row, rowIndex) => (rowIndex === index ? { ...row, [field]: value } : row)),
+    }))
+  }
+
+  const addBarrierRow = () => {
+    setForm((prev) => ({
+      ...prev,
+      barrierRows: [...prev.barrierRows, { difficulty: '', barrierQualifier: 'Moderate barrier', facilitator: '' }],
+    }))
+  }
+
+  const removeBarrierRow = (index) => {
+    setForm((prev) => ({ ...prev, barrierRows: prev.barrierRows.filter((_, rowIndex) => rowIndex !== index) }))
+  }
+
+  const updateGoalRow = (goalIndex, rowIndex, field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      learnerGoals: prev.learnerGoals.map((goal, currentGoalIndex) => (
+        currentGoalIndex === goalIndex
+          ? { ...goal, rows: goal.rows.map((row, currentRowIndex) => (currentRowIndex === rowIndex ? { ...row, [field]: value } : row)) }
+          : goal
+      )),
+    }))
+  }
+
+  const updateGoalAnnualGoal = (goalIndex, value) => {
+    setForm((prev) => ({
+      ...prev,
+      learnerGoals: prev.learnerGoals.map((goal, currentGoalIndex) => (currentGoalIndex === goalIndex ? { ...goal, annualGoal: value } : goal)),
+    }))
+  }
+
+  const buildGoalFromTemplate = (goalType) => {
+    const template = goalTemplates[goalType]
+    return {
+      type: goalType,
+      annualGoal: template.annualGoal,
+      rows: template.rows.map((row) => ({ ...row, id: `${row.id}-${Date.now()}-${goalType}` })),
+    }
+  }
+
+  const toggleGoalCategory = (goalType) => {
+    setSelectedGoalCategories((prev) => (
+      prev.includes(goalType)
+        ? prev.filter((item) => item !== goalType)
+        : [...prev, goalType]
+    ))
+    setGeneratedGoalDraft('')
+  }
+
+  const handleUpdateIep = async (iep, payload) => {
+    try {
+      let generatedDetails = payload.generatedDetails
+      if (generatedDetails) {
+        try { generatedDetails = JSON.parse(generatedDetails) } catch { /* keep as plain text if invalid JSON */ }
+      }
+
+      const updated = await iepAPI.update(iep.iepID, {
+        baselineData: payload.baselineData,
+        goals: payload.goals,
+        accommodations: payload.accommodations,
+        generatedDetails,
+      })
+
+      const merged = { ...iep, ...updated, ...payload, generatedDetails }
+      setIeps((prev) => prev.map((item) => (item.iepID === iep.iepID ? merged : item)))
+      setSelectedIep(merged)
+      setViewError('')
+    } catch (error) {
+      setViewError(error.message || 'Unable to update IEP record.')
+      throw error
     }
 
     setForm((prev) => {

@@ -65,6 +65,18 @@ class IEPGeneratorService:
 
 
 class IEPGenerationAPIView(APIView):
+    def _get_teacher_from_user_id(self, teacher_user_id):
+        if not teacher_user_id:
+            return None
+        try:
+            from django.contrib.auth.models import User
+            from users.models import Teacher
+
+            django_user = User.objects.get(pk=int(teacher_user_id))
+            return Teacher.objects.get(email=django_user.email)
+        except (User.DoesNotExist, Teacher.DoesNotExist, ValueError, TypeError):
+            return None
+
     def post(self, request, *args, **kwargs):
         action = request.data.get('action')
 
@@ -75,9 +87,13 @@ class IEPGenerationAPIView(APIView):
             teacher_id = request.user.id if request.user.is_authenticated else request.data.get('teacherID')
 
             try:
-                student = StudentProfile.objects.get(pk=student_id)
+                teacher = self._get_teacher_from_user_id(teacher_id)
+                student_query = StudentProfile.objects.filter(pk=student_id)
+                if teacher:
+                    student_query = student_query.filter(teacher=teacher)
+                student = student_query.get()
             except StudentProfile.DoesNotExist:
-                return Response({'error': 'Student not found.'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'error': 'Student not found for this teacher account.'}, status=status.HTTP_404_NOT_FOUND)
 
             draft_payload = IEPGeneratorService.generate_draft(
                 student=student,
@@ -94,11 +110,23 @@ class IEPGenerationAPIView(APIView):
         if action == 'save':
             payload = request.data.copy()
 
-            # Auto-version per student.
+            # Only allow saving an IEP for a student owned by this teacher account.
             student_id = payload.get('studentID')
+            teacher = self._get_teacher_from_user_id(payload.get('teacherID'))
+            try:
+                student_query = StudentProfile.objects.filter(pk=student_id)
+                if teacher:
+                    student_query = student_query.filter(teacher=teacher)
+                student_query.get()
+            except StudentProfile.DoesNotExist:
+                return Response({'error': 'Student not found for this teacher account.'}, status=status.HTTP_404_NOT_FOUND)
+
+            # Auto-version per student.
             if student_id and not payload.get('version'):
                 latest = IEPModel.objects.filter(studentID_id=student_id).order_by('-version').first()
                 payload['version'] = (latest.version + 1) if latest else 1
+
+            payload.pop('teacherID', None)
 
             serializer = IEPDataSerializer(data=payload)
             if serializer.is_valid():
@@ -140,7 +168,25 @@ class IEPListAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         student_id = self.kwargs.get('student_id')
-        return IEPModel.objects.filter(studentID_id=student_id).order_by('-createdDate')
+        queryset = IEPModel.objects.filter(studentID_id=student_id).order_by('-createdDate')
+
+        # Keep View IEP scoped to the currently logged-in teacher account.
+        # The React app sends the Django User ID as ?teacher_id=... and the
+        # Teacher row is linked by the same email used at registration/login.
+        teacher_user_id = self.request.query_params.get('teacher_id')
+        if not teacher_user_id:
+            return IEPModel.objects.none()
+
+        try:
+            from django.contrib.auth.models import User
+            from users.models import Teacher
+
+            django_user = User.objects.get(pk=int(teacher_user_id))
+            teacher = Teacher.objects.get(email=django_user.email)
+            return queryset.filter(studentID__teacher=teacher)
+        except (User.DoesNotExist, Teacher.DoesNotExist, ValueError, TypeError):
+            return IEPModel.objects.none()
+
 
 
 class IEPDetailAPIView(generics.RetrieveAPIView):
