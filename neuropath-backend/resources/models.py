@@ -1,4 +1,6 @@
 from django.db import models
+from users.models import StudentProfile
+from iep_management.models import IEPModel as IEP
 from iep_management.models import IEPGoal  # 🚀 Cross-app import to target specific goals
 
 class LessonPlan(models.Model):

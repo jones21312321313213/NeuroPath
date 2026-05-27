@@ -765,13 +765,11 @@ class TeachingStrategyGenerationController(APIView):
         return Response({"directory": directory_payload}, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
-        """Matches Sequence Diagram: executeStrategyGeneration()"""
         serializer = StrategyParameterSerializer(data=request.data)
         
         if serializer.is_valid():
             student_id = serializer.validated_data['studentID']
             iep_id = serializer.validated_data['iepGoalID']
-            p
             try:
                 student = StudentProfile.objects.get(pk=student_id)
                 iep = IEPModel.objects.get(pk=iep_id)
@@ -780,10 +778,17 @@ class TeachingStrategyGenerationController(APIView):
                     {"error": "Targeted Student or IEP Goal could not be located."}, 
                     status=status.HTTP_404_NOT_FOUND
                 )
-                
-            # Drive the orchestration layer
-            draft_payload = StrategyGenerationService.execute_compilation_workflow(student, iep)
-            
+
+            title = str(iep)
+            generated_content = StrategyGenerationManagerService.generate_strategy_content(
+                title=title,
+                student_profile=student
+            )
+            draft_payload = {
+                "title": title,
+                "strategyContent": generated_content,
+            }
+
             return Response({
                 "message": "Teaching strategy successfully compiled for review.",
                 "data": draft_payload
