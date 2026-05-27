@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import "../styles/ManageVisualAids.css";
 import { visualAidsAPI, studentsAPI } from "../api/client";
+import { useAuth } from "../context/AuthContext";
+import StudentShimmer from "../components/StudentShimmer";
 
 const TABS = [
   { key: "generate", label: "Generate Visual Aids" },
@@ -21,6 +23,7 @@ function EmptyState({ message = "No records found." }) {
 
 // ── Generate Tab ───────────────────────────────────────────────────────────────
 function GenerateTab() {
+  const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -31,7 +34,7 @@ function GenerateTab() {
 
   useEffect(() => {
     studentsAPI
-      .list()
+      .list(user?.id)
       .then(setStudents)
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoadingStudents(false));
@@ -76,7 +79,7 @@ function GenerateTab() {
       <div className="va-card">
         <p className="va-card-title">Step 1 — Select a Student</p>
         {loadingStudents ? (
-          <p className="va-empty">Loading students…</p>
+          <StudentShimmer />
         ) : students.length === 0 ? (
           <EmptyState message="No students found. Add a student profile first." />
         ) : (
@@ -189,7 +192,7 @@ function ViewTab() {
   if (loading)
     return (
       <div className="va-card">
-        <p className="va-empty">Loading…</p>
+        <StudentShimmer />
       </div>
     );
   if (error)
@@ -277,7 +280,7 @@ function DeleteTab() {
   if (loading)
     return (
       <div className="va-card">
-        <p className="va-empty">Loading…</p>
+        <StudentShimmer />
       </div>
     );
   if (error)

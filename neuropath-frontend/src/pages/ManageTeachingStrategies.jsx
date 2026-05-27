@@ -1,7 +1,9 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import "../styles/ManageVisualAids.css";
 import "../styles/ManageTeachingStrategies.css";
+import StudentShimmer from "../components/StudentShimmer";
 import { teachingStrategiesAPI } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 
 const TABS = [
   { key: "generate", label: "Generate Teaching Strategies" },
@@ -23,6 +25,7 @@ function EmptyState({ message = "No records found." }) {
 
 // ── Generate Tab ───────────────────────────────────────────────────────────────
 function GenerateTab({ onSave }) {
+  const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -33,7 +36,7 @@ function GenerateTab({ onSave }) {
 
   useEffect(() => {
     teachingStrategiesAPI
-      .getDirectory()
+      .getDirectory(user?.id)
       .then((data) => setDirectory(data.directory || []))
       .catch(() => setError("Failed to load students and goals."))
       .finally(() => setLoadingDir(false));
@@ -86,7 +89,7 @@ function GenerateTab({ onSave }) {
           Step 1 — Select a Student
         </p>
         {loadingDir ? (
-          <p className="va-empty">Loading students…</p>
+          <StudentShimmer />
         ) : directory.length === 0 ? (
           <EmptyState message="No students found. Add a student profile first." />
         ) : (
@@ -220,6 +223,7 @@ function StrategyDetails({ strategy, onBack }) {
 
 // ── View Tab ───────────────────────────────────────────────────────────────────
 function ViewTab() {
+  const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -230,7 +234,7 @@ function ViewTab() {
 
   useEffect(() => {
     teachingStrategiesAPI
-      .getDirectory()
+      .getDirectory(user?.id)
       .then((data) => setDirectory(data.directory || []))
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoadingDir(false));
@@ -259,7 +263,7 @@ function ViewTab() {
         </p>
         {error && <p style={{ color: "#c0392b", fontSize: 13 }}>⚠️ {error}</p>}
         {loadingStrats ? (
-          <p className="va-empty">Loading…</p>
+          <StudentShimmer />
         ) : strategies.length === 0 ? (
           <EmptyState message="No teaching strategies found for this student." />
         ) : (
@@ -311,7 +315,7 @@ function ViewTab() {
       </p>
       {error && <p style={{ color: "#c0392b", fontSize: 13 }}>⚠️ {error}</p>}
       {loadingDir ? (
-        <p className="va-empty">Loading students…</p>
+        <StudentShimmer />
       ) : directory.length === 0 ? (
         <EmptyState message="No students found." />
       ) : (
@@ -338,6 +342,7 @@ function ViewTab() {
 
 // ── Edit Tab ───────────────────────────────────────────────────────────────────
 function EditTab() {
+  const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -350,7 +355,7 @@ function EditTab() {
 
   useEffect(() => {
     teachingStrategiesAPI
-      .getDirectory()
+      .getDirectory(user?.id)
       .then((data) => setDirectory(data.directory || []))
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoadingDir(false));
@@ -453,7 +458,7 @@ function EditTab() {
         </p>
         {error && <p style={{ color: "#c0392b", fontSize: 13 }}>⚠️ {error}</p>}
         {loadingStrats ? (
-          <p className="va-empty">Loading…</p>
+          <StudentShimmer />
         ) : strategies.length === 0 ? (
           <EmptyState message="No teaching strategies found for this student." />
         ) : (
@@ -506,7 +511,7 @@ function EditTab() {
       </p>
       {error && <p style={{ color: "#c0392b", fontSize: 13 }}>⚠️ {error}</p>}
       {loadingDir ? (
-        <p className="va-empty">Loading students…</p>
+        <StudentShimmer />
       ) : directory.length === 0 ? (
         <EmptyState message="No students found." />
       ) : (
@@ -533,6 +538,7 @@ function EditTab() {
 
 // ── Delete Tab ─────────────────────────────────────────────────────────────────
 function DeleteTab() {
+  const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -549,7 +555,7 @@ function DeleteTab() {
 
   useEffect(() => {
     teachingStrategiesAPI
-      .getDirectory()
+      .getDirectory(user?.id)
       .then((data) => setDirectory(data.directory || []))
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoadingDir(false));
@@ -587,7 +593,7 @@ function DeleteTab() {
         </p>
         {error && <p style={{ color: "#c0392b", fontSize: 13 }}>⚠️ {error}</p>}
         {loadingStrats ? (
-          <p className="va-empty">Loading…</p>
+          <StudentShimmer />
         ) : strategies.length === 0 ? (
           <EmptyState message="No teaching strategies to delete for this student." />
         ) : (
@@ -668,7 +674,7 @@ function DeleteTab() {
       </p>
       {error && <p style={{ color: "#c0392b", fontSize: 13 }}>⚠️ {error}</p>}
       {loadingDir ? (
-        <p className="va-empty">Loading students…</p>
+        <StudentShimmer />
       ) : directory.length === 0 ? (
         <EmptyState message="No students found." />
       ) : (

@@ -19,7 +19,10 @@ const navItems = [
   {
     label: "AI-Based IEP Generation",
     key: "iep-generation",
-    children: [],
+    children: [
+      { label: "Generate IEP", key: "generate-iep" },
+      { label: "View IEP", key: "view-iep" },
+    ],
   },
   {
     label: "Instructional Support",
@@ -44,7 +47,7 @@ const navItems = [
 ];
 
 export default function Sidebar({ activePage, setActivePage }) {
-  const [expanded, setExpanded] = useState({ "student-profiling": true });
+  const [expanded, setExpanded] = useState({ "student-profiling": true, "iep-generation": true });
   const [isModalOpen, setIsModalOpen] = useState(false); // Modal state
 
   const toggleExpand = (key) => {

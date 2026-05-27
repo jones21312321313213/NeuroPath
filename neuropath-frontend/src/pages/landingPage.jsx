@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-
+import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import RotatingText from "../components/ui/RotatingText";
 const features = [
   {
     icon: "🎯",
@@ -29,14 +31,15 @@ const features = [
   {
     icon: "🔒",
     title: "Secure & Private",
-    desc: "FERPA-compliant data protection ensures every student's records stay safe and confidential.",
   },
 ];
 
 export default function LandingPage({ onGetStarted }) {
+  const [scrolled, setScrolled] = useState(false);
   const heroRef = useRef(null);
 
   useEffect(() => {
+    // 1. Intersection Observer for fade-in animations
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((e) => {
@@ -48,12 +51,48 @@ export default function LandingPage({ onGetStarted }) {
       },
       { threshold: 0.15 },
     );
+
     document
       .querySelectorAll(".fade-in-init")
       .forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
+
+    // 2. Scroll listener for the shrinking navbar
+    const handleScroll = () => {
+      if (window.scrollY > 20) {
+        setScrolled(true);
+      } else {
+        setScrolled(false);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+
+    // Clean up observers and listeners
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", handleScroll);
+    };
   }, []);
 
+  const rotatingPhrases = [
+    "deserves a path",
+    "has the potential",
+    "learns differently",
+    "deserves a champion",
+  ];
+  const [phraseIndex, setPhraseIndex] = useState(0);
+  const [animating, setAnimating] = useState(false);
+  const navigate = useNavigate();
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setAnimating(true);
+      setTimeout(() => {
+        setPhraseIndex((i) => (i + 1) % rotatingPhrases.length);
+        setAnimating(false);
+      }, 400); // halfway through transition — swap text while faded out
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
   return (
     <div
       className="min-h-screen font-sans overflow-x-hidden"
@@ -61,64 +100,54 @@ export default function LandingPage({ onGetStarted }) {
     >
       {/* NAV */}
       <nav
-        className="fixed top-0 left-0 right-0 h-16 z-50 transition-all duration-300"
-        style={{
-          background: "rgba(240,248,255,0.85)",
-          backdropFilter: "blur(12px)",
-          borderBottom: "1px solid rgba(130,199,255,0.3)",
-        }}
+        className={`fixed left-0 right-0 z-50 transition-all duration-500 ease-in-out mx-auto
+          ${
+            scrolled
+              ? "top-4 max-w-4xl h-14 rounded-full bg-white/30 shadow-[0_10px_30px_rgba(37,137,199,0.08)] border border-[#82c7ff]/30 backdrop-blur-xl px-4"
+              : "top-0 max-w-full h-16 bg-[#f0f8ff]/85 border-b border-[#82c7ff]/30 backdrop-blur-md"
+          }`}
       >
-        <div className="max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+        <div
+          className={`h-full mx-auto flex items-center justify-between transition-all duration-500
+          ${scrolled ? "px-2" : "max-w-7xl px-4 sm:px-6 lg:px-8"}`}
+        >
           <div className="flex items-center gap-2 select-none">
-            <span
-              className="text-2xl animate-pulse"
-              style={{ color: "#2589c7" }}
-            >
-              ⚡
-            </span>
-            <span
-              className="text-xl font-bold tracking-tight"
-              style={{ color: "#1a6fa8" }}
-            >
+            <span className="text-2xl animate-pulse text-[#2589c7]">⚡</span>
+            <span className="text-xl font-bold tracking-tight text-[#1a6fa8]">
               NeuroPath
             </span>
           </div>
+
           <div className="flex items-center gap-6 sm:gap-8">
             <a
-              href="#features"
-              className="text-sm font-medium transition-colors"
-              style={{ color: "#5a9dbf" }}
-              onMouseEnter={(e) => (e.target.style.color = "#1a6fa8")}
-              onMouseLeave={(e) => (e.target.style.color = "#5a9dbf")}
+              href="features"
+              onClick={(e) => {
+                e.preventDefault();
+                document
+                  .getElementById("features")
+                  ?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="text-sm font-medium transition-colors text-[#5a9dbf] hover:text-[#1a6fa8]"
             >
               Features
             </a>
             <a
-              href="#about"
-              className="text-sm font-medium transition-colors"
-              style={{ color: "#5a9dbf" }}
-              onMouseEnter={(e) => (e.target.style.color = "#1a6fa8")}
-              onMouseLeave={(e) => (e.target.style.color = "#5a9dbf")}
+              href="about"
+              onClick={(e) => {
+                e.preventDefault();
+                document
+                  .getElementById("about")
+                  ?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="text-sm font-medium transition-colors text-[#5a9dbf] hover:text-[#1a6fa8]"
             >
               About
             </a>
             <button
-              className="text-sm font-semibold px-4 py-2 rounded-xl transition-all active:scale-95"
-              style={{
-                color: "#1a6fa8",
-                border: "1.5px solid #82C7FF",
-                background: "#fff",
-                boxShadow: "0 1px 4px rgba(130,199,255,0.2)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "#e8f5ff";
-                e.currentTarget.style.borderColor = "#2589c7";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "#fff";
-                e.currentTarget.style.borderColor = "#82C7FF";
-              }}
+              href="signin"
               onClick={onGetStarted}
+              className={`text-sm font-semibold transition-all active:scale-95 text-[#1a6fa8] border-[1.5px] border-[#82C7FF] bg-white shadow-[0_1px_4px_rgba(130,199,255,0.2)] hover:bg-[#e8f5ff] hover:border-[#2589c7]
+                ${scrolled ? "px-3.5 py-1.5 rounded-full text-xs" : "px-4 py-2 rounded-xl"}`}
             >
               Sign In
             </button>
@@ -169,19 +198,30 @@ export default function LandingPage({ onGetStarted }) {
             className="fade-in-init opacity-0 translate-y-4 transition-all duration-700 ease-out delay-75 text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.15] mb-6"
             style={{ color: "#1a3a4a" }}
           >
-            Every student <br />
-            <span
-              style={{
-                background: "linear-gradient(135deg, #2589c7, #82C7FF)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
-            >
-              deserves a path
-            </span>{" "}
+            Every student
             <br />
-            built for them.
+            <RotatingText
+              texts={[
+                "deserves a path",
+                "has the potential",
+                "learns differently",
+                "deserves a champion",
+              ]}
+              mainClassName="px-3 py-1 rounded-lg overflow-hidden justify-center"
+              elementLevelClassName="gradient-text-char"
+              staggerFrom="last"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "-120%" }}
+              staggerDuration={0.025}
+              splitLevelClassName="overflow-hidden pb-0.5"
+              transition={{ type: "spring", damping: 30, stiffness: 400 }}
+              rotationInterval={2500}
+              splitBy="characters"
+              auto
+              loop
+            />
+            <span style={{ color: "#1a3a4a" }}>built for them.</span>
           </h1>
 
           <p
@@ -469,7 +509,7 @@ export default function LandingPage({ onGetStarted }) {
               their students' journeys.
             </p>
             <button
-              onClick={onGetStarted}
+              onClick={() => navigate("/register")}
               className="group flex items-center justify-center gap-2 font-bold px-6 py-4 rounded-xl shadow-lg active:scale-[0.98] transition-all w-full sm:w-auto text-sm"
               style={{ background: "#fff", color: "#1a6fa8" }}
               onMouseEnter={(e) =>

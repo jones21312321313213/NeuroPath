@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import "../styles/OutcomeMonitoring.css";
 import { studentsAPI } from "../api/client";
+import { useAuth } from "../context/AuthContext";
+import StudentShimmer from "../components/StudentShimmer";
 
 function EmptyState({ message }) {
   return (
@@ -14,6 +16,7 @@ function EmptyState({ message }) {
 }
 
 export default function ViewStudentRecords() {
+  const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -26,7 +29,7 @@ export default function ViewStudentRecords() {
 
   useEffect(() => {
     studentsAPI
-      .list()
+      .list(user?.id)
       .then(setStudents)
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoading(false));
@@ -193,7 +196,7 @@ export default function ViewStudentRecords() {
 
           <div className="om-student-list">
             {loading ? (
-              <p className="om-empty">Loading students…</p>
+              <StudentShimmer />
             ) : filtered.length === 0 ? (
               <EmptyState message="No students found." />
             ) : (

@@ -56,7 +56,8 @@ export const authAPI = {
 
 // ── Students ───────────────────────────────────────────────────────────────────
 export const studentsAPI = {
-  list: () => request("/users/students/"),
+  list: (teacherId) =>
+    request(`/users/students/${teacherId ? `?teacher_id=${teacherId}` : ""}`),
   get: (id) => request(`/users/students/${id}/view/`),
   create: (payload) =>
     request("/users/students/", {
@@ -104,7 +105,10 @@ export const visualAidsAPI = {
 // ── Teaching Strategies ────────────────────────────────────────────────────────
 export const teachingStrategiesAPI = {
   // Generate tab — GET loads { directory: [{ studentID, studentName, availableGoals: [{ iepID, label }] }] }
-  getDirectory: () => request("/resources/generate-strategy/"),
+  getDirectory: (teacherId) =>
+    request(
+      `/resources/generate-strategy/${teacherId ? `?teacher_id=${teacherId}` : ""}`,
+    ),
   // Generate tab — POST { studentID, iepGoalID } → { message, data: { strategyID, title, strategyContent, ... } }
   generate: (payload) =>
     request("/resources/generate-strategy/", {
@@ -131,4 +135,27 @@ export const teachingStrategiesAPI = {
   // Delete tab — DELETE
   delete: (id) =>
     request(`/resources/delete-strategy/${id}/`, { method: "DELETE" }),
+};
+
+// ── IEP Generation / Viewing ─────────────────────────────────────────────────
+export const iepAPI = {
+  generate: (payload) =>
+    request("/iep/generate-iep/", {
+      method: "POST",
+      body: JSON.stringify({ action: "generate", ...payload }),
+    }),
+  save: (payload) =>
+    request("/iep/generate-iep/", {
+      method: "POST",
+      body: JSON.stringify({ action: "save", ...payload }),
+    }),
+  listByStudent: (studentID, teacherId) =>
+    request(`/iep/student/${studentID}/${teacherId ? `?teacher_id=${teacherId}` : ""}`),
+  get: (id) => request(`/iep/${id}/`),
+  update: (id, payload) =>
+    request(`/iep/edit/${id}/`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  delete: (id) => request(`/iep/delete/${id}/`, { method: "DELETE" }),
 };

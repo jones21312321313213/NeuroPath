@@ -1,48 +1,130 @@
 from rest_framework import serializers
-from .models import IEPModel
+from .models import IEPModel,IEPGoal,IEPObjectiveRow
 
-# =====================================================================
-# SDD COMPONENT: IEPDataSerializer
-# Description: Strict data validation and parsing component formatting
-#              JSON payloads for the React review editor.
-# =====================================================================
+
 class IEPDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = IEPModel
-        fields = ['iepID', 'studentID', 'baselineData', 'goals', 'accommodations', 'version', 'createdDate']
+        fields = [
+            'iepID',
+            'studentID',
+            'baselineData',
+            'goals',
+            'accommodations',
+            'generatedDetails',
+            'version',
+            'createdDate',
+        ]
+        read_only_fields = ['iepID', 'version', 'createdDate']
+        extra_kwargs = {
+            'baselineData': {'required': False, 'allow_blank': True},
+            'goals': {'required': False, 'allow_blank': True},
+            'accommodations': {'required': False, 'allow_blank': True},
+            'generatedDetails': {'required': False},
+        }
 
-    def validate_baselineData(self, value):
-        if not value or len(value.strip()) < 10:
-            raise serializers.ValidationError("Baseline performance data is too brief for accurate AI generation.")
-        return value
-    
-    
-# =====================================================================
-# SDD COMPONENT: IEPListDetailSerializer
-# Description: Formats database rows for the frontend workspace. Pulls
-#              relational student data and formats timestamps.
-# =====================================================================
+
 class IEPListDetailSerializer(serializers.ModelSerializer):
     studentName = serializers.CharField(source='studentID.name', read_only=True)
-    formattedDate = serializers.DateTimeField(source='createdDate', format="%B %d, %Y", read_only=True)
+    formattedDate = serializers.DateTimeField(source='createdDate', format='%B %d, %Y', read_only=True)
 
     class Meta:
         model = IEPModel
-        fields = ['iepID', 'studentID', 'studentName', 'baselineData', 'goals', 'accommodations', 'version', 'formattedDate']
+        fields = [
+            'iepID',
+            'studentID',
+            'studentName',
+            'baselineData',
+            'goals',
+            'accommodations',
+            'generatedDetails',
+            'version',
+            'formattedDate',
+        ]
 
 
-# =====================================================================
-# SDD COMPONENT: IEPUpdateSerializer
-# Description: Strict validation for teacher edits. Only permits changes
-#              to specific text blocks to prevent accidental data corruption.
-# =====================================================================
 class IEPUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = IEPModel
-        # Teachers can only edit the text content, not the core student IDs or timestamps
-        fields = ['baselineData', 'goals', 'accommodations']
+        fields = ['baselineData', 'goals', 'accommodations', 'generatedDetails']
+        extra_kwargs = {
+            'baselineData': {'required': False, 'allow_blank': True},
+            'goals': {'required': False, 'allow_blank': True},
+            'accommodations': {'required': False, 'allow_blank': True},
+            'generatedDetails': {'required': False},
+        }
+
+
+class StandaloneIEPGoalSerializer(serializers.ModelSerializer):
+    studentName = serializers.CharField(source='iep.studentID.name', read_only=True)
+    studentID = serializers.IntegerField(source='iep.studentID.pk', read_only=True)
+
+    class Meta:
+        model = IEPGoal
+        fields = [
+            'goalID',
+            'iep',
+            'studentID',
+            'studentName',
+            'subject_category',
+            'annual_goal',
+            'enroute_objectives',
+            'interventions_procedures',
+            'timeline_mins_session',
+            'individuals_responsible',
+            'progress_instructional',
+            'remarks'
+        ]
         
-    def validate_goals(self, value):
-        if not value or len(value.strip()) < 15:
-            raise serializers.ValidationError("Goals cannot be left blank. Minimum length required.")
-        return value
+        
+class IEPObjectiveRowSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IEPObjectiveRow
+        fields = [
+            'rowID', 'enroute_objectives', 'interventions_procedures', 
+            'timeline_mins_session', 'individuals_responsible', 
+            'progress_instructional', 'remarks'
+        ]
+
+class StandaloneIEPGoalSerializer(serializers.ModelSerializer):
+    studentName = serializers.CharField(source='iep.studentID.name', read_only=True)
+    studentID = serializers.IntegerField(source='iep.studentID.pk', read_only=True)
+    
+    # 🚀 NESTED LIST: Serializer automatically manages the grid relation
+    objective_rows = IEPObjectiveRowSerializer(many=True, required=False)
+
+    class Meta:
+        model = IEPGoal
+        fields = [
+            'goalID', 'iep', 'studentID', 'studentName', 'goalName', 
+            'target_metric', 'subject_category', 'annual_goal', 'objective_rows'
+        ]
+
+    def create(self, validated_data):
+        # Extract the rows list out of the inbound data payload
+        rows_data = validated_data.pop('objective_rows', [])
+        
+        # 1. Create the parent header record
+        parent_goal = IEPGoal.objects.create(**validated_data)
+        
+        # 2. Spin up the child rows database assignments
+        for row in rows_data:
+            IEPObjectiveRow.objects.create(parent_goal=parent_goal, **row)
+            
+        return parent_goal
+
+    def update(self, instance, validated_data):
+        rows_data = validated_data.pop('objective_rows', None)
+        
+        # Update the parent goal details
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # If a grid update array is passed, clear old rows and re-populate
+        if rows_data is not None:
+            instance.objective_rows.all().delete()
+            for row in rows_data:
+                IEPObjectiveRow.objects.create(parent_goal=instance, **row)
+
+        return instance

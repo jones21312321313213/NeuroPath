@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import "../styles/OutcomeMonitoring.css";
 import { studentsAPI } from "../api/client";
+import { useAuth } from "../context/AuthContext";
+import StudentShimmer from "../components/StudentShimmer";
 
 // NOTE: Progress data (subjects, chart data, summary) is mocked because
 // the Outcome Monitoring backend endpoints don't exist yet.
@@ -135,6 +137,7 @@ function LineChart({ data, months }) {
 }
 
 export default function ViewProgressDashboard() {
+  const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -146,7 +149,7 @@ export default function ViewProgressDashboard() {
 
   useEffect(() => {
     studentsAPI
-      .list()
+      .list(user?.id)
       .then(setStudents)
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoading(false));
@@ -350,7 +353,7 @@ export default function ViewProgressDashboard() {
 
           <div className="om-student-list">
             {loading ? (
-              <p className="om-empty">Loading students…</p>
+              <StudentShimmer />
             ) : filtered.length === 0 ? (
               <EmptyState message="No students found." />
             ) : (

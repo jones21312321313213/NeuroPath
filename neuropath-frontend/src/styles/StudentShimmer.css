@@ -1,0 +1,83 @@
+@keyframes shimmer-sweep {
+  0% {
+    background-position: -600px 0;
+  }
+  100% {
+    background-position: 600px 0;
+  }
+}
+
+.shimmer-pulse {
+  background: linear-gradient(90deg, #e8f4fd 25%, #cce8f8 50%, #e8f4fd 75%);
+  background-size: 600px 100%;
+  animation: shimmer-sweep 1.4s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+/* ── Table variant ── */
+.shimmer-table-wrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.shimmer-table-header {
+  height: 18px;
+  width: 100%;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  opacity: 0.6;
+}
+
+.shimmer-table-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(130, 199, 255, 0.12);
+}
+
+.shimmer-cell {
+  height: 14px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+/* ── List variant (for sidebar dropdowns) ── */
+.shimmer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.shimmer-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(130, 199, 255, 0.15);
+  background: rgba(240, 248, 255, 0.5);
+}
+
+.shimmer-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.shimmer-list-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shimmer-line {
+  height: 12px;
+  border-radius: 4px;
+}

@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status,viewsets
 from django.http import HttpResponse
 from users.models import Teacher,StudentProfile
-from iep_management.models import IEP
+from iep_management.models import IEPModel, IEPGoal
 from .models import LessonPlan,VisualAid,TeachingStrategy
 #from .permissions import UserAuthPermissions uncomment this back to check user auth and permission
 from .serializers import (
@@ -211,16 +211,15 @@ class LessonPlanFilterService:
         search_query = request_query_params.get('search', None)
         grade_filter = request_query_params.get('grade', None)
         
-        # 1. Apply Text Search (Matches title OR student name)
+        # 🚀 REWIRED: Traverse through iep_goal -> iep -> studentID -> name
         if search_query:
             queryset = queryset.filter(
                 Q(title__icontains=search_query) | 
-                Q(student__name__icontains=search_query)
+                Q(iep_goal__iep__studentID__name__icontains=search_query) 
             )
             
-        # 2. Apply Grade Level Filter
         if grade_filter:
-            queryset = queryset.filter(student__grade=grade_filter)
+            queryset = queryset.filter(iep_goal__iep__studentID__grade=grade_filter)
             
         return queryset
     
@@ -230,22 +229,12 @@ class LessonPlanFilterService:
 #              retrieval and secure routing of search queries and filters.
 # =====================================================================
 class LessonPlanReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
-    # ReadOnlyModelViewSet automatically provides list() and retrieve() actions ONLY.
     serializer_class = LessonPlanDetailSerializer
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
 
     def get_queryset(self):
-        """
-        Matches Sequence Diagram: fetchAllSavedPlans()
-        This method intercepts the base database query and routes it 
-        through the LessonPlanFilterService before returning it.
-        """
-        # Step 1: Base Query (Get all plans, ordered by newest first)
-        base_queryset = LessonPlan.objects.all().select_related('student').order_by('-dateCreated')
-        
-        # Step 2: Apply Filters using the SDD Service
+        # 🚀 REWIRED: select_related must follow the new chain to optimize database speed
+        base_queryset = LessonPlan.objects.all().select_related('iep_goal__iep__studentID').order_by('-dateCreated')
         filtered_queryset = LessonPlanFilterService.apply_filters(base_queryset, self.request.query_params)
-        
         return filtered_queryset
     
     
@@ -509,29 +498,28 @@ class VisualAidGeneratorService:
 #              service, and returns the preview URL to the frontend.
 # =====================================================================
 class GenerateVisualAidAPIView(APIView):
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
-
     def post(self, request, *args, **kwargs):
-        goal_text = request.data.get('goalText')
-        student_id = request.data.get('studentID')
+        # 🚀 REWIRED: Just ask for the specific goal ID!
+        goal_id = request.data.get('goalID')
         
-        if not student_id or not goal_text:
+        if not goal_id:
             return Response(
-                {"error": "A selected Student ID and Goal are required to generate an asset."}, 
+                {"error": "A target Goal ID is required to generate an asset."}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
             
-        # NEW: Securely look up the student profile to retrieve sensory data
         try:
-            student = StudentProfile.objects.get(pk=student_id)
-        except StudentProfile.DoesNotExist:
-            return Response({"error": "Student not found."}, status=status.HTTP_404_NOT_FOUND)
+            # 🚀 REWIRED: Grab the goal, and use it to instantly find the student
+            target_goal = IEPGoal.objects.select_related('iep__studentID').get(pk=goal_id)
+            student = target_goal.iep.studentID
+        except IEPGoal.DoesNotExist:
+            return Response({"error": "Target goal not found."}, status=status.HTTP_404_NOT_FOUND)
             
-        # Execute the Generation Pipeline passing the full student context
-        asset_payload = VisualAidGeneratorService.process_synthesis_pipeline(goal_text, student)
+        # Execute Generation Pipeline
+        asset_payload = VisualAidGeneratorService.process_synthesis_pipeline(target_goal.annual_goal, student)
         
         return Response({
-            "message": "Visual Aid generated successfully for preview.",
+            "message": "Visual Aid generated successfully.",
             "data": asset_payload
         }, status=status.HTTP_200_OK)
         
@@ -667,123 +655,66 @@ class TeachingStrategyViewSet(viewsets.ModelViewSet):
 #              directory requests and POST execution requests.
 # =====================================================================
 class TeachingStrategyGenerationController(APIView):
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
-
     def get(self, request, *args, **kwargs):
-        """Matches Sequence Diagram: getInitializationData()"""
-        students = StudentProfile.objects.all()
-        
-        # Alternative Flow: Empty State
+        from django.contrib.auth.models import User as DjangoUser
+        from users.models import Teacher
+
+        teacher_id = request.query_params.get("teacher_id")
+        if teacher_id:
+            try:
+                django_user = DjangoUser.objects.get(pk=int(teacher_id))
+                teacher = Teacher.objects.get(email=django_user.email)
+                students = StudentProfile.objects.filter(teacher=teacher)
+            except (DjangoUser.DoesNotExist, Teacher.DoesNotExist, ValueError, TypeError):
+                students = StudentProfile.objects.none()
+        else:
+            students = StudentProfile.objects.none()
+
         if not students.exists():
             return Response(
                 {"message": "No active student profiles available. Please add a student first."}, 
                 status=status.HTTP_200_OK
             )
             
-        # Standard Flow: Return serialized student and target goal arrays
         directory_payload = []
         for student in students:
-            # Fetch linked IEP goals for this specific student
-            student_ieps = IEP.objects.filter(student=student)
-            iep_list = [{"iepID": iep.pk, "status": iep.status} for iep in student_ieps]
+            # 🚀 REWIRED: Fetch specific micro-goals for the checkboxes!
+            student_goals = IEPGoal.objects.filter(iep__studentID=student)
+            goal_list = [{"goalID": goal.pk, "label": f"{goal.subject_category}: {goal.annual_goal[:40]}..."} for goal in student_goals]
             
             directory_payload.append({
                 "studentID": student.pk,
                 "studentName": student.name,
-                "availableGoals": iep_list
+                "availableGoals": goal_list # Now contains the specific checkboxes!
             })
             
         return Response({"directory": directory_payload}, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
-        """Matches Sequence Diagram: executeStrategyGeneration()"""
         serializer = StrategyParameterSerializer(data=request.data)
         
         if serializer.is_valid():
-            student_id = serializer.validated_data['studentID']
-            iep_id = serializer.validated_data['iepGoalID']
+            # 🚀 REWIRED: Execute using the exact goal
+            goal_id = serializer.validated_data['goalID']
             
             try:
-                student = StudentProfile.objects.get(pk=student_id)
-                iep = IEP.objects.get(pk=iep_id)
-            except (StudentProfile.DoesNotExist, IEP.DoesNotExist):
+                target_goal = IEPGoal.objects.select_related('iep__studentID').get(pk=goal_id)
+                student = target_goal.iep.studentID
+            except IEPGoal.DoesNotExist:
                 return Response(
-                    {"error": "Targeted Student or IEP Goal could not be located."}, 
+                    {"error": "Targeted IEP Goal could not be located."}, 
                     status=status.HTTP_404_NOT_FOUND
                 )
                 
-            # Drive the orchestration layer
-            draft_payload = StrategyGenerationService.execute_compilation_workflow(student, iep)
+            draft_payload = StrategyGenerationManagerService.generate_strategy_content(target_goal.annual_goal, student)
             
             return Response({
-                "message": "Teaching strategy successfully compiled for review.",
+                "message": "Teaching strategy successfully compiled.",
                 "data": draft_payload
             }, status=status.HTTP_200_OK)
             
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-# =====================================================================
-# SDD COMPONENT: TeachingStrategyGenerationController
-# Description: Primary back-end routing hub processing incoming GET 
-#              directory requests and POST execution requests.
-# =====================================================================
-class TeachingStrategyGenerationController(APIView):
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
-
-    def get(self, request, *args, **kwargs):
-        """Matches Sequence Diagram: getInitializationData()"""
-        students = StudentProfile.objects.all()
-        
-        # Alternative Flow: Empty State
-        if not students.exists():
-            return Response(
-                {"message": "No active student profiles available. Please add a student first."}, 
-                status=status.HTTP_200_OK
-            )
-            
-        # Standard Flow: Return serialized student and target goal arrays
-        directory_payload = []
-        for student in students:
-            # Fetch linked IEP goals for this specific student
-            student_ieps = IEP.objects.filter(student=student)
-            
-            # FIX: Removed the non-existent 'status' field and replaced it with a safe string label!
-            iep_list = [{"iepID": iep.pk, "label": str(iep)} for iep in student_ieps]
-            
-            directory_payload.append({
-                "studentID": student.pk,
-                "studentName": student.name,
-                "availableGoals": iep_list
-            })
-            
-        return Response({"directory": directory_payload}, status=status.HTTP_200_OK)
-
-    def post(self, request, *args, **kwargs):
-        """Matches Sequence Diagram: executeStrategyGeneration()"""
-        serializer = StrategyParameterSerializer(data=request.data)
-        
-        if serializer.is_valid():
-            student_id = serializer.validated_data['studentID']
-            iep_id = serializer.validated_data['iepGoalID']
-            
-            try:
-                student = StudentProfile.objects.get(pk=student_id)
-                iep = IEP.objects.get(pk=iep_id)
-            except (StudentProfile.DoesNotExist, IEP.DoesNotExist):
-                return Response(
-                    {"error": "Targeted Student or IEP Goal could not be located."}, 
-                    status=status.HTTP_404_NOT_FOUND
-                )
-                
-            # Drive the orchestration layer
-            draft_payload = StrategyGenerationService.execute_compilation_workflow(student, iep)
-            
-            return Response({
-                "message": "Teaching strategy successfully compiled for review.",
-                "data": draft_payload
-            }, status=status.HTTP_200_OK)
-            
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     
 # =====================================================================
@@ -794,12 +725,11 @@ class TeachingStrategyGenerationController(APIView):
 class StrategyQueryFilterService:
     @staticmethod
     def get_filtered_strategies(queryset, student_id):
-        # 1. Evaluate data collection health (ensure student_id is valid)
         if not student_id:
-            return queryset.none()  # Return empty if safety checks fail
+            return queryset.none()  
             
-        # 2. Isolate historical logs based on target parameters
-        return queryset.filter(student__pk=student_id).order_by('-dateCreated')
+        # 🚀 REWIRED: Route through iep_goal
+        return queryset.filter(iep_goal__iep__studentID__pk=student_id).order_by('-dateCreated')
 
 # =====================================================================
 # SDD COMPONENT: StrategyBinaryExportEngine
@@ -961,8 +891,6 @@ class TeachingStrategyDeleteController(APIView):
 
     def get(self, request, pk=None, *args, **kwargs):
         if pk:
-            # Matches Sequence Diagram: getStrategyDetails(strategyID)
-            # Used to populate the Warning Modal with the exact strategy text
             try:
                 strategy = TeachingStrategy.objects.get(pk=pk)
                 serializer = StrategyRetrievalSerializer(strategy)
@@ -970,8 +898,6 @@ class TeachingStrategyDeleteController(APIView):
             except TeachingStrategy.DoesNotExist:
                 return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
         else:
-            # Matches Sequence Diagram: getStrategiesForDeletion(studentID)
-            # Used to hydrate the initial directory grid
             serializer = StrategyDeleteValidationSerializer(data=request.query_params)
             
             if serializer.is_valid():
@@ -979,9 +905,11 @@ class TeachingStrategyDeleteController(APIView):
                 if not student_id:
                     return Response({"error": "studentID parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
                     
-                strategies = TeachingStrategy.objects.filter(student__pk=student_id).order_by('-dateCreated')
+                # 🚀 REWIRED: Traverse the new architectural chain!
+                strategies = TeachingStrategy.objects.filter(
+                    iep_goal__iep__studentID__pk=student_id
+                ).order_by('-dateCreated')
                 
-                # Matches Sequence Diagram Alternative Flow: [Are saved strategies found? = No]
                 if not strategies.exists():
                     return Response([], status=status.HTTP_200_OK)
                     
@@ -1003,7 +931,6 @@ class TeachingStrategyDeleteController(APIView):
         # Trigger SDD Component: StrategyRemovalService
         StrategyRemovalService.execute_extraction(strategy)
         
-        # Matches Sequence Diagram: Return persistence execution status
         return Response(
             {"message": "Teaching Strategy database record successfully permanently deleted."},
             status=status.HTTP_204_NO_CONTENT
