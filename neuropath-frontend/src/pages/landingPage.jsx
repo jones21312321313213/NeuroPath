@@ -9,30 +9,43 @@ const features = [
     desc: "Set, track, and adapt learning objectives tailored to each student's unique needs and abilities.",
   },
   {
-    icon: "📊",
-    title: "Progress Analytics",
-    desc: "Visualize milestones and performance trends with intuitive charts built for educators and parents.",
-  },
-  {
-    icon: "🤝",
-    title: "Team Collaboration",
-    desc: "Connect teachers, therapists, and families in one unified platform for seamless communication.",
-  },
-  {
     icon: "📋",
-    title: "Compliant Documentation",
-    desc: "Generate IEP documents that meet federal and state compliance standards with one click.",
+    title: "IEP Generation",
+    desc: "Generate compliant Individualized Education Plans powered by AI, tailored to each student's unique needs and goals.",
   },
   {
-    icon: "🔔",
-    title: "Smart Reminders",
-    desc: "Automated alerts for upcoming meetings, review deadlines, and goal check-ins.",
+    icon: "🧠",
+    title: "AI Insights",
+    desc: "Leverage AI to analyze student data and surface actionable recommendations for educators and specialists.",
   },
   {
-    icon: "🔒",
-    title: "Secure & Private",
+    icon: "📚",
+    title: "Lesson Plan Management",
+    desc: "Create, organize, and manage lesson plans designed around each student's IEP goals and learning preferences.",
+  },
+  {
+    icon: "🎨",
+    title: "Visual Aid Management",
+    desc: "Generate and manage visual aids tailored to ASD learners, supporting communication and comprehension in the classroom.",
+  },
+  {
+    icon: "📈",
+    title: "Outcome Monitoring",
+    desc: "Track student progress over time with detailed records and visual dashboards that keep the whole team aligned.",
   },
 ];
+function FeatureCard({ feature, index }) {
+  return (
+    <div
+      className="fade-in-init opacity-0 translate-y-4 transition-all duration-700 ease-out feature-card"
+      style={{ transitionDelay: `${index * 0.05}s` }}
+    >
+      <div className="feature-icon">{feature.icon}</div>
+      <h3 className="feature-title">{feature.title}</h3>
+      <p className="feature-desc">{feature.desc}</p>
+    </div>
+  );
+}
 
 export default function LandingPage({ onGetStarted }) {
   const [scrolled, setScrolled] = useState(false);
@@ -207,7 +220,7 @@ export default function LandingPage({ onGetStarted }) {
                 "learns differently",
                 "deserves a champion",
               ]}
-              mainClassName="px-3 py-1 rounded-lg overflow-hidden justify-center"
+              mainClassName="px-0 py-1 rounded-lg overflow-hidden justify-center"
               elementLevelClassName="gradient-text-char"
               staggerFrom="last"
               initial={{ y: "100%" }}
@@ -261,100 +274,129 @@ export default function LandingPage({ onGetStarted }) {
         {/* Hero right — Dashboard mockup */}
         <div className="lg:col-span-5 w-full flex justify-center lg:justify-end fade-in-init opacity-0 translate-y-4 transition-all duration-1000 ease-out delay-200">
           <div
-            className="w-full max-w-[420px] rounded-2xl shadow-2xl overflow-hidden transform hover:-translate-y-1 transition-transform duration-300"
+            className="w-full max-w-[420px] rounded-2xl overflow-hidden"
             style={{
               background: "#fff",
               border: "1px solid rgba(130,199,255,0.3)",
               boxShadow: "0 20px 60px rgba(37,137,199,0.15)",
             }}
           >
-            {/* Window controls */}
+            {/* Topbar */}
             <div
               className="px-4 py-3 flex items-center justify-between"
               style={{
-                background: "#f0f8ff",
-                borderBottom: "1px solid rgba(130,199,255,0.2)",
+                background: "linear-gradient(135deg, #2589c7 0%, #82C7FF 100%)",
+                borderBottom: "1px solid #B5D4F4",
               }}
             >
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-full bg-rose-400" />
-                <span className="w-3 h-3 rounded-full bg-amber-400" />
-                <span className="w-3 h-3 rounded-full bg-emerald-400" />
-              </div>
               <span
-                className="text-xs font-semibold select-none"
-                style={{ color: "#82C7FF" }}
+                className="text-xs font-semibold"
+                style={{ color: "white" }}
               >
-                Student Dashboard
+                Progress dashboard
               </span>
-              <div className="w-12" />
-            </div>
-
-            {/* Mockup content */}
-            <div className="p-5 sm:p-6 space-y-5">
-              {/* Profile row */}
-              <div
-                className="flex items-center gap-3.5 p-3 rounded-xl"
+              <span
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
                 style={{
-                  background: "#f0f8ff",
-                  border: "1px solid rgba(130,199,255,0.2)",
+                  background: "#E1F5EE",
+                  border: "1px solid #9FE1CB",
+                  color: "#085041",
                 }}
               >
+                IEP active
+              </span>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Profile row */}
+              <div
+                className="flex items-center gap-3 p-3 rounded-xl"
+                style={{ background: "#E6F1FB", border: "0.5px solid #B5D4F4" }}
+              >
                 <div
-                  className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-white text-sm"
-                  style={{
-                    background: "linear-gradient(135deg, #2589c7, #82C7FF)",
-                    boxShadow: "0 2px 8px rgba(130,199,255,0.4)",
-                  }}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center font-semibold text-sm flex-shrink-0"
+                  style={{ background: "#378ADD", color: "#E6F1FB" }}
                 >
                   AS
                 </div>
                 <div className="flex-1 min-w-0 text-left">
-                  <h4
+                  <p
                     className="text-sm font-bold truncate"
                     style={{ color: "#1a3a4a" }}
                   >
                     Angelo Singson
-                  </h4>
-                  <p
-                    className="text-xs font-medium mt-0.5"
-                    style={{ color: "#5a9dbf" }}
-                  >
-                    Grade 1 · IEP Active
+                  </p>
+                  <p className="text-xs" style={{ color: "#185FA5" }}>
+                    Grade 1 · ASD
                   </p>
                 </div>
                 <span
-                  className="inline-flex items-center text-[11px] font-bold px-2.5 py-0.5 rounded-full"
+                  className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
                   style={{
-                    background: "#e6f7ec",
-                    border: "1px solid #b7e4c7",
-                    color: "#276749",
+                    background: "#E1F5EE",
+                    border: "1px solid #9FE1CB",
+                    color: "#085041",
                   }}
                 >
-                  On Track
+                  On track
                 </span>
               </div>
 
-              {/* Progress bars */}
-              <div className="space-y-4 text-left">
+              {/* Stat grid */}
+              <div className="grid grid-cols-2 gap-2">
                 {[
-                  { label: "Reading Fluency", value: 72, color: "#2589c7" },
-                  { label: "Math Comprehension", value: 58, color: "#82C7FF" },
-                  { label: "Social Skills", value: 89, color: "#34c77b" },
+                  { label: "Assessments completed", val: "10/10", pct: "100%" },
+                  { label: "Skills mastered", val: "6/10", pct: "60%" },
+                  { label: "Goals achieved", val: "4/6", pct: "67%" },
+                  { label: "Attendance rate", val: "92%", pct: "↑ 4%" },
+                ].map((s) => (
+                  <div
+                    key={s.label}
+                    className="rounded-lg p-2.5"
+                    style={{ background: "#f0f8ff" }}
+                  >
+                    <p
+                      className="text-[10px] mb-1"
+                      style={{ color: "#4a7a94" }}
+                    >
+                      {s.label}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span
+                        className="text-sm font-semibold"
+                        style={{ color: "#1a3a4a" }}
+                      >
+                        {s.val}
+                      </span>
+                      <span
+                        className="text-[10px]"
+                        style={{ color: "#82C7FF" }}
+                      >
+                        {s.pct}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Progress bars */}
+              <div className="space-y-3">
+                {[
+                  { label: "Reading fluency", value: 72, color: "#378ADD" },
+                  { label: "Math comprehension", value: 58, color: "#7F77DD" },
+                  { label: "Social skills", value: 89, color: "#1D9E75" },
                 ].map((item) => (
-                  <div key={item.label} className="space-y-1.5">
+                  <div key={item.label}>
                     <div
-                      className="flex justify-between items-center text-xs font-semibold"
+                      className="flex justify-between text-[11px] mb-1"
                       style={{ color: "#4a7a94" }}
                     >
                       <span>{item.label}</span>
-                      <span className="font-bold" style={{ color: "#1a3a4a" }}>
-                        {item.value}%
-                      </span>
+                      <span style={{ color: "#1a3a4a" }}>{item.value}%</span>
                     </div>
                     <div
-                      className="h-2 rounded-full overflow-hidden"
-                      style={{ background: "rgba(130,199,255,0.15)" }}
+                      className="h-1.5 rounded-full overflow-hidden"
+                      style={{ background: "#E6F1FB" }}
                     >
                       <div
                         className="h-full rounded-full"
@@ -366,28 +408,6 @@ export default function LandingPage({ onGetStarted }) {
                     </div>
                   </div>
                 ))}
-              </div>
-
-              {/* Next review */}
-              <div
-                className="flex items-center justify-between pt-4 text-xs"
-                style={{ borderTop: "1px solid rgba(130,199,255,0.2)" }}
-              >
-                <span
-                  className="font-medium flex items-center gap-1.5"
-                  style={{ color: "#5a9dbf" }}
-                >
-                  <span>📅</span> Next Review
-                </span>
-                <span
-                  className="font-bold px-2.5 py-1 rounded-md"
-                  style={{
-                    color: "#1a6fa8",
-                    background: "rgba(130,199,255,0.15)",
-                  }}
-                >
-                  December 17, 2050
-                </span>
               </div>
             </div>
           </div>
@@ -426,51 +446,7 @@ export default function LandingPage({ onGetStarted }) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
             {features.map((f, i) => (
-              <div
-                className="fade-in-init opacity-0 translate-y-4 transition-all duration-700 ease-out rounded-2xl p-6 text-left group cursor-default"
-                key={i}
-                style={{
-                  background: "#f0f8ff",
-                  border: "1px solid rgba(130,199,255,0.25)",
-                  transitionDelay: `${i * 0.05}s`,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "#fff";
-                  e.currentTarget.style.border =
-                    "1px solid rgba(130,199,255,0.5)";
-                  e.currentTarget.style.boxShadow =
-                    "0 8px 32px rgba(130,199,255,0.2)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "#f0f8ff";
-                  e.currentTarget.style.border =
-                    "1px solid rgba(130,199,255,0.25)";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-              >
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-5"
-                  style={{
-                    background: "#fff",
-                    border: "1px solid rgba(130,199,255,0.3)",
-                    boxShadow: "0 1px 4px rgba(130,199,255,0.15)",
-                  }}
-                >
-                  {f.icon}
-                </div>
-                <h3
-                  className="text-base font-bold mb-2"
-                  style={{ color: "#1a3a4a" }}
-                >
-                  {f.title}
-                </h3>
-                <p
-                  className="text-sm leading-relaxed"
-                  style={{ color: "#4a7a94" }}
-                >
-                  {f.desc}
-                </p>
-              </div>
+              <FeatureCard key={i} feature={f} index={i} />
             ))}
           </div>
         </div>
@@ -505,8 +481,8 @@ export default function LandingPage({ onGetStarted }) {
               className="text-sm sm:text-base max-w-md mb-8 leading-relaxed"
               style={{ color: "rgba(255,255,255,0.8)" }}
             >
-              Join thousands of educators already using NeuroPath to support
-              their students' journeys.
+              Built for special education teachers who believe every student
+              deserves a plan as unique as they are.
             </p>
             <button
               onClick={() => navigate("/register")}
