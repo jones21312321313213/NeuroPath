@@ -1,6 +1,6 @@
 from django.db import models
 from users.models import StudentProfile
-from iep_management.models import IEP
+from iep_management.models import IEPModel as IEP
 
 class LessonPlan(models.Model):
     lessonID = models.AutoField(primary_key=True)

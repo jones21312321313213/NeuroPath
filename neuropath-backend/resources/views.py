@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status,viewsets
 from django.http import HttpResponse
 from users.models import Teacher,StudentProfile
-from iep_management.models import IEP
+from iep_management.models import IEPModel as IEP
 from .models import LessonPlan,VisualAid,TeachingStrategy
 #from .permissions import UserAuthPermissions uncomment this back to check user auth and permission
 from .serializers import (
@@ -758,7 +758,7 @@ class TeachingStrategyGenerationController(APIView):
         directory_payload = []
         for student in students:
             # Fetch linked IEP goals for this specific student
-            student_ieps = IEP.objects.filter(student=student)
+            student_ieps = IEP.objects.filter(studentID=student)
             
             # FIX: Removed the non-existent 'status' field and replaced it with a safe string label!
             iep_list = [{"iepID": iep.pk, "label": str(iep)} for iep in student_ieps]
@@ -772,13 +772,11 @@ class TeachingStrategyGenerationController(APIView):
         return Response({"directory": directory_payload}, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
-        """Matches Sequence Diagram: executeStrategyGeneration()"""
         serializer = StrategyParameterSerializer(data=request.data)
         
         if serializer.is_valid():
             student_id = serializer.validated_data['studentID']
             iep_id = serializer.validated_data['iepGoalID']
-            p
             try:
                 student = StudentProfile.objects.get(pk=student_id)
                 iep = IEP.objects.get(pk=iep_id)
@@ -787,10 +785,17 @@ class TeachingStrategyGenerationController(APIView):
                     {"error": "Targeted Student or IEP Goal could not be located."}, 
                     status=status.HTTP_404_NOT_FOUND
                 )
-                
-            # Drive the orchestration layer
-            draft_payload = StrategyGenerationService.execute_compilation_workflow(student, iep)
-            
+
+            title = str(iep)
+            generated_content = StrategyGenerationManagerService.generate_strategy_content(
+                title=title,
+                student_profile=student
+            )
+            draft_payload = {
+                "title": title,
+                "strategyContent": generated_content,
+            }
+
             return Response({
                 "message": "Teaching strategy successfully compiled for review.",
                 "data": draft_payload

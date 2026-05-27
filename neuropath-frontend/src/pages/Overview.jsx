@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { studentsAPI } from "../api/client";
 import CountUp from "../components/ui/CountUp";
+import GlareHover from "../components/ui/GlareHover";
 
 const stats = [
   {
@@ -149,16 +150,38 @@ export default function Overview({ setActivePage }) {
 
         {/* About */}
         <p className="overview-section-label">About NeuroPath</p>
-        <div className="overview-about">
-          <p className="overview-body">
-            NeuroPath is a specialized platform designed to support educators
-            and specialists working with students diagnosed with Autism Spectrum
-            Disorder. It streamlines the creation and management of student
-            profiles, tracks behavioral and academic progress, and leverages AI
-            to generate individualized education plans — helping every student
-            reach their full potential.
-          </p>
-        </div>
+        <GlareHover
+          width="100%"
+          height="auto"
+          background="#f0f8ff"
+          borderRadius="12px"
+          borderColor="rgba(130, 199, 255, 0.25)"
+          glareColor="#82C7FF"
+          glareOpacity={0.25}
+          glareAngle={-30}
+          glareSize={300}
+          transitionDuration={800}
+          playOnce={false}
+          style={{ display: "block" }}
+        >
+          <div
+            style={{
+              padding: "1.25rem 1.5rem",
+              textAlign: "left",
+              width: "100%",
+              boxSizing: "border-box",
+            }}
+          >
+            <p className="overview-body">
+              NeuroPath is a specialized platform designed to support educators
+              and specialists working with students diagnosed with Autism
+              Spectrum Disorder. It streamlines the creation and management of
+              student profiles, tracks behavioral and academic progress, and
+              leverages AI to generate individualized education plans — helping
+              every student reach their full potential.
+            </p>
+          </div>
+        </GlareHover>
       </div>
     </div>
   );

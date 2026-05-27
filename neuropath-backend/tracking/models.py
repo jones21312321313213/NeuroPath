@@ -1,6 +1,6 @@
 from django.db import models
 from users.models import Teacher, StudentProfile
-from iep_management.models import IEP
+from iep_management.models import IEPModel as IEP
 
 class ProgressReport(models.Model):
     reportID = models.AutoField(primary_key=True)

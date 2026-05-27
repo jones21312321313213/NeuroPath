@@ -9,17 +9,6 @@ class Assessment(models.Model):
     result = models.TextField(blank=True, default='')
     dateTaken = models.DateTimeField(auto_now_add=True)
 
-
-class IEP(models.Model):
-    iepID = models.AutoField(primary_key=True)
-    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, db_column='studentID')
-    baselineData = models.TextField(blank=True, default='')
-    goals = models.TextField(blank=True, default='')
-    accomodations = models.TextField(blank=True, default='')  # Spelling strictly matches original ERD
-    createdDate = models.DateTimeField(auto_now_add=True)
-    version = models.IntegerField(default=1)
-
-
 class IEPModel(models.Model):
     iepID = models.AutoField(primary_key=True)
     studentID = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='ieps')
