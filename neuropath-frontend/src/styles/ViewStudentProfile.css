@@ -1,25 +1,242 @@
-.student-table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  
-  .student-table th,
-  .student-table td {
-    padding: 10px;
-    text-align: center;
-    border-bottom: 1px solid #eee;
-  }
-  
-  .student-table thead tr {
-    background: #f0f4f8;
-  }
-  
-  .view-button {
-    padding: 6px 10px;
-    background: #3d9de8;
-    color: #fff;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-  }
-  
+/* ── Page header ─────────────────────────────────────── */
+.vsp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.vsp-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a3a4a;
+  margin: 0;
+}
+
+.vsp-count-badge {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #1a6fa8;
+  background: rgba(130, 199, 255, 0.15);
+  border: 1px solid rgba(130, 199, 255, 0.35);
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.vsp-subtitle {
+  font-size: 13px;
+  color: #4a7a94;
+  margin: 0 0 24px;
+}
+
+/* ── Search bar ──────────────────────────────────────── */
+.vsp-search-wrap {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.vsp-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  color: #82c7ff;
+  pointer-events: none;
+}
+
+.vsp-search {
+  width: 100%;
+  padding: 10px 14px 10px 36px;
+  border: 1.5px solid rgba(130, 199, 255, 0.3);
+  border-radius: 10px;
+  font-size: 13px;
+  color: #1a3a4a;
+  background: #fff;
+  outline: none;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.vsp-search:focus {
+  border-color: #82c7ff;
+  box-shadow: 0 0 0 3px rgba(130, 199, 255, 0.18);
+}
+
+.vsp-search::placeholder {
+  color: #aac8d8;
+}
+
+/* ── Student grid ────────────────────────────────────── */
+.vsp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+/* ── Student card ────────────────────────────────────── */
+.vsp-card {
+  background: #fff;
+  border: 1px solid rgba(130, 199, 255, 0.25);
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    transform 0.15s;
+  cursor: default;
+}
+
+.vsp-card:hover {
+  border-color: rgba(130, 199, 255, 0.55);
+  box-shadow: 0 6px 24px rgba(37, 137, 199, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Avatar + name row */
+.vsp-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vsp-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2589c7, #82c7ff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(130, 199, 255, 0.4);
+}
+
+.vsp-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.vsp-card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a3a4a;
+  margin: 0 0 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vsp-card-meta {
+  font-size: 11px;
+  color: #5a9dbf;
+  font-weight: 500;
+}
+
+/* Pills row */
+.vsp-card-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.vsp-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: rgba(130, 199, 255, 0.12);
+  color: #1a6fa8;
+  border: 1px solid rgba(130, 199, 255, 0.3);
+  white-space: nowrap;
+}
+
+.vsp-pill.grade {
+  background: rgba(52, 199, 123, 0.1);
+  color: #1a7a4a;
+  border-color: rgba(52, 199, 123, 0.3);
+}
+
+/* Divider + action row */
+.vsp-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid rgba(130, 199, 255, 0.15);
+}
+
+.vsp-id-label {
+  font-size: 11px;
+  color: #82c7ff;
+  font-weight: 500;
+}
+
+.vsp-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a6fa8;
+  background: rgba(130, 199, 255, 0.12);
+  border: 1.5px solid rgba(130, 199, 255, 0.35);
+  border-radius: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    transform 0.1s;
+}
+
+.vsp-view-btn:hover {
+  background: rgba(130, 199, 255, 0.25);
+  border-color: #82c7ff;
+  transform: translateX(2px);
+}
+
+.vsp-view-btn i {
+  font-size: 13px;
+  transition: transform 0.2s;
+}
+
+.vsp-view-btn:hover i {
+  transform: translateX(3px);
+}
+
+/* ── Empty state ─────────────────────────────────────── */
+.vsp-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #82c7ff;
+}
+
+.vsp-empty-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.vsp-empty-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4a7a94;
+  margin: 0 0 4px;
+}
+
+.vsp-empty-sub {
+  font-size: 12px;
+  color: #82c7ff;
+  margin: 0;
+}
