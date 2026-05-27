@@ -1,11 +1,11 @@
 from django.db import models
 from users.models import Teacher, StudentProfile
-from iep_management.models import IEPModel as IEP
+from iep_management.models import IEPModel
 
 class ProgressReport(models.Model):
     reportID = models.AutoField(primary_key=True)
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, db_column='studentID')
-    iep = models.ForeignKey(IEP, on_delete=models.CASCADE, db_column='iepID')
+    iep = models.ForeignKey(IEPModel, on_delete=models.CASCADE, db_column='iepID')
     overallStatus = models.CharField(max_length=255)
 
 class SecurityLog(models.Model):
