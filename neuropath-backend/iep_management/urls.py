@@ -1,4 +1,5 @@
 from django.urls import path,include
+from . import views
 from rest_framework.routers import DefaultRouter
 from .views import (
     IEPGenerationAPIView, 
@@ -25,6 +26,12 @@ urlpatterns = [
     
     path('delete/<int:pk>/', IEPDeleteAPIView.as_view(), name='delete_iep'),
     
+    
+    # 1. Endpoint to trigger the AI insight generation
+    path('student/<int:student_id>/generate-insight/', views.generate_ai_insight, name='generate_ai_insight'),
+    
+    # 2. Endpoint to fetch the saved insights for a student
+    path('student/<int:student_id>/insights/', views.get_student_insights, name='get_student_insights'),
     
     # --- Standalone IEP Goals Router Array ---
     # This automatically includes paths like:
