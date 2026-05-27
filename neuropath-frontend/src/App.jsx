@@ -7,6 +7,7 @@ import RegisterPage from "./pages/RegisterPage";
 import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
 import Overview from "./pages/Overview";
+import UserProfile from "./pages/UserProfilePage"; // 👈 Updated path to match UserProfilePage exactly
 import ManageLessonPlans from "./pages/ManageLessonPlans";
 import ManageVisualAids from "./pages/ManageVisualAids";
 import ManageTeachingStrategies from "./pages/ManageTeachingStrategies";
@@ -22,6 +23,7 @@ import "./App.css";
 
 const breadcrumbMap = {
   overview: "DASHBOARD/Overview",
+  "my-profile": "DASHBOARD/My Profile", // Added profile breadcrumb config
   "create-student-profile": "DASHBOARD/Student Profiling",
   "view-student-profile": "DASHBOARD/Student Profiling",
   "update-student-profile": "DASHBOARD/Student Profiling",
@@ -57,6 +59,8 @@ function renderPage(
   switch (activePage) {
     case "overview":
       return <Overview setActivePage={setActivePage} />;
+    case "my-profile":
+      return <UserProfile />; // Wired up the switch statement destination
     case "create-student-profile":
       return <CreateStudentProfile onBack={() => setActivePage("overview")} />;
     case "view-student-profile":
