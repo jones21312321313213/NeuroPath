@@ -1,10 +1,10 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, generics
-from .serializers import IEPDataSerializer, IEPListDetailSerializer, IEPUpdateSerializer
+from rest_framework import status, generics,viewsets
+from .serializers import IEPDataSerializer, IEPListDetailSerializer, IEPUpdateSerializer,StandaloneIEPGoalSerializer
 from users.models import StudentProfile
 from tracking.models import AIGenerationLog
-from .models import Assessment, IEPGoal, IEPModel
+from .models import Assessment, IEPGoal, IEPModel,IEPObjectiveRow
 import json
 import re
 
@@ -109,10 +109,20 @@ class IEPGenerationAPIView(APIView):
                 for item in goal_items:
                     cleaned_goal = item.strip()
                     if cleaned_goal and len(cleaned_goal) > 10:
-                        IEPGoal.objects.create(
+                        parent_goal = IEPGoal.objects.create(
                             iep=iep_instance,
-                            goalName=cleaned_goal[:200],
+                            goalName=cleaned_goal[:200], 
                             target_metric='Standard IEP Metric',
+                            subject_category='GENERAL',
+                            annual_goal=cleaned_goal
+                        )
+                        # 2. Create at least one blank/initial child row to build the grid relation safely
+                        IEPObjectiveRow.objects.create(
+                            parent_goal=parent_goal,
+                            enroute_objectives="Initial baseline objective target.",
+                            interventions_procedures="Standard accommodations protocols.",
+                            timeline_mins_session="15-20 mins daily",
+                            individuals_responsible="SPED Teacher"
                         )
 
                 return Response({
@@ -151,10 +161,19 @@ class IEPEditAPIView(generics.UpdateAPIView):
             for item in goal_items:
                 cleaned_goal = item.strip()
                 if cleaned_goal and len(cleaned_goal) > 10:
-                    IEPGoal.objects.create(
-                        iep=iep_instance,
-                        goalName=cleaned_goal[:200],
-                        target_metric='Standard IEP Metric',
+                    parent_goal = IEPGoal.objects.create(
+                        iep=iep_instance, 
+                        goalName=cleaned_goal[:200], 
+                        target_metric='Standard IEP Metric', 
+                        subject_category='GENERAL',
+                        annual_goal=cleaned_goal
+                    )
+                    IEPObjectiveRow.objects.create(
+                        parent_goal=parent_goal,
+                        enroute_objectives="Initial baseline objective target.",
+                        interventions_procedures="Standard accommodations protocols.",
+                        timeline_mins_session="15-20 mins daily",
+                        individuals_responsible="SPED Teacher"
                     )
 
 
@@ -165,3 +184,19 @@ class IEPDeleteAPIView(generics.DestroyAPIView):
         instance = self.get_object()
         self.perform_destroy(instance)
         return Response({'message': 'IEP record successfully permanently deleted.'}, status=status.HTTP_200_OK)
+
+
+class StandaloneIEPGoalViewSet(viewsets.ModelViewSet):
+    queryset = IEPGoal.objects.all().select_related('iep__studentID')
+    serializer_class = StandaloneIEPGoalSerializer
+
+    def get_queryset(self):
+        """
+        Allows filtering by student profile ID directly via query parameters.
+        Example URL path lookup: /api/iep/goals/?student_id=5
+        """
+        queryset = self.queryset
+        student_id = self.request.query_params.get('student_id')
+        if student_id:
+            return queryset.filter(iep__studentID__pk=student_id)
+        return queryset
