@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import "../../components/StudentShimmer";
 import "../../styles/ViewStudentProfile.css";
 import { useAuth } from "../../context/AuthContext";
+import StudentShimmer from "../../components/StudentShimmer";
 
 export default function ViewStudentProfile({
   setActivePage,
@@ -34,7 +36,7 @@ export default function ViewStudentProfile({
   if (loading) {
     return (
       <div className="page-content">
-        <div className="placeholder-page">Loading students...</div>
+        <StudentShimmer />
       </div>
     );
   }

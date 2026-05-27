@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
@@ -16,6 +17,7 @@ import IEPGenerationPage from "./pages/IEPGenerationPage";
 import ViewStudentProfile from "./pages/StudentProfiling/ViewStudentProfile";
 import ViewSelectedStudentProfile from "./pages/StudentProfiling/ViewSelectedStudentProfile";
 import UpdateStudentProfile from "./pages/StudentProfiling/UpdateStudentProfile";
+import LoginSplash from "./components/LoginSplash";
 import "./App.css";
 
 const breadcrumbMap = {
@@ -46,9 +48,13 @@ function Placeholder({ title }) {
   );
 }
 
-function renderPage(activePage, setActivePage, selectedStudentId, setSelectedStudentId)
-{ 
-switch (activePage) {
+function renderPage(
+  activePage,
+  setActivePage,
+  selectedStudentId,
+  setSelectedStudentId,
+) {
+  switch (activePage) {
     case "overview":
       return <Overview setActivePage={setActivePage} />;
     case "create-student-profile":
@@ -67,13 +73,13 @@ switch (activePage) {
           setActivePage={setActivePage}
         />
       );
-      case "update-student-profile":
-        return (
-          <UpdateStudentProfile
-            studentId={selectedStudentId}
-            onBack={() => setActivePage("view-student-profile")}
-          />
-        );      
+    case "update-student-profile":
+      return (
+        <UpdateStudentProfile
+          studentId={selectedStudentId}
+          onBack={() => setActivePage("view-student-profile")}
+        />
+      );
     case "ai-insight":
       return <Placeholder title="Analyze & Generate AI Insight" />;
     case "iep-generation":
@@ -101,54 +107,150 @@ function Dashboard() {
   const [activePage, setActivePage] = useState("overview");
   const [selectedStudentId, setSelectedStudentId] = useState(null);
 
-
   return (
     <div className="app-layout">
       <Sidebar activePage={activePage} setActivePage={setActivePage} />
       <div className="main-area">
         <Topbar breadcrumb={breadcrumbMap[activePage] || "DASHBOARD"} />
-        {renderPage(activePage, setActivePage, selectedStudentId, setSelectedStudentId)}
+        {renderPage(
+          activePage,
+          setActivePage,
+          selectedStudentId,
+          setSelectedStudentId,
+        )}
       </div>
     </div>
   );
 }
-
-function Router() {
+function ProtectedRoute({ children }) {
   const { user } = useAuth();
-  const [page, setPage] = useState("landing");
+  return user ? children : <Navigate to="/login" replace />;
+}
+function AppRoutes() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [successMessage, setSuccessMessage] = useState("");
-
-  const navigate = (to, msg = "") => {
-    setSuccessMessage(msg);
-    setPage(to);
-  };
-
-  if (user || page === "dashboard") return <Dashboard />;
+  const [showSplash, setShowSplash] = useState(false);
 
   return (
     <>
-      {page === "landing" && (
-        <LandingPage onGetStarted={() => navigate("login")} />
-      )}
-      {page === "login" && (
-        <LoginPage
-          onNavigateRegister={() => navigate("register")}
-          onLoginSuccess={() => navigate("dashboard")}
-          successMessage={successMessage}
-          onClearMessage={() => setSuccessMessage("")}
+      {showSplash && (
+        <LoginSplash
+          onComplete={() => {
+            setShowSplash(false);
+            navigate("/dashboard");
+          }}
         />
       )}
-      {page === "register" && (
-        <RegisterPage onNavigateLogin={(msg) => navigate("login", msg)} />
+
+      {!showSplash && (
+        <Routes>
+          <Route
+            path="/"
+            element={<LandingPage onGetStarted={() => navigate("/login")} />}
+          />
+
+          <Route
+            path="/login"
+            element={
+              user ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <LoginPage
+                  onNavigateRegister={() => navigate("/register")}
+                  onLoginSuccess={() => setShowSplash(true)}
+                  successMessage={successMessage}
+                  onClearMessage={() => setSuccessMessage("")}
+                />
+              )
+            }
+          />
+
+          <Route
+            path="/register"
+            element={
+              user ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <RegisterPage
+                  onNavigateLogin={(msg) => {
+                    setSuccessMessage(msg);
+                    navigate("/login");
+                  }}
+                />
+              )
+            }
+          />
+
+          <Route
+            path="/dashboard/*"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       )}
     </>
   );
 }
+// function Router() {
+//   const { user } = useAuth();
+//   const [page, setPage] = useState("landing");
+//   const [successMessage, setSuccessMessage] = useState("");
+//   const [showSplash, setShowSplash] = useState(false);
+
+//   const navigate = (to, msg = "") => {
+//     setSuccessMessage(msg);
+//     setPage(to);
+//   };
+
+//   const handleLoginSuccess = () => {
+//     setShowSplash(true);
+//   };
+
+//   if (showSplash && !user) {
+//     // User object not set yet but splash is showing — still show splash
+//   }
+
+//   if ((user || page === "dashboard") && !showSplash) return <Dashboard />;
+
+//   return (
+//     <>
+//       {showSplash && (
+//         <LoginSplash
+//           onComplete={() => {
+//             setShowSplash(false);
+//             navigate("dashboard");
+//           }}
+//         />
+//       )}
+//       {!showSplash && page === "landing" && (
+//         <LandingPage onGetStarted={() => navigate("login")} />
+//       )}
+//       {!showSplash && page === "login" && (
+//         <LoginPage
+//           onNavigateRegister={() => navigate("register")}
+//           onLoginSuccess={handleLoginSuccess}
+//           successMessage={successMessage}
+//           onClearMessage={() => setSuccessMessage("")}
+//         />
+//       )}
+//       {!showSplash && page === "register" && (
+//         <RegisterPage onNavigateLogin={(msg) => navigate("login", msg)} />
+//       )}
+//     </>
+//   );
+// }
 
 export default function App() {
   return (
     <AuthProvider>
-      <Router />
+      <AppRoutes />
     </AuthProvider>
   );
 }

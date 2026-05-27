@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import "../styles/ManageLessonPlans.css";
 import { lessonPlansAPI, studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import StudentShimmer from "../components/StudentShimmer";
 
 const TABS = [
   { key: "generate", label: "Generate Lesson Plan" },
@@ -113,7 +114,7 @@ function ViewTab() {
       <div className="lp-card">
         <p className="lp-card-title">{selectedStudent.name} – Lesson Plans</p>
         {loadingPlans ? (
-          <p className="lp-empty">Loading…</p>
+          <StudentShimmer />
         ) : plans.length === 0 ? (
           <EmptyState message="No lesson plans found for this student." />
         ) : (
@@ -192,7 +193,7 @@ function ViewTab() {
       </div>
       <div className="va-student-list" style={{ marginTop: 16 }}>
         {loadingStudents ? (
-          <p className="lp-empty">Loading students…</p>
+          <StudentShimmer />
         ) : filteredStudents.length === 0 ? (
           <EmptyState message="No students found." />
         ) : (
@@ -320,7 +321,7 @@ function EditTab() {
   if (loading)
     return (
       <div className="lp-card">
-        <p className="lp-empty">Loading…</p>
+        <StudentShimmer />
       </div>
     );
 
@@ -414,7 +415,7 @@ function DeleteTab() {
   if (loading)
     return (
       <div className="lp-card">
-        <p className="lp-empty">Loading…</p>
+        <StudentShimmer />
       </div>
     );
 

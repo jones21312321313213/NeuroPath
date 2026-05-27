@@ -713,7 +713,7 @@ class TeachingStrategyGenerationController(APIView):
                 "data": draft_payload
             }, status=status.HTTP_200_OK)
             
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 # =====================================================================
 # SDD COMPONENT: TeachingStrategyGenerationController
@@ -771,7 +771,7 @@ class TeachingStrategyGenerationController(APIView):
         if serializer.is_valid():
             student_id = serializer.validated_data['studentID']
             iep_id = serializer.validated_data['iepGoalID']
-            
+            p
             try:
                 student = StudentProfile.objects.get(pk=student_id)
                 iep = IEPModel.objects.get(pk=iep_id)
