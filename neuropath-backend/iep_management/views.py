@@ -188,6 +188,7 @@ class IEPListAPIView(generics.ListAPIView):
             return IEPModel.objects.none()
 
 
+
 class IEPDetailAPIView(generics.RetrieveAPIView):
     queryset = IEPModel.objects.all()
     serializer_class = IEPListDetailSerializer
