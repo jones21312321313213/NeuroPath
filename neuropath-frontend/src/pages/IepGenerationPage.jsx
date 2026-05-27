@@ -388,6 +388,21 @@ function getStudentProfileDetails(student) {
   return typeof student.preferences === "object" ? student.preferences : {};
 }
 
+function getStudentName(student) {
+  return (
+    student?.name ||
+    student?.studentName ||
+    student?.learnerName ||
+    student?.profileDetails?.studentName ||
+    student?.profileDetails?.learnerName ||
+    ""
+  );
+}
+
+function getStudentId(student) {
+  return student?.studentID || student?.id || student?.pk || null;
+}
+
 function ViewIEPPanel({
   searchTerm,
   setSearchTerm,
@@ -430,7 +445,7 @@ function ViewIEPPanel({
 
   const handlePickStudent = (student) => {
     setSelectedStudent(student);
-    setSearchTerm(student.name || "");
+    setSearchTerm(getStudentName(student));
   };
 
   return (
@@ -460,13 +475,13 @@ function ViewIEPPanel({
               ) : filteredStudents.length > 0 ? (
                 filteredStudents.map((student) => (
                   <button
-                    key={student.studentID}
+                    key={getStudentId(student) || getStudentName(student)}
                     type="button"
                     onClick={() => handlePickStudent(student)}
                   >
-                    <strong>{student.name}</strong>
+                    <strong>{getStudentName(student)}</strong>
                     <span>
-                      Grade {student.grade} · Age {student.age}
+                      Grade {student.grade || "—"} · Age {student.age || "—"}
                     </span>
                   </button>
                 ))
@@ -520,7 +535,7 @@ function ViewIEPPanel({
           <div className="iep-view-header">
             <div>
               <span>Student</span>
-              <h3>{selectedIep.studentName || selectedStudent.name}</h3>
+              <h3>{selectedIep.studentName || getStudentName(selectedStudent) || "—"}</h3>
               <p>
                 Grade {selectedStudent.grade} · Age {selectedStudent.age}
               </p>
@@ -596,7 +611,7 @@ function ViewIEPPanel({
 
           <InfoBlock title="Section A: Personal Information">
             {details
-              ? `School: ${details.school || "—"}\nSchool Year: ${details.schoolYear || "—"}\nStudent Name: ${details.studentName || details.learnerName || selectedIep.studentName || selectedStudent.name}\nBirthdate: ${details.birthdate || "—"}\nDiagnosis: ${details.disabilityCategory || "—"}\nDifficulties: ${(details.difficultyMarkers || []).join(", ") || "—"}`
+              ? `School: ${details.school || "—"}\nSchool Year: ${details.schoolYear || "—"}\nStudent Name: ${details.studentName || details.learnerName || selectedIep.studentName || getStudentName(selectedStudent)}\nBirthdate: ${details.birthdate || "—"}\nDiagnosis: ${details.disabilityCategory || "—"}\nDifficulties: ${(details.difficultyMarkers || []).join(", ") || "—"}`
               : selectedIep.baselineData}
           </InfoBlock>
 
@@ -684,6 +699,15 @@ function ViewIEPPanel({
 
 export default function IEPGenerationPage({ mode = "generate" }) {
   const activeView = mode;
+  const currentUser = useMemo(() => {
+    try {
+      const stored = localStorage.getItem("neuropath_user");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+  const currentUserId = currentUser?.id || currentUser?.user_id || currentUser?.teacherID || null;
   const [step, setStep] = useState(3);
   const [students, setStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -729,11 +753,19 @@ export default function IEPGenerationPage({ mode = "generate" }) {
     learnerGoals: [],
   });
 
+  useEffect(() => {
+    setSearchTerm("");
+    setSelectedStudent(null);
+    setIeps([]);
+    setSelectedIep(null);
+    setViewError("");
+  }, [activeView]);
+
   const filteredStudents = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     if (!query) return [];
     return students
-      .filter((student) => (student.name || "").toLowerCase().includes(query))
+      .filter((student) => getStudentName(student).toLowerCase().includes(query))
       .slice(0, 6);
   }, [students, searchTerm]);
 
@@ -744,31 +776,43 @@ export default function IEPGenerationPage({ mode = "generate" }) {
 
   useEffect(() => {
     let mounted = true;
+
     async function loadStudents() {
       if (activeView !== "view" && activeView !== "generate") return;
+
+      if (!currentUserId) {
+        setStudents([]);
+        return;
+      }
+
       setLoadingStudents(true);
       setViewError("");
       try {
-        const data = await studentsAPI.list();
-        if (mounted)
-          setStudents(Array.isArray(data) ? data : data.results || []);
+        const data = await studentsAPI.list(currentUserId);
+        const list = Array.isArray(data) ? data : data.results || data.data || [];
+        if (mounted) setStudents(list);
       } catch (error) {
-        if (mounted)
+        if (mounted) {
+          setStudents([]);
           setViewError(error.message || "Unable to load student records.");
+        }
       } finally {
         if (mounted) setLoadingStudents(false);
       }
     }
+
     loadStudents();
     return () => {
       mounted = false;
     };
-  }, [activeView]);
+  }, [activeView, currentUserId]);
 
   useEffect(() => {
     let mounted = true;
     async function loadStudentIeps() {
-      if (!selectedStudent?.studentID) {
+      const selectedStudentId = getStudentId(selectedStudent);
+
+      if (!selectedStudentId || !currentUserId) {
         setIeps([]);
         setSelectedIep(null);
         return;
@@ -776,8 +820,8 @@ export default function IEPGenerationPage({ mode = "generate" }) {
       setLoadingIeps(true);
       setViewError("");
       try {
-        const data = await iepAPI.listByStudent(selectedStudent.studentID);
-        const list = Array.isArray(data) ? data : data.results || [];
+        const data = await iepAPI.listByStudent(selectedStudentId, currentUserId);
+        const list = Array.isArray(data) ? data : data.results || data.data || [];
         if (mounted) {
           setIeps(list);
           setSelectedIep(list[0] || null);
@@ -798,7 +842,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
     return () => {
       mounted = false;
     };
-  }, [selectedStudent]);
+  }, [selectedStudent, currentUserId]);
 
   useEffect(() => {
     if (activeView !== "generate" || !selectedStudent) return;
@@ -811,7 +855,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
       learnerName:
         profileDetails.studentName ||
         profileDetails.learnerName ||
-        selectedStudent.name ||
+        getStudentName(selectedStudent) ||
         prev.learnerName,
       birthdate: profileDetails.birthdate || prev.birthdate,
       disabilityCategory:
@@ -991,7 +1035,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
   };
 
   const handleGenerateFinalIep = async () => {
-    if (!selectedStudent?.studentID) {
+    if (!getStudentId(selectedStudent)) {
       alert("Please select a student first.");
       return;
     }
@@ -1008,7 +1052,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
     setGeneratedAccommodations(accommodationText);
 
     const baselineData = [
-      `Student: ${form.learnerName || selectedStudent.name || ""}`,
+      `Student: ${form.learnerName || getStudentName(selectedStudent) || ""}`,
       `Diagnosis: ${form.disabilityCategory || ""}`,
       `Assessment / Diagnosis Details: ${form.diagnosisDetails || ""}`,
       `Present Evaluation: ${form.presentEvaluation || ""}`,
@@ -1021,7 +1065,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
 
     try {
       const result = await iepAPI.generate({
-        studentID: selectedStudent.studentID,
+        studentID: getStudentId(selectedStudent),
         baselineData,
         domains: selectedGoalCategories.join(", "),
       });
@@ -1043,7 +1087,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
   };
 
   const handleSaveIep = async () => {
-    if (!selectedStudent?.studentID) {
+    if (!getStudentId(selectedStudent)) {
       alert("Please select a student first.");
       return;
     }
@@ -1060,7 +1104,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
       : "No learner goals selected.";
 
     const baselineText = [
-      `Student: ${form.learnerName || selectedStudent.name || ""}`,
+      `Student: ${form.learnerName || getStudentName(selectedStudent) || ""}`,
       `Diagnosis: ${form.disabilityCategory || ""}`,
       `Assessment / Diagnosis Details: ${form.diagnosisDetails || ""}`,
       `Present Evaluation: ${form.presentEvaluation || ""}`,
@@ -1077,7 +1121,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
 
     try {
       const saved = await iepAPI.save({
-        studentID: selectedStudent.studentID,
+        studentID: getStudentId(selectedStudent),
         baselineData: baselineText,
         goals: goalsText,
         accommodations: accommodationText,
@@ -1190,14 +1234,14 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                     ) : filteredStudents.length > 0 ? (
                       filteredStudents.map((student) => (
                         <button
-                          key={student.studentID || student.id || student.name}
+                          key={getStudentId(student) || getStudentName(student)}
                           type="button"
                           onClick={() => {
                             setSelectedStudent(student);
-                            setSearchTerm(student.name || "");
+                            setSearchTerm(getStudentName(student));
                           }}
                         >
-                          <strong>{student.name}</strong>
+                          <strong>{getStudentName(student)}</strong>
                           <span>
                             Grade {student.grade || "—"} · Age{" "}
                             {student.age || "—"}
@@ -1214,7 +1258,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
               <div className="iep-selected-student-card">
                 <span>Selected Student</span>
                 <strong>
-                  {selectedStudent?.name || "No student selected"}
+                  {getStudentName(selectedStudent) || "No student selected"}
                 </strong>
                 <small>
                   {selectedStudent
