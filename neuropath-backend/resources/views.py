@@ -5,10 +5,11 @@ from rest_framework.response import Response
 from rest_framework import status,viewsets
 from rest_framework.permissions import IsAuthenticated 
 from django.http import HttpResponse
+from django.contrib.auth.models import User as DjangoUser
 from users.models import Teacher,StudentProfile
 from iep_management.models import IEPModel, IEPGoal
 from .models import LessonPlan,VisualAid,TeachingStrategy
-from .services import TeachingStrategyGenerationService
+from .services import TeachingStrategyGenerationService,LessonPlanGenerationService
 #from .permissions import UserAuthPermissions uncomment this back to check user auth and permission
 from .serializers import (
     UserContextSerializer,
@@ -23,6 +24,7 @@ from .serializers import (
     StrategyRetrievalSerializer,
     StrategyDeleteValidationSerializer,
 )
+
 
 
 
@@ -171,16 +173,20 @@ class LessonPlanGeneratorService:
 class GenerateLessonPlanAPIView(APIView):
     # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
 
+    # =================================================================
+    # GET: Populates the React Frontend Directory (Step 1 & 2)
+    # =================================================================
     def get(self, request, *args, **kwargs):
         """
         Returns the directory of students and their IEP Goal Areas for the
-        Generate Lesson Plan tab. Mirrors TeachingStrategyGenerationController.
-        Response: { "directory": [{ studentID, studentName, availableGoals: [{ goalID, label, goalArea }] }] }
+        Generate Lesson Plan tab.
         """
-        from django.contrib.auth.models import User as DjangoUser
-        from users.models import Teacher
-
         teacher_id = request.query_params.get("teacher_id")
+        
+        # If no teacher_id is provided in query params, fallback to the authenticated user's ID
+        if not teacher_id and hasattr(request.user, 'id'):
+            teacher_id = request.user.id
+
         if teacher_id:
             try:
                 django_user = DjangoUser.objects.get(pk=int(teacher_id))
@@ -199,13 +205,13 @@ class GenerateLessonPlanAPIView(APIView):
 
         directory_payload = []
         for student in students:
-            # Fetch all IEP Goals for this student and expose the Goal Area (subject_category)
+            # Fetch all IEP Goals for this student
             student_goals = IEPGoal.objects.filter(iep__studentID=student)
             goal_list = [
                 {
                     "goalID": goal.pk,
-                    "goalArea": goal.subject_category or "General",
-                    "label": goal.subject_category or "General",
+                    "goalArea": getattr(goal, 'subject_category', None) or "General",
+                    "label": getattr(goal, 'subject_category', None) or "General",
                 }
                 for goal in student_goals
             ]
@@ -217,38 +223,42 @@ class GenerateLessonPlanAPIView(APIView):
 
         return Response({"directory": directory_payload}, status=status.HTTP_200_OK)
 
+    # =================================================================
+    # POST: Triggers the Multi-Phase Ollama AI Generation (Step 3)
+    # =================================================================
     def post(self, request, *args, **kwargs):
-        # 1. Validate incoming React payload
+        # 1. Validate incoming React payload using your existing serializer
         serializer = LessonGenerationSerializer(data=request.data)
         
         if serializer.is_valid():
             goal_id = serializer.validated_data['goalID']
 
             try:
-                # Resolve goal → student
-                target_goal = IEPGoal.objects.select_related('iep__studentID').get(pk=goal_id)
-                student = target_goal.iep.studentID
+                # 2. Trigger the new Service to generate the JSON Array
+                generated_data = LessonPlanGenerationService.execute_generation(
+                    goal_id=goal_id, 
+                    teacher_instance=request.user
+                )
+                
+                # 3. Return the JSON array to React to render the stacked UI
+                return Response({
+                    "message": "Lesson plan sequence generated successfully.",
+                    "data": generated_data # 🎯 This holds {"lesson_plans": [ ... ]}
+                }, status=status.HTTP_200_OK)
+                
             except IEPGoal.DoesNotExist:
                 return Response(
                     {"error": "Targeted IEP Goal could not be located."},
                     status=status.HTTP_404_NOT_FOUND
                 )
+            except Exception as e:
+                return Response(
+                    {"error": str(e)}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
                 
-            # 2. Trigger Business Logic Service
-            draft_payload = LessonPlanGeneratorService.generate_draft(
-                validated_data=serializer.validated_data,
-                student_profile=student
-            )
-            
-            # 3. Return the draft to the UI (React will handle the final "Save")
-            return Response({
-                "message": "Lesson plan draft generated successfully.",
-                "data": draft_payload
-            }, status=status.HTTP_200_OK)
-            
-        # Return validation errors if parameters are missing
+        # Return validation errors if parameter is missing
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-   
 # =====================================================================
 # SDD COMPONENT: LessonPlanFilterService
 # Description: Specialized query logic component that processes inputs 
@@ -259,8 +269,13 @@ class LessonPlanFilterService:
     def apply_filters(queryset, request_query_params):
         search_query = request_query_params.get('search', None)
         grade_filter = request_query_params.get('grade', None)
+        student_id = request_query_params.get('studentID', None)
         
         # 🚀 REWIRED: Traverse through iep_goal -> iep -> studentID -> name
+        
+        if student_id:
+            queryset = queryset.filter(iep_goal__iep__studentID__pk=student_id)
+            
         if search_query:
             queryset = queryset.filter(
                 Q(title__icontains=search_query) | 

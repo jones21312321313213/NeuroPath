@@ -28,6 +28,7 @@ function GenerateTab({ onSave }) {
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [selectedGoal, setSelectedGoal] = useState(null);
   const [generated, setGenerated] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -42,20 +43,23 @@ function GenerateTab({ onSave }) {
 
   const selectStudent = (student) => {
     setSelectedStudent(student);
+    setSelectedGoal(null); // 🎯 NEW: Reset goal selection if they change students
     setGenerated(null);
     setError("");
   };
 
   const handleGenerate = async () => {
-    if (!selectedStudent || selectedStudent.availableGoals.length === 0) return;
-    const goal = selectedStudent.availableGoals[0];
+    if (!selectedStudent || !selectedGoal) return;
+
+    //if (!selectedStudent || selectedStudent.availableGoals.length === 0) return;
+   // const goal = selectedStudent.availableGoals[0];
     setLoading(true);
     setError("");
     try {
       const data = await lessonPlansAPI.generate({
-        goalID: goal.goalID,
-        subject: goal.goalArea,
-        topic: goal.goalArea,
+        goalID: selectedGoal.goalID,
+        subject: selectedGoal.goalArea || "General Learning",
+        topic: selectedGoal.label || "General Learning",
       });
       setGenerated(data);
     } catch (err) {
@@ -71,6 +75,42 @@ function GenerateTab({ onSave }) {
     alert("Lesson plan saved successfully.");
   };
 
+// 🛡️ Advanced Bulletproof AI text renderer
+// 🛡️ Advanced Bulletproof AI text renderer
+// 🛡️ Advanced Bulletproof AI text renderer
+  const renderSafeText = (content) => {
+    // Base cases: empty or simple text
+    if (!content) return "";
+    if (typeof content !== "object") return String(content);
+    
+    // Case 1: If the AI returns an array (like the steps list)
+    if (Array.isArray(content)) {
+      return content.map(item => {
+        // If the item inside the array is ANOTHER object, dig deeper!
+        return typeof item === "object" ? renderSafeText(item) : `• ${item}`;
+      }).join("\n");
+    }
+    
+    // 🎯 SMART INTERCEPTOR: Catch the AI's step objects and merge them!
+    if ('step_number' in content && 'description' in content) {
+      return `Step #${content.step_number}: ${content.description}`;
+    }
+    
+    // Case 2: General fallback for other nested objects
+    return Object.entries(content)
+      .map(([key, value]) => {
+        const cleanKey = key.replace(/_/g, ' ').toUpperCase();
+        const cleanValue = renderSafeText(value); 
+        
+        // 🎯 SMART SPACING: If the value is a list/array of items, drop it to the next line.
+        // If it's just a single word or phrase, keep it on the same line!
+        const separator = typeof value === "object" ? "\n" : " ";
+        
+        return `${cleanKey}:${separator}${cleanValue}`;
+      })
+      .join("\n\n");
+  };
+  
   return (
     <div className="va-generate">
       {error && (
@@ -116,83 +156,121 @@ function GenerateTab({ onSave }) {
 
       {/* Step 2 — IEP Goal Area (auto-fetched, read-only) + Generate button */}
       {selectedStudent && !generated && (
-        <div className="lp-card">
-          <p className="lp-card-title">
-            Step 2 — IEP Goal Area for{" "}
-            <strong>{selectedStudent.studentName}</strong>
-          </p>
-          {selectedStudent.availableGoals.length === 0 ? (
-            <EmptyState message="No IEP goals found for this student. Generate an IEP first." />
-          ) : (
-            <>
-              <div className="lp-goal-area-display">
-                <span className="lp-goal-area-label">Goal Area:</span>
-                <span className="lp-goal-area-value">
-                  {selectedStudent.availableGoals[0].goalArea}
-                </span>
-                <span className="lp-goal-area-note">
-                  Automatically retrieved from the student's IEP (Section C)
-                </span>
+              <div className="lp-card">
+                <p className="lp-card-title">
+                  Step 2 — Select an IEP Goal for{" "}
+                  <strong>{selectedStudent.studentName}</strong>
+                </p>
+                {selectedStudent.availableGoals.length === 0 ? (
+                  <EmptyState message="No IEP goals found for this student. Generate an IEP first." />
+                ) : (
+                  <>
+                    <div className="va-student-list">
+                      {selectedStudent.availableGoals.map((goal) => (
+                        <div
+                          key={goal.goalID}
+                          className={`va-student-row${selectedGoal?.goalID === goal.goalID ? " selected" : ""}`}
+                          onClick={() => setSelectedGoal(goal)}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <div className="va-student-info">
+                            <span className="va-student-name">
+                              {goal.goalArea}
+                            </span>
+                            {goal.label && (
+                              <span className="va-student-grade" style={{ marginTop: "4px", display: "block" }}>
+                                {goal.label}
+                              </span>
+                            )}
+                          </div>
+                          <button className="va-select-btn">
+                            {selectedGoal?.goalID === goal.goalID
+                              ? "Selected"
+                              : "Select"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="lp-actions" style={{ marginTop: 16 }}>
+                      <button
+                        className="btn btn-submit"
+                        onClick={handleGenerate}
+                        disabled={loading || !selectedGoal} // 🎯 Button disabled until goal is picked
+                      >
+                        {loading ? "Generating…" : "Generate Lesson Plan"}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
-              <div className="lp-actions" style={{ marginTop: 16 }}>
-                <button
-                  className="btn btn-submit"
-                  onClick={handleGenerate}
-                  disabled={loading}
-                >
-                  {loading ? "Generating…" : "Generate Lesson Plan"}
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+            )}
 
       {/* Step 3 — Result */}
       {generated && (
         <div className="lp-card">
-          <p className="lp-card-title">Generated Lesson Plan</p>
+          <p className="lp-card-title">Generated Lesson Plan Modules</p>
           <div className="lp-result-content">
-            {generated.data?.draft_content && (
-              <>
-                {generated.data.draft_content.introduction && (
-                  <div className="lp-result-section">
-                    <span className="lp-result-section-title">
-                      Introduction
-                    </span>
-                    <p>{generated.data.draft_content.introduction}</p>
+            {/* 🎯 NEW: Maps through the array of objective-based lesson plans */}
+          <div className="ts-preview-body" style={{ maxHeight: "60vh", overflowY: "auto" }}>
+              {/* 🎯 THE MAGIC: Mapping through the JSON array Ollama returned! */}
+              {generated.data?.lesson_plans?.length > 0 ? (
+                generated.data.lesson_plans.map((plan, index) => (
+                  <div 
+                    key={index} 
+                    className="lp-objective-block"
+                    style={{ 
+                      marginBottom: "24px", 
+                      paddingBottom: "24px", 
+                      borderBottom: index !== generated.data.lesson_plans.length - 1 ? "2px dashed #e0e0e0" : "none" 
+                    }}
+                  >
+                    <h4 style={{ color: "#2c3e50", fontSize: "16px", marginBottom: "12px", display: "flex", gap: "8px", alignItems: "center" }}>
+                      <span style={{ background: "#4a90e2", color: "white", padding: "4px 8px", borderRadius: "12px", fontSize: "12px", fontWeight: "bold" }}>
+                        Phase {index + 1}
+                      </span> 
+                      {renderSafeText(plan.objective_focus)}
+                    </h4>
+
+                    {plan.introduction && (
+                      <div className="lp-result-section" style={{ marginBottom: "12px" }}>
+                        <span style={{ fontWeight: 600, color: "#34495e", display: "block", marginBottom: "4px" }}>Introduction:</span>
+                        <p style={{ margin: 0, fontSize: "14px", lineHeight: "1.5", whiteSpace: "pre-line" }}>
+                          {renderSafeText(plan.introduction)}
+                        </p>
+                      </div>
+                    )}
+                    {plan.core_activity && (
+                      <div className="lp-result-section" style={{ marginBottom: "12px" }}>
+                        <span style={{ fontWeight: 600, color: "#34495e", display: "block", marginBottom: "4px" }}>Core Activity:</span>
+                        <p style={{ margin: 0, fontSize: "14px", lineHeight: "1.5", whiteSpace: "pre-line" }}>
+                          {renderSafeText(plan.core_activity)}
+                        </p>
+                      </div>
+                    )}
+                    {plan.assessment && (
+                      <div className="lp-result-section" style={{ marginBottom: "12px" }}>
+                        <span style={{ fontWeight: 600, color: "#34495e", display: "block", marginBottom: "4px" }}>Assessment:</span>
+                        <p style={{ margin: 0, fontSize: "14px", lineHeight: "1.5", whiteSpace: "pre-line" }}>
+                          {renderSafeText(plan.assessment)}
+                        </p>
+                      </div>
+                    )}
+                    {plan.materials_needed && plan.materials_needed.length > 0 && (
+                      <div className="lp-result-section">
+                        <span style={{ fontWeight: 600, color: "#34495e", display: "block", marginBottom: "4px" }}>Materials Needed:</span>
+                        <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "14px" }}>
+                          {plan.materials_needed.map((m, i) => (
+                            <li key={i}>{renderSafeText(m)}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
-                )}
-                {generated.data.draft_content.core_activity && (
-                  <div className="lp-result-section">
-                    <span className="lp-result-section-title">
-                      Core Activity
-                    </span>
-                    <p>{generated.data.draft_content.core_activity}</p>
-                  </div>
-                )}
-                {generated.data.draft_content.assessment && (
-                  <div className="lp-result-section">
-                    <span className="lp-result-section-title">Assessment</span>
-                    <p>{generated.data.draft_content.assessment}</p>
-                  </div>
-                )}
-                {generated.data.draft_content.materials_needed && (
-                  <div className="lp-result-section">
-                    <span className="lp-result-section-title">
-                      Materials Needed
-                    </span>
-                    <ul className="lp-result-list">
-                      {generated.data.draft_content.materials_needed.map(
-                        (m, i) => (
-                          <li key={i}>{m}</li>
-                        ),
-                      )}
-                    </ul>
-                  </div>
-                )}
-              </>
-            )}
+                ))
+              ) : (
+                <p>No lesson plan data was returned from the AI.</p>
+              )}
+            </div>
           </div>
           <p className="lp-result-sub">{generated.message}</p>
           <div className="lp-actions">
@@ -209,6 +287,7 @@ function GenerateTab({ onSave }) {
   );
 }
 
+// ── View Tab ───────────────────────────────────────────────────────────────────
 // ── View Tab ───────────────────────────────────────────────────────────────────
 function ViewTab() {
   const { user } = useAuth();
@@ -229,7 +308,7 @@ function ViewTab() {
       .then(setStudents)
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoadingStudents(false));
-  }, []);
+  }, [user?.id]);
 
   const handleSelectStudent = (s) => {
     setSelectedStudent(s);
@@ -248,39 +327,129 @@ function ViewTab() {
     return matchName && matchGrade && matchAge;
   });
 
-  // Detail view
+  // 📺 SCREEN 3: Detail view
   if (viewingPlan) {
+    // 🎯 HYPER-RESILIENT JSON PARSER
+    let lessonsArray = [];
+    try {
+      // 1. Grab the raw text from the database (checking both possible serializer keys)
+      let rawText = viewingPlan.lessonContent || viewingPlan.content || "{}";
+      
+      // 2. Initial parse
+      let parsed = typeof rawText === "string" ? JSON.parse(rawText) : rawText;
+
+      // 3. Catch Double-Stringified Data (If Python wrapped it twice)
+      if (typeof parsed === "string") {
+        parsed = JSON.parse(parsed);
+      }
+
+      // 4. Catch AI structure variations (Did it return {lesson_plans: []} or just []?)
+      lessonsArray = Array.isArray(parsed) ? parsed : (parsed?.lesson_plans || []);
+      
+    } catch (e) {
+      console.error("Failed to parse saved lesson plan JSON.", e);
+    }
+
+    // 🛡️ Advanced Bulletproof AI text renderer
+    const renderSafeText = (content) => {
+      if (!content) return "";
+      if (typeof content !== "object") return String(content);
+      if (Array.isArray(content)) {
+        return content.map(item => (typeof item === "object" ? renderSafeText(item) : `• ${item}`)).join("\n");
+      }
+      if ('step_number' in content && 'description' in content) {
+        return `Step #${content.step_number}: ${content.description}`;
+      }
+      return Object.entries(content)
+        .map(([key, value]) => {
+          const cleanKey = key.replace(/_/g, ' ').toUpperCase();
+          const cleanValue = renderSafeText(value); 
+          const separator = typeof value === "object" ? "\n" : " ";
+          return `${cleanKey}:${separator}${cleanValue}`;
+        }).join("\n\n");
+    };
+
     return (
       <div className="lp-card">
         <p className="lp-card-title">
           {selectedStudent?.name} – {viewingPlan.title}
         </p>
-        <div className="lp-detail-meta">
+        
+        {/* Meta Data Header (Status has been removed) */}
+        <div className="lp-detail-meta" style={{ marginBottom: "24px", paddingBottom: "16px", borderBottom: "1px solid #e0e0e0" }}>
           <div className="lp-detail-row">
             <span className="lp-detail-label">Student:</span>
             <span>{viewingPlan.studentName}</span>
           </div>
           <div className="lp-detail-row">
-            <span className="lp-detail-label">Status:</span>
-            <span>{viewingPlan.status}</span>
-          </div>
-          <div className="lp-detail-row">
             <span className="lp-detail-label">Date Created:</span>
-            <span>
-              {new Date(viewingPlan.dateCreated).toLocaleDateString()}
-            </span>
+            <span>{new Date(viewingPlan.dateCreated).toLocaleDateString()}</span>
           </div>
         </div>
-        <div className="lp-actions">
+
+        {/* 🎯 Render the actual Lesson Plan Modules! */}
+        <div className="ts-preview-body" style={{ maxHeight: "60vh", overflowY: "auto", paddingRight: "10px" }}>
+          {lessonsArray.length > 0 ? (
+            lessonsArray.map((plan, index) => (
+              <div 
+                key={index} 
+                className="lp-objective-block"
+                style={{ 
+                  marginBottom: "24px", 
+                  paddingBottom: "24px", 
+                  borderBottom: index !== lessonsArray.length - 1 ? "2px dashed #e0e0e0" : "none" 
+                }}
+              >
+                <h4 style={{ color: "#2c3e50", fontSize: "16px", marginBottom: "12px", display: "flex", gap: "8px", alignItems: "center" }}>
+                  <span style={{ background: "#4a90e2", color: "white", padding: "4px 8px", borderRadius: "12px", fontSize: "12px", fontWeight: "bold" }}>
+                    Phase {index + 1}
+                  </span> 
+                  {renderSafeText(plan.objective_focus)}
+                </h4>
+
+                {plan.introduction && (
+                  <div className="lp-result-section" style={{ marginBottom: "12px" }}>
+                    <span style={{ fontWeight: 600, color: "#34495e", display: "block", marginBottom: "4px" }}>Introduction:</span>
+                    <p style={{ margin: 0, fontSize: "14px", lineHeight: "1.5", whiteSpace: "pre-line" }}>{renderSafeText(plan.introduction)}</p>
+                  </div>
+                )}
+                {plan.core_activity && (
+                  <div className="lp-result-section" style={{ marginBottom: "12px" }}>
+                    <span style={{ fontWeight: 600, color: "#34495e", display: "block", marginBottom: "4px" }}>Core Activity:</span>
+                    <p style={{ margin: 0, fontSize: "14px", lineHeight: "1.5", whiteSpace: "pre-line" }}>{renderSafeText(plan.core_activity)}</p>
+                  </div>
+                )}
+                {plan.assessment && (
+                  <div className="lp-result-section" style={{ marginBottom: "12px" }}>
+                    <span style={{ fontWeight: 600, color: "#34495e", display: "block", marginBottom: "4px" }}>Assessment:</span>
+                    <p style={{ margin: 0, fontSize: "14px", lineHeight: "1.5", whiteSpace: "pre-line" }}>{renderSafeText(plan.assessment)}</p>
+                  </div>
+                )}
+                {plan.materials_needed && plan.materials_needed.length > 0 && (
+                  <div className="lp-result-section">
+                    <span style={{ fontWeight: 600, color: "#34495e", display: "block", marginBottom: "4px" }}>Materials Needed:</span>
+                    <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "14px" }}>
+                      {plan.materials_needed.map((m, i) => <li key={i}>{renderSafeText(m)}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ))
+          ) : (
+            <p style={{ color: "#7f8c8d", fontStyle: "italic" }}>No lesson plan content available to display.</p>
+          )}
+        </div>
+
+        <div className="lp-actions" style={{ marginTop: "24px" }}>
           <button className="btn btn-back" onClick={() => setViewingPlan(null)}>
-            ← Back
+            ← Back to List
           </button>
         </div>
       </div>
     );
   }
 
-  // Student plan list
+  // 📺 SCREEN 2: Student plan list
   if (selectedStudent) {
     return (
       <div className="lp-card">
@@ -319,7 +488,7 @@ function ViewTab() {
     );
   }
 
-  // Student selection
+  // 📺 SCREEN 1: Student selection
   return (
     <div className="lp-card">
       <p className="lp-card-title">Select a Student</p>

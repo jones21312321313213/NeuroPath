@@ -21,8 +21,8 @@ class UserContextSerializer(serializers.ModelSerializer):
 class LessonPlanSerializer(serializers.ModelSerializer):
     class Meta:
         model = LessonPlan
-        # 🚀 REWIRED: Point strictly to iep_goal
-        fields = ['lessonID', 'iep_goal', 'title', 'dateCreated', 'status']
+        # 🎯 ADDED 'lessonContent' HERE
+        fields = ['lessonID', 'iep_goal', 'title', 'lessonContent', 'dateCreated', 'status']
 
     def validate_title(self, value):
         if not value or not value.strip():
@@ -60,7 +60,8 @@ class LessonPlanDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LessonPlan
-        fields = ['lessonID', 'studentName', 'title', 'status', 'dateCreated']
+        # 🎯 ADDED 'lessonContent' HERE
+        fields = ['lessonID', 'studentName', 'title', 'status', 'lessonContent', 'dateCreated']
         
 # =====================================================================
 # SDD COMPONENT: LessonPlanUpdateSerializer
