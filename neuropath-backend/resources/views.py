@@ -3,10 +3,12 @@ import io
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status,viewsets
+from rest_framework.permissions import IsAuthenticated 
 from django.http import HttpResponse
 from users.models import Teacher,StudentProfile
 from iep_management.models import IEPModel, IEPGoal
 from .models import LessonPlan,VisualAid,TeachingStrategy
+from .services import TeachingStrategyGenerationService
 #from .permissions import UserAuthPermissions uncomment this back to check user auth and permission
 from .serializers import (
     UserContextSerializer,
@@ -19,7 +21,7 @@ from .serializers import (
     TeachingStrategySerializer,           # <--- ADD THIS NEW ONE
     StrategyUpdateValidationSerializer,   # <--- KEEP THIS
     StrategyRetrievalSerializer,
-    StrategyDeleteValidationSerializer
+    StrategyDeleteValidationSerializer,
 )
 
 
@@ -655,63 +657,95 @@ class TeachingStrategyViewSet(viewsets.ModelViewSet):
 #              directory requests and POST execution requests.
 # =====================================================================
 class TeachingStrategyGenerationController(APIView):
+    # 🎯 1. THE BOUNCER: This forces the user to be logged in. 
+    # If there is no valid session/token, it instantly blocks them with a 401 Unauthorized error.
+    permission_classes = [IsAuthenticated] 
+
     def get(self, request, *args, **kwargs):
-        from django.contrib.auth.models import User as DjangoUser
-        from users.models import Teacher
-
-        teacher_id = request.query_params.get("teacher_id")
-        if teacher_id:
+            # 🎯 2. WHO IS LOGGED IN? 
+            # We ignore the URL entirely. request.user securely holds the currently authenticated user.
+            django_user = request.user 
+            
             try:
-                django_user = DjangoUser.objects.get(pk=int(teacher_id))
+                # 🎯 3. Find their specific teacher profile based on their secure login email
                 teacher = Teacher.objects.get(email=django_user.email)
+                
+                # 🎯 4. STRICT FILTER: Only grab students directly owned by THIS specific teacher
                 students = StudentProfile.objects.filter(teacher=teacher)
-            except (DjangoUser.DoesNotExist, Teacher.DoesNotExist, ValueError, TypeError):
-                students = StudentProfile.objects.none()
-        else:
-            students = StudentProfile.objects.none()
+                
+            except Teacher.DoesNotExist:
+                return Response(
+                    {"error": "Teacher profile not found for the logged-in user."}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
 
-        if not students.exists():
-            return Response(
-                {"message": "No active student profiles available. Please add a student first."}, 
-                status=status.HTTP_200_OK
-            )
-            
-        directory_payload = []
-        for student in students:
-            # 🚀 REWIRED: Fetch specific micro-goals for the checkboxes!
-            student_goals = IEPGoal.objects.filter(iep__studentID=student)
-            goal_list = [{"goalID": goal.pk, "label": f"{goal.subject_category}: {goal.annual_goal[:40]}..."} for goal in student_goals]
-            
-            directory_payload.append({
-                "studentID": student.pk,
-                "studentName": student.name,
-                "availableGoals": goal_list # Now contains the specific checkboxes!
-            })
-            
-        return Response({"directory": directory_payload}, status=status.HTTP_200_OK)
-
+            if not students.exists():
+                return Response(
+                    {"message": "No active student profiles available. Please add a student first."}, 
+                    status=status.HTTP_200_OK
+                )
+                
+            directory_payload = []
+            for student in students:
+                # Fetch specific micro-goals for the checkboxes
+                student_goals = IEPGoal.objects.filter(iep__studentID=student)
+                goal_list = [{"goalID": goal.pk, "label": f"{goal.subject_category}: {goal.annual_goal[:40]}..."} for goal in student_goals]
+                
+                directory_payload.append({
+                    "studentID": student.pk,
+                    "studentName": student.name,
+                    "availableGoals": goal_list 
+                })
+                
+            # 👇 THIS IS THE LINE THAT WAS LIKELY MISSING! 👇
+            return Response({"directory": directory_payload}, status=status.HTTP_200_OK)
+        
     def post(self, request, *args, **kwargs):
+        # 1. Validate the incoming payload uses the correct Goal ID
         serializer = StrategyParameterSerializer(data=request.data)
         
         if serializer.is_valid():
-            # 🚀 REWIRED: Execute using the exact goal
             goal_id = serializer.validated_data['goalID']
             
             try:
-                target_goal = IEPGoal.objects.select_related('iep__studentID').get(pk=goal_id)
-                student = target_goal.iep.studentID
+                # 🚀 GOOGLE-LEVEL OPTIMIZATION: 
+                # select_related (for foreign keys) + prefetch_related (for many-to-many/reverse foreign keys)
+                # This grabs the Goal, the IEP, the Student, AND the Rows in a single DB hit!
+                target_goal = IEPGoal.objects.select_related(
+                    'iep__studentID'
+                ).prefetch_related('objective_rows').get(pk=goal_id)
+                
             except IEPGoal.DoesNotExist:
                 return Response(
                     {"error": "Targeted IEP Goal could not be located."}, 
                     status=status.HTTP_404_NOT_FOUND
                 )
                 
-            draft_payload = StrategyGenerationManagerService.generate_strategy_content(target_goal.annual_goal, student)
-            
-            return Response({
-                "message": "Teaching strategy successfully compiled.",
-                "data": draft_payload
-            }, status=status.HTTP_200_OK)
+            try:
+                # 2. Trigger the AI Generation & Database Save via our new Service
+                # request.user contains the teacher automatically due to your auth middleware
+                saved_strategy = TeachingStrategyGenerationService.generate_and_save_strategy(
+                    goal_instance=target_goal,
+                    teacher_instance=request.user
+                )
+                
+                # 3. Route the new database record through your existing UI serializer
+                # This ensures the React frontend gets the exact schema it expects
+                res_serializer = StrategyRetrievalSerializer(saved_strategy)
+                
+                return Response({
+                    "message": "Teaching strategy successfully generated and saved.",
+                    "data": res_serializer.data
+                }, status=status.HTTP_201_CREATED)
+                
+            except Exception as e:
+                return Response(
+                    {"error": f"AI Generation Pipeline Failed: {str(e)}"}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+                
+        # Failsafe for bad frontend payloads
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
 #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     

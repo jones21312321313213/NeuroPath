@@ -24,6 +24,7 @@ function EmptyState({ message = "No records found." }) {
 }
 
 // ── Generate Tab ───────────────────────────────────────────────────────────────
+// ── Generate Tab (UPDATED WITH AI INTEGRATION & REGENERATION) ──────────────────
 function GenerateTab({ onSave }) {
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
@@ -34,13 +35,14 @@ function GenerateTab({ onSave }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Fetch the secured directory
   useEffect(() => {
     teachingStrategiesAPI
       .getDirectory(user?.id)
       .then((data) => setDirectory(data.directory || []))
       .catch(() => setError("Failed to load students and goals."))
       .finally(() => setLoadingDir(false));
-  }, []);
+  }, [user?.id]);
 
   const selectStudent = (student) => {
     setSelectedStudent(student);
@@ -49,18 +51,18 @@ function GenerateTab({ onSave }) {
     setError("");
   };
 
+  // 🚀 FIXED: Rewired to pass 'goalID' to match your Django Serializer
   const handleGenerate = async () => {
     if (!selectedStudent || !selectedGoal) return;
     setLoading(true);
     setError("");
     try {
       const data = await teachingStrategiesAPI.generate({
-        studentID: selectedStudent.studentID,
-        iepGoalID: selectedGoal.iepID,
+        goalID: selectedGoal.goalID, // Changed from iepGoalID to goalID
       });
-      setGenerated(data);
+      setGenerated(data); // Stores the backend response payload
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "AI Generation pipeline failed. Is Ollama running?");
     } finally {
       setLoading(false);
     }
@@ -68,17 +70,15 @@ function GenerateTab({ onSave }) {
 
   const handleSave = () => {
     if (!generated) return;
+    // Pass the saved data back up to the parent component state
     onSave(generated.data);
-    alert("Teaching strategy saved successfully.");
+    alert("Teaching strategy verified and active.");
   };
 
   return (
     <div className="va-generate">
       {error && (
-        <div
-          className="va-card"
-          style={{ color: "#c0392b", fontWeight: 600, fontSize: 13 }}
-        >
+        <div className="va-card" style={{ color: "#c0392b", fontWeight: 600, fontSize: 13 }}>
           ⚠️ {error}
         </div>
       )}
@@ -107,9 +107,7 @@ function GenerateTab({ onSave }) {
                   className="va-select-btn"
                   onClick={() => selectStudent(student)}
                 >
-                  {selectedStudent?.studentID === student.studentID
-                    ? "Selected"
-                    : "Select"}
+                  {selectedStudent?.studentID === student.studentID ? "Selected" : "Select"}
                 </button>
               </div>
             ))}
@@ -121,19 +119,19 @@ function GenerateTab({ onSave }) {
       {selectedStudent && !generated && (
         <div className="va-card">
           <p className="va-card-title">
-            Step 2 — Select an IEP Goal for{" "}
-            <strong>{selectedStudent.studentName}</strong>
+            Step 2 — Select an IEP Goal for <strong>{selectedStudent.studentName}</strong>
           </p>
           {selectedStudent.availableGoals.length === 0 ? (
             <EmptyState message="No IEP goals found for this student." />
           ) : (
             <div className="ts-goal-list">
               {selectedStudent.availableGoals.map((goal) => (
-                <label key={goal.iepID} className="ts-goal-item">
+                // 🚀 FIXED: Changed goal.iepID to goal.goalID to match Django directory output keys
+                <label key={goal.goalID} className="ts-goal-item">
                   <input
                     type="radio"
                     name="iepGoal"
-                    checked={selectedGoal?.iepID === goal.iepID}
+                    checked={selectedGoal?.goalID === goal.goalID}
                     onChange={() => setSelectedGoal(goal)}
                   />
                   <span>{goal.label}</span>
@@ -147,16 +145,17 @@ function GenerateTab({ onSave }) {
               onClick={handleGenerate}
               disabled={!selectedGoal || loading}
             >
-              {loading ? "Generating…" : "Generate Teaching Strategy"}
+              {loading ? "Invoking Llama AI Pipeline..." : "Generate Teaching Strategy"}
             </button>
           </div>
         </div>
       )}
 
-      {/* Result */}
+      {/* 🎯 Step 3 — Result Panel with Save & Regenerate Actions */}
       {generated && (
         <div className="va-card ts-detail-card">
-          <h3>{generated.data?.title || "Teaching Strategy"}</h3>
+          <h3>{generated.data?.title || "AI Generated Teaching Strategy"}</h3>
+          
           <div
             style={{
               background: "#f7fafd",
@@ -166,16 +165,35 @@ function GenerateTab({ onSave }) {
               fontSize: 13.5,
               color: "#444",
               lineHeight: 1.7,
-              whiteSpace: "pre-line",
-              marginBottom: 12,
+              whiteSpace: "pre-line", // Preserves paragraphs and formatting from Ollama
+              marginBottom: 16,
             }}
           >
             {generated.data?.strategyContent}
           </div>
-          <p className="va-result-sub">{generated.message}</p>
-          <div className="va-actions ts-center-actions">
-            <button className="btn btn-submit" onClick={handleSave}>
-              Save Strategy
+          
+          <p className="va-result-sub" style={{ color: "#27ae60", fontWeight: 500 }}>
+             {generated.message}
+          </p>
+
+          <div className="va-actions ts-center-actions" style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+            {/* 🔄 Generate Again Button */}
+            <button 
+              className="btn" 
+              style={{ background: "#e67e22", color: "white" }} 
+              onClick={handleGenerate}
+              disabled={loading}
+            >
+              {loading ? "Regenerating..." : "🔄 Generate Again"}
+            </button>
+
+            {/* 💾 Save/Confirm Button */}
+            <button 
+              className="btn btn-submit" 
+              onClick={handleSave}
+              disabled={loading}
+            >
+              💾 Confirm & Save Strategy
             </button>
           </div>
         </div>
@@ -183,7 +201,6 @@ function GenerateTab({ onSave }) {
     </div>
   );
 }
-
 // ── Strategy Detail View ───────────────────────────────────────────────────────
 function StrategyDetails({ strategy, onBack }) {
   return (
