@@ -39,6 +39,7 @@ class IEPModel(models.Model):
     barrier_qualifiers = models.CharField(max_length=255, blank=True, null=True)
     learning_facilitators = models.TextField(help_text="Factors enabling participation", blank=True, null=True)
     facilitator_qualifiers = models.CharField(max_length=255, blank=True, null=True)
+    learning_accommodations = models.TextField(help_text="Accommodations per difficulty row", blank=True, null=True)
 
     def __str__(self):
         return f'IEP v{self.version} for Student: {self.studentID.name}'
