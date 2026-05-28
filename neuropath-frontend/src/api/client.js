@@ -1,9 +1,13 @@
 // Base URL — change for production
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
-
 const getCsrfToken = () => {
-  return document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1] || "";
+  return (
+    document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("csrftoken="))
+      ?.split("=")[1] || ""
+  );
 };
 
 async function request(endpoint, options = {}) {
@@ -80,6 +84,17 @@ export const studentsAPI = {
 
 // ── Lesson Plans ───────────────────────────────────────────────────────────────
 export const lessonPlansAPI = {
+  // Generate tab — GET loads { directory: [{ studentID, studentName, availableGoals: [{ goalID, label, goalArea }] }] }
+  getDirectory: (teacherId) =>
+    request(
+      `/resources/generate-lesson/${teacherId ? `?teacher_id=${teacherId}` : ""}`,
+    ),
+  // Generate tab — POST { goalID, subject, topic } → { message, data: { generated_prompt, draft_content } }
+  generate: (payload) =>
+    request("/resources/generate-lesson/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   list: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return request(`/resources/view-lessons/${qs ? "?" + qs : ""}`);
@@ -169,9 +184,8 @@ export const iepAPI = {
   delete: (id) => request(`/iep/delete/${id}/`, { method: "DELETE" }),
 
   // 🎯 FIXED: Now pointing to the correct /iep/ routes from your urls.py!
-  getInsights: (studentId) => 
-    request(`/iep/student/${studentId}/insights/`),
-    
+  getInsights: (studentId) => request(`/iep/student/${studentId}/insights/`),
+
   generateInsight: (studentId) =>
     request(`/iep/student/${studentId}/generate-insight/`, {
       method: "POST",

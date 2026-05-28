@@ -23,16 +23,188 @@ function EmptyState({ message = "No records found." }) {
 }
 
 // ── Generate Tab ───────────────────────────────────────────────────────────────
-function GenerateTab() {
+function GenerateTab({ onSave }) {
+  const { user } = useAuth();
+  const [directory, setDirectory] = useState([]);
+  const [loadingDir, setLoadingDir] = useState(true);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [generated, setGenerated] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    lessonPlansAPI
+      .getDirectory(user?.id)
+      .then((data) => setDirectory(data.directory || []))
+      .catch(() => setError("Failed to load students and IEP goals."))
+      .finally(() => setLoadingDir(false));
+  }, []);
+
+  const selectStudent = (student) => {
+    setSelectedStudent(student);
+    setGenerated(null);
+    setError("");
+  };
+
+  const handleGenerate = async () => {
+    if (!selectedStudent || selectedStudent.availableGoals.length === 0) return;
+    const goal = selectedStudent.availableGoals[0];
+    setLoading(true);
+    setError("");
+    try {
+      const data = await lessonPlansAPI.generate({
+        goalID: goal.goalID,
+        subject: goal.goalArea,
+        topic: goal.goalArea,
+      });
+      setGenerated(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = () => {
+    if (!generated) return;
+    onSave(generated.data);
+    alert("Lesson plan saved successfully.");
+  };
+
   return (
-    <div className="lp-card lp-placeholder-tab">
-      <div className="lp-placeholder-icon">📝</div>
-      <p className="lp-placeholder-title">AI Lesson Plan Generation</p>
-      <p className="lp-placeholder-desc">
-        This feature is coming soon. The AI-powered lesson plan generator will
-        allow you to create customized lesson plans for each student based on
-        their IEP goals and learning profile.
-      </p>
+    <div className="va-generate">
+      {error && (
+        <div
+          className="lp-card"
+          style={{ color: "#c0392b", fontWeight: 600, fontSize: 13 }}
+        >
+          ⚠️ {error}
+        </div>
+      )}
+
+      {/* Step 1 — Pick student */}
+      <div className="lp-card">
+        <p className="lp-card-title">Step 1 — Select a Student</p>
+        {loadingDir ? (
+          <StudentShimmer />
+        ) : directory.length === 0 ? (
+          <EmptyState message="No students found. Add a student profile first." />
+        ) : (
+          <div className="va-student-list">
+            {directory.map((student) => (
+              <div
+                key={student.studentID}
+                className={`va-student-row${selectedStudent?.studentID === student.studentID ? " selected" : ""}`}
+              >
+                <div className="va-student-avatar" />
+                <div className="va-student-info">
+                  <span className="va-student-name">{student.studentName}</span>
+                </div>
+                <button
+                  className="va-select-btn"
+                  onClick={() => selectStudent(student)}
+                >
+                  {selectedStudent?.studentID === student.studentID
+                    ? "Selected"
+                    : "Select"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Step 2 — IEP Goal Area (auto-fetched, read-only) + Generate button */}
+      {selectedStudent && !generated && (
+        <div className="lp-card">
+          <p className="lp-card-title">
+            Step 2 — IEP Goal Area for{" "}
+            <strong>{selectedStudent.studentName}</strong>
+          </p>
+          {selectedStudent.availableGoals.length === 0 ? (
+            <EmptyState message="No IEP goals found for this student. Generate an IEP first." />
+          ) : (
+            <>
+              <div className="lp-goal-area-display">
+                <span className="lp-goal-area-label">Goal Area:</span>
+                <span className="lp-goal-area-value">
+                  {selectedStudent.availableGoals[0].goalArea}
+                </span>
+                <span className="lp-goal-area-note">
+                  Automatically retrieved from the student's IEP (Section C)
+                </span>
+              </div>
+              <div className="lp-actions" style={{ marginTop: 16 }}>
+                <button
+                  className="btn btn-submit"
+                  onClick={handleGenerate}
+                  disabled={loading}
+                >
+                  {loading ? "Generating…" : "Generate Lesson Plan"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Step 3 — Result */}
+      {generated && (
+        <div className="lp-card">
+          <p className="lp-card-title">Generated Lesson Plan</p>
+          <div className="lp-result-content">
+            {generated.data?.draft_content && (
+              <>
+                {generated.data.draft_content.introduction && (
+                  <div className="lp-result-section">
+                    <span className="lp-result-section-title">
+                      Introduction
+                    </span>
+                    <p>{generated.data.draft_content.introduction}</p>
+                  </div>
+                )}
+                {generated.data.draft_content.core_activity && (
+                  <div className="lp-result-section">
+                    <span className="lp-result-section-title">
+                      Core Activity
+                    </span>
+                    <p>{generated.data.draft_content.core_activity}</p>
+                  </div>
+                )}
+                {generated.data.draft_content.assessment && (
+                  <div className="lp-result-section">
+                    <span className="lp-result-section-title">Assessment</span>
+                    <p>{generated.data.draft_content.assessment}</p>
+                  </div>
+                )}
+                {generated.data.draft_content.materials_needed && (
+                  <div className="lp-result-section">
+                    <span className="lp-result-section-title">
+                      Materials Needed
+                    </span>
+                    <ul className="lp-result-list">
+                      {generated.data.draft_content.materials_needed.map(
+                        (m, i) => (
+                          <li key={i}>{m}</li>
+                        ),
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <p className="lp-result-sub">{generated.message}</p>
+          <div className="lp-actions">
+            <button className="btn btn-back" onClick={() => setGenerated(null)}>
+              ← Back
+            </button>
+            <button className="btn btn-submit" onClick={handleSave}>
+              Save Lesson Plan
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -499,7 +671,12 @@ function DeleteTab() {
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
 export default function ManageLessonPlans() {
-  const [activeTab, setActiveTab] = useState("view");
+  const [activeTab, setActiveTab] = useState("generate");
+  const [lessonPlans, setLessonPlans] = useState([]);
+
+  const saveLessonPlan = (plan) => {
+    if (plan) setLessonPlans((prev) => [plan, ...prev]);
+  };
 
   return (
     <div className="page-content">
@@ -518,7 +695,7 @@ export default function ManageLessonPlans() {
         </div>
       </div>
       <div className="va-body">
-        {activeTab === "generate" && <GenerateTab />}
+        {activeTab === "generate" && <GenerateTab onSave={saveLessonPlan} />}
         {activeTab === "view" && <ViewTab />}
         {activeTab === "edit" && <EditTab />}
         {activeTab === "delete" && <DeleteTab />}
