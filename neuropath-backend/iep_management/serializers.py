@@ -1,6 +1,5 @@
 from rest_framework import serializers
-from .models import IEPModel,IEPGoal,IEPObjectiveRow
-
+from .models import IEPModel, IEPGoal, IEPObjectiveRow
 
 class IEPDataSerializer(serializers.ModelSerializer):
     class Meta:
@@ -8,12 +7,16 @@ class IEPDataSerializer(serializers.ModelSerializer):
         fields = [
             'iepID',
             'studentID',
-            'baselineData',
-            'goals',
             'accommodations',
             'generatedDetails',
             'version',
             'createdDate',
+            'program_type',
+            'difficulties',
+            'learning_barriers',
+            'barrier_qualifiers',
+            'learning_facilitators',
+            'facilitator_qualifiers'
         ]
         read_only_fields = ['iepID', 'version', 'createdDate']
         extra_kwargs = {
@@ -40,20 +43,31 @@ class IEPListDetailSerializer(serializers.ModelSerializer):
             'generatedDetails',
             'version',
             'formattedDate',
+            # 🎯 ADDED NEW SECTION B FIELDS HERE so the GET request displays them
+            'program_type',
+            'difficulties',
+            'learning_barriers',
+            'barrier_qualifiers',
+            'learning_facilitators',
+            'facilitator_qualifiers'
         ]
 
 
 class IEPUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = IEPModel
-        fields = ['baselineData', 'goals', 'accommodations', 'generatedDetails']
+        fields = [
+            'baselineData', 'goals', 'accommodations', 'generatedDetails',
+            # 🎯 ADDED NEW SECTION B FIELDS HERE so PUT/PATCH edits work
+            'program_type', 'difficulties', 'learning_barriers', 
+            'barrier_qualifiers', 'learning_facilitators', 'facilitator_qualifiers'
+        ]
         extra_kwargs = {
             'baselineData': {'required': False, 'allow_blank': True},
             'goals': {'required': False, 'allow_blank': True},
             'accommodations': {'required': False, 'allow_blank': True},
             'generatedDetails': {'required': False},
         }
-
 
 class StandaloneIEPGoalSerializer(serializers.ModelSerializer):
     studentName = serializers.CharField(source='iep.studentID.name', read_only=True)
