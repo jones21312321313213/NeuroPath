@@ -171,19 +171,66 @@ class LessonPlanGeneratorService:
 class GenerateLessonPlanAPIView(APIView):
     # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
 
+    def get(self, request, *args, **kwargs):
+        """
+        Returns the directory of students and their IEP Goal Areas for the
+        Generate Lesson Plan tab. Mirrors TeachingStrategyGenerationController.
+        Response: { "directory": [{ studentID, studentName, availableGoals: [{ goalID, label, goalArea }] }] }
+        """
+        from django.contrib.auth.models import User as DjangoUser
+        from users.models import Teacher
+
+        teacher_id = request.query_params.get("teacher_id")
+        if teacher_id:
+            try:
+                django_user = DjangoUser.objects.get(pk=int(teacher_id))
+                teacher = Teacher.objects.get(email=django_user.email)
+                students = StudentProfile.objects.filter(teacher=teacher)
+            except (DjangoUser.DoesNotExist, Teacher.DoesNotExist, ValueError, TypeError):
+                students = StudentProfile.objects.none()
+        else:
+            students = StudentProfile.objects.none()
+
+        if not students.exists():
+            return Response(
+                {"directory": [], "message": "No active student profiles found. Please add a student first."},
+                status=status.HTTP_200_OK
+            )
+
+        directory_payload = []
+        for student in students:
+            # Fetch all IEP Goals for this student and expose the Goal Area (subject_category)
+            student_goals = IEPGoal.objects.filter(iep__studentID=student)
+            goal_list = [
+                {
+                    "goalID": goal.pk,
+                    "goalArea": goal.subject_category or "General",
+                    "label": goal.subject_category or "General",
+                }
+                for goal in student_goals
+            ]
+            directory_payload.append({
+                "studentID": student.pk,
+                "studentName": student.name,
+                "availableGoals": goal_list,
+            })
+
+        return Response({"directory": directory_payload}, status=status.HTTP_200_OK)
+
     def post(self, request, *args, **kwargs):
         # 1. Validate incoming React payload
         serializer = LessonGenerationSerializer(data=request.data)
         
         if serializer.is_valid():
-            student_id = serializer.validated_data['studentID']
-            
+            goal_id = serializer.validated_data['goalID']
+
             try:
-                # Matches Sequence Diagram: "Check for saved student data"
-                student = StudentProfile.objects.get(pk=student_id)
-            except StudentProfile.DoesNotExist:
+                # Resolve goal → student
+                target_goal = IEPGoal.objects.select_related('iep__studentID').get(pk=goal_id)
+                student = target_goal.iep.studentID
+            except IEPGoal.DoesNotExist:
                 return Response(
-                    {"error": "Student profile not found. Cannot generate lesson."}, 
+                    {"error": "Targeted IEP Goal could not be located."},
                     status=status.HTTP_404_NOT_FOUND
                 )
                 
@@ -201,7 +248,7 @@ class GenerateLessonPlanAPIView(APIView):
             
         # Return validation errors if parameters are missing
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+   
 # =====================================================================
 # SDD COMPONENT: LessonPlanFilterService
 # Description: Specialized query logic component that processes inputs 
