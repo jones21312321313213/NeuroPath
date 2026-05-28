@@ -21,8 +21,8 @@ class IEPModel(models.Model):
     studentID = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='ieps')
     
     # --- EXISTING CORE FIELDS ---
-    baselineData = models.TextField(blank=True, default='')
-    goals = models.TextField(blank=True, default='')
+    baselineData = models.TextField(blank=True, null=True) # 🎯 Changed to allow clean null values
+    goals = models.TextField(blank=True, null=True)        # 🎯 Changed to allow clean null values
     accommodations = models.TextField(blank=True, default='')
     generatedDetails = models.JSONField(blank=True, default=dict)
     version = models.IntegerField(default=1)
