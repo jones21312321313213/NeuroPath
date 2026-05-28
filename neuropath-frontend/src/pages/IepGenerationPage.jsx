@@ -403,6 +403,47 @@ function getStudentId(student) {
   return student?.studentID || student?.id || student?.pk || null;
 }
 
+// Converts an IEPGoal + its objective_rows (DB shape) → the shape
+// ReadOnlyGoalTable and the Section C renderer expect.
+function normalizeDbGoal(dbGoal) {
+  return {
+    type: dbGoal.subject_category || dbGoal.goalName || "Goal",
+    annualGoal: dbGoal.annual_goal || dbGoal.goalName || "—",
+    rows: (dbGoal.objective_rows || []).map((row) => ({
+      id: row.rowID,
+      objective: row.enroute_objectives || "—",
+      interventions: row.interventions_procedures || "—",
+      timeline: row.timeline_mins_session || "—",
+      responsible: row.individuals_responsible || "—",
+      evaluation: row.progress_instructional || "—",
+      remarks: row.remarks || "—",
+    })),
+  };
+}
+
+// Builds Section B rows from the flat DB fields stored on the IEP record
+// when generatedDetails.barrierRows is absent.
+function buildBarrierRowsFromFlat(iep) {
+  if (!iep?.difficulties) return [];
+  const difficulties = iep.difficulties.split("\n").filter(Boolean);
+  const barriers = (iep.learning_barriers || "").split("\n").filter(Boolean);
+  const facilitators = (iep.learning_facilitators || "")
+    .split("\n")
+    .filter(Boolean);
+  const bQualifiers = (iep.barrier_qualifiers || "")
+    .split("\n")
+    .filter(Boolean);
+  const accommodations = (iep.learning_accommodations || "")
+    .split("\n")
+    .filter(Boolean);
+  return difficulties.map((diff, i) => ({
+    difficulty: diff,
+    barrierQualifier: bQualifiers[i] || barriers[i] || "—",
+    facilitator: facilitators[i] || "—",
+    accommodation: accommodations[i] || "—",
+  }));
+}
+
 function ViewIEPPanel({
   searchTerm,
   setSearchTerm,
@@ -419,29 +460,126 @@ function ViewIEPPanel({
   onUpdateIep,
 }) {
   const details = normalizeGeneratedDetails(selectedIep);
-  const goals = details?.learnerGoals || [];
   const [isEditing, setIsEditing] = useState(false);
-  const [editPayload, setEditPayload] = useState({
-    baselineData: "",
-    goals: "",
-    accommodations: "",
-    generatedDetails: "",
-  });
+  const [editBarrierRows, setEditBarrierRows] = useState([]);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // ── Section C: fetch IEPGoal rows for the selected IEP ─────────────────────
+  const [iepGoals, setIepGoals] = useState([]);
+  const [loadingGoals, setLoadingGoals] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    async function fetchGoals() {
+      if (!selectedIep?.iepID) {
+        setIepGoals([]);
+        return;
+      }
+      setLoadingGoals(true);
+      try {
+        const data = await iepAPI.listGoalsByIep(selectedIep.iepID);
+        const list = Array.isArray(data)
+          ? data
+          : data.results || data.data || [];
+        if (mounted) setIepGoals(list.map(normalizeDbGoal));
+      } catch {
+        if (mounted) setIepGoals([]);
+      } finally {
+        if (mounted) setLoadingGoals(false);
+      }
+    }
+    fetchGoals();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedIep?.iepID]);
+
+  // Section C: prefer DB goals; fall back to generatedDetails.learnerGoals
+  const goalsToRender =
+    iepGoals.length > 0 ? iepGoals : details?.learnerGoals || [];
+
+  // Section B: prefer generatedDetails.barrierRows; fall back to flat DB fields
+  const barrierRowsToRender =
+    (details?.barrierRows?.length ? details.barrierRows : null) ||
+    buildBarrierRowsFromFlat(selectedIep) ||
+    [];
 
   useEffect(() => {
     setIsEditing(false);
-    setEditPayload({
-      baselineData: selectedIep?.baselineData || "",
-      goals: selectedIep?.goals || "",
-      accommodations: selectedIep?.accommodations || "",
-      generatedDetails: selectedIep?.generatedDetails
-        ? JSON.stringify(normalizeGeneratedDetails(selectedIep), null, 2)
-        : "",
-    });
+    setEditBarrierRows([]); // will be populated when edit opens
+    setIepGoals([]); // reset goals when IEP changes so stale data never shows
   }, [selectedIep]);
 
   const setEditField = (field) => (e) =>
-    setEditPayload((prev) => ({ ...prev, [field]: e.target.value }));
+    setEditBarrierRows((prev) => ({ ...prev, [field]: e.target.value }));
+
+  const openEdit = () => {
+    // Seed the edit table from whatever is currently rendered
+    setEditBarrierRows(
+      barrierRowsToRender.length
+        ? barrierRowsToRender.map((r) => ({ ...r }))
+        : [
+            {
+              difficulty: "",
+              barrierQualifier: "Moderate barrier",
+              facilitator: "",
+              accommodation: "",
+            },
+          ],
+    );
+    setIsEditing(true);
+  };
+
+  const updateEditRow = (index, field, value) =>
+    setEditBarrierRows((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
+    );
+
+  const addEditRow = () =>
+    setEditBarrierRows((prev) => [
+      ...prev,
+      {
+        difficulty: "",
+        barrierQualifier: "Moderate barrier",
+        facilitator: "",
+        accommodation: "",
+      },
+    ]);
+
+  const removeEditRow = (index) =>
+    setEditBarrierRows((prev) => prev.filter((_, i) => i !== index));
+
+  const handleSaveEdit = async () => {
+    setSavingEdit(true);
+    try {
+      // Merge edited barrierRows back into generatedDetails
+      const existingDetails = normalizeGeneratedDetails(selectedIep) || {};
+      const updatedDetails = {
+        ...existingDetails,
+        barrierRows: editBarrierRows,
+      };
+
+      await onUpdateIep(selectedIep, {
+        baselineData: selectedIep.baselineData,
+        goals: selectedIep.goals,
+        accommodations: selectedIep.accommodations,
+        generatedDetails: updatedDetails,
+        difficulties: editBarrierRows.map((r) => r.difficulty).join("\n"),
+        learning_barriers: editBarrierRows
+          .map((r) => r.barrierQualifier)
+          .join("\n"),
+        learning_facilitators: editBarrierRows
+          .map((r) => r.facilitator)
+          .join("\n"),
+        learning_accommodations: editBarrierRows
+          .map((r) => r.accommodation)
+          .join("\n"),
+      });
+      setIsEditing(false);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   const handlePickStudent = (student) => {
     setSelectedStudent(student);
@@ -545,10 +683,7 @@ function ViewIEPPanel({
               </p>
             </div>
             <div className="iep-view-actions">
-              <button
-                className="btn btn-back"
-                onClick={() => setIsEditing(true)}
-              >
+              <button className="btn btn-back" onClick={openEdit}>
                 EDIT IEP
               </button>
               <button
@@ -572,25 +707,101 @@ function ViewIEPPanel({
 
           {isEditing && (
             <div className="iep-edit-panel">
-              <h3>Edit IEP Details</h3>
-              <TextAreaField
-                label="Baseline Data"
-                value={editPayload.baselineData}
-                onChange={setEditField("baselineData")}
-                rows={4}
-              />
-              <TextAreaField
-                label="Goals"
-                value={editPayload.goals}
-                onChange={setEditField("goals")}
-                rows={4}
-              />
-              <TextAreaField
-                label="AI-Generated Accommodations / Resources"
-                value={editPayload.accommodations}
-                onChange={setEditField("accommodations")}
-                rows={4}
-              />
+              <h3>
+                Edit Section B: Difficulties, Barriers, and Enabling Supports
+              </h3>
+              <div className="iep-table-wrap">
+                <table className="iep-table">
+                  <thead>
+                    <tr>
+                      <th>Difficulty</th>
+                      <th>Learning Barriers</th>
+                      <th>Learning Facilitators</th>
+                      <th>Accommodation</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {editBarrierRows.map((row, index) => (
+                      <tr key={index}>
+                        <td>
+                          <input
+                            value={row.difficulty}
+                            onChange={(e) =>
+                              updateEditRow(index, "difficulty", e.target.value)
+                            }
+                            placeholder="Type difficulty"
+                            className="form-input"
+                          />
+                        </td>
+                        <td>
+                          <select
+                            value={row.barrierQualifier}
+                            onChange={(e) =>
+                              updateEditRow(
+                                index,
+                                "barrierQualifier",
+                                e.target.value,
+                              )
+                            }
+                            className="form-select"
+                          >
+                            {barrierQualifierOptions.map((option) => (
+                              <option key={option}>{option}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <textarea
+                            value={row.facilitator}
+                            onChange={(e) =>
+                              updateEditRow(
+                                index,
+                                "facilitator",
+                                e.target.value,
+                              )
+                            }
+                            rows={3}
+                            placeholder="Type facilitator/s"
+                            className="form-textarea iep-small-textarea"
+                          />
+                        </td>
+                        <td>
+                          <textarea
+                            value={row.accommodation}
+                            onChange={(e) =>
+                              updateEditRow(
+                                index,
+                                "accommodation",
+                                e.target.value,
+                              )
+                            }
+                            rows={3}
+                            placeholder="Type accommodation/s"
+                            className="form-textarea iep-small-textarea"
+                          />
+                        </td>
+                        <td className="iep-action-cell">
+                          <button
+                            type="button"
+                            className="iep-link-danger"
+                            onClick={() => removeEditRow(index)}
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <button
+                type="button"
+                className="btn btn-back iep-add-row"
+                onClick={addEditRow}
+              >
+                + ADD ROW
+              </button>
               <div className="iep-edit-actions">
                 <button
                   type="button"
@@ -602,34 +813,14 @@ function ViewIEPPanel({
                 <button
                   type="button"
                   className="btn btn-submit"
-                  onClick={async () => {
-                    await onUpdateIep(selectedIep, editPayload);
-                    setIsEditing(false);
-                  }}
+                  onClick={handleSaveEdit}
+                  disabled={savingEdit}
                 >
-                  SAVE CHANGES
+                  {savingEdit ? "SAVING…" : "SAVE CHANGES"}
                 </button>
               </div>
             </div>
           )}
-
-          <InfoBlock title="Section A: Personal Information">
-            {details
-              ? `School: ${details.school || "—"}\nSchool Year: ${details.schoolYear || "—"}\nStudent Name: ${details.studentName || details.learnerName || selectedIep.studentName || getStudentName(selectedStudent)}\nBirthdate: ${details.birthdate || "—"}\nDiagnosis: ${details.disabilityCategory || "—"}\nDifficulties: ${(details.difficultyMarkers || []).join(", ") || "—"}`
-              : selectedIep.baselineData}
-          </InfoBlock>
-
-          <InfoBlock title="Present Levels of Academic Achievement and Functional Performance">
-            {details
-              ? `Evaluation / Assessment Results:\n${details.presentEvaluation || "—"}\n\nStrengths:\n${details.academicStrengths || "—"}\n\nNeeds:\n${details.academicNeeds || "—"}\n\nParental Concerns:\n${details.parentalConcerns || "—"}\n\nCurriculum Impact:\n${details.curriculumImpact || "—"}`
-              : selectedIep.baselineData}
-          </InfoBlock>
-
-          <InfoBlock title="Considerations of Special Factors">
-            {details
-              ? `Assistive Technologies Needed:\n${(details.assistiveTechnologies || []).join(", ") || "—"}\n\nOther Notes:\n${details.specialFactorNotes || "—"}`
-              : selectedIep.accommodations}
-          </InfoBlock>
 
           <div>
             <h3 className="iep-view-section-title">
@@ -642,20 +833,22 @@ function ViewIEPPanel({
                     <th>Difficulty</th>
                     <th>Learning Barriers</th>
                     <th>Learning Facilitators</th>
+                    <th>Accommodation</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(details?.barrierRows || []).length ? (
-                    details.barrierRows.map((row, index) => (
+                  {barrierRowsToRender.length ? (
+                    barrierRowsToRender.map((row, index) => (
                       <tr key={index}>
                         <td>{row.difficulty}</td>
                         <td>{row.barrierQualifier}</td>
                         <td>{row.facilitator || "—"}</td>
+                        <td>{row.accommodation || "—"}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="3">No Section B details available.</td>
+                      <td colSpan="4">No Section B details available.</td>
                     </tr>
                   )}
                 </tbody>
@@ -672,9 +865,11 @@ function ViewIEPPanel({
             <h3 className="iep-view-section-title">
               Section C: Learner’s Goals
             </h3>
-            {goals.length ? (
-              goals.map((goal) => (
-                <div key={goal.type} className="iep-goal-preview">
+            {loadingGoals ? (
+              <p className="iep-muted">Loading learner goals…</p>
+            ) : goalsToRender.length ? (
+              goalsToRender.map((goal, idx) => (
+                <div key={goal.type || idx} className="iep-goal-preview">
                   <InfoBlock title={`${goal.type} — Annual Goal / Long Term`}>
                     {goal.annualGoal}
                   </InfoBlock>
@@ -682,7 +877,9 @@ function ViewIEPPanel({
                 </div>
               ))
             ) : (
-              <InfoBlock title="Goals">{selectedIep.goals}</InfoBlock>
+              <InfoBlock title="Goals">
+                {selectedIep.goals || "No goals recorded."}
+              </InfoBlock>
             )}
           </div>
         </div>
@@ -1188,6 +1385,17 @@ export default function IEPGenerationPage({ mode = "generate" }) {
         goals: goalsText,
         accommodations: accommodationText,
         generatedDetails,
+        // ── Flat Section B fields so View IEP can fetch them directly ──
+        difficulties: form.barrierRows.map((r) => r.difficulty).join("\n"),
+        learning_barriers: form.barrierRows
+          .map((r) => r.barrierQualifier)
+          .join("\n"),
+        learning_facilitators: form.barrierRows
+          .map((r) => r.facilitator)
+          .join("\n"),
+        learning_accommodations: form.barrierRows
+          .map((r) => r.accommodation)
+          .join("\n"),
       });
 
       const savedData = saved?.data || saved;
@@ -1202,11 +1410,11 @@ export default function IEPGenerationPage({ mode = "generate" }) {
   const handleUpdateIep = async (iep, payload) => {
     try {
       let generatedDetails = payload.generatedDetails;
-      if (generatedDetails) {
+      if (generatedDetails && typeof generatedDetails === "string") {
         try {
           generatedDetails = JSON.parse(generatedDetails);
         } catch {
-          /* keep as plain text if invalid JSON */
+          /* keep as-is */
         }
       }
 
@@ -1215,6 +1423,13 @@ export default function IEPGenerationPage({ mode = "generate" }) {
         goals: payload.goals,
         accommodations: payload.accommodations,
         generatedDetails,
+        // Flat Section B fields — present when editing Section B rows
+        ...(payload.difficulties !== undefined && {
+          difficulties: payload.difficulties,
+          learning_barriers: payload.learning_barriers,
+          learning_facilitators: payload.learning_facilitators,
+          learning_accommodations: payload.learning_accommodations,
+        }),
       });
 
       const merged = { ...iep, ...updated, ...payload, generatedDetails };
@@ -1574,10 +1789,8 @@ export default function IEPGenerationPage({ mode = "generate" }) {
 
                   <div className="form-group" style={{ marginTop: "1.25rem" }}>
                     <label className="form-label">
-                      Additional Instructions for AI{" "}
-                      <span className="iep-muted" style={{ fontWeight: 400 }}>
-                        (optional)
-                      </span>
+                      Describe what you want the AI to focus on when generating
+                      this student's IEP goals for the selected subject.
                     </label>
                     <textarea
                       className="form-textarea"

@@ -164,3 +164,61 @@
     grid-template-columns: 1fr;
   }
 }
+.ts-strategy-output {
+  background: #f7fafd;
+  border: 1.5px solid #e3eaf2;
+  border-radius: 8px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+}
+
+.ts-strategy-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Section headings: **Core Strategy Overview:** */
+.ts-strategy-heading {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #185fa5;
+  margin: 14px 0 4px;
+  padding-bottom: 4px;
+  border-bottom: 1.5px solid #d4ecfd;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+}
+
+.ts-strategy-heading:first-child {
+  margin-top: 0;
+}
+
+/* Plain paragraph lines */
+.ts-strategy-para {
+  font-size: 13.5px;
+  color: #444;
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* Bullet list */
+.ts-strategy-list {
+  margin: 4px 0 8px 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ts-strategy-li {
+  font-size: 13.5px;
+  color: #333;
+  line-height: 1.65;
+  padding-left: 4px;
+}
+
+.ts-strategy-li::marker {
+  color: #5aabf0;
+  font-size: 14px;
+}

@@ -16,9 +16,9 @@ class IEPDataSerializer(serializers.ModelSerializer):
             'learning_barriers',
             'barrier_qualifiers',
             'learning_facilitators',
-            'facilitator_qualifiers'
+            'facilitator_qualifiers',
+            'learning_accommodations'
         ]
-        read_only_fields = ['iepID', 'version', 'createdDate']
         extra_kwargs = {
             'baselineData': {'required': False, 'allow_blank': True},
             'goals': {'required': False, 'allow_blank': True},
@@ -49,7 +49,8 @@ class IEPListDetailSerializer(serializers.ModelSerializer):
             'learning_barriers',
             'barrier_qualifiers',
             'learning_facilitators',
-            'facilitator_qualifiers'
+            'facilitator_qualifiers',
+            'learning_accommodations'
         ]
 
 
@@ -60,7 +61,8 @@ class IEPUpdateSerializer(serializers.ModelSerializer):
             'baselineData', 'goals', 'accommodations', 'generatedDetails',
             # 🎯 ADDED NEW SECTION B FIELDS HERE so PUT/PATCH edits work
             'program_type', 'difficulties', 'learning_barriers', 
-            'barrier_qualifiers', 'learning_facilitators', 'facilitator_qualifiers'
+            'barrier_qualifiers', 'learning_facilitators', 'facilitator_qualifiers',
+            'learning_accommodations'
         ]
         extra_kwargs = {
             'baselineData': {'required': False, 'allow_blank': True},
