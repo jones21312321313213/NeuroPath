@@ -19,9 +19,9 @@ export function AuthProvider({ children }) {
        "http://127.0.0.1:8000/api/users/login/",
       //`${BASE_URL}/users/login/`,
       { email, password },
-      { withCredentials: true },
     );
     const data = response.data;
+    localStorage.setItem("neuropath_access_token", data.token); 
     localStorage.setItem("neuropath_user", JSON.stringify(data.teacher));
     setUser(data.teacher);
     return data;
@@ -38,6 +38,7 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem("neuropath_user");
+    localStorage.removeItem("neuropath_access_token"); // 🎯 Clear token
     setUser(null);
   }, []);
 
@@ -59,11 +60,16 @@ export function AuthProvider({ children }) {
       const password = formData.get("password");
       if (password) body.password = password;
 
+      const token = localStorage.getItem("neuropath_access_token");
+      
       const response = await fetch(`${BASE_URL}/users/profile/update/`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // sends the Django session cookie
+        headers: { 
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Token ${token}` } : {}) // 🎯 Add Token header
+        },
         body: JSON.stringify(body),
+        // 🎯 Removed credentials: "include"
       });
 
       const data = await response.json().catch(() => ({}));
