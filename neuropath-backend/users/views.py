@@ -1,14 +1,16 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.authtoken.models import Token
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from .models import StudentProfile
 from django.contrib.auth.models import User
 from .serializers import StudentProfileSerializer, ValidationService,TeacherSerializer
 from django.contrib.auth import authenticate, login
 import requests
 import json
-
 # =====================================================================
 # SDD MODULE: TEACHER REGISTRATION
 # Component Name: TeacherCreateController
@@ -231,21 +233,23 @@ class AIInsightController(APIView):
 # Description: Authenticates user credentials against the database and 
 #              establishes a secure server-side session.
 # =====================================================================
+@method_decorator(csrf_exempt, name='dispatch')
 class TeacherLoginController(APIView):
+    authentication_classes = [] 
+    permission_classes = [AllowAny] 
+
     def post(self, request, *args, **kwargs):
-        # Your React app sends the email, which we saved as the username
         email = request.data.get('email')
         password = request.data.get('password')
-
-        # Check if the credentials match a user in the database
         user = authenticate(request, username=email, password=password)
 
         if user is not None:
-            # This creates the session in the database and drops a cookie in the browser
-            login(request, user)
+            # 🎯 Generate or fetch the Token
+            token, created = Token.objects.get_or_create(user=user)
             
             return Response({
                 "message": "Login successful",
+                "token": token.key, # 🎯 Return token to React
                 "teacher": {
                     "id": user.id,
                     "email": user.email,
@@ -254,10 +258,8 @@ class TeacherLoginController(APIView):
                 }
             }, status=status.HTTP_200_OK)
         else:
-            return Response({
-                "error": "Invalid email or password."
-            }, status=status.HTTP_401_UNAUTHORIZED)
-
+            return Response({"error": "Invalid email or password."}, status=status.HTTP_401_UNAUTHORIZED)
+        
 # =====================================================================
 # TEACHER PROFILE UPDATE
 # PATCH /api/users/profile/update/

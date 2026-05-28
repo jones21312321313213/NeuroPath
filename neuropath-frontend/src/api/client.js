@@ -1,29 +1,27 @@
 // Base URL — change for production
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
-const getCsrfToken = () => {
-  return (
-    document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("csrftoken="))
-      ?.split("=")[1] || ""
-  );
-};
+// const getCsrfToken = () => {
+//   return (
+//     document.cookie
+//       .split("; ")
+//       .find((row) => row.startsWith("csrftoken="))
+//       ?.split("=")[1] || ""
+//   );
+// };
 
 async function request(endpoint, options = {}) {
   const token = localStorage.getItem("neuropath_access_token");
 
   const headers = {
     "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    "X-CSRFToken": getCsrfToken(), // 🎯 1. Automatically attaches CSRF security token
+    ...(token ? { Authorization: `Token ${token}` } : {}),
     ...options.headers,
   };
 
   const response = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
     headers,
-    credentials: "include", // 🎯 2. Ensures cookies (including CSRF token) are sent with requests
   });
 
   const data = await response.json().catch(() => ({}));
