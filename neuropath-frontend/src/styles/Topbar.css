@@ -1,0 +1,35 @@
+.topbar-pill {
+  background: #e8f4fe;
+  border-radius: 999px;
+  padding: 5px 14px 5px 5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.15s;
+}
+
+.topbar-pill:hover {
+  background: #d4ecfd;
+}
+
+.topbar-pill-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #5aabf0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  letter-spacing: 0.5px;
+}
+
+.topbar-pill-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #185fa5;
+  white-space: nowrap;
+}

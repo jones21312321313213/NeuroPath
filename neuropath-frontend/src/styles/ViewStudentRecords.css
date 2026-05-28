@@ -1,0 +1,256 @@
+/* ── Step indicator ─────────────────────────────────────────────────────── */
+.vsr-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 20px 0 8px;
+  background: #fff;
+  border-radius: 8px 8px 0 0;
+  border-bottom: 1px solid #dde3ea;
+  margin-bottom: 0;
+}
+
+.vsr-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.vsr-step-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: #e3eaf2;
+  color: #888;
+  border: 2px solid #d0d8e4;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.vsr-step-active .vsr-step-circle {
+  background: #5aabf0;
+  color: #fff;
+  border-color: #5aabf0;
+  box-shadow: 0 0 0 3px rgba(90, 171, 240, 0.2);
+}
+
+.vsr-step-done .vsr-step-circle {
+  background: #3dc98a;
+  color: #fff;
+  border-color: #3dc98a;
+}
+
+.vsr-step-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #aaa;
+  white-space: nowrap;
+}
+
+.vsr-step-active .vsr-step-label {
+  color: #5aabf0;
+}
+
+.vsr-step-done .vsr-step-label {
+  color: #3dc98a;
+}
+
+.vsr-step-line {
+  width: 48px;
+  height: 2px;
+  background: #e3eaf2;
+  margin: 0 6px;
+  flex-shrink: 0;
+}
+
+/* ── Outer wrapper ──────────────────────────────────────────────────────── */
+.vsr-record-wrap {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+/* ── Page container ─────────────────────────────────────────────────────── */
+.vsr-page {
+  padding: 28px 32px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── Section title ──────────────────────────────────────────────────────── */
+.vsr-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #222;
+  margin: 0 0 4px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e3eaf2;
+}
+
+/* ── 2-column grid for fields ───────────────────────────────────────────── */
+.vsr-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 24px;
+}
+
+/* ── Field group (label + input-like box) ───────────────────────────────── */
+.vsr-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.vsr-field-full {
+  grid-column: 1 / -1;
+}
+
+.vsr-field-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #555;
+}
+
+.vsr-field-input {
+  background: #f5f7fa;
+  border: 1px solid #dde3ea;
+  border-radius: 6px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  color: #333;
+  min-height: 38px;
+}
+
+.vsr-field-textarea {
+  background: #f5f7fa;
+  border: 1px solid #dde3ea;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13.5px;
+  color: #333;
+  line-height: 1.6;
+  min-height: 72px;
+  white-space: pre-wrap;
+}
+
+/* ── Difficulty chips ───────────────────────────────────────────────────── */
+.vsr-difficulty-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #f5f7fa;
+  border: 1px solid #dde3ea;
+  border-radius: 6px;
+  min-height: 42px;
+}
+
+.vsr-difficulty-chip {
+  background: #eef6fd;
+  border: 1px solid #b8d9f5;
+  color: #2d7fc4;
+  border-radius: 20px;
+  padding: 3px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* ── Section B table ────────────────────────────────────────────────────── */
+.vsr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  border: 1px solid #dde3ea;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.vsr-table thead tr {
+  background: #2d4a6e;
+  color: #fff;
+}
+
+.vsr-table th {
+  padding: 10px 14px;
+  font-weight: 700;
+  text-align: left;
+  font-size: 13px;
+}
+
+.vsr-table td {
+  padding: 10px 14px;
+  color: #555;
+  border-top: 1px solid #e3eaf2;
+}
+
+.vsr-table-empty {
+  color: #999;
+  font-style: italic;
+  font-size: 13px;
+}
+
+/* ── AI Accommodations box ──────────────────────────────────────────────── */
+.vsr-ai-box {
+  background: #f0f7ff;
+  border: 1px solid #c0ddf7;
+  border-radius: 7px;
+  padding: 14px 18px;
+}
+
+.vsr-ai-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #2d7fc4;
+  margin: 0 0 6px;
+}
+
+.vsr-ai-text {
+  font-size: 13.5px;
+  color: #444;
+  line-height: 1.65;
+  margin: 0;
+}
+
+/* ── Section C goals box ────────────────────────────────────────────────── */
+.vsr-goals-box {
+  border: 1px solid #dde3ea;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.vsr-goals-header {
+  background: #f0f4f8;
+  border-bottom: 1px solid #dde3ea;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #333;
+  margin: 0;
+}
+
+.vsr-goals-empty {
+  padding: 16px 14px;
+  color: #999;
+  font-size: 13px;
+  font-style: italic;
+  margin: 0;
+}
+
+/* ── Page action buttons ────────────────────────────────────────────────── */
+.vsr-page-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #e3eaf2;
+}

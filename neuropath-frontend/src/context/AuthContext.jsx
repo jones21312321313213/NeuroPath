@@ -1,13 +1,13 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback } from "react";
 import axios from "axios";
 
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  // Load user from local storage on initial render
   const [user, setUser] = useState(() => {
     try {
-      const stored = localStorage.getItem('neuropath_user');
+      const stored = localStorage.getItem("neuropath_user");
       return stored ? JSON.parse(stored) : null;
     } catch {
       return null;
@@ -15,38 +15,89 @@ export function AuthProvider({ children }) {
   });
 
   const login = async (email, password) => {
-    // 1. Send credentials to Django
     const response = await axios.post(
-      'http://127.0.0.1:8000/api/users/login/', 
+      "http://127.0.0.1:8000/api/users/login/",
       { email, password },
-      { withCredentials: true } // Crucial: Tells the browser to save the session cookie!
+      { withCredentials: true },
     );
-    
     const data = response.data;
-    
-    // 2. Save the non-sensitive teacher info to local storage for the UI
-    localStorage.setItem('neuropath_user', JSON.stringify(data.teacher));
-    
-    // 3. Update the React state so App.jsx knows to show the Dashboard
+    localStorage.setItem("neuropath_user", JSON.stringify(data.teacher));
     setUser(data.teacher);
-    
     return data;
   };
 
   const register = async (userData) => {
-    const response = await axios.post('http://127.0.0.1:8000/api/users/register/', userData);
-    return response.data; 
+    const response = await axios.post(
+      "http://127.0.0.1:8000/api/users/register/",
+      userData,
+    );
+    return response.data;
   };
 
   const logout = useCallback(() => {
-    // Note: The actual database logout is handled in Sidebar.jsx!
-    // This just clears the React state if needed.
-    localStorage.removeItem('neuropath_user');
+    localStorage.removeItem("neuropath_user");
     setUser(null);
   }, []);
 
+  // ── Update teacher profile ─────────────────────────────
+  // Sends JSON to PATCH /api/users/profile/update/
+  // The backend identifies the user via session cookie (withCredentials)
+  // and falls back to the `id` field if the session isn't set.
+  const updateUser = useCallback(
+    async (formData) => {
+      // Convert FormData → plain object so we can send JSON
+      const body = {
+        id: user?.id,
+        first_name: formData.get("first_name") || "",
+        last_name: formData.get("last_name") || "",
+        email: formData.get("email") || "",
+      };
+
+      // Only include password if the user actually typed one
+      const password = formData.get("password");
+      if (password) body.password = password;
+
+      const response = await fetch(`${BASE_URL}/users/profile/update/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include", // sends the Django session cookie
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const errors = data.errors || data.detail || data;
+        let message = "Failed to update profile.";
+        if (typeof errors === "string") message = errors;
+        else if (typeof errors === "object") {
+          const msgs = Object.values(errors).flat();
+          message = msgs[0] || message;
+        }
+        throw new Error(message);
+      }
+
+      // Merge updated fields back into React state + localStorage
+      const updated = { ...user, ...data };
+      localStorage.setItem("neuropath_user", JSON.stringify(updated));
+      setUser(updated);
+
+      return data;
+    },
+    [user],
+  );
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        register,
+        logout,
+        updateUser,
+        isAuthenticated: !!user,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -54,6 +105,6 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
+  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
   return ctx;
 }

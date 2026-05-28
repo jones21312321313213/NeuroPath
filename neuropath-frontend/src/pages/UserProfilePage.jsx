@@ -114,7 +114,6 @@ export default function MyProfile() {
 
   return (
     <div className="up-page page-content">
-      {/* ── ClickSpark wraps the entire page area OUTSIDE the card ── */}
       <ClickSpark
         sparkColor="#5aabf0"
         sparkSize={12}
@@ -123,8 +122,7 @@ export default function MyProfile() {
         duration={500}
       >
         <div className="up-centering">
-          {/* ── Profile Card ── */}
-          <div className="up-card">
+          <div className="up-card" onClick={(e) => e.stopPropagation()}>
             <input
               type="file"
               ref={fileInputRef}

@@ -115,7 +115,10 @@ function Dashboard() {
     <div className="app-layout">
       <Sidebar activePage={activePage} setActivePage={setActivePage} />
       <div className="main-area">
-        <Topbar breadcrumb={breadcrumbMap[activePage] || "DASHBOARD"} />
+        <Topbar
+          breadcrumb={breadcrumbMap[activePage] || "DASHBOARD"}
+          setActivePage={setActivePage}
+        />
         {renderPage(
           activePage,
           setActivePage,

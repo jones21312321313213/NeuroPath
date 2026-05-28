@@ -1,29 +1,11 @@
 // Base URL — change for production
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
-function getCookie(name) {
-  let cookieValue = null;
-  if (document.cookie && document.cookie !== "") {
-    const cookies = document.cookie.split(";");
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      if (cookie.substring(0, name.length + 1) === name + "=") {
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-        break;
-      }
-    }
-  }
-  return cookieValue;
-}
-
-
 async function request(endpoint, options = {}) {
   const token = localStorage.getItem("neuropath_access_token");
 
-  console.log("Checking token before sending to Django:", token); //Debugging line to verify token presence
   const headers = {
     "Content-Type": "application/json",
-    "X-CSRFToken": getCookie("csrftoken"),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
   };
@@ -31,7 +13,6 @@ async function request(endpoint, options = {}) {
   const response = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
     headers,
-    credentials: "include", // 🎯 THIS IS THE MAGIC BULLET! It sends the Django session cookie.
   });
 
   const data = await response.json().catch(() => ({}));
@@ -169,7 +150,9 @@ export const iepAPI = {
       body: JSON.stringify({ action: "save", ...payload }),
     }),
   listByStudent: (studentID, teacherId) =>
-    request(`/iep/student/${studentID}/${teacherId ? `?teacher_id=${teacherId}` : ""}`),
+    request(
+      `/iep/student/${studentID}/${teacherId ? `?teacher_id=${teacherId}` : ""}`,
+    ),
   get: (id) => request(`/iep/${id}/`),
   update: (id, payload) =>
     request(`/iep/edit/${id}/`, {
@@ -177,8 +160,32 @@ export const iepAPI = {
       body: JSON.stringify(payload),
     }),
   delete: (id) => request(`/iep/delete/${id}/`, { method: "DELETE" }),
+};
 
-  // 🎯 ADD THESE TWO NEW LINES FOR AI INSIGHTS:
-  getInsights: (studentID) => request(`/iep/student/${studentID}/insights/`),
-  generateInsight: (studentID) => request(`/iep/student/${studentID}/generate-insight/`, { method: "POST", body: JSON.stringify({}) }),
+// ── Users / Teacher Profile ────────────────────────────────────────────────────
+export const usersAPI = {
+  // PATCH /api/users/profile/update/ — accepts FormData (supports profile_picture upload)
+  updateProfile: (formData) => {
+    const token = localStorage.getItem("neuropath_access_token");
+    return fetch(`${BASE_URL}/users/profile/update/`, {
+      method: "PATCH",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    }).then(async (res) => {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const errors = data.errors || data.detail || data;
+        let message = "Failed to update profile.";
+        if (typeof errors === "string") message = errors;
+        else if (typeof errors === "object") {
+          const msgs = Object.values(errors).flat();
+          message = msgs[0] || message;
+        }
+        throw new Error(message);
+      }
+      return data;
+    });
+  },
 };
