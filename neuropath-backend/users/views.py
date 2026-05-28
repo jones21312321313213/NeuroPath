@@ -245,3 +245,77 @@ class TeacherLoginController(APIView):
             return Response({
                 "error": "Invalid email or password."
             }, status=status.HTTP_401_UNAUTHORIZED)
+
+# =====================================================================
+# TEACHER PROFILE UPDATE
+# PATCH /api/users/profile/update/
+# Accepts: { id, first_name, last_name, email, password? }
+# Identifies the teacher by the Django User id sent in the request body.
+# Also keeps the Teacher mirror-row (name, email) in sync.
+# =====================================================================
+class TeacherProfileUpdateController(APIView):
+    def patch(self, request, *args, **kwargs):
+        user_id = request.data.get("id")
+        if not user_id:
+            return Response(
+                {"detail": "User ID is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "User not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        first_name = request.data.get("first_name", user.first_name).strip()
+        last_name  = request.data.get("last_name",  user.last_name).strip()
+        email      = request.data.get("email",      user.email).strip().lower()
+        password   = request.data.get("password", "")
+
+        errors = {}
+        if not first_name:
+            errors["first_name"] = "First name is required."
+        if not last_name:
+            errors["last_name"] = "Last name is required."
+        if not email or "@" not in email:
+            errors["email"] = "A valid email address is required."
+        if password and len(password) < 6:
+            errors["password"] = "Password must be at least 6 characters."
+        if errors:
+            return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check email uniqueness (exclude the current user)
+        if User.objects.filter(email=email).exclude(pk=user_id).exists():
+            return Response(
+                {"errors": {"email": "This email is already in use."}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Update the Django User row
+        user.first_name = first_name
+        user.last_name  = last_name
+        user.email      = email
+        user.username   = email   # username == email convention used at registration
+        if password:
+            user.set_password(password)
+        user.save()
+
+        # Keep the Teacher mirror-row in sync
+        from .models import Teacher
+        Teacher.objects.filter(email__iexact=user.email).update(
+            name=f"{first_name} {last_name}".strip(),
+            email=email,
+        )
+
+        return Response(
+            {
+                "id":         user.id,
+                "first_name": user.first_name,
+                "last_name":  user.last_name,
+                "email":      user.email,
+            },
+            status=status.HTTP_200_OK,
+        )

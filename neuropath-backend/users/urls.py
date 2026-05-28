@@ -4,7 +4,8 @@ from .views import( StudentProfileListCreateView,
                    ProfileViewController,
                    AIInsightController,
                    TeacherCreateController,
-                   TeacherLoginController)
+                   TeacherLoginController,
+                   TeacherProfileUpdateController)
 
 urlpatterns = [
     path('register/', TeacherCreateController.as_view(), name='teacher-register'),
@@ -18,4 +19,5 @@ urlpatterns = [
     path('students/<int:pk>/', ProfileUpdateController.as_view(), name='student-detail-update'),
     path('students/<int:pk>/view/', ProfileViewController.as_view(), name='student-view'),
     path('students/<int:pk>/generate-insight/', AIInsightController.as_view(), name='student-generate-insight'),
+    path('profile/update/', TeacherProfileUpdateController.as_view(), name='teacher-profile-update'),
 ]

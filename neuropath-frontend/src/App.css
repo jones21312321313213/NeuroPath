@@ -19,8 +19,8 @@
 
 .sidebar-logo {
   display: flex;
-  justify-content: center;
-  padding: 0 0 16px;
+  background-color: white;
+  color: #3d9de8;
 }
 
 .avatar-circle {

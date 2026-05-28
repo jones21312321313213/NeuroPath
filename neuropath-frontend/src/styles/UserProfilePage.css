@@ -1,0 +1,292 @@
+/* ── Page wrapper ─────────────────────────────────────── */
+.up-page {
+  /* Inherits page-content padding from App.css */
+  /* No background image — clean #f0f4f8 from app-layout */
+}
+
+/* ClickSpark needs full height to capture clicks across the page area */
+.up-page > div {
+  min-height: calc(100vh - 56px); /* subtract topbar if any */
+}
+
+/* Centers the card within the sparks zone */
+.up-centering {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 20px 0 40px;
+  min-height: 100%;
+}
+
+/* ── Card ─────────────────────────────────────────────── */
+.up-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.09);
+  padding: 28px 32px 32px;
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── Card header ──────────────────────────────────────── */
+.up-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1.5px solid #e8edf2;
+}
+
+.up-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #222;
+}
+
+.up-edit-btn {
+  padding: 6px 16px;
+  border-radius: 5px;
+  border: 1.5px solid #5aabf0;
+  background: transparent;
+  color: #3d9de8;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.up-edit-btn:hover {
+  background: #5aabf0;
+  color: #fff;
+}
+
+/* ── Banners ──────────────────────────────────────────── */
+.up-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.up-banner-success {
+  background: #f0fdf4;
+  border: 1.5px solid #bbf7d0;
+  color: #166534;
+}
+.up-banner-error {
+  background: #fff5f5;
+  border: 1.5px solid #fecaca;
+  color: #c0392b;
+}
+
+/* ── Avatar block ─────────────────────────────────────── */
+.up-avatar-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.up-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5aabf0, #3d9de8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  border: 3px solid #e8edf2;
+  flex-shrink: 0;
+}
+
+.up-avatar-editable {
+  cursor: pointer;
+  border-color: #5aabf0;
+}
+.up-avatar-editable:hover .up-avatar-overlay {
+  opacity: 1;
+}
+
+.up-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.up-avatar-initials {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 1px;
+  line-height: 1;
+}
+
+.up-avatar-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.18s;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.up-avatar-info {
+  text-align: center;
+}
+
+.up-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0 0 3px;
+}
+
+.up-role {
+  font-size: 12.5px;
+  color: #5aabf0;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: 0.3px;
+}
+
+/* ── View mode fields ─────────────────────────────────── */
+.up-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.up-field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px;
+  background: #f7fafd;
+  border: 1.5px solid #e3eaf2;
+  border-radius: 7px;
+}
+
+.up-field-label {
+  font-size: 12px;
+  color: #888;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.up-field-value {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #222;
+}
+
+/* ── Edit form ────────────────────────────────────────── */
+.up-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.up-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.up-input-error {
+  border-color: #fca5a5 !important;
+  background: #fff5f5 !important;
+}
+
+.up-field-error {
+  font-size: 11.5px;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* Password divider */
+.up-divider {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 6px;
+  border-top: 1.5px solid #e8edf2;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #555;
+}
+
+.up-divider-hint {
+  font-size: 11.5px;
+  color: #aaa;
+  font-weight: 400;
+  margin: 0;
+}
+
+/* Password toggle wrapper */
+.up-pass-wrap {
+  position: relative;
+}
+.up-pass-input {
+  padding-right: 38px !important;
+}
+.up-pass-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px;
+}
+
+/* Form action buttons */
+.up-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+/* Loading spinner */
+.up-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2.5px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: up-spin 0.6s linear infinite;
+}
+
+@keyframes up-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Hidden file input */
+.up-file-hidden {
+  display: none;
+}

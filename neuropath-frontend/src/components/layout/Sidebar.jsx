@@ -1,6 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
-import { useAuth } from "../../context/AuthContext"; 
+import { useAuth } from "../../context/AuthContext";
 import LogoutModal from "./LogoutModal";
 
 const navItems = [
@@ -48,8 +48,11 @@ const navItems = [
 ];
 
 export default function Sidebar({ activePage, setActivePage }) {
-  const { user } = useAuth(); 
-  const [expanded, setExpanded] = useState({ "student-profiling": true, "iep-generation": true });
+  const { user } = useAuth();
+  const [expanded, setExpanded] = useState({
+    "student-profiling": true,
+    "iep-generation": true,
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const toggleExpand = (key) => {
@@ -61,7 +64,7 @@ export default function Sidebar({ activePage, setActivePage }) {
       await axios.post(
         "http://127.0.0.1:8000/api/users/logout/",
         {},
-        { withCredentials: true }
+        { withCredentials: true },
       );
     } catch (error) {
       console.error("Logout failed:", error);
@@ -85,30 +88,12 @@ export default function Sidebar({ activePage, setActivePage }) {
       <aside className="sidebar">
         {/* Header Visual Area */}
         <div className="sidebar-profile-header flex flex-col items-center pt-6 pb-2 text-center">
-          
           {/* Logo / Avatar containing initials — Perfectly Centered */}
-          <div className="sidebar-logo flex items-center justify-center text-center font-bold text-white bg-[#2589c7] w-14 h-14 rounded-full text-lg shadow-sm border border-white/20 select-none">
+          <div className="sidebar-logo flex items-center justify-center text-center font-bold  bg-[white] w-14 h-14 rounded-full text-lg shadow-sm border border-white/20 select-none">
             <span className="flex items-center justify-center leading-none w-full h-full">
               {getInitials() || "👤"}
             </span>
           </div>
-          
-          {/* ── User Name Interactive Button View ───────────────── */}
-          {user && (
-            <div className="mt-3 px-4 w-full">
-              <button
-                onClick={() => setActivePage("my-profile")}
-                className={`w-full text-sm font-bold tracking-tight text-center truncate capitalize transition-all duration-200 outline-none rounded-lg py-1 px-2
-                  ${activePage === "my-profile" 
-                    ? "bg-white/20 text-white shadow-sm" 
-                    : "text-white hover:bg-white/10 active:scale-[0.98]"
-                  }`}
-                title="View Profile"
-              >
-                {(user.firstName || user.first_name) ?? ""} {(user.lastName || user.last_name) ?? ""}
-              </button>
-            </div>
-          )}
         </div>
 
         <hr className="sidebar-divider" />

@@ -27,9 +27,7 @@ function getProfileDetails(student) {
   if (student?.profileDetails && typeof student.profileDetails === "object") {
     return student.profileDetails;
   }
-
   if (!student?.preferences) return {};
-
   if (typeof student.preferences === "string") {
     try {
       const parsed = JSON.parse(student.preferences);
@@ -38,7 +36,6 @@ function getProfileDetails(student) {
       return {};
     }
   }
-
   return typeof student.preferences === "object" ? student.preferences : {};
 }
 
@@ -61,10 +58,16 @@ function SelectField({ label, options, value, onChange }) {
   return (
     <div className="form-group">
       <label className="form-label">{label}:</label>
-      <select value={value} onChange={onChange} className="form-select gray-input">
+      <select
+        value={value}
+        onChange={onChange}
+        className="form-select gray-input"
+      >
         <option value="">Choose</option>
         {options.map((option) => (
-          <option key={option} value={option}>{option}</option>
+          <option key={option} value={option}>
+            {option}
+          </option>
         ))}
       </select>
     </div>
@@ -104,12 +107,31 @@ function CheckOption({ label, checked, onChange }) {
   );
 }
 
+/* ── Success Modal ─────────────────────────────────────── */
+function SuccessModal({ studentName, onClose }) {
+  return (
+    <div className="usp-modal-overlay" onClick={onClose}>
+      <div className="usp-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="usp-modal-icon">✓</div>
+        <h3 className="usp-modal-title">Profile Updated!</h3>
+        <p className="usp-modal-body">
+          <strong>{studentName}</strong>'s profile has been saved successfully.
+        </p>
+        <button className="btn btn-submit usp-modal-btn" onClick={onClose}>
+          Done
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function UpdateStudentProfile({ studentId, onBack }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
     if (!studentId) return;
@@ -117,7 +139,6 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
     async function loadStudent() {
       setLoading(true);
       setError("");
-
       try {
         const response = await studentsAPI.get(studentId);
         const data = response?.data || response;
@@ -126,15 +147,23 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
         setForm({
           school: details.school || "",
           schoolYear: details.schoolYear || "",
-          learnerName: details.studentName || details.learnerName || data.name || "",
+          learnerName:
+            details.studentName || details.learnerName || data.name || "",
           age: data.age || "",
           gradeLevel: data.grade || "",
           gender: data.gender || "",
           birthdate: details.birthdate || "",
-          disabilityCategory: details.disabilityCategory || data.diagnosis || "Autism Spectrum Disorder",
-          diagnosisDetails: details.diagnosisDetails || data.asdBackground || "",
-          difficultyMarkers: Array.isArray(details.difficultyMarkers) ? details.difficultyMarkers : [],
-          presentEvaluation: details.presentEvaluation || data.assessmentResult || "",
+          disabilityCategory:
+            details.disabilityCategory ||
+            data.diagnosis ||
+            "Autism Spectrum Disorder",
+          diagnosisDetails:
+            details.diagnosisDetails || data.asdBackground || "",
+          difficultyMarkers: Array.isArray(details.difficultyMarkers)
+            ? details.difficultyMarkers
+            : [],
+          presentEvaluation:
+            details.presentEvaluation || data.assessmentResult || "",
           academicStrengths: details.academicStrengths || "",
           academicNeeds: details.academicNeeds || data.support_needs || "",
           parentalConcerns: details.parentalConcerns || "",
@@ -150,7 +179,8 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
     loadStudent();
   }, [studentId]);
 
-  const setField = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  const setField = (field) => (e) =>
+    setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
   const toggleDifficulty = (difficulty) => {
     setForm((prev) => ({
@@ -169,34 +199,42 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
       ["gender", "Gender is required."],
       ["disabilityCategory", "Diagnosis is required."],
     ];
-
     for (const [field, message] of requiredFields) {
       if (!String(form[field] || "").trim()) {
         setError(message);
         return false;
       }
     }
-
     setError("");
     return true;
   };
 
   const validateStepTwo = () => {
     const requiredFields = [
-      ["presentEvaluation", "Please fill in the evaluation / assessment results before saving."],
-      ["academicStrengths", "Please fill in the learner strengths before saving."],
+      [
+        "presentEvaluation",
+        "Please fill in the evaluation / assessment results before saving.",
+      ],
+      [
+        "academicStrengths",
+        "Please fill in the learner strengths before saving.",
+      ],
       ["academicNeeds", "Please fill in the learner needs before saving."],
-      ["parentalConcerns", "Please fill in the parental concerns before saving."],
-      ["curriculumImpact", "Please fill in the curriculum impact before saving."],
+      [
+        "parentalConcerns",
+        "Please fill in the parental concerns before saving.",
+      ],
+      [
+        "curriculumImpact",
+        "Please fill in the curriculum impact before saving.",
+      ],
     ];
-
     for (const [field, message] of requiredFields) {
       if (!String(form[field] || "").trim()) {
         setError(message);
         return false;
       }
     }
-
     setError("");
     return true;
   };
@@ -208,12 +246,10 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
 
   const handleSave = async (e) => {
     e.preventDefault();
-
     if (!validateStepOne()) {
       setStep(1);
       return;
     }
-
     if (!validateStepTwo()) {
       setStep(2);
       return;
@@ -256,13 +292,17 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
 
     try {
       await studentsAPI.update(studentId, payload);
-      alert("Student profile updated successfully!");
-      if (onBack) onBack();
+      setShowSuccessModal(true); // ← show modal instead of alert()
     } catch (err) {
       setError(err.message || "Unable to update student profile.");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleModalClose = () => {
+    setShowSuccessModal(false);
+    if (onBack) onBack();
   };
 
   if (loading || !form) {
@@ -275,6 +315,14 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
 
   return (
     <div className="page-content">
+      {/* ── Success Modal ── */}
+      {showSuccessModal && (
+        <SuccessModal
+          studentName={form.learnerName}
+          onClose={handleModalClose}
+        />
+      )}
+
       <div className="form-card iep-card">
         <div className="iep-step-header">
           <div>
@@ -282,33 +330,89 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
             <strong>Step {step} of 2</strong>
           </div>
           <div className="iep-progress">
-            {[1, 2].map((number) => <i key={number} className={number <= step ? "active" : ""} />)}
+            {[1, 2].map((number) => (
+              <i key={number} className={number <= step ? "active" : ""} />
+            ))}
           </div>
         </div>
 
         <div className="form-actions">
-          <button type="button" className="btn btn-back" onClick={onBack}>←</button>
+          <button type="button" className="btn btn-back" onClick={onBack}>
+            ←
+          </button>
           {step === 2 ? (
-            <button type="button" className="btn btn-submit" onClick={handleSave} disabled={saving}>
+            <button
+              type="button"
+              className="btn btn-submit"
+              onClick={handleSave}
+              disabled={saving}
+            >
               {saving ? "SAVING..." : "SAVE"}
             </button>
-          ) : <div />}
+          ) : (
+            <div />
+          )}
         </div>
 
         {error && <div className="iep-alert iep-alert-error">{error}</div>}
 
         {step === 1 && (
           <section className="form-section">
-            <SectionHeader title="Section A: Personal Information" subtitle="Update the same student information used in Create Student Profile and View Student Profile." />
+            <SectionHeader
+              title="Section A: Personal Information"
+              subtitle="Update the same student information used in Create Student Profile and View Student Profile."
+            />
             <div className="form-grid-2">
-              <FormField label="Student Name" placeholder="Enter student name" value={form.learnerName} onChange={setField("learnerName")} />
-              <FormField label="School" placeholder="School name" value={form.school} onChange={setField("school")} />
-              <FormField label="School Year" placeholder="2025 - 2026" value={form.schoolYear} onChange={setField("schoolYear")} />
-              <FormField label="Age" placeholder="Enter age" type="number" value={form.age} onChange={setField("age")} />
-              <FormField label="Grade Level" placeholder="Enter grade level" type="number" value={form.gradeLevel} onChange={setField("gradeLevel")} />
-              <SelectField label="Gender" value={form.gender} onChange={setField("gender")} options={genderOptions} />
-              <FormField label="Birthdate" placeholder="MM-DD-YYYY" value={form.birthdate} onChange={setField("birthdate")} />
-              <SelectField label="Diagnosis" value={form.disabilityCategory} onChange={setField("disabilityCategory")} options={diagnosisOptions} />
+              <FormField
+                label="Student Name"
+                placeholder="Enter student name"
+                value={form.learnerName}
+                onChange={setField("learnerName")}
+              />
+              <FormField
+                label="School"
+                placeholder="School name"
+                value={form.school}
+                onChange={setField("school")}
+              />
+              <FormField
+                label="School Year"
+                placeholder="2025 - 2026"
+                value={form.schoolYear}
+                onChange={setField("schoolYear")}
+              />
+              <FormField
+                label="Age"
+                placeholder="Enter age"
+                type="number"
+                value={form.age}
+                onChange={setField("age")}
+              />
+              <FormField
+                label="Grade Level"
+                placeholder="Enter grade level"
+                type="number"
+                value={form.gradeLevel}
+                onChange={setField("gradeLevel")}
+              />
+              <SelectField
+                label="Gender"
+                value={form.gender}
+                onChange={setField("gender")}
+                options={genderOptions}
+              />
+              <FormField
+                label="Birthdate"
+                placeholder="MM-DD-YYYY"
+                value={form.birthdate}
+                onChange={setField("birthdate")}
+              />
+              <SelectField
+                label="Diagnosis"
+                value={form.disabilityCategory}
+                onChange={setField("disabilityCategory")}
+                options={diagnosisOptions}
+              />
             </div>
 
             <TextAreaField
@@ -320,7 +424,9 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
             />
 
             <div>
-              <h3 className="iep-small-title">Difficulties — mark the appropriate box based on assessment</h3>
+              <h3 className="iep-small-title">
+                Difficulties — mark the appropriate box based on assessment
+              </h3>
               <div className="iep-check-grid">
                 {difficultyOptions.map((option) => (
                   <CheckOption
@@ -338,20 +444,64 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
         {step === 2 && (
           <section className="form-section">
             <SectionHeader title="Present Levels of Academic Achievement and/or Functional Performance" />
-            <TextAreaField label="Results of initial or most recent evaluation and results of school assessments" placeholder="Example: The student fails to finish tasks most of the time, has difficulty in concentrating and paying attention, and may be unable to get what he wants." value={form.presentEvaluation} onChange={setField("presentEvaluation")} rows={4} />
-            <TextAreaField label="Description of academic, developmental, and/or functional strengths" placeholder="Example: The student can spell random words using alphabet blocks and arranges alphabet sequentially." value={form.academicStrengths} onChange={setField("academicStrengths")} rows={4} />
-            <TextAreaField label="Description of academic, developmental, and/or functional needs" placeholder="Example: Needs structured routines, visual task supports, shortened activities, sensory breaks, and positive reinforcement." value={form.academicNeeds} onChange={setField("academicNeeds")} rows={4} />
-            <TextAreaField label="Parental concerns regarding the child’s education" placeholder="Write concerns shared by the parent or guardian." value={form.parentalConcerns} onChange={setField("parentalConcerns")} rows={3} />
-            <TextAreaField label="Impact of the disability on involvement and progress in the general education curriculum" placeholder="Example: The student has difficulty concentrating and needs support to listen well." value={form.curriculumImpact} onChange={setField("curriculumImpact")} rows={3} />
+            <TextAreaField
+              label="Results of initial or most recent evaluation and results of school assessments"
+              placeholder="Example: The student fails to finish tasks most of the time, has difficulty in concentrating and paying attention, and may be unable to get what he wants."
+              value={form.presentEvaluation}
+              onChange={setField("presentEvaluation")}
+              rows={4}
+            />
+            <TextAreaField
+              label="Description of academic, developmental, and/or functional strengths"
+              placeholder="Example: The student can spell random words using alphabet blocks and arranges alphabet sequentially."
+              value={form.academicStrengths}
+              onChange={setField("academicStrengths")}
+              rows={4}
+            />
+            <TextAreaField
+              label="Description of academic, developmental, and/or functional needs"
+              placeholder="Example: Needs structured routines, visual task supports, shortened activities, sensory breaks, and positive reinforcement."
+              value={form.academicNeeds}
+              onChange={setField("academicNeeds")}
+              rows={4}
+            />
+            <TextAreaField
+              label="Parental concerns regarding the child's education"
+              placeholder="Write concerns shared by the parent or guardian."
+              value={form.parentalConcerns}
+              onChange={setField("parentalConcerns")}
+              rows={3}
+            />
+            <TextAreaField
+              label="Impact of the disability on involvement and progress in the general education curriculum"
+              placeholder="Example: The student has difficulty concentrating and needs support to listen well."
+              value={form.curriculumImpact}
+              onChange={setField("curriculumImpact")}
+              rows={3}
+            />
           </section>
         )}
 
         <div className="form-actions">
           {step > 1 ? (
-            <button type="button" onClick={() => setStep(step - 1)} className="btn btn-back">BACK</button>
-          ) : <div />}
+            <button
+              type="button"
+              onClick={() => setStep(step - 1)}
+              className="btn btn-back"
+            >
+              BACK
+            </button>
+          ) : (
+            <div />
+          )}
           {step < 2 && (
-            <button type="button" onClick={handleNext} className="btn btn-submit">NEXT</button>
+            <button
+              type="button"
+              onClick={handleNext}
+              className="btn btn-submit"
+            >
+              NEXT
+            </button>
           )}
         </div>
       </div>
