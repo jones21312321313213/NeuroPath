@@ -23,8 +23,87 @@ function EmptyState({ message = "No records found." }) {
   );
 }
 
+// ── Strategy Markdown Renderer ─────────────────────────────────────────────────
+// Parses the AI output format:
+//   **Section Heading:**  →  styled heading
+//   - bullet text        →  list item
+//   plain text           →  paragraph
+function StrategyRenderer({ content }) {
+  if (!content) return null;
+
+  const lines = content.split("\n");
+  const nodes = [];
+  let bulletBuffer = [];
+
+  const flushBullets = (key) => {
+    if (bulletBuffer.length === 0) return;
+    nodes.push(
+      <ul key={`ul-${key}`} className="ts-strategy-list">
+        {bulletBuffer.map((b, i) => (
+          <li key={i} className="ts-strategy-li">
+            {renderInline(b)}
+          </li>
+        ))}
+      </ul>,
+    );
+    bulletBuffer = [];
+  };
+
+  // Handles **bold** inline spans within a line
+  const renderInline = (text) => {
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, i) =>
+      part.startsWith("**") && part.endsWith("**") ? (
+        <strong key={i}>{part.slice(2, -2)}</strong>
+      ) : (
+        part
+      ),
+    );
+  };
+
+  lines.forEach((rawLine, idx) => {
+    const line = rawLine.trimEnd();
+
+    // Blank line — flush pending bullets
+    if (!line.trim()) {
+      flushBullets(idx);
+      return;
+    }
+
+    // Bullet line: starts with "- " or "* "
+    if (/^[-*]\s+/.test(line)) {
+      bulletBuffer.push(line.replace(/^[-*]\s+/, ""));
+      return;
+    }
+
+    // Heading line: **Text:** (entire line is bold or ends with colon inside **)
+    const headingMatch = line.match(/^\*\*(.+?)\*\*:?$/);
+    if (headingMatch) {
+      flushBullets(idx);
+      nodes.push(
+        <p key={idx} className="ts-strategy-heading">
+          {headingMatch[1].replace(/:$/, "")}
+        </p>,
+      );
+      return;
+    }
+
+    // Plain paragraph
+    flushBullets(idx);
+    nodes.push(
+      <p key={idx} className="ts-strategy-para">
+        {renderInline(line)}
+      </p>,
+    );
+  });
+
+  // Flush any trailing bullets
+  flushBullets("end");
+
+  return <div className="ts-strategy-body">{nodes}</div>;
+}
+
 // ── Generate Tab ───────────────────────────────────────────────────────────────
-// ── Generate Tab (UPDATED WITH AI INTEGRATION & REGENERATION) ──────────────────
 function GenerateTab({ onSave }) {
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
@@ -35,7 +114,6 @@ function GenerateTab({ onSave }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Fetch the secured directory
   useEffect(() => {
     teachingStrategiesAPI
       .getDirectory(user?.id)
@@ -51,18 +129,19 @@ function GenerateTab({ onSave }) {
     setError("");
   };
 
-  // 🚀 FIXED: Rewired to pass 'goalID' to match your Django Serializer
   const handleGenerate = async () => {
     if (!selectedStudent || !selectedGoal) return;
     setLoading(true);
     setError("");
     try {
       const data = await teachingStrategiesAPI.generate({
-        goalID: selectedGoal.goalID, // Changed from iepGoalID to goalID
+        goalID: selectedGoal.goalID,
       });
-      setGenerated(data); // Stores the backend response payload
+      setGenerated(data);
     } catch (err) {
-      setError(err.message || "AI Generation pipeline failed. Is Ollama running?");
+      setError(
+        err.message || "AI Generation pipeline failed. Is Ollama running?",
+      );
     } finally {
       setLoading(false);
     }
@@ -70,7 +149,6 @@ function GenerateTab({ onSave }) {
 
   const handleSave = () => {
     if (!generated) return;
-    // Pass the saved data back up to the parent component state
     onSave(generated.data);
     alert("Teaching strategy verified and active.");
   };
@@ -78,7 +156,10 @@ function GenerateTab({ onSave }) {
   return (
     <div className="va-generate">
       {error && (
-        <div className="va-card" style={{ color: "#c0392b", fontWeight: 600, fontSize: 13 }}>
+        <div
+          className="va-card"
+          style={{ color: "#c0392b", fontWeight: 600, fontSize: 13 }}
+        >
           ⚠️ {error}
         </div>
       )}
@@ -107,7 +188,9 @@ function GenerateTab({ onSave }) {
                   className="va-select-btn"
                   onClick={() => selectStudent(student)}
                 >
-                  {selectedStudent?.studentID === student.studentID ? "Selected" : "Select"}
+                  {selectedStudent?.studentID === student.studentID
+                    ? "Selected"
+                    : "Select"}
                 </button>
               </div>
             ))}
@@ -119,14 +202,14 @@ function GenerateTab({ onSave }) {
       {selectedStudent && !generated && (
         <div className="va-card">
           <p className="va-card-title">
-            Step 2 — Select an IEP Goal for <strong>{selectedStudent.studentName}</strong>
+            Step 2 — Select an IEP Goal for{" "}
+            <strong>{selectedStudent.studentName}</strong>
           </p>
           {selectedStudent.availableGoals.length === 0 ? (
             <EmptyState message="No IEP goals found for this student." />
           ) : (
             <div className="ts-goal-list">
               {selectedStudent.availableGoals.map((goal) => (
-                // 🚀 FIXED: Changed goal.iepID to goal.goalID to match Django directory output keys
                 <label key={goal.goalID} className="ts-goal-item">
                   <input
                     type="radio"
@@ -145,51 +228,45 @@ function GenerateTab({ onSave }) {
               onClick={handleGenerate}
               disabled={!selectedGoal || loading}
             >
-              {loading ? "Invoking Llama AI Pipeline..." : "Generate Teaching Strategy"}
+              {loading
+                ? "Invoking Llama AI Pipeline…"
+                : "Generate Teaching Strategy"}
             </button>
           </div>
         </div>
       )}
 
-      {/* 🎯 Step 3 — Result Panel with Save & Regenerate Actions */}
+      {/* Step 3 — Result Panel */}
       {generated && (
         <div className="va-card ts-detail-card">
           <h3>{generated.data?.title || "AI Generated Teaching Strategy"}</h3>
-          
-          <div
-            style={{
-              background: "#f7fafd",
-              border: "1px solid #e3eaf2",
-              borderRadius: 7,
-              padding: 16,
-              fontSize: 13.5,
-              color: "#444",
-              lineHeight: 1.7,
-              whiteSpace: "pre-line", // Preserves paragraphs and formatting from Ollama
-              marginBottom: 16,
-            }}
-          >
-            {generated.data?.strategyContent}
+
+          {/* ── Formatted strategy output ── */}
+          <div className="ts-strategy-output">
+            <StrategyRenderer content={generated.data?.strategyContent} />
           </div>
-          
-          <p className="va-result-sub" style={{ color: "#27ae60", fontWeight: 500 }}>
-             {generated.message}
+
+          <p
+            className="va-result-sub"
+            style={{ color: "#27ae60", fontWeight: 500, marginTop: 12 }}
+          >
+            {generated.message}
           </p>
 
-          <div className="va-actions ts-center-actions" style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
-            {/* 🔄 Generate Again Button */}
-            <button 
-              className="btn" 
-              style={{ background: "#e67e22", color: "white" }} 
+          <div
+            className="va-actions ts-center-actions"
+            style={{ display: "flex", gap: "12px", justifyContent: "center" }}
+          >
+            <button
+              className="btn"
+              style={{ background: "#e67e22", color: "white" }}
               onClick={handleGenerate}
               disabled={loading}
             >
-              {loading ? "Regenerating..." : "🔄 Generate Again"}
+              {loading ? "Regenerating…" : "🔄 Generate Again"}
             </button>
-
-            {/* 💾 Save/Confirm Button */}
-            <button 
-              className="btn btn-submit" 
+            <button
+              className="btn btn-submit"
               onClick={handleSave}
               disabled={loading}
             >
@@ -201,6 +278,7 @@ function GenerateTab({ onSave }) {
     </div>
   );
 }
+
 // ── Strategy Detail View ───────────────────────────────────────────────────────
 function StrategyDetails({ strategy, onBack }) {
   return (
@@ -217,7 +295,8 @@ function StrategyDetails({ strategy, onBack }) {
         </section>
         <section className="ts-wide">
           <h4>Strategy Content</h4>
-          <p style={{ whiteSpace: "pre-line" }}>{strategy.strategyContent}</p>
+          {/* Also render saved strategies with the formatter */}
+          <StrategyRenderer content={strategy.strategyContent} />
         </section>
       </div>
       <div className="ts-page-actions">
@@ -415,7 +494,6 @@ function EditTab() {
     }
   };
 
-  // Edit form
   if (selected && form) {
     return (
       <div className="va-card ts-edit-card">
@@ -466,7 +544,6 @@ function EditTab() {
     );
   }
 
-  // Strategy list for selected student
   if (selectedStudent) {
     return (
       <div className="va-card">
@@ -520,7 +597,6 @@ function EditTab() {
     );
   }
 
-  // Student selection
   return (
     <div className="va-card">
       <p className="va-card-title ts-centered-title">
@@ -601,7 +677,6 @@ function DeleteTab() {
     }
   };
 
-  // Strategy list for selected student
   if (selectedStudent) {
     return (
       <div className="va-card">
@@ -683,7 +758,6 @@ function DeleteTab() {
     );
   }
 
-  // Student selection
   return (
     <div className="va-card">
       <p className="va-card-title ts-centered-title">
