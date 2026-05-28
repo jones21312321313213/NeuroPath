@@ -16,7 +16,8 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const response = await axios.post(
-      "http://127.0.0.1:8000/api/users/login/",
+       "http://127.0.0.1:8000/api/users/login/",
+      //`${BASE_URL}/users/login/`,
       { email, password },
       { withCredentials: true },
     );
@@ -28,7 +29,8 @@ export function AuthProvider({ children }) {
 
   const register = async (userData) => {
     const response = await axios.post(
-      "http://127.0.0.1:8000/api/users/register/",
+       "http://127.0.0.1:8000/api/users/register/",
+      //`${BASE_URL}/users/register/`,
       userData,
     );
     return response.data;

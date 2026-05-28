@@ -48,7 +48,8 @@ INSTALLED_APPS = [
     'users',
     'iep_management',
     'tracking',
-    'resources'
+    'resources',
+    'rest_framework.authtoken',
 ]
 
 MIDDLEWARE = [
@@ -146,8 +147,19 @@ CORS_ALLOWED_ORIGINS = [
 # Allows credential sharing and session syncing across your local ports
 CORS_ALLOW_CREDENTIALS = True
 
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+
 # Add this right below your CORS settings!
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+
+# 🎯 Tell DRF to use Session Cookies (which matches your login controller)
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+}
