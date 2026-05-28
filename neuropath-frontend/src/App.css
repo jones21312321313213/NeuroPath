@@ -636,13 +636,13 @@
   border-collapse: collapse;
   background: #fff;
   font-size: 12.5px;
-  color: #444;
+  color: #5aabf0;
 }
 .iep-goal-table {
   min-width: 1050px;
 }
 .iep-table th {
-  background: #2d4f73;
+  background: #5aabf0;
   color: #fff;
   padding: 10px 12px;
   text-align: left;
@@ -674,6 +674,7 @@
 }
 .iep-small-textarea {
   min-height: 74px;
+  width: 100%;
 }
 .iep-mt-8 {
   margin-top: 8px;
@@ -689,7 +690,21 @@
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
-  padding: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
+}
+.iep-table td.iep-action-cell {
+  vertical-align: middle;
+}
+.iep-link-danger:hover {
+  background: #fdecea;
+  color: #b71c1c;
 }
 .iep-add-row {
   margin-bottom: 16px;

@@ -535,7 +535,11 @@ function ViewIEPPanel({
           <div className="iep-view-header">
             <div>
               <span>Student</span>
-              <h3>{selectedIep.studentName || getStudentName(selectedStudent) || "—"}</h3>
+              <h3>
+                {selectedIep.studentName ||
+                  getStudentName(selectedStudent) ||
+                  "—"}
+              </h3>
               <p>
                 Grade {selectedStudent.grade} · Age {selectedStudent.age}
               </p>
@@ -707,7 +711,8 @@ export default function IEPGenerationPage({ mode = "generate" }) {
       return null;
     }
   }, []);
-  const currentUserId = currentUser?.id || currentUser?.user_id || currentUser?.teacherID || null;
+  const currentUserId =
+    currentUser?.id || currentUser?.user_id || currentUser?.teacherID || null;
   const [step, setStep] = useState(3);
   const [students, setStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -724,6 +729,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
   );
   const [generatedGoalDraft, setGeneratedGoalDraft] = useState("");
   const [generatingFinalIep, setGeneratingFinalIep] = useState(false);
+  const [teacherPrompt, setTeacherPrompt] = useState("");
 
   const [form, setForm] = useState({
     region: "",
@@ -748,6 +754,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
         difficulty: "",
         barrierQualifier: "Moderate barrier",
         facilitator: "",
+        accommodation: "",
       },
     ],
     learnerGoals: [],
@@ -765,7 +772,9 @@ export default function IEPGenerationPage({ mode = "generate" }) {
     const query = searchTerm.trim().toLowerCase();
     if (!query) return [];
     return students
-      .filter((student) => getStudentName(student).toLowerCase().includes(query))
+      .filter((student) =>
+        getStudentName(student).toLowerCase().includes(query),
+      )
       .slice(0, 6);
   }, [students, searchTerm]);
 
@@ -789,7 +798,9 @@ export default function IEPGenerationPage({ mode = "generate" }) {
       setViewError("");
       try {
         const data = await studentsAPI.list(currentUserId);
-        const list = Array.isArray(data) ? data : data.results || data.data || [];
+        const list = Array.isArray(data)
+          ? data
+          : data.results || data.data || [];
         if (mounted) setStudents(list);
       } catch (error) {
         if (mounted) {
@@ -820,8 +831,13 @@ export default function IEPGenerationPage({ mode = "generate" }) {
       setLoadingIeps(true);
       setViewError("");
       try {
-        const data = await iepAPI.listByStudent(selectedStudentId, currentUserId);
-        const list = Array.isArray(data) ? data : data.results || data.data || [];
+        const data = await iepAPI.listByStudent(
+          selectedStudentId,
+          currentUserId,
+        );
+        const list = Array.isArray(data)
+          ? data
+          : data.results || data.data || [];
         if (mounted) {
           setIeps(list);
           setSelectedIep(list[0] || null);
@@ -867,8 +883,12 @@ export default function IEPGenerationPage({ mode = "generate" }) {
         selectedStudent.asdBackground ||
         selectedStudent.diagnosis ||
         prev.diagnosisDetails,
-      difficultyMarkers:
-        profileDetails.difficultyMarkers || prev.difficultyMarkers,
+      difficultyMarkers: (() => {
+        const raw = profileDetails.difficultyMarkers;
+        if (!raw) return prev.difficultyMarkers;
+        const arr = Array.isArray(raw) ? raw : [raw];
+        return arr.length > 0 ? [arr[0]] : prev.difficultyMarkers;
+      })(),
       presentEvaluation:
         profileDetails.presentEvaluation ||
         selectedStudent.assessmentResult ||
@@ -925,6 +945,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
           difficulty: "",
           barrierQualifier: "Moderate barrier",
           facilitator: "",
+          accommodation: "",
         },
       ],
     }));
@@ -975,11 +996,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
   };
 
   const toggleGoalCategory = (goalType) => {
-    setSelectedGoalCategories((prev) =>
-      prev.includes(goalType)
-        ? prev.filter((item) => item !== goalType)
-        : [...prev, goalType],
-    );
+    setSelectedGoalCategories(goalType ? [goalType] : []);
     setGeneratedGoalDraft("");
   };
 
@@ -1068,6 +1085,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
         studentID: getStudentId(selectedStudent),
         baselineData,
         domains: selectedGoalCategories.join(", "),
+        teacherPrompt: teacherPrompt.trim() || undefined,
       });
 
       const draft = result?.draftData || result?.data || result;
@@ -1295,14 +1313,20 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                           "Difficulty in Communicating",
                           "Difficulty in displaying Interpersonal Behavior",
                         ].map((option) => (
-                          <CheckOption
-                            key={option}
-                            label={option}
-                            checked={form.difficultyMarkers.includes(option)}
-                            onChange={() =>
-                              toggleListValue("difficultyMarkers", option)
-                            }
-                          />
+                          <label key={option} className="iep-check-option">
+                            <input
+                              type="radio"
+                              name="difficultyMarkers"
+                              checked={form.difficultyMarkers.includes(option)}
+                              onChange={() =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  difficultyMarkers: [option],
+                                }))
+                              }
+                            />
+                            <span>{option}</span>
+                          </label>
                         ))}
                       </div>
                     </div>
@@ -1336,7 +1360,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
 
                   <SectionHeader
                     title="Section B: Difficulties, Barriers, and Enabling Supports"
-                    subtitle="Type the difficulty manually, then identify barriers and facilitators. Accommodations/resources will be generated by AI in the final IEP."
+                    subtitle="Type the difficulty manually, then identify barriers, facilitators, and accommodations for each entry."
                   />
                   <div className="iep-table-wrap">
                     <table className="iep-table">
@@ -1345,6 +1369,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                           <th>Difficulty</th>
                           <th>Learning Barriers</th>
                           <th>Learning Facilitators</th>
+                          <th>Accommodation</th>
                           <th>Action</th>
                         </tr>
                       </thead>
@@ -1397,6 +1422,21 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                                 className="form-textarea iep-small-textarea"
                               />
                             </td>
+                            <td>
+                              <textarea
+                                value={row.accommodation}
+                                onChange={(e) =>
+                                  updateBarrierRow(
+                                    index,
+                                    "accommodation",
+                                    e.target.value,
+                                  )
+                                }
+                                rows={3}
+                                placeholder="Type accommodation/s"
+                                className="form-textarea iep-small-textarea"
+                              />
+                            </td>
                             <td className="iep-action-cell">
                               <button
                                 type="button"
@@ -1428,71 +1468,23 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                 <section className="form-section">
                   <SectionHeader
                     title="Section C: Learner’s Goals"
-                    subtitle="Select one or more goal areas. The final goals will be generated by the AI component after clicking Generate Final IEP."
+                    subtitle="Select one goal area. The final goals will be generated by the AI component after clicking Generate Final IEP."
                   />
                   <div className="iep-ai-goal-toolbar multi">
                     <div className="form-group">
-                      <label className="form-label">Goal Area/s:</label>
-                      <div className="iep-multiselect">
-                        <button
-                          type="button"
-                          className="iep-multiselect-control"
-                          onClick={() => setGoalDropdownOpen((prev) => !prev)}
-                        >
-                          <div className="iep-selected-tags">
-                            {selectedGoalCategories.length > 0 ? (
-                              <>
-                                {selectedGoalCategories
-                                  .slice(0, 3)
-                                  .map((goalType) => (
-                                    <span key={goalType} className="iep-tag">
-                                      {goalType}
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          toggleGoalCategory(goalType);
-                                        }}
-                                      >
-                                        ×
-                                      </button>
-                                    </span>
-                                  ))}
-                                {selectedGoalCategories.length > 3 && (
-                                  <span className="iep-tag-count">
-                                    {selectedGoalCategories.length}
-                                  </span>
-                                )}
-                              </>
-                            ) : (
-                              <span className="iep-placeholder">
-                                Select goal areas
-                              </span>
-                            )}
-                          </div>
-                          <span className="iep-chevron">⌄</span>
-                        </button>
-
-                        {goalDropdownOpen && (
-                          <div className="iep-multiselect-menu">
-                            {availableGoalTypes.map((goalType) => (
-                              <label
-                                key={goalType}
-                                className="iep-multiselect-option"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={selectedGoalCategories.includes(
-                                    goalType,
-                                  )}
-                                  onChange={() => toggleGoalCategory(goalType)}
-                                />
-                                <span>{goalType}</span>
-                              </label>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      <label className="form-label">Goal Area:</label>
+                      <select
+                        className="form-select"
+                        value={selectedGoalCategories[0] || ""}
+                        onChange={(e) => toggleGoalCategory(e.target.value)}
+                      >
+                        <option value="">Select a goal area</option>
+                        {availableGoalTypes.map((goalType) => (
+                          <option key={goalType} value={goalType}>
+                            {goalType}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
@@ -1501,34 +1493,44 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                       <div>🤖</div>
                       <strong>No learner goal area selected yet</strong>
                       <span>
-                        Select one or more goal areas like Care Skills,
-                        Mathematical Skills, Communication Skills, or Social
-                        Skills. The AI component will generate the actual
-                        learner goals.
+                        Select a goal area like Care Skills, Mathematical
+                        Skills, Communication Skills, or Social Skills. The AI
+                        component will generate the actual learner goals.
                       </span>
                     </div>
                   ) : (
                     <div className="iep-selected-goal-summary">
-                      <h3>Selected Goal Area/s</h3>
-                      <div className="iep-selected-tags summary-tags">
-                        {selectedGoalCategories.map((goalType) => (
-                          <span key={goalType} className="iep-tag">
-                            {goalType}
-                            <button
-                              type="button"
-                              onClick={() => removeGoal(goalType)}
-                            >
-                              ×
-                            </button>
-                          </span>
-                        ))}
-                      </div>
                       <p className="iep-muted">
-                        These selected areas will be sent to the AI component
-                        when you click Generate Final IEP.
+                        This selected area will be sent to the AI component when
+                        you click Generate Final IEP.
                       </p>
                     </div>
                   )}
+
+                  <div className="form-group" style={{ marginTop: "1.25rem" }}>
+                    <label className="form-label">
+                      Additional Instructions for AI{" "}
+                      <span className="iep-muted" style={{ fontWeight: 400 }}>
+                        (optional)
+                      </span>
+                    </label>
+                    <textarea
+                      className="form-textarea"
+                      rows={5}
+                      placeholder={
+                        "Provide any additional context or specific instructions to help the AI generate a high-quality IEP.\n\nExample: Focus on improving the learner's ability to initiate verbal requests during snack time. The student responds well to visual prompts and 1:1 adult support."
+                      }
+                      value={teacherPrompt}
+                      onChange={(e) => setTeacherPrompt(e.target.value)}
+                    />
+                    <p
+                      className="iep-muted"
+                      style={{ marginTop: "0.35rem", fontSize: "0.78rem" }}
+                    >
+                      The more specific you are, the better the AI can tailor
+                      the goals and objectives to this learner.
+                    </p>
+                  </div>
 
                   {generatedGoalDraft && (
                     <InfoBlock title="AI-Generated Learner Goals">
