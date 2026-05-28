@@ -1,18 +1,25 @@
 // Base URL — change for production
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
+
+const getCsrfToken = () => {
+  return document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1] || "";
+};
+
 async function request(endpoint, options = {}) {
   const token = localStorage.getItem("neuropath_access_token");
 
   const headers = {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    "X-CSRFToken": getCsrfToken(), // 🎯 1. Automatically attaches CSRF security token
     ...options.headers,
   };
 
   const response = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
     headers,
+    credentials: "include", // 🎯 2. Ensures cookies (including CSRF token) are sent with requests
   });
 
   const data = await response.json().catch(() => ({}));
@@ -160,6 +167,16 @@ export const iepAPI = {
       body: JSON.stringify(payload),
     }),
   delete: (id) => request(`/iep/delete/${id}/`, { method: "DELETE" }),
+
+  // 🎯 FIXED: Now pointing to the correct /iep/ routes from your urls.py!
+  getInsights: (studentId) => 
+    request(`/iep/student/${studentId}/insights/`),
+    
+  generateInsight: (studentId) =>
+    request(`/iep/student/${studentId}/generate-insight/`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
 };
 
 // ── Users / Teacher Profile ────────────────────────────────────────────────────

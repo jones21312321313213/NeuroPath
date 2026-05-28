@@ -1,10 +1,13 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 from .models import StudentProfile
 from django.contrib.auth.models import User
 from .serializers import StudentProfileSerializer, ValidationService,TeacherSerializer
 from django.contrib.auth import authenticate, login
+import requests
+import json
 
 # =====================================================================
 # SDD MODULE: TEACHER REGISTRATION
@@ -319,3 +322,129 @@ class TeacherProfileUpdateController(APIView):
             },
             status=status.HTTP_200_OK,
         )
+        
+        
+        
+# =====================================================================
+# SDD MODULE 1.5: STANDARDIZE PLAAFP VIA LOCAL AI
+# Component Name: PLAAFPStandardizationController
+# Description: Extracts unstructured baseline observations from the NoSQL 
+#              preferences block, processes each row against IRIS standards, 
+#              and commits the professional clinical text back to storage.
+# =====================================================================
+class PLAAFPStandardizationController(APIView):
+    permission_classes = [IsAuthenticated]  # Mandates secure session cookie validation
+
+    def post(self, request, student_id, format=None):
+        try:
+            # 1. Retrieve the profile via secure data isolation bounds
+            student = StudentProfile.objects.get(studentID=student_id, teacher__email=request.user.email)
+            
+            if not student.preferences:
+                return Response({
+                    "error": "No baseline preferences data initialized for this student profile."
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+            preferences_data = json.loads(student.preferences)
+
+            # 2. Extract specific PLAAFP structural arrays safely via dictionary getters
+            eval_results = preferences_data.get('presentEvaluation', '')
+            strengths = preferences_data.get('academicStrengths', '')
+            needs = preferences_data.get('academicNeeds', '')
+            concerns = preferences_data.get('parentalConcerns', '')
+            impact = preferences_data.get('curriculumImpact', '')
+
+            if not any([eval_results, strengths, needs, concerns, impact]):
+                return Response({
+                    "error": "Standardization validation failed. Baseline rows cannot be empty."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # 3. Formulate structural system delimiters for the local 3B parameter model context
+            system_prompt = """You are an expert Special Education Copyeditor. Your job is to standardize raw teacher notes into formal, IRIS-compliant PLAAFP documentation.
+
+            CRITICAL EXECUTION RULES:
+            1. INDEPENDENT TRANSLATION: Process each field independently. Do not combine, blend, or move information between fields.
+            2. CORRECT TYPOS & GRAMMAR: Fix all spelling, punctuation, and grammatical mistakes (e.g., convert "with alphabeth blocks he can spell" to "he can spell out random words using alphabet blocks").
+            3. UPGRADE TO IRIS STANDARDS: Elevate informal slang or conversational shorthand into clear, professional, behavioral special education compliance statements. 
+            4. PRESERVE CONTEXT EXACTLY: Do not invent new metrics, scores, or facts. Maintain the teacher's original diagnostic meaning exactly.
+            5. STRICT OUTPUT: You must output ONLY a valid JSON object matching the requested input keys. Do not add markdown backticks or introductory text.
+            """
+
+            user_content = f"""Apply IRIS standards to refine each of these five distinct rows individually:
+
+            ROW 1 (presentEvaluation):
+            "{eval_results}"
+            -> Refine into a clear, professional baseline evaluation text statement.
+
+            ROW 2 (academicStrengths):
+            "{strengths}"
+            -> Refine into an objective, strength-focused performance text statement.
+
+            ROW 3 (academicNeeds):
+            "{needs}"
+            -> Refine into a precise, actionable accommodation/need text statement.
+
+            ROW 4 (parentalConcerns):
+            "{concerns}"
+            -> Refine into a formal, clear representation of parental priorities.
+
+            ROW 5 (curriculumImpact):
+            "{impact}"
+            -> Refine into a legally compliant description of how the disability hinders general education curriculum progress.
+
+            Return your exact corrections using this identical JSON structure:
+            {{
+                "presentEvaluation": "Polished ROW 1 text here",
+                "academicStrengths": "Polished ROW 2 text here",
+                "academicNeeds": "Polished ROW 3 text here",
+                "parentalConcerns": "Polished ROW 4 text here",
+                "curriculumImpact": "Polished ROW 5 text here"
+            }}"""
+
+            # 4. Route payload over local network pipeline loop to Ollama instance
+            payload = {
+                "model": "llama3.2:3b", 
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_content}
+                ],
+                "stream": False,
+                "format": "json", 
+                "options": {"temperature": 0.1}
+            }
+
+            ollama_response = requests.post("http://localhost:11434/api/chat", json=payload, timeout=30)
+            if ollama_response.status_code != 200:
+                return Response({
+                    "error": "Local execution engine execution timeout or failure."
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            # 5. Deserialize AI response string and update structural attributes
+            ai_text = ollama_response.json()['message']['content']
+            standardized_plaafp = json.loads(ai_text)
+
+            preferences_data['presentEvaluation'] = standardized_plaafp.get('presentEvaluation', eval_results)
+            preferences_data['academicStrengths'] = standardized_plaafp.get('academicStrengths', strengths)
+            preferences_data['academicNeeds'] = standardized_plaafp.get('academicNeeds', needs)
+            preferences_data['parentalConcerns'] = standardized_plaafp.get('parentalConcerns', concerns)
+            preferences_data['curriculumImpact'] = standardized_plaafp.get('curriculumImpact', impact)
+
+            # Re-serialize dictionary mapping back to preferences text column
+            student.preferences = json.dumps(preferences_data)
+            
+            # Commit mutations back down to PostgreSQL
+            student.assessmentResult = preferences_data['presentEvaluation']
+            student.support_needs = preferences_data['academicNeeds']
+            student.save()
+
+            return Response({
+                "message": "PLAAFP entries successfully standardized according to IRIS criteria.",
+                "standardized_data": standardized_plaafp
+            }, status=status.HTTP_200_OK)
+
+        except StudentProfile.DoesNotExist:
+            return Response({
+                "error": "Targeted profile resource not found or access boundary isolation violation."
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
