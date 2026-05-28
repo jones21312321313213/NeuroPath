@@ -181,6 +181,9 @@ export const iepAPI = {
     }),
   delete: (id) => request(`/iep/delete/${id}/`, { method: "DELETE" }),
 
+  // Fetch all IEPGoal rows (with nested objective_rows) for a specific IEP
+  listGoalsByIep: (iepId) => request(`/iep/goals/?iep=${iepId}`),
+
   // 🎯 FIXED: Now pointing to the correct /iep/ routes from your urls.py!
   getInsights: (studentId) => request(`/iep/student/${studentId}/insights/`),
 
