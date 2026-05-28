@@ -927,6 +927,50 @@ export default function IEPGenerationPage({ mode = "generate" }) {
     });
   };
 
+  // Difficulty rows helpers
+  const addDifficultyRow = () =>
+    setForm((prev) => ({
+      ...prev,
+      difficultyMarkers: [...prev.difficultyMarkers, ""],
+    }));
+
+  const updateDifficultyRow = (index, value) =>
+    setForm((prev) => ({
+      ...prev,
+      difficultyMarkers: prev.difficultyMarkers.map((item, i) =>
+        i === index ? value : item,
+      ),
+    }));
+
+  const removeDifficultyRow = (index) =>
+    setForm((prev) => ({
+      ...prev,
+      difficultyMarkers: prev.difficultyMarkers.filter((_, i) => i !== index),
+    }));
+
+  // Assistive technology rows helpers
+  const addAssistiveTechRow = () =>
+    setForm((prev) => ({
+      ...prev,
+      assistiveTechnologies: [...prev.assistiveTechnologies, ""],
+    }));
+
+  const updateAssistiveTechRow = (index, value) =>
+    setForm((prev) => ({
+      ...prev,
+      assistiveTechnologies: prev.assistiveTechnologies.map((item, i) =>
+        i === index ? value : item,
+      ),
+    }));
+
+  const removeAssistiveTechRow = (index) =>
+    setForm((prev) => ({
+      ...prev,
+      assistiveTechnologies: prev.assistiveTechnologies.filter(
+        (_, i) => i !== index,
+      ),
+    }));
+
   const updateBarrierRow = (index, field, value) => {
     setForm((prev) => ({
       ...prev,
@@ -1308,45 +1352,66 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                   <div className="form-two-col-sections">
                     <div>
                       <h3 className="iep-small-title">Difficulties</h3>
-                      <div className="iep-check-grid single">
-                        {[
-                          "Difficulty in Communicating",
-                          "Difficulty in displaying Interpersonal Behavior",
-                        ].map((option) => (
-                          <label key={option} className="iep-check-option">
+                      <div className="iep-input-row-list">
+                        {form.difficultyMarkers.map((item, index) => (
+                          <div key={index} className="iep-input-row-item">
                             <input
-                              type="radio"
-                              name="difficultyMarkers"
-                              checked={form.difficultyMarkers.includes(option)}
-                              onChange={() =>
-                                setForm((prev) => ({
-                                  ...prev,
-                                  difficultyMarkers: [option],
-                                }))
+                              className="form-input"
+                              value={item}
+                              onChange={(e) =>
+                                updateDifficultyRow(index, e.target.value)
                               }
+                              placeholder={`Difficulty ${index + 1}`}
                             />
-                            <span>{option}</span>
-                          </label>
+                            <button
+                              type="button"
+                              className="iep-link-danger"
+                              onClick={() => removeDifficultyRow(index)}
+                            >
+                              ✕
+                            </button>
+                          </div>
                         ))}
+                        <button
+                          type="button"
+                          className="btn btn-back iep-add-row-inline"
+                          onClick={addDifficultyRow}
+                        >
+                          + Add Row
+                        </button>
                       </div>
                     </div>
                     <div>
                       <h3 className="iep-small-title">
                         Assistive Technologies Needed
                       </h3>
-                      <div className="iep-check-grid single scrollable">
-                        {assistiveTechnologyOptions.map((option) => (
-                          <CheckOption
-                            key={option}
-                            label={option}
-                            checked={form.assistiveTechnologies.includes(
-                              option,
-                            )}
-                            onChange={() =>
-                              toggleListValue("assistiveTechnologies", option)
-                            }
-                          />
+                      <div className="iep-input-row-list">
+                        {form.assistiveTechnologies.map((item, index) => (
+                          <div key={index} className="iep-input-row-item">
+                            <input
+                              className="form-input"
+                              value={item}
+                              onChange={(e) =>
+                                updateAssistiveTechRow(index, e.target.value)
+                              }
+                              placeholder={`Technology ${index + 1}`}
+                            />
+                            <button
+                              type="button"
+                              className="iep-link-danger"
+                              onClick={() => removeAssistiveTechRow(index)}
+                            >
+                              ✕
+                            </button>
+                          </div>
                         ))}
+                        <button
+                          type="button"
+                          className="btn btn-back iep-add-row-inline"
+                          onClick={addAssistiveTechRow}
+                        >
+                          + Add Row
+                        </button>
                       </div>
                     </div>
                   </div>

@@ -682,6 +682,8 @@
 .iep-action-cell {
   width: 90px;
   text-align: center;
+  vertical-align: middle;
+  padding: 0;
 }
 .iep-link-danger {
   border: none;
@@ -710,6 +712,25 @@
   margin-bottom: 16px;
   padding-left: 16px;
   padding-right: 16px;
+}
+.iep-input-row-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.iep-input-row-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.iep-input-row-item .form-input {
+  flex: 1;
+}
+.iep-add-row-inline {
+  align-self: flex-start;
+  margin-top: 4px;
+  font-size: 12.5px;
+  padding: 6px 14px;
 }
 .iep-info-block {
   background: #f7fafd;
