@@ -1574,10 +1574,8 @@ export default function IEPGenerationPage({ mode = "generate" }) {
 
                   <div className="form-group" style={{ marginTop: "1.25rem" }}>
                     <label className="form-label">
-                      Additional Instructions for AI{" "}
-                      <span className="iep-muted" style={{ fontWeight: 400 }}>
-                        (optional)
-                      </span>
+                      Describe what you want the AI to focus on when generating
+                      this student's IEP goals for the selected subject.
                     </label>
                     <textarea
                       className="form-textarea"

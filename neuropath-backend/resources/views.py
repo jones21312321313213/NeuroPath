@@ -1,5 +1,12 @@
 from django.db.models import Q
 import io
+import re
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.units import mm
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status,viewsets
@@ -808,21 +815,188 @@ class StrategyQueryFilterService:
 # =====================================================================
 # SDD COMPONENT: StrategyBinaryExportEngine
 # Description: Background processing class that handles dynamic print operations,
-#              parsing text strings into an outgoing binary PDF stream.
+#              parsing text strings into an outgoing binary PDF stream using ReportLab.
 # =====================================================================
 class StrategyBinaryExportEngine:
     @staticmethod
     def generate_pdf_stream(strategy_record):
-        # Generates a standard PDF byte stream for local download
         buffer = io.BytesIO()
-        buffer.write(b"%PDF-1.4\n")
-        
-        # Inject standard layout maps and text strings
-        buffer.write(f"Teaching Strategy Guide: {strategy_record.title}\n\n".encode('utf-8'))
-        buffer.write(f"Prepared for Student ID: {strategy_record.student.pk}\n".encode('utf-8'))
-        buffer.write(b"--------------------------------------------------\n\n")
-        buffer.write(strategy_record.strategyContent.encode('utf-8'))
-        
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=20 * mm,
+            leftMargin=20 * mm,
+            topMargin=20 * mm,
+            bottomMargin=20 * mm,
+        )
+
+        # ── Styles ──────────────────────────────────────────────────────
+        base = getSampleStyleSheet()
+
+        style_title = ParagraphStyle(
+            'DocTitle',
+            parent=base['Title'],
+            fontSize=18,
+            leading=24,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold',
+            spaceAfter=6,
+        )
+        style_label = ParagraphStyle(
+            'MetaLabel',
+            parent=base['Normal'],
+            fontSize=10,
+            fontName='Helvetica-Bold',
+            leading=14,
+        )
+        style_value = ParagraphStyle(
+            'MetaValue',
+            parent=base['Normal'],
+            fontSize=10,
+            fontName='Helvetica',
+            leading=14,
+        )
+        style_section_heading = ParagraphStyle(
+            'SectionHeading',
+            parent=base['Normal'],
+            fontSize=11,
+            fontName='Helvetica-Bold',
+            leading=16,
+            spaceBefore=10,
+            spaceAfter=4,
+        )
+        style_body = ParagraphStyle(
+            'BodyText',
+            parent=base['Normal'],
+            fontSize=10,
+            fontName='Helvetica',
+            leading=15,
+            leftIndent=0,
+        )
+        style_content_box = ParagraphStyle(
+            'ContentBox',
+            parent=base['Normal'],
+            fontSize=10,
+            fontName='Helvetica',
+            leading=15,
+            textColor=colors.white,
+        )
+
+        # ── Helpers ─────────────────────────────────────────────────────
+        def parse_content_to_flowables(raw_text):
+            """
+            Converts the AI markdown output into styled ReportLab flowables.
+            **Title:** → bold section heading (plain text, no black box)
+            * **Subtitle:** → bold sub-heading inside a black content box
+            + bullet line → plain line inside the same black content box
+            """
+            flowables = []
+            lines = raw_text.strip().splitlines()
+
+            current_box_lines = []  # buffer lines that go into a black box
+
+            def flush_box():
+                """Render buffered lines as a single black-background table cell."""
+                if not current_box_lines:
+                    return
+                content_html = '<br/>'.join(current_box_lines)
+                p = Paragraph(content_html, style_content_box)
+                tbl = Table([[p]], colWidths=[doc.width])
+                tbl.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, -1), colors.black),
+                    ('TOPPADDING',    (0, 0), (-1, -1), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+                    ('LEFTPADDING',   (0, 0), (-1, -1), 12),
+                    ('RIGHTPADDING',  (0, 0), (-1, -1), 12),
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ]))
+                flowables.append(tbl)
+                flowables.append(Spacer(1, 6))
+                current_box_lines.clear()
+
+            for line in lines:
+                stripped = line.strip()
+                if not stripped:
+                    flush_box()
+                    continue
+
+                # Top-level section heading: **Some Title:**
+                top_heading_match = re.match(r'^\*\*(.+?)\*\*\s*$', stripped)
+                if top_heading_match:
+                    flush_box()
+                    heading_text = top_heading_match.group(1).rstrip(':')
+                    flowables.append(Paragraph(heading_text, style_section_heading))
+                    continue
+
+                # Sub-heading inside box: * **Subtitle:**  or  * **Subtitle:** more text
+                sub_heading_match = re.match(r'^\*\s+\*\*(.+?)\*\*(.*)$', stripped)
+                if sub_heading_match:
+                    flush_box()
+                    sub_title = sub_heading_match.group(1).rstrip(':')
+                    extra = sub_heading_match.group(2).strip()
+                    if extra:
+                        line_html = f'<b>{sub_title}:</b> {extra}'
+                    else:
+                        line_html = f'<b>{sub_title}</b>'
+                    current_box_lines.append(line_html)
+                    continue
+
+                # Detail bullet: + some detail text
+                detail_match = re.match(r'^\+\s+(.+)$', stripped)
+                if detail_match:
+                    current_box_lines.append(detail_match.group(1))
+                    continue
+
+                # Fallback: plain paragraph (flush any open box first)
+                flush_box()
+                flowables.append(Paragraph(stripped, style_body))
+
+            flush_box()
+            return flowables
+
+        # ── Build document elements ──────────────────────────────────────
+        elements = []
+
+        # Title
+        elements.append(Paragraph(strategy_record.title, style_title))
+        elements.append(Spacer(1, 4 * mm))
+
+        # Student / Date meta row
+        student_name = "N/A"
+        try:
+            student_name = strategy_record.iep_goal.iep.studentID.name
+        except Exception:
+            pass
+
+        date_str = strategy_record.dateCreated.strftime("%B %d, %Y") if strategy_record.dateCreated else "N/A"
+
+        meta_table = Table(
+            [[
+                Paragraph('<b>Student</b>', style_label),
+                Paragraph('<b>Date Created</b>', style_label),
+            ], [
+                Paragraph(student_name, style_value),
+                Paragraph(date_str, style_value),
+            ]],
+            colWidths=[doc.width / 2, doc.width / 2],
+        )
+        meta_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(meta_table)
+        elements.append(Spacer(1, 6 * mm))
+
+        # Section heading
+        elements.append(Paragraph('<b>Strategy Content</b>', style_section_heading))
+        elements.append(Spacer(1, 2 * mm))
+
+        # Parsed AI content
+        elements.extend(parse_content_to_flowables(strategy_record.strategyContent))
+
+        doc.build(elements)
         buffer.seek(0)
         return buffer
     
