@@ -16,10 +16,24 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path,include
+from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+
+@ensure_csrf_cookie
+def get_csrf(request):
+    """
+    GET /api/csrf/ — Forces Django to set the csrftoken cookie.
+    The frontend calls this once on app load so the cookie is available
+    for subsequent PATCH/POST requests that need X-CSRFToken.
+    """
+    return JsonResponse({"detail": "CSRF cookie set"})
 
 urlpatterns = [
 path('admin/', admin.site.urls),
     
+    # CSRF primer endpoint — call GET /api/csrf/ on app load
+    path('api/csrf/', get_csrf, name='get-csrf'),
+
     # Module 1: User Management App
     path('api/users/', include('users.urls')),
     

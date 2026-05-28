@@ -297,6 +297,10 @@ class TeacherProfileUpdateController(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Capture the OLD email before overwriting it, so we can locate the
+        # Teacher mirror-row that still holds the original address.
+        old_email = user.email
+
         # Update the Django User row
         user.first_name = first_name
         user.last_name  = last_name
@@ -306,9 +310,10 @@ class TeacherProfileUpdateController(APIView):
             user.set_password(password)
         user.save()
 
-        # Keep the Teacher mirror-row in sync
+        # Keep the Teacher mirror-row in sync using the OLD email address.
+        # (Using user.email here would be wrong — it's already the new value.)
         from .models import Teacher
-        Teacher.objects.filter(email__iexact=user.email).update(
+        Teacher.objects.filter(email__iexact=old_email).update(
             name=f"{first_name} {last_name}".strip(),
             email=email,
         )

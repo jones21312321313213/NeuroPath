@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useEffect } from "react";
 import axios from "axios";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
@@ -13,6 +13,13 @@ export function AuthProvider({ children }) {
       return null;
     }
   });
+
+  // Prime the Django csrftoken cookie as soon as the app loads.
+  // Without this, the cookie may not exist on the first PATCH request
+  // and Django's CsrfViewMiddleware will return 403 Forbidden.
+  useEffect(() => {
+    fetch(`${BASE_URL}/csrf/`, { credentials: "include" }).catch(() => {});
+  }, []);
 
   const login = async (email, password) => {
     const response = await axios.post(
@@ -41,8 +48,7 @@ export function AuthProvider({ children }) {
 
   // ── Update teacher profile ─────────────────────────────
   // Sends JSON to PATCH /api/users/profile/update/
-  // The backend identifies the user via session cookie (withCredentials)
-  // and falls back to the `id` field if the session isn't set.
+  // The backend identifies the user via the `id` field in the body.
   const updateUser = useCallback(
     async (formData) => {
       // Convert FormData → plain object so we can send JSON
@@ -57,9 +63,21 @@ export function AuthProvider({ children }) {
       const password = formData.get("password");
       if (password) body.password = password;
 
+      // Read the CSRF token that Django sets as a cookie so the
+      // CsrfViewMiddleware accepts this cross-origin PATCH request.
+      const csrfToken =
+        document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("csrftoken="))
+          ?.split("=")[1] || "";
+
       const response = await fetch(`${BASE_URL}/users/profile/update/`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          // Django's CSRF middleware checks this header on unsafe methods.
+          "X-CSRFToken": csrfToken,
+        },
         credentials: "include", // sends the Django session cookie
         body: JSON.stringify(body),
       });
@@ -77,7 +95,9 @@ export function AuthProvider({ children }) {
         throw new Error(message);
       }
 
-      // Merge updated fields back into React state + localStorage
+      // Merge updated fields back into React state + localStorage.
+      // We spread `user` first so existing fields (like profile_picture)
+      // are preserved when the backend response omits them.
       const updated = { ...user, ...data };
       localStorage.setItem("neuropath_user", JSON.stringify(updated));
       setUser(updated);

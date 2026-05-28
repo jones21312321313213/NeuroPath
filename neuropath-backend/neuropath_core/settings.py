@@ -52,6 +52,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # CorsMiddleware MUST come before CommonMiddleware and CsrfViewMiddleware
+    # so that CORS preflight OPTIONS requests are handled before Django rejects them.
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -59,7 +62,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'neuropath_core.urls'
@@ -151,3 +153,11 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+# ── SESSION & CSRF COOKIE SETTINGS ──────────────────────────────────────────
+# Without these, modern browsers silently drop cross-origin cookies, so the
+# Django session (and therefore the CSRF token) never reaches the backend.
+SESSION_COOKIE_SAMESITE = "Lax"   # "Lax" is safe for same-host dev; use "None" only with HTTPS
+SESSION_COOKIE_SECURE = False      # Set True in production (requires HTTPS)
+CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SECURE = False         # Set True in production
+CSRF_COOKIE_HTTPONLY = False       # Must be False so JS can read it for the X-CSRFToken header
