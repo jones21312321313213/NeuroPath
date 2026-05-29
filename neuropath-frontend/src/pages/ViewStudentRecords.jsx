@@ -1,14 +1,13 @@
 import { useState, useEffect } from "react";
 import "../styles/OutcomeMonitoring.css";
 import "../styles/ViewStudentRecords.css";
-import { studentsAPI } from "../api/client";
+import { iepAPI, studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import StudentShimmer from "../components/StudentShimmer";
 
 // ── Placeholder data shown when backend fields are missing ─────────────────
 const PLACEHOLDER = {
   name: "Juan dela Cruz",
-  studentID: "12",
   age: "11",
   grade: "6",
   gender: "Male",
@@ -16,7 +15,6 @@ const PLACEHOLDER = {
   schoolYear: "2026-2027",
   birthdate: "10-15-1920",
   disabilityCategory: "Autism Spectrum Disorder",
-  profileStatus: "Active",
   diagnosisDetails: "Cannot eat without eating.",
   difficultyMarkers: [],
   presentEvaluation:
@@ -29,8 +27,11 @@ const PLACEHOLDER = {
     "Parents are deeply concerned about his reading frustration leading to task avoidance behaviors at home.",
   curriculumImpact:
     "The learner's reading processing deficits significantly restrict his ability to comprehend word problems independently.",
-  aiAccommodations:
-    "Provide a high-contrast visual schedule track, break multi-sentence tasks into single-step prompts, offer tactile tracking pointers, and allow sensory breaks after 15 minutes of continuous text interaction.",
+  aiAccommodations: "",
+  barrierRows: [],
+  learnerGoals: [],
+  iepVersion: "",
+  iepDate: "",
 };
 
 function EmptyState({ message }) {
@@ -60,6 +61,82 @@ function RecordTextarea({ label, value }) {
     <div className="vsr-field-group vsr-field-full">
       <span className="vsr-field-label">{label}</span>
       <div className="vsr-field-textarea">{value || "—"}</div>
+    </div>
+  );
+}
+
+function normalizeGeneratedDetails(iep) {
+  const raw = iep?.generatedDetails || iep?.details || null;
+  if (!raw) return {};
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  }
+  return typeof raw === "object" ? raw : {};
+}
+
+function buildBarrierRowsFromIep(iep) {
+  const details = normalizeGeneratedDetails(iep);
+  if (Array.isArray(details.barrierRows) && details.barrierRows.length) {
+    return details.barrierRows;
+  }
+  const difficulties = (iep?.difficulties || "").split("\n").filter(Boolean);
+  const barriers = (iep?.learning_barriers || "").split("\n").filter(Boolean);
+  const facilitators = (iep?.learning_facilitators || "").split("\n").filter(Boolean);
+  const accommodations = (iep?.learning_accommodations || "").split("\n").filter(Boolean);
+  return difficulties.map((difficulty, i) => ({
+    difficulty,
+    barrierQualifier: barriers[i] || "—",
+    facilitator: facilitators[i] || "—",
+    accommodation: accommodations[i] || "—",
+  }));
+}
+
+function normalizeGoal(goal) {
+  return {
+    type: goal.subject_category || goal.goalName || goal.type || "Goal",
+    annualGoal: goal.annual_goal || goal.annualGoal || goal.goalName || "—",
+    rows: (goal.objective_rows || goal.rows || []).map((row, idx) => ({
+      id: row.rowID || row.id || idx,
+      objective: row.enroute_objectives || row.objective || "—",
+      interventions: row.interventions_procedures || row.interventions || "—",
+      timeline: row.timeline_mins_session || row.timeline || "—",
+      responsible: row.individuals_responsible || row.responsible || "—",
+      evaluation: row.progress_instructional || row.evaluation || "—",
+      remarks: row.remarks || "—",
+    })),
+  };
+}
+
+function GoalTable({ rows = [] }) {
+  if (!rows.length) return null;
+  const columns = [
+    ["objective", "Enroute Objectives / Procedure"],
+    ["interventions", "Interventions / Activities / Procedure"],
+    ["timeline", "Timeline / Session"],
+    ["responsible", "Individuals Responsible"],
+    ["evaluation", "Progress / Instructional Evaluation"],
+    ["remarks", "Remarks"],
+  ];
+  return (
+    <div className="vsr-table-scroll">
+      <table className="vsr-table vsr-goal-table">
+        <thead>
+          <tr>{columns.map(([, label]) => <th key={label}>{label}</th>)}</tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id}>
+              {columns.map(([field]) => (
+                <td key={field}>{row[field] || "—"}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -95,7 +172,6 @@ function PageSectionA({ d, onNext, onBack }) {
 
       <div className="vsr-grid-2">
         <RecordField label="Student Name" value={d.name} />
-        <RecordField label="Student ID" value={d.studentID} />
         <RecordField label="Age" value={d.age} />
         <RecordField label="Grade Level" value={d.grade} />
         <RecordField label="Gender" value={d.gender} />
@@ -103,7 +179,6 @@ function PageSectionA({ d, onNext, onBack }) {
         <RecordField label="School Year" value={d.schoolYear} />
         <RecordField label="Birthdate" value={d.birthdate} />
         <RecordField label="Diagnosis" value={d.disabilityCategory} />
-        <RecordField label="Status" value={d.profileStatus} />
       </div>
 
       <RecordTextarea
@@ -179,51 +254,142 @@ function PagePresentLevels({ d, onNext, onBack }) {
 
 // ── PAGE 3: Section B + AI + Section C ────────────────────────────────────
 function PageSectionBC({ d, onBack }) {
+  const handleExport = () => {
+    const goalHtml = (d.learnerGoals || [])
+      .map(
+        (goal) => `
+          <section class="pdf-card">
+            <h3>${goal.type || "Goal"} — Annual Goal / Long Term</h3>
+            <p>${goal.annualGoal || "—"}</p>
+            ${
+              goal.rows?.length
+                ? `<table><thead><tr><th>Enroute Objectives / Procedure</th><th>Interventions / Activities / Procedure</th><th>Timeline / Session</th><th>Individuals Responsible</th><th>Progress / Instructional Evaluation</th><th>Remarks</th></tr></thead><tbody>${goal.rows
+                    .map(
+                      (row) => `<tr><td>${row.objective || "—"}</td><td>${row.interventions || "—"}</td><td>${row.timeline || "—"}</td><td>${row.responsible || "—"}</td><td>${row.evaluation || "—"}</td><td>${row.remarks || "—"}</td></tr>`,
+                    )
+                    .join("")}</tbody></table>`
+                : ""
+            }
+          </section>`,
+      )
+      .join("");
+
+    const barrierHtml = (d.barrierRows || []).length
+      ? (d.barrierRows || [])
+          .map(
+            (row) => `<tr><td>${row.difficulty || "—"}</td><td>${row.barrierQualifier || "—"}</td><td>${row.facilitator || "—"}</td><td>${row.accommodation || "—"}</td></tr>`,
+          )
+          .join("")
+      : `<tr><td colspan="4">No Section B details available.</td></tr>`;
+
+    const html = `<!doctype html><html><head><title>Student Record</title><style>
+      @page { size: A4; margin: 14mm; }
+      body { font-family: Arial, Helvetica, sans-serif; color: #111; font-size: 11px; line-height: 1.45; }
+      h1 { font-size: 18px; margin: 0 0 8px; color: #111; }
+      h2 { font-size: 14px; margin: 18px 0 8px; color: #111; }
+      h3 { font-size: 12px; margin: 0 0 8px; color: #111; }
+      .meta { margin-bottom: 12px; color: #111; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; margin-bottom: 14px; }
+      .field strong { display: inline-block; min-width: 110px; }
+      .box, .pdf-card { border: 1px solid #cfd8e3; border-radius: 6px; padding: 10px; margin-bottom: 10px; page-break-inside: avoid; }
+      table { width: 100%; border-collapse: collapse; margin-top: 8px; page-break-inside: auto; }
+      th, td { border: 1px solid #cfd8e3; padding: 7px; vertical-align: top; color: #111; }
+      th { background: #f2f4f7; font-weight: 700; }
+      p { margin: 4px 0 8px; }
+    </style></head><body>
+      <h1>Student Record</h1>
+      <div class="meta">IEP Version: ${d.iepVersion || "—"} ${d.iepDate ? `• ${d.iepDate}` : ""}</div>
+      <div class="grid">
+        <div class="field"><strong>Name:</strong> ${d.name || "—"}</div>
+        <div class="field"><strong>Age:</strong> ${d.age || "—"}</div>
+        <div class="field"><strong>Grade:</strong> ${d.grade || "—"}</div>
+        <div class="field"><strong>Gender:</strong> ${d.gender || "—"}</div>
+        <div class="field"><strong>School:</strong> ${d.school || "—"}</div>
+        <div class="field"><strong>School Year:</strong> ${d.schoolYear || "—"}</div>
+        <div class="field"><strong>Birthdate:</strong> ${d.birthdate || "—"}</div>
+        <div class="field"><strong>Diagnosis:</strong> ${d.disabilityCategory || "—"}</div>
+      </div>
+      <h2>Present Levels</h2>
+      <div class="box"><strong>Evaluation:</strong><p>${d.presentEvaluation || "—"}</p></div>
+      <div class="box"><strong>Strengths:</strong><p>${d.academicStrengths || "—"}</p></div>
+      <div class="box"><strong>Needs:</strong><p>${d.academicNeeds || "—"}</p></div>
+      <div class="box"><strong>Parental Concerns:</strong><p>${d.parentalConcerns || "—"}</p></div>
+      <div class="box"><strong>Curriculum Impact:</strong><p>${d.curriculumImpact || "—"}</p></div>
+      <h2>Section B: Difficulties, Barriers, and Enabling Supports</h2>
+      <table><thead><tr><th>Difficulty</th><th>Learning Barriers</th><th>Learning Facilitators</th><th>Accommodation</th></tr></thead><tbody>${barrierHtml}</tbody></table>
+      ${d.aiAccommodations ? `<div class="box"><strong>AI-Generated Accommodations / Resources</strong><p>${d.aiAccommodations}</p></div>` : ""}
+      <h2>Section C: Learner's Goals</h2>
+      ${goalHtml || "<p>No learner goals available.</p>"}
+      <script>window.onload = () => { window.print(); };</script>
+    </body></html>`;
+
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+  };
+
   return (
     <div className="vsr-page">
-      {/* Section B */}
       <h3 className="vsr-section-title">
         Section B: Difficulties, Barriers, and Enabling Supports
       </h3>
-      <table className="vsr-table">
-        <thead>
-          <tr>
-            <th>Difficulty</th>
-            <th>Learning Barriers</th>
-            <th>Learning Facilitators</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td colSpan={3} className="vsr-table-empty">
-              No Section B details available.
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/* AI Accommodations */}
-      <div className="vsr-ai-box">
-        <p className="vsr-ai-title">AI-Generated Accommodations / Resources</p>
-        <p className="vsr-ai-text">
-          {d.aiAccommodations || "No AI accommodations generated yet."}
-        </p>
+      <div className="vsr-table-scroll">
+        <table className="vsr-table">
+          <thead>
+            <tr>
+              <th>Difficulty</th>
+              <th>Learning Barriers</th>
+              <th>Learning Facilitators</th>
+              <th>Accommodation</th>
+            </tr>
+          </thead>
+          <tbody>
+            {d.barrierRows?.length ? (
+              d.barrierRows.map((row, i) => (
+                <tr key={i}>
+                  <td>{row.difficulty || "—"}</td>
+                  <td>{row.barrierQualifier || "—"}</td>
+                  <td>{row.facilitator || "—"}</td>
+                  <td>{row.accommodation || "—"}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={4} className="vsr-table-empty">
+                  No Section B details available.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* Section C */}
       <h3 className="vsr-section-title" style={{ marginTop: 24 }}>
         Section C: Learner's Goals
       </h3>
-      <div className="vsr-goals-box">
-        <p className="vsr-goals-header">Goals</p>
-        <p className="vsr-goals-empty">No information available.</p>
-      </div>
+      {d.learnerGoals?.length ? (
+        d.learnerGoals.map((goal, idx) => (
+          <div key={`${goal.type}-${idx}`} className="vsr-goal-card">
+            <h4>{goal.type} — Annual Goal / Long Term</h4>
+            <p>{goal.annualGoal}</p>
+            <GoalTable rows={goal.rows} />
+          </div>
+        ))
+      ) : (
+        <div className="vsr-goals-box">
+          <p className="vsr-goals-empty">No learner goals available.</p>
+        </div>
+      )}
 
       <div className="vsr-page-actions">
         <button className="btn btn-back" onClick={onBack}>
           ← Previous
         </button>
-        <button className="btn om-export-btn">EXPORT</button>
+        <button className="btn om-export-btn vsr-export-pdf-btn" onClick={handleExport}>
+          EXPORT PDF
+        </button>
       </div>
     </div>
   );
@@ -260,50 +426,62 @@ export default function ViewStudentRecords() {
 
     studentsAPI
       .get(s.studentID)
-      .then((res) => {
+      .then(async (res) => {
         const raw = res.data || res;
-        // Merge top-level fields + profileDetails JSON into one flat object,
-        // falling back to PLACEHOLDER so the UI is never empty.
         const pd = raw.profileDetails || {};
+
+        let latestIep = null;
+        let learnerGoals = [];
+        try {
+          const iepRes = await iepAPI.listByStudent(s.studentID, user?.id);
+          const iepList = Array.isArray(iepRes) ? iepRes : iepRes.results || iepRes.data || [];
+          latestIep = iepList[0] || null;
+          if (latestIep?.iepID) {
+            const goalRes = await iepAPI.listGoalsByIep(latestIep.iepID);
+            const goalList = Array.isArray(goalRes) ? goalRes : goalRes.results || goalRes.data || [];
+            learnerGoals = goalList
+              .filter((goal) => goal.subject_category !== "GENERAL" || goal.annual_goal)
+              .map(normalizeGoal);
+
+            const details = normalizeGeneratedDetails(latestIep);
+            if (!learnerGoals.length && Array.isArray(details.learnerGoals)) {
+              learnerGoals = details.learnerGoals.map(normalizeGoal);
+            }
+          }
+        } catch {
+          latestIep = null;
+          learnerGoals = [];
+        }
+
+        const latestDetails = normalizeGeneratedDetails(latestIep);
         setRecordData({
           ...PLACEHOLDER,
-          name: raw.name || pd.studentName || PLACEHOLDER.name,
-          studentID: String(
-            raw.studentID || s.studentID || PLACEHOLDER.studentID,
-          ),
-          age: String(raw.age || PLACEHOLDER.age),
-          grade: String(raw.grade || PLACEHOLDER.grade),
+          name: raw.name || pd.studentName || s.name || PLACEHOLDER.name,
+          age: String(raw.age || s.age || PLACEHOLDER.age),
+          grade: String(raw.grade || s.grade || PLACEHOLDER.grade),
           gender: raw.gender || PLACEHOLDER.gender,
           school: pd.school || PLACEHOLDER.school,
           schoolYear: pd.schoolYear || PLACEHOLDER.schoolYear,
           birthdate: pd.birthdate || PLACEHOLDER.birthdate,
           disabilityCategory:
-            pd.disabilityCategory ||
-            raw.diagnosis ||
-            PLACEHOLDER.disabilityCategory,
-          profileStatus: raw.profileStatus ? "Active" : "Inactive",
+            pd.disabilityCategory || raw.diagnosis || PLACEHOLDER.disabilityCategory,
           diagnosisDetails:
-            pd.diagnosisDetails ||
-            raw.asdBackground ||
-            PLACEHOLDER.diagnosisDetails,
-          difficultyMarkers:
-            pd.difficultyMarkers || PLACEHOLDER.difficultyMarkers,
+            pd.diagnosisDetails || raw.asdBackground || PLACEHOLDER.diagnosisDetails,
+          difficultyMarkers: pd.difficultyMarkers || PLACEHOLDER.difficultyMarkers,
           presentEvaluation:
-            pd.presentEvaluation ||
-            raw.assessmentResult ||
-            PLACEHOLDER.presentEvaluation,
-          academicStrengths:
-            pd.academicStrengths || PLACEHOLDER.academicStrengths,
-          academicNeeds:
-            pd.academicNeeds || raw.support_needs || PLACEHOLDER.academicNeeds,
+            pd.presentEvaluation || raw.assessmentResult || PLACEHOLDER.presentEvaluation,
+          academicStrengths: pd.academicStrengths || PLACEHOLDER.academicStrengths,
+          academicNeeds: pd.academicNeeds || raw.support_needs || PLACEHOLDER.academicNeeds,
           parentalConcerns: pd.parentalConcerns || PLACEHOLDER.parentalConcerns,
           curriculumImpact: pd.curriculumImpact || PLACEHOLDER.curriculumImpact,
-          aiAccommodations:
-            raw.aiAccommodations || PLACEHOLDER.aiAccommodations,
+          aiAccommodations: latestDetails.generatedAccommodations || latestIep?.accommodations || "",
+          barrierRows: buildBarrierRowsFromIep(latestIep),
+          learnerGoals,
+          iepVersion: latestIep?.version || "",
+          iepDate: latestIep?.formattedDate || "",
         });
       })
       .catch(() => {
-        // If the API call fails, show placeholders so the UI still works
         setRecordData({
           ...PLACEHOLDER,
           name: s.name,

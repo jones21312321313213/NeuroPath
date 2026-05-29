@@ -300,3 +300,10 @@
   padding-top: 18px;
   border-top: 1.5px solid #eef3f9;
 }
+
+.vsr-section table thead th,
+.vsr-table thead th,
+.vsr-record-table thead th {
+  color: #ffffff !important;
+}
+
