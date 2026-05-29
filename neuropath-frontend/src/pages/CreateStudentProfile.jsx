@@ -12,14 +12,7 @@ const difficultyOptions = [
   "With Medical Assessment/Diagnosis",
 ];
 
-const diagnosisOptions = [
-  "Autism Spectrum Disorder",
-  "Attention Deficit Hyperactivity Disorder",
-  "Intellectual Disability",
-  "Learning Disability",
-  "Speech or Language Impairment",
-  "Others",
-];
+const diagnosisOptions = ["Autism Spectrum Disorder"];
 
 const genderOptions = ["Male", "Female", "Other", "Prefer not to say"];
 
