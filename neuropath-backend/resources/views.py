@@ -431,8 +431,20 @@ class VisualAidViewSet(viewsets.ModelViewSet):
     # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
 
     def list(self, request, *args, **kwargs):
-        """Matches Sequence Diagram: requestSavedVisualAids() -> return Array urls"""
+        """Return saved visual aids, optionally filtered by student.
+
+        Query params supported:
+        - student_id / studentID: only visual aids connected to that student's saved IEP goals
+        """
         queryset = self.get_queryset()
+
+        student_id = request.query_params.get("student_id") or request.query_params.get("studentID")
+        if student_id:
+            queryset = queryset.filter(iep_goal__iep__studentID_id=student_id)
+        else:
+            # Do not expose every student's visual aids by default.
+            # The frontend should pass the selected student's ID.
+            queryset = queryset.none()
         
         # Matches Sequence Diagram: Handle empty state
         if not queryset.exists():

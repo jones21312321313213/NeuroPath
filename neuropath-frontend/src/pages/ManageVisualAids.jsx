@@ -499,22 +499,42 @@ function GenerateTab() {
 
 // ── View Tab ──────────────────────────────────────────────────────────────────
 function ViewTab() {
+  const { user } = useAuth();
+  const [students, setStudents] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [loadingStudents, setLoadingStudents] = useState(true);
   const [aids, setAids] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchAids = useCallback(() => {
+  useEffect(() => {
+    studentsAPI
+      .list(user?.id)
+      .then(setStudents)
+      .catch(() => setError("Failed to load students."))
+      .finally(() => setLoadingStudents(false));
+  }, [user?.id]);
+
+  const fetchAids = useCallback((studentID) => {
+    if (!studentID) {
+      setAids([]);
+      return;
+    }
+
     setLoading(true);
+    setError("");
     visualAidsAPI
-      .list()
+      .listByStudent(studentID)
       .then(setAids)
-      .catch(() => setError("Failed to load visual aids."))
+      .catch(() => setError("Failed to load visual aids for this student."))
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    fetchAids();
-  }, [fetchAids]);
+  const handleStudentSelect = (student) => {
+    setSelectedStudent(student);
+    setAids([]);
+    fetchAids(student.studentID);
+  };
 
   return (
     <div className="va-card">
@@ -522,25 +542,58 @@ function ViewTab() {
         <div className="va-card-icon">🖼️</div>
         <div>
           <p className="va-card-title">Saved Visual Aids</p>
-          <p className="va-card-subtitle">Browse all generated visual aids</p>
+          <p className="va-card-subtitle">
+            Select a student to view only their generated visual aids
+          </p>
         </div>
       </div>
       <ErrorBanner message={error} />
-      {loading ? (
-        <Loading text="Loading visual aids…" />
-      ) : aids.length === 0 ? (
+
+      <div className="va-step-badge" style={{ marginBottom: 14 }}>
+        <span className="va-step-num">1</span>Choose a Student
+        {selectedStudent && (
+          <span className="va-step-done-chip">✓ {selectedStudent.name}</span>
+        )}
+      </div>
+
+      {loadingStudents ? (
+        <Loading text="Fetching students…" />
+      ) : students.length === 0 ? (
         <EmptyState
-          icon="🖼️"
-          message="No visual aids saved yet. Generate one first."
+          icon="🏫"
+          message="No students found. Add a student profile first."
         />
       ) : (
-        <AidRowList
-          aids={aids}
-          actionLabel="↗ View"
-          onAction={(aid) => window.open(aid.imageUrl, "_blank")}
-          actionClass="va-btn va-btn-primary"
-          showDownload={true}
+        <StudentSelector
+          students={students}
+          selectedStudent={selectedStudent}
+          onSelect={handleStudentSelect}
         />
+      )}
+
+      {selectedStudent && (
+        <div style={{ marginTop: 22 }}>
+          <div className="va-step-badge" style={{ marginBottom: 14 }}>
+            <span className="va-step-num">2</span>{selectedStudent.name}'s Visual Aids
+          </div>
+
+          {loading ? (
+            <Loading text="Loading visual aids…" />
+          ) : aids.length === 0 ? (
+            <EmptyState
+              icon="🖼️"
+              message="No visual aids saved for this student yet. Generate one first."
+            />
+          ) : (
+            <AidRowList
+              aids={aids}
+              actionLabel="↗ View"
+              onAction={(aid) => window.open(aid.imageUrl, "_blank")}
+              actionClass="va-btn va-btn-primary"
+              showDownload={true}
+            />
+          )}
+        </div>
       )}
     </div>
   );
@@ -548,26 +601,47 @@ function ViewTab() {
 
 // ── Delete Tab ────────────────────────────────────────────────────────────────
 function DeleteTab() {
+  const { user } = useAuth();
+  const [students, setStudents] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [loadingStudents, setLoadingStudents] = useState(true);
   const [aids, setAids] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [toDelete, setToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
   const item = aids.find((a) => a.visualAidID === toDelete);
 
-  const fetchAids = useCallback(() => {
+  useEffect(() => {
+    studentsAPI
+      .list(user?.id)
+      .then(setStudents)
+      .catch(() => setError("Failed to load students."))
+      .finally(() => setLoadingStudents(false));
+  }, [user?.id]);
+
+  const fetchAids = useCallback((studentID) => {
+    if (!studentID) {
+      setAids([]);
+      return;
+    }
+
     setLoading(true);
+    setError("");
     visualAidsAPI
-      .list()
+      .listByStudent(studentID)
       .then(setAids)
-      .catch(() => setError("Failed to load visual aids."))
+      .catch(() => setError("Failed to load visual aids for this student."))
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    fetchAids();
-  }, [fetchAids]);
+  const handleStudentSelect = (student) => {
+    setSelectedStudent(student);
+    setToDelete(null);
+    setAids([]);
+    fetchAids(student.studentID);
+  };
 
   const confirmDelete = async () => {
     setDeleting(true);
@@ -589,22 +663,53 @@ function DeleteTab() {
         <div>
           <p className="va-card-title">Delete Visual Aids</p>
           <p className="va-card-subtitle">
-            Permanently remove saved visual aids
+            Select a student, then remove only that student's saved visual aids
           </p>
         </div>
       </div>
       <ErrorBanner message={error} />
-      {loading ? (
-        <Loading text="Loading visual aids…" />
-      ) : aids.length === 0 ? (
-        <EmptyState icon="📭" message="No visual aids to delete." />
-      ) : (
-        <AidRowList
-          aids={aids}
-          actionLabel="Delete"
-          onAction={(aid) => setToDelete(aid.visualAidID)}
-          actionClass="va-btn va-btn-danger"
+
+      <div className="va-step-badge" style={{ marginBottom: 14 }}>
+        <span className="va-step-num">1</span>Choose a Student
+        {selectedStudent && (
+          <span className="va-step-done-chip">✓ {selectedStudent.name}</span>
+        )}
+      </div>
+
+      {loadingStudents ? (
+        <Loading text="Fetching students…" />
+      ) : students.length === 0 ? (
+        <EmptyState
+          icon="🏫"
+          message="No students found. Add a student profile first."
         />
+      ) : (
+        <StudentSelector
+          students={students}
+          selectedStudent={selectedStudent}
+          onSelect={handleStudentSelect}
+        />
+      )}
+
+      {selectedStudent && (
+        <div style={{ marginTop: 22 }}>
+          <div className="va-step-badge" style={{ marginBottom: 14 }}>
+            <span className="va-step-num">2</span>{selectedStudent.name}'s Visual Aids
+          </div>
+
+          {loading ? (
+            <Loading text="Loading visual aids…" />
+          ) : aids.length === 0 ? (
+            <EmptyState icon="📭" message="No visual aids saved for this student." />
+          ) : (
+            <AidRowList
+              aids={aids}
+              actionLabel="Delete"
+              onAction={(aid) => setToDelete(aid.visualAidID)}
+              actionClass="va-btn va-btn-danger"
+            />
+          )}
+        </div>
       )}
 
       {toDelete && (
