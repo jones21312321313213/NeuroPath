@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import "../styles/ManageVisualAids.css";
-import { visualAidsAPI, studentsAPI } from "../api/client";
+import { visualAidsAPI, studentsAPI, iepAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import StudentShimmer from "../components/StudentShimmer";
 
@@ -117,12 +117,23 @@ function AidRowList({
   actionLabel,
   onAction,
   actionClass = "va-btn va-btn-primary",
+  showDownload = false,
 }) {
   return (
     <div className="va-aids-list">
       {aids.map((aid) => (
         <div key={aid.visualAidID} className="va-aid-row">
-          <div className="va-aid-row-icon">🖼️</div>
+          {aid.imageUrl && (
+            <div className="va-aid-row-thumb">
+              <img
+                src={aid.imageUrl}
+                alt={aid.title}
+                onError={(e) => {
+                  e.target.style.display = "none";
+                }}
+              />
+            </div>
+          )}
           <div className="va-aid-row-info">
             <p className="va-aid-row-title">{aid.title}</p>
             <p className="va-aid-row-meta">
@@ -134,6 +145,17 @@ function AidRowList({
             <button className={actionClass} onClick={() => onAction(aid)}>
               {actionLabel}
             </button>
+            {showDownload && aid.imageUrl && (
+              <a
+                href={visualAidsAPI.exportUrl(aid.visualAidID)}
+                target="_blank"
+                rel="noreferrer"
+                className="va-btn va-btn-ghost"
+                style={{ textDecoration: "none", fontSize: 12 }}
+              >
+                ⬇ PDF
+              </a>
+            )}
           </div>
         </div>
       ))}
@@ -144,15 +166,27 @@ function AidRowList({
 // ── Generate Tab ──────────────────────────────────────────────────────────────
 function GenerateTab() {
   const { user } = useAuth();
+
+  // Step 1
   const [students, setStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [goalText, setGoalText] = useState("");
-  const [selectedSkills, setSelectedSkills] = useState([]);
-  const [generated, setGenerated] = useState(null);
-  const [loading, setLoading] = useState(false);
+
+  // Step 2 — IEP Goals for selected student
+  const [goals, setGoals] = useState([]);
+  const [loadingGoals, setLoadingGoals] = useState(false);
+  const [selectedGoal, setSelectedGoal] = useState(null);
+  const [extraPrompt, setExtraPrompt] = useState("");
+
+  // Step 3 — Category
+  const [selectedCategory, setSelectedCategory] = useState(null);
+
+  // Result
+  const [result, setResult] = useState(null); // saved VisualAid record from DB
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
 
+  // Load students on mount
   useEffect(() => {
     studentsAPI
       .list(user?.id)
@@ -161,34 +195,58 @@ function GenerateTab() {
       .finally(() => setLoadingStudents(false));
   }, [user?.id]);
 
-  const toggleSkill = (skill) =>
-    setSelectedSkills((prev) =>
-      prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill],
-    );
+  // Load IEP goals when student is selected
+  useEffect(() => {
+    if (!selectedStudent) return;
+    setLoadingGoals(true);
+    setGoals([]);
+    setSelectedGoal(null);
+    iepAPI
+      .listGoalsByStudent(selectedStudent.studentID)
+      .then(setGoals)
+      .catch(() => setError("Failed to load IEP goals for this student."))
+      .finally(() => setLoadingGoals(false));
+  }, [selectedStudent]);
+
+  const handleStudentSelect = (s) => {
+    setSelectedStudent(s);
+    setSelectedGoal(null);
+    setExtraPrompt("");
+    setSelectedCategory(null);
+    setResult(null);
+    setError("");
+  };
 
   const handleGenerate = async () => {
-    if (!selectedStudent || !goalText) return;
-    setLoading(true);
+    if (!selectedGoal || !selectedCategory) return;
+    setGenerating(true);
     setError("");
+    setResult(null);
     try {
       const data = await visualAidsAPI.generate({
-        studentID: selectedStudent.studentID,
-        goalText,
-        skillCategories: selectedSkills,
+        iep_goal_id: selectedGoal.goalID,
+        prompt: extraPrompt.trim(),
+        category: selectedCategory,
       });
-      setGenerated(data);
+      setResult(data.data);
     } catch (err) {
-      setError(err.message || "Generation failed. Is the AI pipeline running?");
+      setError(
+        err.message ||
+          "Generation failed. Please check the backend is running.",
+      );
     } finally {
-      setLoading(false);
+      setGenerating(false);
     }
   };
 
   const handleReset = () => {
     setSelectedStudent(null);
-    setGoalText("");
-    setSelectedSkills([]);
-    setGenerated(null);
+    setGoals([]);
+    setSelectedGoal(null);
+    setExtraPrompt("");
+    setSelectedCategory(null);
+    setResult(null);
+    setGenerating(false);
     setError("");
   };
 
@@ -196,10 +254,13 @@ function GenerateTab() {
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <ErrorBanner message={error} />
 
-      {/* Step 1 — Pick student */}
+      {/* ── Step 1 — Pick Student ── */}
       <div className="va-card">
         <div className="va-step-badge">
           <span className="va-step-num">1</span>Choose a Student
+          {selectedStudent && (
+            <span className="va-step-done-chip">✓ {selectedStudent.name}</span>
+          )}
         </div>
         {loadingStudents ? (
           <Loading text="Fetching students…" />
@@ -212,69 +273,129 @@ function GenerateTab() {
           <StudentSelector
             students={students}
             selectedStudent={selectedStudent}
-            onSelect={(s) => {
-              setSelectedStudent(s);
-              setGenerated(null);
-              setError("");
-            }}
+            onSelect={handleStudentSelect}
           />
         )}
       </div>
 
-      {/* Step 2 — Visual aid details */}
-      {selectedStudent && !generated && !loading && (
+      {/* ── Step 2 — Pick IEP Goal + optional extra prompt ── */}
+      {selectedStudent && (
         <div className="va-card">
           <div className="va-step-badge">
-            <span className="va-step-num">2</span>Visual Aid Details
+            <span className="va-step-num">2</span>IEP Goal &amp; Prompt
+            {selectedGoal && (
+              <span className="va-step-done-chip">✓ Goal selected</span>
+            )}
           </div>
-          <p style={{ fontSize: 13, color: "#5a7491", marginBottom: 18 }}>
-            Creating a visual aid for{" "}
+          <p style={{ fontSize: 13, color: "#5a7491", marginBottom: 14 }}>
+            Select an existing IEP goal for{" "}
             <strong style={{ color: "#1a2b40" }}>{selectedStudent.name}</strong>
+            , then optionally describe what you'd like the visual to show.
           </p>
 
-          <div className="va-form-group">
-            <label className="va-form-label">IEP Goal / Topic</label>
+          {loadingGoals ? (
+            <Loading text="Loading IEP goals…" />
+          ) : goals.length === 0 ? (
+            <EmptyState
+              icon="📋"
+              message="No IEP goals found for this student. Generate an IEP first."
+            />
+          ) : (
+            <div className="va-form-group">
+              <label className="va-form-label">Select IEP Goal</label>
+              <div className="va-goal-list">
+                {goals.map((g) => {
+                  const isSelected = selectedGoal?.goalID === g.goalID;
+                  return (
+                    <div
+                      key={g.goalID}
+                      className={`va-goal-item ${isSelected ? "selected" : ""}`}
+                      onClick={() => {
+                        setSelectedGoal(g);
+                        setResult(null);
+                      }}
+                    >
+                      <div className="va-goal-radio">
+                        {isSelected ? "●" : "○"}
+                      </div>
+                      <div className="va-goal-text">
+                        <span className="va-goal-category">
+                          {g.subject_category || "General"}
+                        </span>
+                        <span className="va-goal-annual">
+                          {g.annual_goal || "No goal text"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="va-form-group" style={{ marginTop: 14 }}>
+            <label className="va-form-label">
+              Additional Prompt{" "}
+              <span style={{ fontWeight: 400, color: "#8a9ab5" }}>
+                (optional)
+              </span>
+            </label>
             <textarea
               className="va-form-textarea"
-              placeholder="Describe the IEP goal this visual aid should support…"
-              value={goalText}
-              onChange={(e) => setGoalText(e.target.value)}
+              placeholder="e.g. Show a child raising their hand in class, simple cartoon style…"
+              value={extraPrompt}
+              onChange={(e) => {
+                setExtraPrompt(e.target.value);
+                setResult(null);
+              }}
+              style={{ minHeight: 72 }}
             />
           </div>
+        </div>
+      )}
 
-          <div className="va-form-group">
-            <label className="va-form-label">Skill Categories</label>
-            <div className="va-skill-grid">
-              {SKILL_CATEGORIES.map(({ label, icon }) => {
-                const checked = selectedSkills.includes(label);
-                return (
-                  <label
-                    key={label}
-                    className={`va-skill-label ${checked ? "checked" : ""}`}
-                  >
-                    <input
-                      type="checkbox"
-                      className="va-skill-checkbox"
-                      checked={checked}
-                      onChange={() => toggleSkill(label)}
-                    />
-                    <span className="va-skill-icon">{icon}</span>
-                    <span>{label}</span>
-                  </label>
-                );
-              })}
-            </div>
+      {/* ── Step 3 — Pick Category ── */}
+      {selectedStudent && selectedGoal && !result && !generating && (
+        <div className="va-card">
+          <div className="va-step-badge">
+            <span className="va-step-num">3</span>Skill Category
+          </div>
+          <p style={{ fontSize: 13, color: "#5a7491", marginBottom: 14 }}>
+            Choose the skill area this visual aid targets.
+          </p>
+          <div className="va-skill-grid">
+            {SKILL_CATEGORIES.map(({ label, icon }) => {
+              const checked = selectedCategory === label;
+              return (
+                <label
+                  key={label}
+                  className={`va-skill-label ${checked ? "checked" : ""}`}
+                  onClick={() => setSelectedCategory(label)}
+                  style={{ cursor: "pointer" }}
+                >
+                  <input
+                    type="radio"
+                    name="skill_category"
+                    className="va-skill-checkbox"
+                    checked={checked}
+                    onChange={() => setSelectedCategory(label)}
+                  />
+                  <span className="va-skill-icon">{icon}</span>
+                  <span>{label}</span>
+                </label>
+              );
+            })}
           </div>
 
-          <div className="va-actions" style={{ marginTop: 8 }}>
+          <div className="va-actions" style={{ marginTop: 16 }}>
             <button className="va-btn va-btn-ghost" onClick={handleReset}>
               ↩ Reset
             </button>
             <button
               className="va-generate-btn"
               onClick={handleGenerate}
-              disabled={!goalText}
-              style={{ maxWidth: 240 }}
+              disabled={!selectedCategory}
+              style={{ maxWidth: 260, opacity: selectedCategory ? 1 : 0.5 }}
             >
               <span>🖼️</span>
               Generate Visual Aid
@@ -283,69 +404,68 @@ function GenerateTab() {
         </div>
       )}
 
-      {/* AI loading */}
-      {loading && (
+      {/* ── Generating spinner ── */}
+      {generating && (
         <div className="va-card">
           <div className="va-ai-generating">
             <div className="va-ai-orb">🎨</div>
             <p className="va-ai-label">Generating Visual Aid…</p>
             <p className="va-ai-sub">
-              Crafting a personalised visual aid based on the IEP goal
+              The AI is crafting your image — this usually takes 15–30 seconds
             </p>
           </div>
         </div>
       )}
 
-      {/* Step 3 — Result */}
-      {generated && !loading && (
+      {/* ── Step 4 — Result (saved to DB) ── */}
+      {result && !generating && (
         <div className="va-card">
           <div className="va-step-badge">
-            <span className="va-step-num">3</span>Review Result
+            <span className="va-step-num">4</span>Generated &amp; Saved ✓
           </div>
 
           <div className="va-detail-hero">
-            <h2 className="va-detail-title">
-              {generated.data?.title || "AI-Generated Visual Aid"}
-            </h2>
+            <h2 className="va-detail-title">{result.title}</h2>
             <div className="va-detail-meta">
               <div className="va-meta-chip">
                 <span>👤</span>
-                {selectedStudent?.name}
+                {result.studentName}
               </div>
               <div className="va-meta-chip">
-                <span>📋</span>
-                {goalText.slice(0, 52)}
-                {goalText.length > 52 ? "…" : ""}
+                <span>🎯</span>
+                {selectedCategory}
+              </div>
+              <div className="va-meta-chip">
+                <span>💾</span>Saved to database (ID #{result.visualAidID})
               </div>
             </div>
           </div>
 
           <div className="va-output-box">
             <div className="va-output-label">
-              AI Visual Aid Output
+              AI-Generated Visual Aid
               <div className="va-output-label-line" />
             </div>
             <div className="va-preview-wrap">
-              {generated.data?.imageUrl ? (
-                <img
-                  src={generated.data.imageUrl}
-                  alt="Generated visual aid"
-                  className="va-preview-img"
-                />
-              ) : (
-                <div className="va-preview-placeholder">
-                  <span className="va-preview-placeholder-icon">🖼️</span>
-                  <span className="va-preview-placeholder-text">
-                    Visual aid preview will appear here
-                  </span>
-                </div>
-              )}
-              {generated.data?.title && (
-                <p className="va-preview-title">{generated.data.title}</p>
-              )}
-              {generated.message && (
-                <p className="va-preview-sub">{generated.message}</p>
-              )}
+              <img
+                src={result.imageUrl}
+                alt="AI-generated visual aid"
+                className="va-preview-img"
+                onError={(e) => {
+                  e.target.style.display = "none";
+                  e.target.nextSibling.style.display = "flex";
+                }}
+              />
+              <div
+                className="va-preview-placeholder"
+                style={{ display: "none" }}
+              >
+                <span className="va-preview-placeholder-icon">⚠️</span>
+                <span className="va-preview-placeholder-text">
+                  Image preview unavailable, but it has been saved to the
+                  database.
+                </span>
+              </div>
             </div>
           </div>
 
@@ -353,6 +473,20 @@ function GenerateTab() {
             <button className="va-btn va-btn-ghost" onClick={handleReset}>
               🔄 Generate Another
             </button>
+            <a
+              href={result.imageUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="va-btn va-btn-primary"
+              style={{
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              ↗ Open Image
+            </a>
             <button className="va-btn va-btn-primary" onClick={handleReset}>
               ✓ Done
             </button>
@@ -403,10 +537,9 @@ function ViewTab() {
         <AidRowList
           aids={aids}
           actionLabel="↗ View"
-          onAction={(aid) =>
-            window.open(visualAidsAPI.exportUrl(aid.visualAidID), "_blank")
-          }
+          onAction={(aid) => window.open(aid.imageUrl, "_blank")}
           actionClass="va-btn va-btn-primary"
+          showDownload={true}
         />
       )}
     </div>

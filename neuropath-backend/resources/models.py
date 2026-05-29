@@ -17,7 +17,7 @@ class VisualAid(models.Model):
     # 🔗 Changed to link directly to the specific target goal!
     iep_goal = models.ForeignKey(IEPGoal, on_delete=models.CASCADE, related_name='visual_aids')
     title = models.CharField(max_length=255)
-    imageUrl = models.URLField(max_length=500)  # Perfect for your Supabase/Pollinations CDN links!
+    imageUrl = models.TextField()  # TextField — no length limit, supports long Pollinations URLs
     prompt_used = models.TextField(blank=True, null=True) # Optional: save what the teacher input
     dateCreated = models.DateTimeField(auto_now_add=True)
 

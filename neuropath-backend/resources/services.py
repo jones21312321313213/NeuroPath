@@ -1,7 +1,8 @@
 # resources/services.py
 import ollama
-from .models import TeachingStrategy 
-
+import json
+from .models import TeachingStrategy, LessonPlan
+from iep_management.models import IEPGoal
 class TeachingStrategyGenerationService:
     
     @staticmethod
@@ -80,3 +81,92 @@ Strict Rules:
             
         except Exception as e:
             raise Exception(f"Teaching Strategy Generation failed: {str(e)}")
+        
+
+# =====================================================================
+# SDD COMPONENT: LessonPlanGenerationService
+# Description: Orchestrates contextual data extraction, constructs the 
+#              cloud-delimited prompt, and enforces JSON array output.
+# =====================================================================
+class LessonPlanGenerationService:
+    
+    @staticmethod
+    def execute_generation(goal_id, teacher_instance):
+        try:
+            # 1. Safely traverse database relationships
+            goal_instance = IEPGoal.objects.get(pk=goal_id)
+            iep = goal_instance.iep if hasattr(goal_instance, 'iep') else goal_instance.parent_iep
+            student = iep.studentID
+            
+            # 2. Extract all Enroute Objectives for this specific goal
+            rows = goal_instance.objective_rows.all()
+            objectives_text = ""
+            for idx, row in enumerate(rows, 1):
+                objectives_text += f"Phase {idx}:\n"
+                objectives_text += f"- Objective: {getattr(row, 'enroute_objectives', 'N/A')}\n"
+                objectives_text += f"- Interventions to use: {getattr(row, 'interventions_procedures', 'N/A')}\n\n"
+
+        except Exception as e:
+            raise Exception(f"Failed to extract IEP parameters: {str(e)}")
+
+        # 3. Construct the Cloud Delimited Prompt
+        prompt = f"""☁️system☁️Act as an elite Special Education Instructional Designer. You will be provided with a student's context, an Annual Goal, and multiple Enroute Objectives. 
+You MUST output ONLY a valid JSON object containing an array of lesson plans. Do not include markdown formatting or conversational filler.☁️/system☁️
+☁️user☁️
+STUDENT CONTEXT (SECTION A & B):
+- Name: {getattr(student, 'name', 'The student')}
+- Baseline/Barriers: {getattr(iep, 'baselineData', 'None specified')}
+- Accommodations: {getattr(iep, 'accommodations', 'None specified')}
+
+ANNUAL GOAL: {getattr(goal_instance, 'subject_category', 'Target Goal')}
+
+ENROUTE OBJECTIVES:
+{objectives_text}
+
+TASK:
+Generate a highly tailored lesson plan for EACH Enroute Objective listed above. Ensure the interventions and accommodations are heavily utilized in the 'core_activity'. Output MUST be in this exact JSON structure:
+{{
+  "lesson_plans": [
+    {{
+      "objective_focus": "Text of the enroute objective",
+      "introduction": "How to introduce the lesson",
+      "core_activity": "A single string paragraph explaining the step-by-step activity. DO NOT use nested objects or arrays here.",
+      "assessment": "How to measure success",
+      "materials_needed": ["Item 1", "Item 2"]
+    }}
+  ]
+}}
+☁️/user☁️"""
+
+        try:
+            # 4. Route to Local Llama Model with JSON strict mode
+            response = ollama.chat(
+                model='llama3.2:3b', 
+                messages=[{'role': 'user', 'content': prompt}],
+                options={"temperature": 0.25},
+                format='json'
+            )
+            
+            raw_content = response['message']['content'].strip()
+            
+            # Parse the JSON string into a native Python dictionary
+            parsed_json = json.loads(raw_content)
+            
+            # 🎯 NEW: SAVE TO DATABASE AUTOMATICALLY
+            # Extract a safe name for the title
+            goal_area = getattr(goal_instance, 'subject_category', None) or "Target Goal"
+            
+            # Create the database record
+            LessonPlan.objects.create(
+                iep_goal=goal_instance,
+                title=f"Lesson Sequence: {goal_area}",
+                lessonContent=json.dumps(parsed_json), # Converts the dict to a string for your TextField!
+                status="Draft"
+            )
+            
+            return parsed_json
+            
+        except json.JSONDecodeError:
+            raise Exception("AI failed to construct a valid JSON array. Please try generating again.")
+        except Exception as e:
+            raise Exception(f"Lesson Plan Generation failed: {str(e)}")

@@ -77,7 +77,6 @@ function getInitials(name) {
     .toUpperCase();
 }
 
-// Status badge
 function StatusBadge({ status }) {
   const isActive = status === "Active";
   return (
@@ -94,6 +93,109 @@ function StatusBadge({ status }) {
     >
       {status}
     </span>
+  );
+}
+
+// 🛡️ Advanced Bulletproof AI text renderer
+function renderSafeText(content) {
+  if (!content) return "";
+  if (typeof content !== "object") return String(content);
+  if (Array.isArray(content)) {
+    return content
+      .map((item) =>
+        typeof item === "object" ? renderSafeText(item) : `• ${item}`,
+      )
+      .join("\n");
+  }
+  if ("step_number" in content && "description" in content) {
+    return `Step #${content.step_number}: ${content.description}`;
+  }
+  return Object.entries(content)
+    .map(([key, value]) => {
+      const cleanKey = key.replace(/_/g, " ").toUpperCase();
+      const cleanValue = renderSafeText(value);
+      const separator = typeof value === "object" ? "\n" : " ";
+      return `${cleanKey}:${separator}${cleanValue}`;
+    })
+    .join("\n\n");
+}
+
+// Phase badge used in both Generate result and View detail
+function PhaseBadge({ index }) {
+  return (
+    <span
+      style={{
+        background: "linear-gradient(135deg, #3d9de8, #5aabf0)",
+        color: "#fff",
+        padding: "4px 10px",
+        borderRadius: 12,
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: "0.5px",
+        flexShrink: 0,
+      }}
+    >
+      Phase {index + 1}
+    </span>
+  );
+}
+
+// Renders a single lesson-plan phase block (used in Generate + View)
+function LessonPhaseBlock({ plan, index, total }) {
+  return (
+    <div
+      style={{
+        marginBottom: 24,
+        paddingBottom: 24,
+        borderBottom: index !== total - 1 ? "2px dashed #dde6f0" : "none",
+      }}
+    >
+      <h4
+        style={{
+          color: "#1a2b40",
+          fontSize: 15,
+          fontWeight: 700,
+          marginBottom: 14,
+          display: "flex",
+          gap: 10,
+          alignItems: "center",
+        }}
+      >
+        <PhaseBadge index={index} />
+        {renderSafeText(plan.objective_focus)}
+      </h4>
+
+      {plan.introduction && (
+        <div className="lp-phase-section">
+          <span className="lp-phase-label">Introduction</span>
+          <p className="lp-phase-body">{renderSafeText(plan.introduction)}</p>
+        </div>
+      )}
+      {plan.core_activity && (
+        <div className="lp-phase-section">
+          <span className="lp-phase-label">Core Activity</span>
+          <p className="lp-phase-body">{renderSafeText(plan.core_activity)}</p>
+        </div>
+      )}
+      {plan.assessment && (
+        <div className="lp-phase-section">
+          <span className="lp-phase-label">Assessment</span>
+          <p className="lp-phase-body">{renderSafeText(plan.assessment)}</p>
+        </div>
+      )}
+      {plan.materials_needed && plan.materials_needed.length > 0 && (
+        <div className="lp-phase-section">
+          <span className="lp-phase-label">Materials Needed</span>
+          <ul className="ts-strategy-list">
+            {plan.materials_needed.map((m, i) => (
+              <li key={i} className="ts-strategy-li">
+                {renderSafeText(m)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -156,10 +258,11 @@ function StudentGrid({ students, selectedID, onSelect }) {
             </div>
             <div className="ts-student-meta">
               <div className="ts-student-name">{s.studentName || s.name}</div>
-              {s.grade && (
+              {s.grade ? (
                 <span className="ts-student-tag">Grade {s.grade}</span>
+              ) : (
+                <span className="ts-student-tag">Student</span>
               )}
-              {!s.grade && <span className="ts-student-tag">Student</span>}
             </div>
             <div className="ts-student-check">{isSelected && "✓"}</div>
           </div>
@@ -175,6 +278,7 @@ function GenerateTab({ onSave }) {
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [selectedGoal, setSelectedGoal] = useState(null);
   const [generated, setGenerated] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -190,21 +294,21 @@ function GenerateTab({ onSave }) {
 
   const selectStudent = (student) => {
     setSelectedStudent(student);
+    setSelectedGoal(null);
     setGenerated(null);
     setError("");
     setSaved(false);
   };
 
   const handleGenerate = async () => {
-    if (!selectedStudent || selectedStudent.availableGoals.length === 0) return;
-    const goal = selectedStudent.availableGoals[0];
+    if (!selectedStudent || !selectedGoal) return;
     setLoading(true);
     setError("");
     try {
       const data = await lessonPlansAPI.generate({
-        goalID: goal.goalID,
-        subject: goal.goalArea,
-        topic: goal.goalArea,
+        goalID: selectedGoal.goalID,
+        subject: selectedGoal.goalArea || "General Learning",
+        topic: selectedGoal.label || "General Learning",
       });
       setGenerated(data);
     } catch (err) {
@@ -245,14 +349,14 @@ function GenerateTab({ onSave }) {
         )}
       </div>
 
-      {/* Step 2 — IEP Goal Area */}
+      {/* Step 2 — Select IEP Goal */}
       {selectedStudent && !generated && !loading && (
         <div className="ts-card">
           <div className="ts-step-badge">
-            <span className="ts-step-num">2</span>IEP Goal Area
+            <span className="ts-step-num">2</span>Select an IEP Goal
           </div>
           <p style={{ fontSize: 13, color: "#5a7491", marginBottom: 14 }}>
-            Lesson plan will be generated for{" "}
+            Choose a goal for{" "}
             <strong style={{ color: "#1a2b40" }}>
               {selectedStudent.studentName}
             </strong>
@@ -264,20 +368,47 @@ function GenerateTab({ onSave }) {
             />
           ) : (
             <>
-              <div className="lp-goal-area-display">
-                <span className="lp-goal-area-label">Goal Area</span>
-                <span className="lp-goal-area-value">
-                  {selectedStudent.availableGoals[0].goalArea}
-                </span>
-                <span className="lp-goal-area-note">
-                  Automatically retrieved from the student's IEP (Section C)
-                </span>
+              <div className="ts-goal-grid">
+                {selectedStudent.availableGoals.map((goal) => {
+                  const isSelected = selectedGoal?.goalID === goal.goalID;
+                  return (
+                    <label
+                      key={goal.goalID}
+                      className={`ts-goal-item ${isSelected ? "selected" : ""}`}
+                      onClick={() => setSelectedGoal(goal)}
+                    >
+                      <input
+                        type="radio"
+                        name="iepGoal"
+                        className="ts-goal-radio"
+                        checked={isSelected}
+                        onChange={() => setSelectedGoal(goal)}
+                      />
+                      <span className="ts-goal-text">
+                        <strong
+                          style={{
+                            display: "block",
+                            marginBottom: 2,
+                            color: "#1a2b40",
+                          }}
+                        >
+                          {goal.goalArea}
+                        </strong>
+                        {goal.label && goal.label !== goal.goalArea && (
+                          <span style={{ fontSize: 12.5, color: "#5a7491" }}>
+                            {goal.label}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
               <div className="ts-actions" style={{ marginTop: 22 }}>
                 <button
                   className="ts-generate-btn"
                   onClick={handleGenerate}
-                  disabled={loading}
+                  disabled={!selectedGoal}
                 >
                   <span className="ts-btn-icon">✦</span>
                   Generate Lesson Plan
@@ -319,59 +450,41 @@ function GenerateTab({ onSave }) {
               </div>
               <div className="ts-meta-chip">
                 <span className="ts-meta-chip-icon">🎯</span>
-                {selectedStudent?.availableGoals[0]?.goalArea}
+                {selectedGoal?.goalArea}
               </div>
             </div>
           </div>
 
-          {generated.data?.draft_content && (
-            <div className="ts-output-box">
-              <div className="ts-output-label">
-                AI Lesson Plan Output
-                <div className="ts-output-label-line" />
-              </div>
-              <div className="ts-strategy-body">
-                {generated.data.draft_content.introduction && (
-                  <>
-                    <p className="ts-strategy-heading">Introduction</p>
-                    <p className="ts-strategy-para">
-                      {generated.data.draft_content.introduction}
-                    </p>
-                  </>
-                )}
-                {generated.data.draft_content.core_activity && (
-                  <>
-                    <p className="ts-strategy-heading">Core Activity</p>
-                    <p className="ts-strategy-para">
-                      {generated.data.draft_content.core_activity}
-                    </p>
-                  </>
-                )}
-                {generated.data.draft_content.assessment && (
-                  <>
-                    <p className="ts-strategy-heading">Assessment</p>
-                    <p className="ts-strategy-para">
-                      {generated.data.draft_content.assessment}
-                    </p>
-                  </>
-                )}
-                {generated.data.draft_content.materials_needed?.length > 0 && (
-                  <>
-                    <p className="ts-strategy-heading">Materials Needed</p>
-                    <ul className="ts-strategy-list">
-                      {generated.data.draft_content.materials_needed.map(
-                        (m, i) => (
-                          <li key={i} className="ts-strategy-li">
-                            {m}
-                          </li>
-                        ),
-                      )}
-                    </ul>
-                  </>
-                )}
-              </div>
+          <div className="ts-output-box">
+            <div className="ts-output-label">
+              AI Lesson Plan Output
+              <div className="ts-output-label-line" />
             </div>
-          )}
+            <div
+              style={{ maxHeight: "60vh", overflowY: "auto", paddingRight: 4 }}
+            >
+              {generated.data?.lesson_plans?.length > 0 ? (
+                generated.data.lesson_plans.map((plan, index) => (
+                  <LessonPhaseBlock
+                    key={index}
+                    plan={plan}
+                    index={index}
+                    total={generated.data.lesson_plans.length}
+                  />
+                ))
+              ) : (
+                <p
+                  style={{
+                    color: "#8a9ab5",
+                    fontStyle: "italic",
+                    fontSize: 13,
+                  }}
+                >
+                  No lesson plan data was returned from the AI.
+                </p>
+              )}
+            </div>
+          </div>
 
           {generated.message && (
             <div className="ts-success-msg">✅ {generated.message}</div>
@@ -424,7 +537,7 @@ function ViewTab() {
       .then(setStudents)
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoadingStudents(false));
-  }, []);
+  }, [user?.id]);
 
   const handleSelectStudent = (s) => {
     setSelectedStudent(s);
@@ -445,8 +558,21 @@ function ViewTab() {
     return matchName && matchGrade && matchAge;
   });
 
-  // Detail view
+  // Screen 3: Detail view
   if (viewingPlan) {
+    // 🎯 Hyper-resilient JSON parser
+    let lessonsArray = [];
+    try {
+      let rawText = viewingPlan.lessonContent || viewingPlan.content || "{}";
+      let parsed = typeof rawText === "string" ? JSON.parse(rawText) : rawText;
+      if (typeof parsed === "string") parsed = JSON.parse(parsed);
+      lessonsArray = Array.isArray(parsed)
+        ? parsed
+        : parsed?.lesson_plans || [];
+    } catch (e) {
+      console.error("Failed to parse saved lesson plan JSON.", e);
+    }
+
     return (
       <div className="ts-card">
         <Breadcrumb
@@ -455,6 +581,7 @@ function ViewTab() {
             { label: viewingPlan.title },
           ]}
         />
+
         <div className="ts-detail-hero">
           <h2 className="ts-detail-title">{viewingPlan.title}</h2>
           <div className="ts-detail-meta">
@@ -466,25 +593,49 @@ function ViewTab() {
               <span className="ts-meta-chip-icon">🗓</span>
               {new Date(viewingPlan.dateCreated).toLocaleDateString()}
             </div>
-            <div className="ts-meta-chip">
-              <span className="ts-meta-chip-icon">📌</span>
-              <StatusBadge status={viewingPlan.status} />
-            </div>
           </div>
         </div>
+
+        <div className="ts-output-box">
+          <div className="ts-output-label">
+            Lesson Plan Content
+            <div className="ts-output-label-line" />
+          </div>
+          <div
+            style={{ maxHeight: "60vh", overflowY: "auto", paddingRight: 4 }}
+          >
+            {lessonsArray.length > 0 ? (
+              lessonsArray.map((plan, index) => (
+                <LessonPhaseBlock
+                  key={index}
+                  plan={plan}
+                  index={index}
+                  total={lessonsArray.length}
+                />
+              ))
+            ) : (
+              <p
+                style={{ color: "#8a9ab5", fontStyle: "italic", fontSize: 13 }}
+              >
+                No lesson plan content available to display.
+              </p>
+            )}
+          </div>
+        </div>
+
         <div className="ts-actions space-between" style={{ marginTop: 20 }}>
           <button
             className="ts-btn ts-btn-ghost"
             onClick={() => setViewingPlan(null)}
           >
-            ← Back
+            ← Back to List
           </button>
         </div>
       </div>
     );
   }
 
-  // Plan list for student
+  // Screen 2: Plan list for student
   if (selectedStudent) {
     return (
       <div className="ts-card">
@@ -527,7 +678,7 @@ function ViewTab() {
     );
   }
 
-  // Student selection with search/filter
+  // Screen 1: Student selection
   return (
     <div className="ts-card">
       <div className="ts-card-header">
@@ -541,7 +692,6 @@ function ViewTab() {
       </div>
       <ErrorBanner message={error} />
 
-      {/* Search & Filter */}
       <div className="lp-search-bar" style={{ marginBottom: 16 }}>
         <input
           className="ts-form-input"
@@ -653,18 +803,12 @@ function EditTab() {
     }
   };
 
-  // Edit form
   if (editingPlan) {
     return (
       <div className="ts-card">
         <Breadcrumb
           items={[
-            {
-              label: "All Plans",
-              onClick: () => {
-                setEditingPlan(null);
-              },
-            },
+            { label: "All Plans", onClick: () => setEditingPlan(null) },
             { label: "Edit Plan" },
           ]}
         />
@@ -681,7 +825,6 @@ function EditTab() {
             ✅ Lesson plan saved successfully!
           </div>
         )}
-
         <div className="ts-form-group">
           <label className="ts-form-label">Plan Title</label>
           <input
@@ -706,7 +849,6 @@ function EditTab() {
             <option value="Generated">Generated</option>
           </select>
         </div>
-
         <div className="ts-actions space-between" style={{ marginTop: 8 }}>
           <button
             className="ts-btn ts-btn-ghost"
@@ -855,7 +997,6 @@ export default function ManageLessonPlans() {
 
   return (
     <div className="page-content ts-page">
-      {/* Hero + tabs */}
       <div className="ts-page-hero">
         <div className="ts-hero-top">
           <div>
@@ -870,7 +1011,6 @@ export default function ManageLessonPlans() {
             </p>
           </div>
         </div>
-
         <div className="ts-tab-bar">
           {TABS.map((tab) => (
             <button
@@ -885,7 +1025,6 @@ export default function ManageLessonPlans() {
         </div>
       </div>
 
-      {/* Body */}
       <div className="ts-body">
         {activeTab === "generate" && <GenerateTab onSave={saveLessonPlan} />}
         {activeTab === "view" && <ViewTab />}

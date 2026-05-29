@@ -162,3 +162,6 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
     ],
 }
+
+# HUGGING FACE API CONFIGURATION
+HF_TOKEN = env('HF_TOKEN', default='MISSING_TOKEN')
