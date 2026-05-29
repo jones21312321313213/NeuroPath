@@ -1,14 +1,14 @@
-from django.urls import path,include
+from django.urls import path, include
 from . import views
 from rest_framework.routers import DefaultRouter
 from .views import (
-    IEPGenerationAPIView, 
-    IEPListAPIView, 
-    IEPDetailAPIView, 
-    IEPEditAPIView, 
+    IEPGenerationAPIView,
+    IEPListAPIView,
+    IEPDetailAPIView,
+    IEPEditAPIView,
     IEPDeleteAPIView,
     StandaloneIEPGoalViewSet,
-    GenerateIEPGoalAPIView, 
+    GenerateIEPGoalAPIView,
     GenerateIEPGoalsFromIEPView
 )
 
@@ -27,23 +27,20 @@ urlpatterns = [
     path('<int:pk>/', IEPDetailAPIView.as_view(), name='detail_iep'),
 
     path('edit/<int:pk>/', IEPEditAPIView.as_view(), name='edit_iep'),
-    
+
     path('delete/<int:pk>/', IEPDeleteAPIView.as_view(), name='delete_iep'),
-    
+
     path('generate-goal/', GenerateIEPGoalAPIView.as_view(), name='generate_iep_goal'),
-    
+
     # 1. Endpoint to trigger the AI insight generation
     path('student/<int:student_id>/generate-insight/', views.generate_ai_insight, name='generate_ai_insight'),
-    
+
     # 2. Endpoint to fetch the saved insights for a student
     path('student/<int:student_id>/insights/', views.get_student_insights, name='get_student_insights'),
-    
-    # --- Standalone IEP Goals Router Array ---
-    # This automatically includes paths like:
-    # GET  /api/iep/goals/                -> List all goals
-    # GET  /api/iep/goals/?student_id=XX  -> Fetch checklists specifically for a student profile!
-    # GET  /api/iep/goals/<id>/           -> Read details of a specific micro-goal
-    # PUT  /api/iep/goals/<id>/           -> Modify an individual goal row
-    # DELETE /api/iep/goals/<id>/         -> Erase an individual goal row
+
+    # 3. Dashboard stats: active IEP count + AI insights count for the logged-in teacher
+    path('dashboard-stats/', views.dashboard_stats, name='dashboard_stats'),
+
+    # --- Standalone IEP Goals Router ---
     path('', include(router.urls)),
 ]
