@@ -129,7 +129,6 @@ export default function ViewStudentProfile({
 
                 {/* Footer */}
                 <div className="vsp-card-footer">
-                  <span className="vsp-id-label">ID #{student.studentID}</span>
                   <button
                     className="vsp-view-btn"
                     onClick={() => handleView(student.studentID)}

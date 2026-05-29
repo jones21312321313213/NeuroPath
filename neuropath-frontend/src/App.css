@@ -1201,3 +1201,114 @@
   opacity: 1;
   margin-top: 4px;
 }
+
+
+/* ── IEP readability + editable Section C fixes ─────────────────────────── */
+.iep-table td,
+.iep-table th,
+.iep-readonly-cell {
+  color: #1f2937 !important;
+  font-size: 13.5px !important;
+  line-height: 1.55 !important;
+}
+
+.iep-goal-table td,
+.iep-goal-table th {
+  color: #1f2937 !important;
+}
+
+.iep-info-block,
+.iep-info-block p,
+.iep-info-block div,
+.iep-info-block small {
+  color: #1f2937 !important;
+}
+
+.iep-edit-goals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 12px;
+}
+
+.iep-edit-goal-card {
+  border: 1px solid #d9e3ee;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 16px;
+}
+
+.iep-edit-goal-header {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.iep-edit-goal-header .form-group {
+  flex: 1;
+}
+
+.iep-edit-goal-table th,
+.iep-edit-goal-table td {
+  min-width: 170px;
+}
+
+.iep-edit-actions {
+  margin-top: 28px !important;
+  padding-top: 18px;
+  border-top: 1px solid #e6eef6;
+}
+
+/* Make Student Records PDF export button match the Manage Teaching Strategy export size */
+.vsr-export-pdf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 24px !important;
+  border: none !important;
+  border-radius: 9px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.2px !important;
+  background: linear-gradient(135deg, #3d9de8, #5aabf0) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 10px rgba(61, 157, 232, 0.3) !important;
+}
+
+.vsr-export-pdf-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(61, 157, 232, 0.4) !important;
+}
+
+.vsr-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.vsr-goal-card {
+  background: #f8fbff;
+  border: 1px solid #d9e3ee;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.vsr-goal-card h4 {
+  color: #111827;
+  font-size: 15px;
+  font-weight: 800;
+  margin: 0 0 10px;
+}
+
+.vsr-goal-card p,
+.vsr-goal-card td,
+.vsr-goal-card th,
+.vsr-table td,
+.vsr-table th {
+  color: #111827 !important;
+  font-size: 13px;
+  line-height: 1.5;
+}

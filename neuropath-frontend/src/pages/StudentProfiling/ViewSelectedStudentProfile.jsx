@@ -112,7 +112,6 @@ export default function ViewSelectedStudentProfile({ studentId, setActivePage })
               <h2 className="form-section-title">Section A: Personal Information</h2>
               <div className="form-grid-2">
                 <ReadOnlyInput label="Student Name" value={details.studentName || details.learnerName || selected.name} />
-                <ReadOnlyInput label="Student ID" value={selected.studentID} />
                 <ReadOnlyInput label="Age" value={selected.age} />
                 <ReadOnlyInput label="Grade Level" value={selected.grade} />
                 <ReadOnlyInput label="Gender" value={selected.gender} />
@@ -120,7 +119,6 @@ export default function ViewSelectedStudentProfile({ studentId, setActivePage })
                 <ReadOnlyInput label="School Year" value={details.schoolYear} />
                 <ReadOnlyInput label="Birthdate" value={details.birthdate} />
                 <ReadOnlyInput label="Diagnosis" value={details.disabilityCategory || selected.diagnosis} />
-                <ReadOnlyInput label="Status" value={selected.profileStatus ? "Active" : "Inactive"} />
               </div>
 
               <ReadOnlyTextArea

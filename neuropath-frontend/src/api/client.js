@@ -207,6 +207,15 @@ export const iepAPI = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
+  updateGoal: (goalId, payload) =>
+    request(`/iep/goals/${goalId}/`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+
+  deleteGoal: (goalId) =>
+    request(`/iep/goals/${goalId}/`, { method: "DELETE" }),
 };
 
 // ── Users / Teacher Profile ────────────────────────────────────────────────────
