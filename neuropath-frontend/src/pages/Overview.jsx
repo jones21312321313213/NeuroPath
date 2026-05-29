@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
-import { studentsAPI } from "../api/client";
+import { studentsAPI, iepAPI } from "../api/client";
 import CountUp from "../components/ui/CountUp";
 import GlareHover from "../components/ui/GlareHover";
 
@@ -67,15 +67,28 @@ export default function Overview({ setActivePage }) {
     else setGreeting("Good evening");
   }, []);
 
+  // Fetch total students
   useEffect(() => {
     if (!user?.id) return;
     studentsAPI
       .list(user.id)
       .then((data) => {
         const students = Array.isArray(data) ? data : [];
+        setCounts((prev) => ({ ...prev, students: students.length }));
+      })
+      .catch(() => {});
+  }, [user]);
+
+  // Fetch active IEPs and AI insights counts from the dashboard-stats endpoint
+  useEffect(() => {
+    if (!user?.id) return;
+    iepAPI
+      .dashboardStats()
+      .then((data) => {
         setCounts((prev) => ({
           ...prev,
-          students: students.length,
+          ieps: data.active_ieps ?? 0,
+          insights: data.ai_insights ?? 0,
         }));
       })
       .catch(() => {});

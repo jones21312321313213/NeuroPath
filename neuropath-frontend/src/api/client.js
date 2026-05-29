@@ -1,15 +1,6 @@
 // Base URL — change for production
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
-// const getCsrfToken = () => {
-//   return (
-//     document.cookie
-//       .split("; ")
-//       .find((row) => row.startsWith("csrftoken="))
-//       ?.split("=")[1] || ""
-//   );
-// };
-
 async function request(endpoint, options = {}) {
   const token = localStorage.getItem("neuropath_access_token");
 
@@ -82,12 +73,10 @@ export const studentsAPI = {
 
 // ── Lesson Plans ───────────────────────────────────────────────────────────────
 export const lessonPlansAPI = {
-  // Generate tab — GET loads { directory: [{ studentID, studentName, availableGoals: [{ goalID, label, goalArea }] }] }
   getDirectory: (teacherId) =>
     request(
       `/resources/generate-lesson/${teacherId ? `?teacher_id=${teacherId}` : ""}`,
     ),
-  // Generate tab — POST { goalID, subject, topic } → { message, data: { generated_prompt, draft_content } }
   generate: (payload) =>
     request("/resources/generate-lesson/", {
       method: "POST",
@@ -129,35 +118,27 @@ export const visualAidsAPI = {
 
 // ── Teaching Strategies ────────────────────────────────────────────────────────
 export const teachingStrategiesAPI = {
-  // Generate tab — GET loads { directory: [{ studentID, studentName, availableGoals: [{ iepID, label }] }] }
   getDirectory: (teacherId) =>
     request(
       `/resources/generate-strategy/${teacherId ? `?teacher_id=${teacherId}` : ""}`,
     ),
-  // Generate tab — POST { studentID, iepGoalID } → { message, data: { strategyID, title, strategyContent, ... } }
   generate: (payload) =>
     request("/resources/generate-strategy/", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  // View tab — GET list filtered by studentID → [{ strategyID, studentName, title, strategyContent, formattedDate }]
   list: (studentID) =>
     request(`/resources/query-strategies/?studentID=${studentID}`),
-  // View tab — GET single strategy detail
   get: (id) => request(`/resources/query-strategies/${id}/`),
-  // View/Export tab — returns a PDF download URL
   exportUrl: (id) =>
     `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/resources/query-strategies/${id}/export/`,
-  // Edit tab — PUT { title, strategyContent }
   update: (id, payload) =>
     request(`/resources/edit-strategy/${id}/`, {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
-  // Delete tab — GET list for deletion (same as list but separate endpoint)
   listForDelete: (studentID) =>
     request(`/resources/delete-strategy/?studentID=${studentID}`),
-  // Delete tab — DELETE
   delete: (id) =>
     request(`/resources/delete-strategy/${id}/`, { method: "DELETE" }),
 };
@@ -192,7 +173,6 @@ export const iepAPI = {
   listGoalsByStudent: (studentId) =>
     request(`/iep/goals/?student_id=${studentId}`),
 
-  // 🎯 FIXED: Now pointing to the correct /iep/ routes from your urls.py!
   getInsights: (studentId) => request(`/iep/student/${studentId}/insights/`),
 
   generateInsight: (studentId) =>
@@ -221,6 +201,9 @@ export const iepAPI = {
 
   deleteGoal: (goalId) =>
     request(`/iep/goals/${goalId}/`, { method: "DELETE" }),
+
+  // Dashboard overview stats: active IEP count + AI insights count
+  dashboardStats: () => request("/iep/dashboard-stats/"),
 };
 
 // ── Users / Teacher Profile ────────────────────────────────────────────────────
