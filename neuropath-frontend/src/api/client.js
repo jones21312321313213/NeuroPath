@@ -109,7 +109,12 @@ export const lessonPlansAPI = {
 
 // ── Visual Aids ────────────────────────────────────────────────────────────────
 export const visualAidsAPI = {
-  list: () => request("/resources/visual-aids/"),
+  list: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/resources/visual-aids/${qs ? "?" + qs : ""}`);
+  },
+  listByStudent: (studentId) =>
+    request(`/resources/visual-aids/?student_id=${studentId}`),
   get: (id) => request(`/resources/visual-aids/${id}/`),
   generate: (payload) =>
     request("/resources/generate-visual-aid/", {

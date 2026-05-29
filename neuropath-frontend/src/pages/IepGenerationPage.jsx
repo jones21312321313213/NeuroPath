@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { iepAPI, studentsAPI } from "../api/client";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 
 const barrierQualifierOptions = [
   "No barrier",
@@ -883,11 +882,13 @@ function ViewIEPPanel({
             </div>
           )}
 
-          {/* Section B read-only */}
-          <div>
-            <h3 className="iep-view-section-title">
-              Section B: Difficulties, Barriers, and Enabling Supports
-            </h3>
+          {!isEditing && (
+            <>
+              {/* Section B read-only */}
+              <div>
+                <h3 className="iep-view-section-title">
+                  Section B: Difficulties, Barriers, and Enabling Supports
+                </h3>
             <div className="iep-table-wrap">
               <table className="iep-table">
                 <thead>
@@ -930,18 +931,13 @@ function ViewIEPPanel({
                 </tbody>
               </table>
             </div>
-            {(details?.generatedAccommodations || selectedIep.accommodations) && (
-              <InfoBlock title="AI-Generated Accommodations / Resources">
-                {details?.generatedAccommodations || selectedIep.accommodations}
-              </InfoBlock>
-            )}
           </div>
 
-          {/* Section C: goals from DB */}
-          <div>
-            <h3 className="iep-view-section-title">
-              Section C: Learner's Goals
-            </h3>
+              {/* Section C: goals from DB */}
+              <div>
+                <h3 className="iep-view-section-title">
+                  Section C: Learner's Goals
+                </h3>
             {loadingGoals ? (
               <p className="iep-muted">Loading learner goals…</p>
             ) : goalsToRender.length ? (
@@ -963,7 +959,9 @@ function ViewIEPPanel({
                 </span>
               </div>
             )}
-          </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -1790,11 +1788,6 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                   >
                     + ADD DIFFICULTY
                   </button>
-                  {generatedAccommodations && (
-                    <InfoBlock title="AI-Generated Accommodations / Resources">
-                      {generatedAccommodations}
-                    </InfoBlock>
-                  )}
                 </section>
               )}
 
