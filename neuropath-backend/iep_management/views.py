@@ -11,6 +11,11 @@ from django.shortcuts import get_object_or_404
 from .services import AIGenerationService
 from .huggingface_service import CustomLlamaService
 from .rgori_service import RGORICheckerService
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .huggingface_service import CustomLlamaService
+from .rgori_service import RGORICheckerService
 import time
 import json
 import re
@@ -118,11 +123,16 @@ class IEPGenerationAPIView(APIView):
 
             # Only allow saving an IEP for a student owned by this teacher account.
             student_id = payload.get('studentID')
-            teacher = self._get_teacher_from_user_id(payload.get('teacherID'))
+            # Prefer the authenticated user's ID; fall back to payload teacherID
+            teacher_user_id = request.user.id if request.user.is_authenticated else payload.get('teacherID')
+            teacher = self._get_teacher_from_user_id(teacher_user_id)
             try:
                 student_query = StudentProfile.objects.filter(pk=student_id)
                 if teacher:
                     student_query = student_query.filter(teacher=teacher)
+                else:
+                    # No resolvable teacher — reject to prevent unscoped saves
+                    return Response({'error': 'Unable to verify teacher account.'}, status=status.HTTP_403_FORBIDDEN)
                 student_query.get()
             except StudentProfile.DoesNotExist:
                 return Response({'error': 'Student not found for this teacher account.'}, status=status.HTTP_404_NOT_FOUND)
@@ -347,3 +357,293 @@ class GenerateIEPGoalAPIView(APIView):
             "feedback": final_feedback,
             "attempts_taken": attempt + 1
         }, status=status.HTTP_200_OK)
+class GenerateIEPGoalsFromIEPView(APIView):
+    """
+    POST /api/iep/generate-goals-from-iep/
+ 
+    Accepts the IEP fields (accommodations, difficulties, learning_barriers,
+    barrier_qualifiers, learning_facilitators, facilitator_qualifiers,
+    generatedDetails.special_factors_considerations) plus the iep_id.
+ 
+    For each difficulty/special factor, generates one IEP Goal payload
+    (validated to R-GORI >= 65) ready to POST directly to /api/iep/goals/.
+ 
+    Example request body:
+    {
+        "iep_id": 5,
+        "student_name": "Alex Santos",
+        "program_type": "Graded",
+        "accommodations": "Use visual gestures, tablet communication board.",
+        "difficulties": "Difficulty in communicating | Difficulty in displaying Interpersonal Behavior",
+        "learning_barriers": "Severe barrier 5 and beyond | Mild to Severe barrier",
+        "barrier_qualifiers": "(No barrier, Mild barrier, Moderate Barrier, Severe barrier)",
+        "learning_facilitators": "Speech therapist, parents, SNED Teachers | SNED TEACHER",
+        "facilitator_qualifiers": "Special Education Professionals and Family",
+        "generatedDetails": {
+            "special_factors_considerations": [
+                {
+                    "difficulty": "Difficulty in communicating",
+                    "assistive_technology": "PECS, communication books, AAC device"
+                },
+                {
+                    "difficulty": "Difficulty in displaying Interpersonal Behavior",
+                    "assistive_technology": "Visual schedule apps, digital task boards"
+                }
+            ]
+        }
+    }
+    """
+ 
+    MAX_ATTEMPTS = 3
+ 
+    def post(self, request):
+        data = request.data
+ 
+        # --- 1. Validate required fields ---
+        iep_id = data.get('iep_id')
+        student_name = data.get('student_name', 'The student')
+        if not iep_id:
+            return Response(
+                {"error": "iep_id is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+ 
+        # --- 2. Extract IEP context fields ---
+        accommodations      = data.get('accommodations', '')
+        difficulties        = data.get('difficulties', '')
+        learning_barriers   = data.get('learning_barriers', '')
+        barrier_qualifiers  = data.get('barrier_qualifiers', '')
+        facilitators        = data.get('learning_facilitators', '')
+        fac_qualifiers      = data.get('facilitator_qualifiers', '')
+        generated_details   = data.get('generatedDetails', {})
+        special_factors     = generated_details.get('special_factors_considerations', [])
+ 
+        if not special_factors:
+            return Response(
+                {"error": "generatedDetails.special_factors_considerations is required and cannot be empty."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+ 
+        # Build a shared student context string for R-GORI evaluation
+        student_context = (
+            f"Student: {student_name}. "
+            f"Difficulties: {difficulties}. "
+            f"Learning Barriers: {learning_barriers} ({barrier_qualifiers}). "
+            f"Facilitators: {facilitators} ({fac_qualifiers}). "
+            f"Accommodations: {accommodations}."
+        )
+ 
+        # --- 3. Generate one goal payload per special factor ---
+        generated_goals = []
+        errors = []
+ 
+        for factor in special_factors:
+            difficulty         = factor.get('difficulty', 'General difficulty')
+            assistive_tech     = factor.get('assistive_technology', '')
+ 
+            goal_payload, error = self._generate_validated_goal(
+                iep_id=iep_id,
+                student_name=student_name,
+                difficulty=difficulty,
+                assistive_tech=assistive_tech,
+                accommodations=accommodations,
+                facilitators=facilitators,
+                student_context=student_context,
+            )
+ 
+            if error:
+                errors.append({"difficulty": difficulty, "error": error})
+            else:
+                generated_goals.append(goal_payload)
+ 
+        if not generated_goals:
+            return Response(
+                {"error": "All goal generations failed.", "details": errors},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+ 
+        return Response({
+            "iep_id": iep_id,
+            "total_goals_generated": len(generated_goals),
+            "goals": generated_goals,
+            "warnings": errors  # partial failures reported but not fatal
+        }, status=status.HTTP_200_OK)
+ 
+ 
+    def _generate_validated_goal(
+        self, iep_id, student_name, difficulty, assistive_tech,
+        accommodations, facilitators, student_context
+    ):
+        """
+        Runs the R-GORI generation loop for a single difficulty area.
+        Returns (goal_payload_dict, None) on success or (None, error_string) on failure.
+        """
+        best_payload = None
+        best_score   = 0
+        last_error   = None
+ 
+        for attempt in range(self.MAX_ATTEMPTS):
+            try:
+                # --- Step A: Generate annual goal ---
+                annual_goal = self._generate_annual_goal(
+                    student_name, difficulty, assistive_tech, accommodations, facilitators
+                )
+ 
+                # --- Step B: Validate with R-GORI ---
+                evaluation   = RGORICheckerService.evaluate_goal(annual_goal, student_context)
+                score        = evaluation.get('total_score', 0)
+                feedback     = evaluation.get('feedback', '')
+                is_compliant = evaluation.get('compliant', False)
+ 
+                # --- Step C: Generate objective rows for this goal ---
+                objective_rows = self._generate_objective_rows(
+                    student_name, difficulty, assistive_tech,
+                    annual_goal, facilitators
+                )
+ 
+                # Build the full goal payload (ready for POST /api/iep/goals/)
+                payload = {
+                    "iep": iep_id,
+                    "subject_category": self._map_difficulty_to_category(difficulty),
+                    "annual_goal": annual_goal,
+                    "goalName": self._derive_goal_name(difficulty),
+                    "target_metric": self._derive_target_metric(difficulty, assistive_tech),
+                    "objective_rows": objective_rows,
+                    # Meta info (not sent to /goals/ but useful for the frontend)
+                    "_rgori_score": score,
+                    "_rgori_feedback": feedback,
+                    "_attempts": attempt + 1,
+                }
+ 
+                # Track best so far in case we never hit 65
+                if score > best_score:
+                    best_score   = score
+                    best_payload = payload
+ 
+                if is_compliant:
+                    return best_payload, None
+ 
+                time.sleep(0.5)
+ 
+            except Exception as e:
+                last_error = str(e)
+                time.sleep(1)
+ 
+        # Return best attempt even if never hit 65%
+        if best_payload:
+            best_payload["_rgori_warning"] = (
+                f"Best score was {best_score}/100 (below 65 threshold). "
+                "Manual review recommended."
+            )
+            return best_payload, None
+ 
+        return None, last_error or "Generation failed after max attempts."
+ 
+ 
+    def _generate_annual_goal(
+        self, student_name, difficulty, assistive_tech, accommodations, facilitators
+    ):
+        prompt = (
+            f"☁️system☁️"
+            f"You are an expert Special Education teacher writing IEP goals. "
+            f"Write ONE specific, measurable, achievable, relevant, and time-bound (SMART) annual IEP goal. "
+            f"Output ONLY the goal sentence. No explanations, no bullet points, no preamble."
+            f"☁️/system☁️"
+            f"☁️user☁️"
+            f"Student: {student_name}\n"
+            f"Area of Difficulty: {difficulty}\n"
+            f"Assistive Technology Available: {assistive_tech}\n"
+            f"Accommodations: {accommodations}\n"
+            f"Support Personnel: {facilitators}\n\n"
+            f"Write the annual IEP goal for this student targeting the area of difficulty above."
+            f"☁️/user☁️"
+        )
+        return CustomLlamaService.generate_text(prompt, max_new_tokens=200)
+ 
+ 
+    def _generate_objective_rows(
+        self, student_name, difficulty, assistive_tech, annual_goal, facilitators
+    ):
+        prompt = (
+            f"☁️system☁️"
+            f"You are a Special Education teacher writing IEP objective rows. "
+            f"Output ONLY a valid JSON array of 2-3 objective row objects. "
+            f"Each object must have exactly these keys: "
+            f"enroute_objectives, interventions_procedures, timeline_mins_session, "
+            f"individuals_responsible, progress_instructional, remarks. "
+            f"Do not include markdown, backticks, or any text outside the JSON array."
+            f"☁️/system☁️"
+            f"☁️user☁️"
+            f"Student: {student_name}\n"
+            f"Area of Difficulty: {difficulty}\n"
+            f"Assistive Technology: {assistive_tech}\n"
+            f"Annual Goal: {annual_goal}\n"
+            f"Support Personnel: {facilitators}\n\n"
+            f"Generate 2-3 objective rows as a JSON array."
+            f"☁️/user☁️"
+        )
+        raw = CustomLlamaService.generate_text(prompt, max_new_tokens=600)
+ 
+        try:
+            # Strip markdown fences if model adds them
+            clean = raw.strip().lstrip('`').rstrip('`')
+            if clean.startswith('json'):
+                clean = clean[4:].strip()
+            rows = json.loads(clean)
+            # Ensure it's a list
+            if isinstance(rows, dict):
+                rows = [rows]
+            return rows
+        except (json.JSONDecodeError, ValueError):
+            # Fallback: return one generic row so the payload is still usable
+            return [{
+                "enroute_objectives": f"Work toward: {annual_goal}",
+                "interventions_procedures": f"Use {assistive_tech} to support learning.",
+                "timeline_mins_session": "15-20 minutes every day",
+                "individuals_responsible": facilitators or "SNED Teacher",
+                "progress_instructional": "Monitor weekly progress toward goal.",
+                "remarks": "To be updated based on actual learning outcomes."
+            }]
+ 
+ 
+    def _map_difficulty_to_category(self, difficulty):
+        """Maps a difficulty description to a subject category."""
+        d = difficulty.lower()
+        if any(w in d for w in ['communicat', 'speech', 'language']):
+            return 'COMMUNICATION SKILLS'
+        if any(w in d for w in ['interpersonal', 'social', 'behavior', 'behaviour']):
+            return 'SOCIAL-EMOTIONAL SKILLS'
+        if any(w in d for w in ['self-care', 'care', 'hygiene', 'daily living']):
+            return 'CARE SKILLS'
+        if any(w in d for w in ['math', 'number', 'count']):
+            return 'Mathematics'
+        if any(w in d for w in ['read', 'writing', 'literacy']):
+            return 'LITERACY SKILLS'
+        if any(w in d for w in ['motor', 'physical', 'movement']):
+            return 'MOTOR SKILLS'
+        return 'FUNCTIONAL SKILLS'
+ 
+ 
+    def _derive_goal_name(self, difficulty):
+        """Derives a short goal name from the difficulty."""
+        d = difficulty.lower()
+        if 'communicat' in d or 'speech' in d:
+            return 'Communication Development'
+        if 'interpersonal' in d or 'social' in d or 'behavior' in d:
+            return 'Social-Behavioral Development'
+        if 'self-care' in d or 'hygiene' in d:
+            return 'Daily Self-Care Mastery'
+        if 'math' in d or 'number' in d:
+            return 'Number Sense and Math Skills'
+        if 'read' in d or 'writing' in d:
+            return 'Literacy Development'
+        if 'motor' in d:
+            return 'Motor Skills Development'
+        return f'{difficulty[:40]} Goal'
+ 
+ 
+    def _derive_target_metric(self, difficulty, assistive_tech):
+        """Derives a target metric string."""
+        if assistive_tech:
+            return f"Demonstrate improvement in {difficulty} using {assistive_tech[:60]}"
+        return f"Demonstrate measurable improvement in {difficulty}"

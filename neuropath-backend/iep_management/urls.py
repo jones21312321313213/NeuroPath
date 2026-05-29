@@ -8,7 +8,8 @@ from .views import (
     IEPEditAPIView, 
     IEPDeleteAPIView,
     StandaloneIEPGoalViewSet,
-    GenerateIEPGoalAPIView
+    GenerateIEPGoalAPIView, 
+    GenerateIEPGoalsFromIEPView
 )
 
 
@@ -16,6 +17,8 @@ router = DefaultRouter()
 router.register(r'goals', StandaloneIEPGoalViewSet, basename='iep-goals')
 
 urlpatterns = [
+
+    path('generate-goals-from-iep/', GenerateIEPGoalsFromIEPView.as_view(), name='generate_goals_from_iep'),
 
     path('generate-iep/', IEPGenerationAPIView.as_view(), name='generate_save_iep'),
 

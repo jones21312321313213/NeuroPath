@@ -195,6 +195,18 @@ export const iepAPI = {
       method: "POST",
       body: JSON.stringify({}),
     }),
+  generateGoalsFromIep: (payload) =>
+    request("/iep/generate-goals-from-iep/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  // Save a single generated goal → POST /api/iep/goals/
+  saveGoal: (payload) =>
+    request("/iep/goals/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };
 
 // ── Users / Teacher Profile ────────────────────────────────────────────────────
