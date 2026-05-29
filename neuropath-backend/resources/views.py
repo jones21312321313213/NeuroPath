@@ -1,6 +1,8 @@
 from django.db.models import Q
 import io
 import re
+import uuid
+import requests as http_client
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import mm
@@ -526,12 +528,69 @@ class SupabaseStorageManager:
 class PDFExportEngine:
     @staticmethod
     def compile_pdf(visual_aid_record):
-        # In production, libraries like ReportLab place the image onto a PDF canvas.
-        # Here we create a simulated PDF byte stream to satisfy the download trigger.
+        """Fetch the image and embed it into a proper PDF using ReportLab."""
+        from reportlab.platypus import SimpleDocTemplate, Image as RLImage, Paragraph, Spacer
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.units import mm
+        import tempfile, os
+
         buffer = io.BytesIO()
-        buffer.write(b"%PDF-1.4\n")
-        buffer.write(f"Title: {visual_aid_record.title}\n".encode('utf-8'))
-        buffer.write(f"Asset URL: {visual_aid_record.imageUrl}\n".encode('utf-8'))
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=20*mm, leftMargin=20*mm,
+            topMargin=20*mm, bottomMargin=20*mm,
+        )
+        styles = getSampleStyleSheet()
+        story = []
+
+        # Title
+        story.append(Paragraph(visual_aid_record.title, styles['Title']))
+        story.append(Spacer(1, 6*mm))
+
+        # Fetch the image and write to a temp file so ReportLab can read it
+        try:
+            img_resp = http_client.get(visual_aid_record.imageUrl, timeout=30, allow_redirects=True)
+            img_resp.raise_for_status()
+            suffix = '.jpg'
+            ct = img_resp.headers.get('Content-Type', '')
+            if 'png' in ct:
+                suffix = '.png'
+            elif 'webp' in ct:
+                suffix = '.webp'
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(img_resp.content)
+                tmp_path = tmp.name
+
+            # Scale image to fit page width
+            page_width = A4[0] - 40*mm
+            rl_img = RLImage(tmp_path, width=page_width, height=page_width * 0.75)
+            story.append(rl_img)
+            story.append(Spacer(1, 4*mm))
+        except Exception as e:
+            story.append(Paragraph(f"Image could not be loaded: {e}", styles['Normal']))
+            story.append(Paragraph(f"URL: {visual_aid_record.imageUrl}", styles['Normal']))
+            tmp_path = None
+
+        # Metadata
+        if visual_aid_record.prompt_used:
+            story.append(Spacer(1, 4*mm))
+            story.append(Paragraph("<b>Prompt used:</b>", styles['Normal']))
+            story.append(Paragraph(visual_aid_record.prompt_used, styles['Normal']))
+
+        story.append(Spacer(1, 4*mm))
+        story.append(Paragraph(
+            f"Generated: {visual_aid_record.dateCreated.strftime('%B %d, %Y')}",
+            styles['Normal']
+        ))
+
+        doc.build(story)
+
+        # Clean up temp file
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
         buffer.seek(0)
         return buffer
 
@@ -542,57 +601,137 @@ class PDFExportEngine:
 #              Extracts IEP goal text and sensory data into a standard asset.
 # =====================================================================
 class VisualAidGeneratorService:
+    POLLINATIONS_BASE = "https://image.pollinations.ai/prompt"
+
     @staticmethod
-    def process_synthesis_pipeline(goal_text, student_profile):
-        # 1. Format the target IEP goal using the new sensory guardrails
-        ai_prompt = (
-            f"Create a distraction-free visual schedule icon illustrating: '{goal_text}'. "
-            f"Incorporate the student's interest in '{student_profile.interests}' if appropriate, "
-            f"while strictly adhering to their sensory preferences: '{student_profile.sensory_preferences}'. "
-            f"Maintain low-visual clutter."
+    def build_prompt(goal_text, extra_prompt, category, student_name):
+        parts = [
+            f"Educational visual aid for a student named {student_name}",
+            f"IEP Goal: {goal_text}",
+        ]
+        if extra_prompt:
+            parts.append(f"Additional context: {extra_prompt}")
+        if category:
+            parts.append(f"Skill category: {category}")
+        parts.append(
+            "Style: clean, colorful, distraction-free, child-friendly flat illustration, "
+            "low visual clutter, bright white background, simple bold icons, no text"
         )
-        
-        # 2. Simulate receiving the generated binary image data from the AI
-        mock_binary_data = b"simulated_image_byte_stream"
-        
-        # 3. Route through the Storage Manager to get a web URL
-        cloud_url = SupabaseStorageManager.upload_temp_image(mock_binary_data, "asset_123")
-        
-        return {
-            "appliedPrompt": ai_prompt,
-            "temporaryStorageUrl": cloud_url
+        return ". ".join(parts)
+
+    @staticmethod
+    def fetch_image_from_pollinations(prompt):
+        """Fetch the image bytes from Pollinations AI server-side to avoid CORS."""
+        import urllib.parse
+        encoded = urllib.parse.quote(prompt)
+        url = f"{VisualAidGeneratorService.POLLINATIONS_BASE}/{encoded}?width=800&height=600&nologo=true&model=flux"
+        resp = http_client.get(url, timeout=60, allow_redirects=True)
+        resp.raise_for_status()
+        return resp.content, resp.headers.get("Content-Type", "image/jpeg"), url
+
+    @staticmethod
+    def upload_to_supabase(image_bytes, filename, content_type):
+        """Upload image bytes to Supabase Storage. Returns public URL."""
+        from django.conf import settings
+        supabase_url = getattr(settings, "SUPABASE_URL", None)
+        supabase_key = getattr(settings, "SUPABASE_SERVICE_KEY", None)
+        bucket = getattr(settings, "SUPABASE_STORAGE_BUCKET", "visual-aids")
+
+        if not supabase_url or not supabase_key:
+            return None  # Not configured — caller will use Pollinations URL directly
+
+        upload_url = f"{supabase_url}/storage/v1/object/{bucket}/{filename}"
+        headers = {
+            "Authorization": f"Bearer {supabase_key}",
+            "Content-Type": content_type,
+            "x-upsert": "true",
         }
+        resp = http_client.post(upload_url, data=image_bytes, headers=headers, timeout=30)
+        resp.raise_for_status()
+        # Build the public URL
+        public_url = f"{supabase_url}/storage/v1/object/public/{bucket}/{filename}"
+        return public_url
+
 
 # =====================================================================
 # SDD CONTROLLER: GenerateVisualAidAPIView
-# Description: Intercepts the target goal text, runs the generator 
-#              service, and returns the preview URL to the frontend.
 # =====================================================================
 class GenerateVisualAidAPIView(APIView):
     def post(self, request, *args, **kwargs):
-        # 🚀 REWIRED: Just ask for the specific goal ID!
-        goal_id = request.data.get('goalID')
-        
-        if not goal_id:
+        iep_goal_id = request.data.get("iep_goal_id")
+        extra_prompt = request.data.get("prompt", "").strip()
+        category = request.data.get("category", "").strip()
+
+        if not iep_goal_id:
             return Response(
-                {"error": "A target Goal ID is required to generate an asset."}, 
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "iep_goal_id is required."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-            
+
         try:
-            # 🚀 REWIRED: Grab the goal, and use it to instantly find the student
-            target_goal = IEPGoal.objects.select_related('iep__studentID').get(pk=goal_id)
+            target_goal = IEPGoal.objects.select_related("iep__studentID").get(pk=iep_goal_id)
             student = target_goal.iep.studentID
         except IEPGoal.DoesNotExist:
-            return Response({"error": "Target goal not found."}, status=status.HTTP_404_NOT_FOUND)
-            
-        # Execute Generation Pipeline
-        asset_payload = VisualAidGeneratorService.process_synthesis_pipeline(target_goal.annual_goal, student)
-        
-        return Response({
-            "message": "Visual Aid generated successfully.",
-            "data": asset_payload
-        }, status=status.HTTP_200_OK)
+            return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": f"Goal lookup failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Build the image prompt
+        try:
+            goal_text = target_goal.annual_goal or "learning and development"
+            full_prompt = VisualAidGeneratorService.build_prompt(
+                goal_text, extra_prompt, category, student.name
+            )
+        except Exception as e:
+            return Response({"error": f"Prompt build failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Fetch image from Pollinations (server-side — no CORS)
+        try:
+            image_bytes, content_type, pollinations_url = VisualAidGeneratorService.fetch_image_from_pollinations(full_prompt)
+        except Exception as e:
+            return Response(
+                {"error": f"Image generation failed: {str(e)}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        # Try to upload to Supabase Storage for a permanent URL
+        filename = f"visual-aid-{student.studentID}-{uuid.uuid4().hex[:8]}.jpg"
+        final_url = pollinations_url  # default fallback
+        try:
+            supabase_result = VisualAidGeneratorService.upload_to_supabase(image_bytes, filename, content_type)
+            if supabase_result:
+                final_url = supabase_result
+        except Exception:
+            pass  # Supabase not configured — use Pollinations URL directly
+
+        # Build a descriptive title
+        category_label = f"{category} — " if category else ""
+        title = f"{category_label}{student.name} Visual Aid"
+
+        # Save the VisualAid record to the database
+        try:
+            visual_aid = VisualAid.objects.create(
+                iep_goal=target_goal,
+                title=title,
+                imageUrl=final_url,
+                prompt_used=full_prompt,
+            )
+        except Exception as e:
+            return Response({"error": f"Database save failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return Response(
+            {
+                "message": "Visual Aid generated and saved successfully.",
+                "data": {
+                    "visualAidID": visual_aid.visualAidID,
+                    "title": visual_aid.title,
+                    "imageUrl": final_url,
+                    "studentName": student.name,
+                    "dateCreated": str(visual_aid.dateCreated),
+                },
+            },
+            status=status.HTTP_201_CREATED,
+        )
         
 # =====================================================================
 # SDD CONTROLLER: ExportVisualAidAPIView
