@@ -10,15 +10,115 @@ from .models import Assessment, IEPGoal, IEPModel,IEPObjectiveRow,GeneratedAIIns
 from django.shortcuts import get_object_or_404
 from .services import AIGenerationService
 from .huggingface_service import CustomLlamaService
+
+
+def _safe_generated_details(details):
+    """Return generatedDetails as a dict even when stored as JSON string."""
+    if not details:
+        return {}
+    if isinstance(details, dict):
+        return details
+    if isinstance(details, str):
+        try:
+            import json
+            parsed = json.loads(details)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+def _first_non_empty(*values, default=""):
+    for value in values:
+        if value is None:
+            continue
+        value = str(value).strip()
+        if value:
+            return value
+    return default
+
+
+def _extract_learner_goals_from_details(details):
+    """
+    View IEP can display Section C from generatedDetails. Older records may have
+    those goals only inside generatedDetails. This extracts them so the real
+    IEPGoal table can be backfilled for Lesson Plans, Visual Aids, and Strategies.
+    """
+    details = _safe_generated_details(details)
+    candidates = (
+        details.get('learnerGoals')
+        or details.get('sectionC')
+        or details.get('goals')
+        or details.get('generatedGoals')
+        or []
+    )
+    return candidates if isinstance(candidates, list) else []
+
+
+def _sync_goals_from_generated_details(iep):
+    """
+    Backfill IEPGoal/IEPObjectiveRow rows from generatedDetails.
+
+    This fixes existing IEPs where Section C is visible in View IEP, but
+    Manage Lesson Plans / Visual Aids / Teaching Strategies show no goals because
+    those modules read from the normalized IEPGoal table.
+    """
+    if not iep or IEPGoal.objects.filter(iep=iep).exists():
+        return
+
+    learner_goals = _extract_learner_goals_from_details(iep.generatedDetails)
+    for idx, goal in enumerate(learner_goals, start=1):
+        if not isinstance(goal, dict):
+            continue
+
+        subject_category = _first_non_empty(
+            goal.get('subject_category'),
+            goal.get('subjectCategory'),
+            goal.get('type'),
+            goal.get('goalArea'),
+            goal.get('goalName'),
+            default=f'Goal {idx}',
+        )
+        annual_goal = _first_non_empty(
+            goal.get('annual_goal'),
+            goal.get('annualGoal'),
+            goal.get('label'),
+            goal.get('goal'),
+            goal.get('description'),
+        )
+        if not annual_goal:
+            continue
+
+        parent_goal = IEPGoal.objects.create(
+            iep=iep,
+            subject_category=subject_category,
+            annual_goal=annual_goal,
+            goalName=_first_non_empty(goal.get('goalName'), subject_category, default=f'Goal {idx}'),
+            target_metric=_first_non_empty(goal.get('target_metric'), goal.get('targetMetric'), default='Standard IEP Metric'),
+        )
+
+        rows = goal.get('objective_rows') or goal.get('rows') or goal.get('objectives') or []
+        if not isinstance(rows, list):
+            rows = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            IEPObjectiveRow.objects.create(
+                parent_goal=parent_goal,
+                enroute_objectives=_first_non_empty(row.get('enroute_objectives'), row.get('objective'), row.get('enrouteObjectives')),
+                interventions_procedures=_first_non_empty(row.get('interventions_procedures'), row.get('interventions'), row.get('activities')),
+                timeline_mins_session=_first_non_empty(row.get('timeline_mins_session'), row.get('timeline'), row.get('session')),
+                individuals_responsible=_first_non_empty(row.get('individuals_responsible'), row.get('responsible'), row.get('individualsResponsible')),
+                progress_instructional=_first_non_empty(row.get('progress_instructional'), row.get('evaluation'), row.get('progress')),
+                remarks=_first_non_empty(row.get('remarks')),
+            )
+
 from .rgori_service import RGORICheckerService
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .huggingface_service import CustomLlamaService
-from .rgori_service import RGORICheckerService
-import time
-import json
-import re
+
 
 class IEPGeneratorService:
     @staticmethod
@@ -247,9 +347,28 @@ class StandaloneIEPGoalViewSet(viewsets.ModelViewSet):
         student_id = self.request.query_params.get('student_id')
         iep_id = self.request.query_params.get('iep')
         if student_id:
-            return queryset.filter(iep__studentID__pk=student_id)
+            latest_only = str(self.request.query_params.get('latest', '')).lower() in ('1', 'true', 'yes')
+            if latest_only:
+                latest_iep = (
+                    IEPModel.objects
+                    .filter(studentID__pk=student_id)
+                    .order_by('-version', '-createdDate', '-iepID')
+                    .first()
+                )
+                if not latest_iep:
+                    return queryset.none()
+                _sync_goals_from_generated_details(latest_iep)
+                return queryset.filter(iep=latest_iep).order_by('goalID')
+
+            # Backfill old records where Section C is stored only in generatedDetails.
+            for iep in IEPModel.objects.filter(studentID__pk=student_id):
+                _sync_goals_from_generated_details(iep)
+            return queryset.filter(iep__studentID__pk=student_id).order_by('iep__version', 'goalID')
+
         if iep_id:
-            return queryset.filter(iep__iepID=iep_id)
+            iep = IEPModel.objects.filter(iepID=iep_id).first()
+            _sync_goals_from_generated_details(iep)
+            return queryset.filter(iep__iepID=iep_id).order_by('goalID')
         return queryset
     
     

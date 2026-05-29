@@ -1,83 +1,68 @@
-import re
-import requests
-from django.conf import settings
-
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from peft import PeftModel
 
 class CustomLlamaService:
-    """
-    Uses Groq's free API to run Llama 3.2 3B Instruct.
-    Drop-in replacement — all existing callers work unchanged.
-    """
+    # 🎯 Pointing directly to your fine-tuned v3 model
+    BASE_MODEL_ID = "meta-llama/Meta-Llama-3-8B-Instruct"
+    ADAPTER_ID = "juswa12/neuropath-iep-llama3-v3"
+    
+    # Class-level variables to hold the massive model in memory
+    tokenizer = None
+    model = None
 
-    API_URL = "https://api.groq.com/openai/v1/chat/completions"
-    MODEL = "llama-3.1-8b-instant"
+    @classmethod
+    def _load_model(cls):
+        """Loads the massive model into your laptop's memory only once."""
+        if cls.model is None or cls.tokenizer is None:
+            print("⏳ Loading tokenizer...")
+            cls.tokenizer = AutoTokenizer.from_pretrained(cls.BASE_MODEL_ID)
+            cls.tokenizer.pad_token = cls.tokenizer.eos_token
 
-    SYSTEM_PROMPT = (
-        "You are an expert Special Education teacher specializing in writing "
-        "Individualized Education Program (IEP) goals. "
-        "When asked to write an IEP goal, produce a single, specific, measurable, "
-        "achievable, relevant, and time-bound (SMART) goal. "
-        "Output only the goal text — no explanations, no bullet points, no preamble."
-    )
+            print("⏳ Downloading and loading base Llama 3 in 4-bit mode to save RAM...")
+            # 8B models require about 16GB RAM. 4-bit quantization shrinks this to ~6GB.
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.float16,
+            )
+            
+            base_model = AutoModelForCausalLM.from_pretrained(
+                cls.BASE_MODEL_ID,
+                quantization_config=bnb_config,
+                device_map="auto",
+            )
+            
+            print("🧠 Downloading and attaching your custom IEP v3 adapter...")
+            cls.model = PeftModel.from_pretrained(base_model, cls.ADAPTER_ID)
+            cls.model.eval()
+            print("✅ Local offline model successfully loaded!")
 
     @staticmethod
-    def generate_text(prompt, max_new_tokens=250):
-        # Detect the cloud-delimiter system block used by RGORICheckerService
-        system_content = CustomLlamaService.SYSTEM_PROMPT
-        user_content   = prompt
+    def generate_text(prompt, max_new_tokens=600):
+        # 1. Boot up the model (downloads automatically on the first run)
+        CustomLlamaService._load_model()
 
-        system_match = re.search(
-            r"☁️system☁️(.*?)☁️/system☁️\s*☁️user☁️(.*?)☁️/user☁️",
-            prompt,
-            re.DOTALL,
-        )
-        if system_match:
-            system_content = system_match.group(1).strip()
-            user_content   = system_match.group(2).strip()
+        # 2. NO SYSTEM PROMPT! We format it exactly like your v3 training CSV
+        formatted_prompt = f"### Human:\nGenerate an individualized education plan based on the student information below.\n\n{prompt}\n\n### Assistant:\n"
 
-        headers = {
-            "Authorization": f"Bearer {settings.GROQ_API_KEY}",
-            "Content-Type": "application/json",
-        }
+        # 3. Tokenize and Generate
+        inputs = CustomLlamaService.tokenizer(
+            formatted_prompt, return_tensors="pt"
+        ).to(CustomLlamaService.model.device)
 
-        payload = {
-            "model": CustomLlamaService.MODEL,
-            "messages": [
-                {"role": "system", "content": system_content},
-                {"role": "user",   "content": user_content},
-            ],
-            "max_tokens": max_new_tokens,
-            "temperature": 0.3,
-        }
-
-        try:
-            response = requests.post(
-                CustomLlamaService.API_URL,
-                headers=headers,
-                json=payload,
-                timeout=60,
+        with torch.no_grad():
+            outputs = CustomLlamaService.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                temperature=0.7,
+                do_sample=True,
+                pad_token_id=CustomLlamaService.tokenizer.eos_token_id,
             )
 
-            if response.status_code == 200:
-                return response.json()["choices"][0]["message"]["content"].strip()
-            elif response.status_code == 401:
-                raise Exception(
-                    "Groq API Error: Invalid or missing GROQ_API_KEY. Check your .env file."
-                )
-            elif response.status_code == 429:
-                raise Exception(
-                    "Groq API Error: Rate limit reached. Wait a moment and try again."
-                )
-            else:
-                raise Exception(
-                    f"Groq API Error: {response.status_code} - {response.text}"
-                )
-
-        except requests.exceptions.ConnectionError as e:
-            raise Exception(
-                f"❌ Cannot reach Groq API. Check internet access. Detail: {str(e)}"
-            )
-        except requests.exceptions.Timeout:
-            raise Exception("❌ Groq API timed out after 60 seconds.")
-        except Exception as e:
-            raise Exception(f"❌ REAL ERROR: {str(e)}")
+        # 4. Clean and return the generated output
+        raw_text = CustomLlamaService.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        
+        if "### Assistant:" in raw_text:
+            return raw_text.split("### Assistant:")[-1].strip()
+        return raw_text.strip()
