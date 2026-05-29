@@ -254,3 +254,128 @@
   padding-top: 16px;
   border-top: 1px solid #e3eaf2;
 }
+
+.vsr-export-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.vsr-export-pdf-btn {
+  background: linear-gradient(135deg, #2589c7 0%, #82c7ff 100%);
+  color: #fff;
+  padding: 8px 24px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 12px rgba(37, 137, 199, 0.22);
+}
+
+.vsr-export-pdf-btn:hover {
+  background: linear-gradient(135deg, #1a6fa8 0%, #5aabf0 100%);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 137, 199, 0.32);
+}
+
+/* ── Theme action buttons used for Back and Export PDF ───────────────────── */
+.vsr-theme-btn,
+.vsr-export-pdf-btn {
+  background: linear-gradient(135deg, #2589c7 0%, #82c7ff 100%);
+  color: #fff !important;
+  padding: 8px 24px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 12px rgba(37, 137, 199, 0.22);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.vsr-theme-btn:hover,
+.vsr-export-pdf-btn:hover {
+  background: linear-gradient(135deg, #1a6fa8 0%, #5aabf0 100%);
+  color: #fff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 137, 199, 0.32);
+}
+
+.vsr-source-note {
+  margin: -4px 0 8px;
+  color: #4a7a94;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.vsr-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.vsr-goal-card {
+  border: 1px solid #dde3ea;
+  border-radius: 7px;
+  overflow: hidden;
+  margin-bottom: 14px;
+  background: #fff;
+}
+
+.vsr-goal-annual {
+  padding: 14px;
+  color: #333;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  border-bottom: 1px solid #e3eaf2;
+}
+
+.vsr-goal-table th,
+.vsr-goal-table td {
+  min-width: 160px;
+  vertical-align: top;
+  white-space: pre-wrap;
+}
+
+/* ── Student Records: screenshot-matched action buttons ─────────────────── */
+.vsr-theme-btn {
+  background: #ffffff !important;
+  color: #5a7491 !important;
+  border: 2px solid #d8e3ef !important;
+  border-radius: 14px !important;
+  padding: 18px 34px !important;
+  font-size: 18px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+}
+
+.vsr-theme-btn:hover {
+  background: #f7fbff !important;
+  color: #3d6f9f !important;
+  border-color: #c7d9ea !important;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(90, 171, 240, 0.14) !important;
+}
+
+.vsr-export-pdf-btn {
+  background: linear-gradient(135deg, #3d9de8 0%, #5aabf0 100%) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 16px !important;
+  padding: 22px 48px !important;
+  font-size: 24px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.3px !important;
+  box-shadow: 0 14px 30px rgba(90, 171, 240, 0.28) !important;
+}
+
+.vsr-export-pdf-btn:hover {
+  background: linear-gradient(135deg, #2589d8 0%, #4aa2ee 100%) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 18px 36px rgba(90, 171, 240, 0.36) !important;
+}

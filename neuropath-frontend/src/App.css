@@ -1201,3 +1201,51 @@
   opacity: 1;
   margin-top: 4px;
 }
+
+/* ── View IEP Section C edit controls ───────────────────────────────────── */
+.iep-edit-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 12px;
+}
+
+.iep-edit-section-header h3 {
+  margin: 0;
+}
+
+.iep-edit-goal-card {
+  background: #fff;
+  border: 1px solid #dbe1e8;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.iep-edit-goal-head {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.iep-edit-actions-bottom {
+  justify-content: flex-end;
+  position: sticky;
+  bottom: 0;
+  background: #fbfdff;
+  border-top: 1px solid #dbe1e8;
+  padding-top: 14px;
+  margin-top: 20px;
+}
+
+@media (max-width: 760px) {
+  .iep-edit-goal-head,
+  .iep-edit-section-header {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

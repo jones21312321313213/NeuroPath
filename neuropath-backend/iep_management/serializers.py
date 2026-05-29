@@ -7,6 +7,8 @@ class IEPDataSerializer(serializers.ModelSerializer):
         fields = [
             'iepID',
             'studentID',
+            'baselineData',
+            'goals',
             'accommodations',
             'generatedDetails',
             'version',

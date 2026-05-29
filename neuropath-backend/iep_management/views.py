@@ -15,6 +15,75 @@ import time
 import json
 import re
 
+
+def _as_dict(value):
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, dict) else {}
+        except (TypeError, ValueError):
+            return {}
+    return {}
+
+
+def _sync_iep_goal_rows(iep_instance):
+    """Keep Section C goal rows aligned with the saved IEP payload."""
+    IEPGoal.objects.filter(iep=iep_instance).delete()
+    details = _as_dict(iep_instance.generatedDetails)
+    learner_goals = details.get('learnerGoals') or []
+
+    if isinstance(learner_goals, list) and learner_goals:
+        for goal in learner_goals:
+            if not isinstance(goal, dict):
+                continue
+            subject = goal.get('type') or goal.get('subject_category') or 'GENERAL'
+            annual_goal = goal.get('annualGoal') or goal.get('annual_goal') or goal.get('goalName') or ''
+            parent_goal = IEPGoal.objects.create(
+                iep=iep_instance,
+                goalName=(annual_goal or subject or 'IEP Goal')[:200],
+                target_metric='Standard IEP Metric',
+                subject_category=subject,
+                annual_goal=annual_goal,
+            )
+            rows = goal.get('rows') or goal.get('objective_rows') or []
+            if not rows:
+                rows = [{}]
+            for row in rows:
+                if not isinstance(row, dict):
+                    row = {}
+                IEPObjectiveRow.objects.create(
+                    parent_goal=parent_goal,
+                    enroute_objectives=row.get('objective') or row.get('enroute_objectives') or '',
+                    interventions_procedures=row.get('interventions') or row.get('interventions_procedures') or '',
+                    timeline_mins_session=row.get('timeline') or row.get('timeline_mins_session') or '',
+                    individuals_responsible=row.get('responsible') or row.get('individuals_responsible') or '',
+                    progress_instructional=row.get('evaluation') or row.get('progress_instructional') or '',
+                    remarks=row.get('remarks') or '',
+                )
+        return
+
+    raw_goals_text = iep_instance.goals or ''
+    goal_items = re.split(r'\n\d+\.\s*', raw_goals_text)
+    for item in goal_items:
+        cleaned_goal = item.strip()
+        if cleaned_goal and len(cleaned_goal) > 10:
+            parent_goal = IEPGoal.objects.create(
+                iep=iep_instance,
+                goalName=cleaned_goal[:200],
+                target_metric='Standard IEP Metric',
+                subject_category='GENERAL',
+                annual_goal=cleaned_goal,
+            )
+            IEPObjectiveRow.objects.create(
+                parent_goal=parent_goal,
+                enroute_objectives='Initial baseline objective target.',
+                interventions_procedures='Standard accommodations protocols.',
+                timeline_mins_session='15-20 mins daily',
+                individuals_responsible='SPED Teacher',
+            )
+
 class IEPGeneratorService:
     @staticmethod
     def generate_draft(student, baseline_input, target_domains, teacher_id):
@@ -118,7 +187,8 @@ class IEPGenerationAPIView(APIView):
 
             # Only allow saving an IEP for a student owned by this teacher account.
             student_id = payload.get('studentID')
-            teacher = self._get_teacher_from_user_id(payload.get('teacherID'))
+            teacher_id = request.user.id if request.user.is_authenticated else payload.get('teacherID')
+            teacher = self._get_teacher_from_user_id(teacher_id)
             try:
                 student_query = StudentProfile.objects.filter(pk=student_id)
                 if teacher:
@@ -138,26 +208,7 @@ class IEPGenerationAPIView(APIView):
             if serializer.is_valid():
                 iep_instance = serializer.save()
 
-                raw_goals_text = iep_instance.goals or ''
-                goal_items = re.split(r'\n\d+\.\s*', raw_goals_text)
-                for item in goal_items:
-                    cleaned_goal = item.strip()
-                    if cleaned_goal and len(cleaned_goal) > 10:
-                        parent_goal = IEPGoal.objects.create(
-                            iep=iep_instance,
-                            goalName=cleaned_goal[:200], 
-                            target_metric='Standard IEP Metric',
-                            subject_category='GENERAL',
-                            annual_goal=cleaned_goal
-                        )
-                        # 2. Create at least one blank/initial child row to build the grid relation safely
-                        IEPObjectiveRow.objects.create(
-                            parent_goal=parent_goal,
-                            enroute_objectives="Initial baseline objective target.",
-                            interventions_procedures="Standard accommodations protocols.",
-                            timeline_mins_session="15-20 mins daily",
-                            individuals_responsible="SPED Teacher"
-                        )
+                _sync_iep_goal_rows(iep_instance)
 
                 return Response({
                     'message': 'IEP Created Successfully.',
@@ -204,29 +255,37 @@ class IEPEditAPIView(generics.UpdateAPIView):
     queryset = IEPModel.objects.all()
     serializer_class = IEPUpdateSerializer
 
-    def perform_update(self, serializer):
-        iep_instance = serializer.save()
-        if 'goals' in serializer.validated_data:
-            IEPGoal.objects.filter(iep=iep_instance).delete()
-            raw_goals_text = iep_instance.goals or ''
-            goal_items = re.split(r'\n\d+\.\s*', raw_goals_text)
-            for item in goal_items:
-                cleaned_goal = item.strip()
-                if cleaned_goal and len(cleaned_goal) > 10:
-                    parent_goal = IEPGoal.objects.create(
-                        iep=iep_instance, 
-                        goalName=cleaned_goal[:200], 
-                        target_metric='Standard IEP Metric', 
-                        subject_category='GENERAL',
-                        annual_goal=cleaned_goal
-                    )
-                    IEPObjectiveRow.objects.create(
-                        parent_goal=parent_goal,
-                        enroute_objectives="Initial baseline objective target.",
-                        interventions_procedures="Standard accommodations protocols.",
-                        timeline_mins_session="15-20 mins daily",
-                        individuals_responsible="SPED Teacher"
-                    )
+    def update(self, request, *args, **kwargs):
+        """
+        Create a new IEP version instead of overwriting the old record.
+        This keeps the Version dropdown useful for tracking student progress.
+        """
+        original = self.get_object()
+        partial = kwargs.pop('partial', False)
+        serializer = self.get_serializer(original, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        latest = IEPModel.objects.filter(studentID=original.studentID).order_by('-version').first()
+        next_version = (latest.version + 1) if latest else (original.version + 1)
+
+        iep_instance = IEPModel.objects.create(
+            studentID=original.studentID,
+            baselineData=data.get('baselineData', original.baselineData),
+            goals=data.get('goals', original.goals),
+            accommodations=data.get('accommodations', original.accommodations),
+            generatedDetails=data.get('generatedDetails', original.generatedDetails),
+            version=next_version,
+            program_type=data.get('program_type', original.program_type),
+            difficulties=data.get('difficulties', original.difficulties),
+            learning_barriers=data.get('learning_barriers', original.learning_barriers),
+            barrier_qualifiers=data.get('barrier_qualifiers', original.barrier_qualifiers),
+            learning_facilitators=data.get('learning_facilitators', original.learning_facilitators),
+            facilitator_qualifiers=data.get('facilitator_qualifiers', original.facilitator_qualifiers),
+            learning_accommodations=data.get('learning_accommodations', original.learning_accommodations),
+        )
+        _sync_iep_goal_rows(iep_instance)
+        return Response(IEPListDetailSerializer(iep_instance).data, status=status.HTTP_200_OK)
 
 
 class IEPDeleteAPIView(generics.DestroyAPIView):
@@ -249,6 +308,9 @@ class StandaloneIEPGoalViewSet(viewsets.ModelViewSet):
         """
         queryset = self.queryset
         student_id = self.request.query_params.get('student_id')
+        iep_id = self.request.query_params.get('iep')
+        if iep_id:
+            return queryset.filter(iep_id=iep_id)
         if student_id:
             return queryset.filter(iep__studentID__pk=student_id)
         return queryset
