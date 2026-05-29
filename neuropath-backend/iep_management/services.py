@@ -4,7 +4,6 @@ from .models import GeneratedAIInsight
 class AIGenerationService:
     @staticmethod
     def generate_and_save_summary(student_instance, teacher_instance):
-        # 🎯 Updated to use your exact model attributes!
         prompt = f"""
         You are an expert Special Education Specialist. Write a concise, professional summary for a student's profile.
         Do NOT list strengths and challenges separately. Synthesize the information into a single, cohesive summary paragraph.

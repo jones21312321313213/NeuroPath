@@ -1,109 +1,122 @@
-/* ── Step indicator ─────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════
+   ViewStudentRecords.css
+   Theme: NeuroPath Blue  (#5aabf0 / #3d9de8 / #1e6fbf)
+══════════════════════════════════════════════════════════ */
+
+/* ── Step indicator ─────────────────────────────────────── */
 .vsr-steps {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0;
-  padding: 20px 0 8px;
+  padding: 22px 24px 18px;
   background: #fff;
-  border-radius: 8px 8px 0 0;
-  border-bottom: 1px solid #dde3ea;
+  border-radius: 0;
+  border-bottom: 1.5px solid #e8eef6;
   margin-bottom: 0;
 }
 
 .vsr-step {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   position: relative;
 }
 
 .vsr-step-circle {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
-  background: #e3eaf2;
-  color: #888;
-  border: 2px solid #d0d8e4;
-  transition: all 0.2s;
+  font-size: 12.5px;
+  font-weight: 800;
+  background: #f0f4f8;
+  color: #a0aab4;
+  border: 2px solid #d0dce8;
+  transition: all 0.25s ease;
   flex-shrink: 0;
+  font-family: "Plus Jakarta Sans", sans-serif;
 }
 
 .vsr-step-active .vsr-step-circle {
-  background: #5aabf0;
+  background: linear-gradient(135deg, #5aabf0, #3d9de8);
   color: #fff;
-  border-color: #5aabf0;
-  box-shadow: 0 0 0 3px rgba(90, 171, 240, 0.2);
+  border-color: #3d9de8;
+  box-shadow:
+    0 0 0 4px rgba(90, 171, 240, 0.2),
+    0 2px 8px rgba(90, 171, 240, 0.35);
 }
 
 .vsr-step-done .vsr-step-circle {
-  background: #3dc98a;
+  background: linear-gradient(135deg, #43d9a2, #27b589);
   color: #fff;
-  border-color: #3dc98a;
+  border-color: #27b589;
+  box-shadow: 0 2px 8px rgba(39, 181, 137, 0.3);
 }
 
 .vsr-step-label {
   font-size: 12.5px;
   font-weight: 600;
-  color: #aaa;
+  color: #a0aab4;
   white-space: nowrap;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  transition: color 0.2s;
 }
 
 .vsr-step-active .vsr-step-label {
-  color: #5aabf0;
+  color: #3d9de8;
 }
-
 .vsr-step-done .vsr-step-label {
-  color: #3dc98a;
+  color: #27b589;
 }
 
 .vsr-step-line {
-  width: 48px;
+  width: 56px;
   height: 2px;
-  background: #e3eaf2;
-  margin: 0 6px;
+  background: linear-gradient(90deg, #d0dce8, #e8eef6);
+  margin: 0 8px;
   flex-shrink: 0;
+  border-radius: 2px;
 }
 
-/* ── Outer wrapper ──────────────────────────────────────────────────────── */
+/* ── Outer wrapper ──────────────────────────────────────── */
 .vsr-record-wrap {
   background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  border-radius: 0 0 14px 14px;
+  box-shadow: 0 4px 24px rgba(30, 111, 191, 0.08);
   overflow: hidden;
 }
 
-/* ── Page container ─────────────────────────────────────────────────────── */
+/* ── Page container ─────────────────────────────────────── */
 .vsr-page {
   padding: 28px 32px 24px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
-/* ── Section title ──────────────────────────────────────────────────────── */
+/* ── Section title ──────────────────────────────────────── */
 .vsr-section-title {
   font-size: 15px;
-  font-weight: 700;
-  color: #222;
+  font-weight: 800;
+  color: #1a2b40;
   margin: 0 0 4px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid #e3eaf2;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #eef3f9;
+  letter-spacing: -0.2px;
+  font-family: "Plus Jakarta Sans", sans-serif;
 }
 
-/* ── 2-column grid for fields ───────────────────────────────────────────── */
+/* ── 2-column grid ──────────────────────────────────────── */
 .vsr-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px 24px;
 }
 
-/* ── Field group (label + input-like box) ───────────────────────────────── */
+/* ── Field group ────────────────────────────────────────── */
 .vsr-field-group {
   display: flex;
   flex-direction: column;
@@ -115,142 +128,175 @@
 }
 
 .vsr-field-label {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #555;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5aabf0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: "Plus Jakarta Sans", sans-serif;
 }
 
 .vsr-field-input {
-  background: #f5f7fa;
-  border: 1px solid #dde3ea;
-  border-radius: 6px;
-  padding: 9px 12px;
+  background: #f7fafd;
+  border: 1.5px solid #e3eaf2;
+  border-radius: 8px;
+  padding: 10px 14px;
   font-size: 13.5px;
-  color: #333;
-  min-height: 38px;
+  color: #1a2b40;
+  min-height: 40px;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 500;
+  transition: border-color 0.15s;
+}
+.vsr-field-input:hover {
+  border-color: #bdd6f0;
 }
 
 .vsr-field-textarea {
-  background: #f5f7fa;
-  border: 1px solid #dde3ea;
-  border-radius: 6px;
-  padding: 10px 12px;
+  background: #f7fafd;
+  border: 1.5px solid #e3eaf2;
+  border-radius: 8px;
+  padding: 12px 14px;
   font-size: 13.5px;
-  color: #333;
-  line-height: 1.6;
-  min-height: 72px;
+  color: #1a2b40;
+  line-height: 1.65;
+  min-height: 80px;
   white-space: pre-wrap;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 400;
 }
 
-/* ── Difficulty chips ───────────────────────────────────────────────────── */
+/* ── Difficulty chips ───────────────────────────────────── */
 .vsr-difficulty-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 10px 12px;
-  background: #f5f7fa;
-  border: 1px solid #dde3ea;
-  border-radius: 6px;
-  min-height: 42px;
+  padding: 12px 14px;
+  background: #f7fafd;
+  border: 1.5px solid #e3eaf2;
+  border-radius: 8px;
+  min-height: 44px;
 }
 
 .vsr-difficulty-chip {
-  background: #eef6fd;
-  border: 1px solid #b8d9f5;
+  background: rgba(90, 171, 240, 0.12);
+  border: 1.5px solid rgba(90, 171, 240, 0.3);
   color: #2d7fc4;
   border-radius: 20px;
-  padding: 3px 12px;
+  padding: 4px 14px;
   font-size: 12.5px;
-  font-weight: 600;
+  font-weight: 700;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  letter-spacing: 0.2px;
 }
 
-/* ── Section B table ────────────────────────────────────────────────────── */
+/* ── Section B table ────────────────────────────────────── */
 .vsr-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13.5px;
-  border: 1px solid #dde3ea;
-  border-radius: 6px;
+  border: 1.5px solid #e3eaf2;
+  border-radius: 10px;
   overflow: hidden;
 }
 
 .vsr-table thead tr {
-  background: #2d4a6e;
+  background: linear-gradient(90deg, #1e4d7d, #2d6aad);
   color: #fff;
 }
 
 .vsr-table th {
-  padding: 10px 14px;
+  padding: 11px 16px;
   font-weight: 700;
   text-align: left;
   font-size: 13px;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  letter-spacing: 0.3px;
 }
 
 .vsr-table td {
-  padding: 10px 14px;
-  color: #555;
-  border-top: 1px solid #e3eaf2;
+  padding: 11px 16px;
+  color: #4a5568;
+  border-top: 1px solid #e8eef6;
 }
 
 .vsr-table-empty {
-  color: #999;
+  color: #a0aab4;
   font-style: italic;
   font-size: 13px;
+  text-align: center;
+  padding: 20px !important;
 }
 
-/* ── AI Accommodations box ──────────────────────────────────────────────── */
+/* ── AI Accommodations box ──────────────────────────────── */
 .vsr-ai-box {
-  background: #f0f7ff;
-  border: 1px solid #c0ddf7;
-  border-radius: 7px;
-  padding: 14px 18px;
+  background: linear-gradient(135deg, #eef6ff, #f0f9ff);
+  border: 1.5px solid #bdd6f5;
+  border-radius: 10px;
+  padding: 16px 20px;
+  position: relative;
+  overflow: hidden;
+}
+.vsr-ai-box::before {
+  content: "✦";
+  position: absolute;
+  right: 16px;
+  top: 12px;
+  font-size: 22px;
+  color: rgba(90, 171, 240, 0.2);
 }
 
 .vsr-ai-title {
-  font-size: 13.5px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 800;
   color: #2d7fc4;
-  margin: 0 0 6px;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-family: "Plus Jakarta Sans", sans-serif;
 }
 
 .vsr-ai-text {
   font-size: 13.5px;
-  color: #444;
-  line-height: 1.65;
+  color: #3a4a5c;
+  line-height: 1.7;
   margin: 0;
 }
 
-/* ── Section C goals box ────────────────────────────────────────────────── */
+/* ── Section C goals box ────────────────────────────────── */
 .vsr-goals-box {
-  border: 1px solid #dde3ea;
-  border-radius: 7px;
+  border: 1.5px solid #e3eaf2;
+  border-radius: 10px;
   overflow: hidden;
 }
 
 .vsr-goals-header {
-  background: #f0f4f8;
-  border-bottom: 1px solid #dde3ea;
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #333;
+  background: linear-gradient(90deg, #ddeeff, #eef6fd);
+  border-bottom: 1.5px solid #d4e8f7;
+  padding: 9px 16px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #1e6fbf;
   margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-family: "Plus Jakarta Sans", sans-serif;
 }
 
 .vsr-goals-empty {
-  padding: 16px 14px;
-  color: #999;
-  font-size: 13px;
+  padding: 20px 16px;
+  color: #a0aab4;
+  font-size: 13.5px;
   font-style: italic;
   margin: 0;
 }
 
-/* ── Page action buttons ────────────────────────────────────────────────── */
+/* ── Page action buttons ────────────────────────────────── */
 .vsr-page-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-top: 8px;
-  padding-top: 16px;
-  border-top: 1px solid #e3eaf2;
+  padding-top: 18px;
+  border-top: 1.5px solid #eef3f9;
 }

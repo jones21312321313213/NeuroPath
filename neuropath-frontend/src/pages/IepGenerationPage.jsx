@@ -1096,6 +1096,8 @@ export default function IEPGenerationPage({ mode = "generate" }) {
       const result = await iepAPI.generateGoalsFromIep({
         iep_id: savedIepId,
         student_name: form.learnerName || getStudentName(selectedStudent) || "",
+        goal_area: selectedGoalCategory,
+        teacher_prompt: teacherPrompt,
         accommodations: form.barrierRows
           .map((r) => r.accommodation)
           .join(" | "),
