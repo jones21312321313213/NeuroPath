@@ -144,3 +144,16 @@ class StandaloneIEPGoalSerializer(serializers.ModelSerializer):
                 IEPObjectiveRow.objects.create(parent_goal=instance, **row)
 
         return instance
+    
+    
+
+class IEPGenerationRequestSerializer(serializers.Serializer):
+    student_name = serializers.CharField(max_length=100)
+    diagnosis = serializers.CharField(max_length=100)
+    baseline_barriers = serializers.CharField()
+    target_domain = serializers.CharField(max_length=100)
+
+    def validate_baseline_barriers(self, value):
+        if len(value.strip()) < 10:
+            raise serializers.ValidationError("Baseline barriers must be detailed.")
+        return value

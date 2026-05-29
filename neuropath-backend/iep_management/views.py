@@ -1,16 +1,19 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, generics,viewsets
-from .serializers import IEPDataSerializer, IEPListDetailSerializer, IEPUpdateSerializer,StandaloneIEPGoalSerializer
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from .serializers import IEPDataSerializer, IEPListDetailSerializer, IEPUpdateSerializer,StandaloneIEPGoalSerializer,IEPGenerationRequestSerializer
 from users.models import StudentProfile
 from tracking.models import AIGenerationLog
 from .models import Assessment, IEPGoal, IEPModel,IEPObjectiveRow,GeneratedAIInsight,StudentProfile
-import json
-import re
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from .services import AIGenerationService
+from .huggingface_service import CustomLlamaService
+from .rgori_service import RGORICheckerService
+import time
+import json
+import re
 
 class IEPGeneratorService:
     @staticmethod
@@ -293,3 +296,54 @@ def get_student_insights(request, student_id):
     ]
     
     return Response(data, status=status.HTTP_200_OK)
+
+
+class GenerateIEPGoalAPIView(APIView):
+    def post(self, request):
+        # 1. Validate the incoming data from React
+        serializer = IEPGenerationRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        data = serializer.validated_data
+        student_context = f"{data['student_name']}, Diagnosis: {data['diagnosis']}, Barriers: {data['baseline_barriers']}"
+        generation_prompt = f"Write a specific, measurable IEP goal targeting {data['target_domain']} for {student_context}."
+        
+        # 2. Setup the Generation & R-GORI Loop variables
+        max_attempts = 3
+        best_goal = ""
+        best_score = 0
+        final_feedback = ""
+
+        # 3. The Validation Loop
+        for attempt in range(max_attempts):
+            try:
+                # Step A: Draft the goal
+                draft_goal = CustomLlamaService.generate_text(generation_prompt)
+                
+                # Step B: Audit the goal using R-GORI
+                evaluation = RGORICheckerService.evaluate_goal(draft_goal, student_context)
+                current_score = evaluation.get('total_score', 0)
+                
+                # Track the best performing goal in case we never hit 65%
+                if current_score > best_score:
+                    best_score = current_score
+                    best_goal = draft_goal
+                    final_feedback = evaluation.get('feedback', '')
+                
+                # Step C: Break the loop if compliant!
+                if evaluation.get('compliant') is True:
+                    break
+                    
+                time.sleep(1) # Prevent Hugging Face rate limits
+                
+            except Exception as e:
+                return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # 4. Send the final, audited result back to React
+        return Response({
+            "generated_goal": best_goal,
+            "rgori_score": best_score,
+            "feedback": final_feedback,
+            "attempts_taken": attempt + 1
+        }, status=status.HTTP_200_OK)
