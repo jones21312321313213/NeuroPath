@@ -1,46 +1,83 @@
+import re
 import requests
-import socket
-import urllib3.util.connection as urllib3_cn
 from django.conf import settings
-
-# 🛑 THE MAGIC FIX: Force Python to ignore broken IPv6 Hotspot DNS and use stable IPv4
-def allowed_gai_family():
-    return socket.AF_INET
-urllib3_cn.allowed_gai_family = allowed_gai_family
 
 
 class CustomLlamaService:
-    API_URL = "https://api-inference.huggingface.co/models/juswa12/neuropath-iep-llama3-v3/v1/chat/completions"
-    
-    HF_TOKEN = settings.HF_TOKEN
+    """
+    Uses Groq's free API to run Llama 3.2 3B Instruct.
+    Drop-in replacement — all existing callers work unchanged.
+    """
+
+    API_URL = "https://api.groq.com/openai/v1/chat/completions"
+    MODEL = "llama-3.1-8b-instant"
+
+    SYSTEM_PROMPT = (
+        "You are an expert Special Education teacher specializing in writing "
+        "Individualized Education Program (IEP) goals. "
+        "When asked to write an IEP goal, produce a single, specific, measurable, "
+        "achievable, relevant, and time-bound (SMART) goal. "
+        "Output only the goal text — no explanations, no bullet points, no preamble."
+    )
 
     @staticmethod
     def generate_text(prompt, max_new_tokens=250):
+        # Detect the cloud-delimiter system block used by RGORICheckerService
+        system_content = CustomLlamaService.SYSTEM_PROMPT
+        user_content   = prompt
+
+        system_match = re.search(
+            r"☁️system☁️(.*?)☁️/system☁️\s*☁️user☁️(.*?)☁️/user☁️",
+            prompt,
+            re.DOTALL,
+        )
+        if system_match:
+            system_content = system_match.group(1).strip()
+            user_content   = system_match.group(2).strip()
+
         headers = {
-            "Authorization": f"Bearer {CustomLlamaService.HF_TOKEN}",
-            "Content-Type": "application/json"
+            "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+            "Content-Type": "application/json",
         }
-        
+
         payload = {
-            "model": "juswa12/neuropath-iep-llama3-v3",
+            "model": CustomLlamaService.MODEL,
             "messages": [
-                {
-                    "role": "user", 
-                    "content": prompt
-                }
+                {"role": "system", "content": system_content},
+                {"role": "user",   "content": user_content},
             ],
             "max_tokens": max_new_tokens,
-            "temperature": 0.3
+            "temperature": 0.3,
         }
-        
+
         try:
-            response = requests.post(CustomLlamaService.API_URL, headers=headers, json=payload)
-            
+            response = requests.post(
+                CustomLlamaService.API_URL,
+                headers=headers,
+                json=payload,
+                timeout=60,
+            )
+
             if response.status_code == 200:
-                return response.json()['choices'][0]['message']['content'].strip()
+                return response.json()["choices"][0]["message"]["content"].strip()
+            elif response.status_code == 401:
+                raise Exception(
+                    "Groq API Error: Invalid or missing GROQ_API_KEY. Check your .env file."
+                )
+            elif response.status_code == 429:
+                raise Exception(
+                    "Groq API Error: Rate limit reached. Wait a moment and try again."
+                )
             else:
-                raise Exception(f"Hugging Face API Error: {response.status_code} - {response.text}")
-                
+                raise Exception(
+                    f"Groq API Error: {response.status_code} - {response.text}"
+                )
+
+        except requests.exceptions.ConnectionError as e:
+            raise Exception(
+                f"❌ Cannot reach Groq API. Check internet access. Detail: {str(e)}"
+            )
+        except requests.exceptions.Timeout:
+            raise Exception("❌ Groq API timed out after 60 seconds.")
         except Exception as e:
-            # Unmasked error so we can always see the truth!
             raise Exception(f"❌ REAL ERROR: {str(e)}")
