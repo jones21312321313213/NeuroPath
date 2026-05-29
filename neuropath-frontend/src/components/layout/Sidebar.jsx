@@ -50,8 +50,8 @@ const navItems = [
 export default function Sidebar({ activePage, setActivePage }) {
   const { user } = useAuth();
   const [expanded, setExpanded] = useState({
-    "student-profiling": true,
-    "iep-generation": true,
+    "student-profiling": false,
+    "iep-generation": false,
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
 

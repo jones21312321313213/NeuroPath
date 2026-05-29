@@ -1,33 +1,73 @@
-import { useMemo, useState, useEffect, useCallback } from "react";
-import "../styles/ManageVisualAids.css";
+import { useMemo, useState, useEffect } from "react";
 import "../styles/ManageTeachingStrategies.css";
 import StudentShimmer from "../components/StudentShimmer";
 import { teachingStrategiesAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
 const TABS = [
-  { key: "generate", label: "Generate Teaching Strategies" },
-  { key: "view", label: "View Teaching Strategies" },
-  { key: "edit", label: "Edit Teaching Strategies" },
-  { key: "delete", label: "Delete Teaching Strategies" },
+  { key: "generate", label: "Generate", icon: "✦" },
+  { key: "view", label: "View", icon: "◎" },
+  { key: "edit", label: "Edit", icon: "✏" },
+  { key: "delete", label: "Delete", icon: "⊘" },
 ];
 
-function EmptyState({ message = "No records found." }) {
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function Loading({ text = "Loading…" }) {
   return (
-    <div className="va-empty">
-      <span style={{ fontSize: 32, display: "block", marginBottom: 8 }}>
-        📭
-      </span>
-      {message}
+    <div className="ts-loading-wrap">
+      <div className="ts-loading-dots">
+        <div className="ts-loading-dot" />
+        <div className="ts-loading-dot" />
+        <div className="ts-loading-dot" />
+      </div>
+      <span className="ts-loading-text">{text}</span>
     </div>
   );
 }
 
-// ── Strategy Markdown Renderer ─────────────────────────────────────────────────
-// Parses the AI output format:
-//   **Section Heading:**  →  styled heading
-//   - bullet text        →  list item
-//   plain text           →  paragraph
+function EmptyState({ icon = "📭", message = "No records found." }) {
+  return (
+    <div className="ts-empty">
+      <span className="ts-empty-icon">{icon}</span>
+      <p className="ts-empty-text">{message}</p>
+    </div>
+  );
+}
+
+function ErrorBanner({ message }) {
+  if (!message) return null;
+  return (
+    <div className="ts-error-banner">
+      <span>⚠️</span>
+      <span>{message}</span>
+    </div>
+  );
+}
+
+function Breadcrumb({ items }) {
+  return (
+    <div className="ts-breadcrumb">
+      {items.map((item, i) => (
+        <span key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {i > 0 && <span className="ts-breadcrumb-sep">›</span>}
+          {item.onClick ? (
+            <button className="ts-breadcrumb-link" onClick={item.onClick}>
+              {i === 0 && "← "}
+              {item.label}
+            </button>
+          ) : (
+            <span style={{ color: "#1a2b40", fontWeight: 600 }}>
+              {item.label}
+            </span>
+          )}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ── Strategy Markdown Renderer ────────────────────────────────────────────────
 function StrategyRenderer({ content }) {
   if (!content) return null;
 
@@ -49,7 +89,6 @@ function StrategyRenderer({ content }) {
     bulletBuffer = [];
   };
 
-  // Handles **bold** inline spans within a line
   const renderInline = (text) => {
     const parts = text.split(/(\*\*[^*]+\*\*)/g);
     return parts.map((part, i) =>
@@ -63,20 +102,14 @@ function StrategyRenderer({ content }) {
 
   lines.forEach((rawLine, idx) => {
     const line = rawLine.trimEnd();
-
-    // Blank line — flush pending bullets
     if (!line.trim()) {
       flushBullets(idx);
       return;
     }
-
-    // Bullet line: starts with "- " or "* "
     if (/^[-*]\s+/.test(line)) {
       bulletBuffer.push(line.replace(/^[-*]\s+/, ""));
       return;
     }
-
-    // Heading line: **Text:** (entire line is bold or ends with colon inside **)
     const headingMatch = line.match(/^\*\*(.+?)\*\*:?$/);
     if (headingMatch) {
       flushBullets(idx);
@@ -87,8 +120,6 @@ function StrategyRenderer({ content }) {
       );
       return;
     }
-
-    // Plain paragraph
     flushBullets(idx);
     nodes.push(
       <p key={idx} className="ts-strategy-para">
@@ -96,14 +127,91 @@ function StrategyRenderer({ content }) {
       </p>,
     );
   });
-
-  // Flush any trailing bullets
   flushBullets("end");
 
   return <div className="ts-strategy-body">{nodes}</div>;
 }
 
-// ── Generate Tab ───────────────────────────────────────────────────────────────
+function getInitials(name) {
+  if (!name) return "?";
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+// ── Student Selector shared component ────────────────────────────────────────
+function StudentSelector({
+  directory,
+  selectedStudent,
+  onSelect,
+  title,
+  subtitle,
+}) {
+  return (
+    <div className="ts-card">
+      <div className="ts-card-header">
+        <div className="ts-card-icon">👨‍🎓</div>
+        <div>
+          <p className="ts-card-title">{title || "Select a Student"}</p>
+          {subtitle && <p className="ts-card-subtitle">{subtitle}</p>}
+        </div>
+      </div>
+      <div className="ts-student-grid">
+        {directory.map((student) => {
+          const isSelected = selectedStudent?.studentID === student.studentID;
+          return (
+            <div
+              key={student.studentID}
+              className={`ts-student-card ${isSelected ? "selected" : ""}`}
+              onClick={() => onSelect(student)}
+            >
+              <div className="ts-avatar">
+                {getInitials(student.studentName)}
+              </div>
+              <div className="ts-student-meta">
+                <div className="ts-student-name">{student.studentName}</div>
+                <span className="ts-student-tag">Student</span>
+              </div>
+              <div className="ts-student-check">{isSelected && "✓"}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Strategy Row List ─────────────────────────────────────────────────────────
+function StrategyRowList({
+  strategies,
+  actionLabel,
+  onAction,
+  actionClass = "ts-btn ts-btn-primary",
+}) {
+  return (
+    <div className="ts-strategies-list">
+      {strategies.map((s) => (
+        <div key={s.strategyID} className="ts-strategy-row">
+          <div className="ts-strategy-row-icon">📄</div>
+          <div className="ts-strategy-row-info">
+            <p className="ts-strategy-row-title">{s.title}</p>
+            <p className="ts-strategy-row-date">🗓 {s.formattedDate}</p>
+          </div>
+          <div className="ts-strategy-row-actions">
+            <button className={actionClass} onClick={() => onAction(s)}>
+              {actionLabel}
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Generate Tab ──────────────────────────────────────────────────────────────
 function GenerateTab({ onSave }) {
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
@@ -113,6 +221,7 @@ function GenerateTab({ onSave }) {
   const [generated, setGenerated] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     teachingStrategiesAPI
@@ -127,12 +236,15 @@ function GenerateTab({ onSave }) {
     setSelectedGoal(null);
     setGenerated(null);
     setError("");
+    setSaved(false);
   };
 
   const handleGenerate = async () => {
     if (!selectedStudent || !selectedGoal) return;
     setLoading(true);
     setError("");
+    setGenerated(null);
+    setSaved(false);
     try {
       const data = await teachingStrategiesAPI.generate({
         goalID: selectedGoal.goalID,
@@ -150,125 +262,170 @@ function GenerateTab({ onSave }) {
   const handleSave = () => {
     if (!generated) return;
     onSave(generated.data);
-    alert("Teaching strategy verified and active.");
+    setSaved(true);
   };
 
   return (
-    <div className="va-generate">
-      {error && (
-        <div
-          className="va-card"
-          style={{ color: "#c0392b", fontWeight: 600, fontSize: 13 }}
-        >
-          ⚠️ {error}
-        </div>
-      )}
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <ErrorBanner message={error} />
 
-      {/* Step 1 — Pick student */}
-      <div className="va-card">
-        <p className="va-card-title ts-centered-title">
-          Step 1 — Select a Student
-        </p>
+      {/* Step 1 */}
+      <div className="ts-card">
+        <div className="ts-step-badge">
+          <span className="ts-step-num">1</span>Choose a Student
+        </div>
         {loadingDir ? (
-          <StudentShimmer />
+          <Loading text="Fetching students…" />
         ) : directory.length === 0 ? (
-          <EmptyState message="No students found. Add a student profile first." />
+          <EmptyState
+            icon="🏫"
+            message="No students found. Add a student profile first."
+          />
         ) : (
-          <div className="va-student-list">
-            {directory.map((student) => (
-              <div
-                key={student.studentID}
-                className={`va-student-row ts-student-row ${selectedStudent?.studentID === student.studentID ? "selected" : ""}`}
-              >
-                <div className="va-student-avatar" />
-                <div className="va-student-info ts-student-info">
-                  <span className="va-student-name">{student.studentName}</span>
-                </div>
-                <button
-                  className="va-select-btn"
+          <div className="ts-student-grid">
+            {directory.map((student) => {
+              const isSelected =
+                selectedStudent?.studentID === student.studentID;
+              return (
+                <div
+                  key={student.studentID}
+                  className={`ts-student-card ${isSelected ? "selected" : ""}`}
                   onClick={() => selectStudent(student)}
                 >
-                  {selectedStudent?.studentID === student.studentID
-                    ? "Selected"
-                    : "Select"}
-                </button>
-              </div>
-            ))}
+                  <div className="ts-avatar">
+                    {getInitials(student.studentName)}
+                  </div>
+                  <div className="ts-student-meta">
+                    <div className="ts-student-name">{student.studentName}</div>
+                    <span className="ts-student-tag">Student</span>
+                  </div>
+                  <div className="ts-student-check">{isSelected && "✓"}</div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Step 2 — Pick IEP goal */}
-      {selectedStudent && !generated && (
-        <div className="va-card">
-          <p className="va-card-title">
-            Step 2 — Select an IEP Goal for{" "}
-            <strong>{selectedStudent.studentName}</strong>
+      {/* Step 2 — IEP Goals */}
+      {selectedStudent && !generated && !loading && (
+        <div className="ts-card">
+          <div className="ts-step-badge">
+            <span className="ts-step-num">2</span>Select an IEP Goal
+          </div>
+          <p style={{ fontSize: 13, color: "#5a7491", marginBottom: 14 }}>
+            Choosing a goal for{" "}
+            <strong style={{ color: "#1a2b40" }}>
+              {selectedStudent.studentName}
+            </strong>
           </p>
           {selectedStudent.availableGoals.length === 0 ? (
-            <EmptyState message="No IEP goals found for this student." />
+            <EmptyState
+              icon="🎯"
+              message="No IEP goals found for this student."
+            />
           ) : (
-            <div className="ts-goal-list">
-              {selectedStudent.availableGoals.map((goal) => (
-                <label key={goal.goalID} className="ts-goal-item">
-                  <input
-                    type="radio"
-                    name="iepGoal"
-                    checked={selectedGoal?.goalID === goal.goalID}
-                    onChange={() => setSelectedGoal(goal)}
-                  />
-                  <span>{goal.label}</span>
-                </label>
-              ))}
+            <div className="ts-goal-grid">
+              {selectedStudent.availableGoals.map((goal) => {
+                const isSelected = selectedGoal?.goalID === goal.goalID;
+                return (
+                  <label
+                    key={goal.goalID}
+                    className={`ts-goal-item ${isSelected ? "selected" : ""}`}
+                    onClick={() => setSelectedGoal(goal)}
+                  >
+                    <input
+                      type="radio"
+                      name="iepGoal"
+                      className="ts-goal-radio"
+                      checked={isSelected}
+                      onChange={() => setSelectedGoal(goal)}
+                    />
+                    <span className="ts-goal-text">{goal.label}</span>
+                  </label>
+                );
+              })}
             </div>
           )}
-          <div className="va-actions ts-center-actions">
+          <div className="ts-actions" style={{ marginTop: 22 }}>
             <button
-              className="btn btn-submit"
+              className="ts-generate-btn"
               onClick={handleGenerate}
-              disabled={!selectedGoal || loading}
+              disabled={!selectedGoal}
             >
-              {loading
-                ? "Invoking Llama AI Pipeline…"
-                : "Generate Teaching Strategy"}
+              <span className="ts-btn-icon">✦</span>
+              Generate Teaching Strategy
             </button>
           </div>
         </div>
       )}
 
-      {/* Step 3 — Result Panel */}
-      {generated && (
-        <div className="va-card ts-detail-card">
-          <h3>{generated.data?.title || "AI Generated Teaching Strategy"}</h3>
+      {/* Loading / AI generation */}
+      {loading && (
+        <div className="ts-card">
+          <div className="ts-ai-generating">
+            <div className="ts-ai-orb">🧠</div>
+            <p className="ts-ai-label">Invoking Llama AI Pipeline…</p>
+            <p className="ts-ai-sub">
+              Crafting a personalised teaching strategy based on the IEP goal
+            </p>
+          </div>
+        </div>
+      )}
 
-          {/* ── Formatted strategy output ── */}
-          <div className="ts-strategy-output">
+      {/* Step 3 — Result */}
+      {generated && !loading && (
+        <div className="ts-card">
+          <div className="ts-step-badge">
+            <span className="ts-step-num">3</span>Review & Save
+          </div>
+          <div className="ts-detail-hero">
+            <h2 className="ts-detail-title">
+              {generated.data?.title || "AI-Generated Teaching Strategy"}
+            </h2>
+            <div className="ts-detail-meta">
+              <div className="ts-meta-chip">
+                <span className="ts-meta-chip-icon">👤</span>
+                {selectedStudent?.studentName}
+              </div>
+              <div className="ts-meta-chip">
+                <span className="ts-meta-chip-icon">🎯</span>
+                {selectedGoal?.label?.slice(0, 48)}
+                {selectedGoal?.label?.length > 48 ? "…" : ""}
+              </div>
+            </div>
+          </div>
+
+          <div className="ts-output-box">
+            <div className="ts-output-label">
+              AI Strategy Output
+              <div className="ts-output-label-line" />
+            </div>
             <StrategyRenderer content={generated.data?.strategyContent} />
           </div>
 
-          <p
-            className="va-result-sub"
-            style={{ color: "#27ae60", fontWeight: 500, marginTop: 12 }}
-          >
-            {generated.message}
-          </p>
+          {generated.message && (
+            <div className="ts-success-msg">✅ {generated.message}</div>
+          )}
 
-          <div
-            className="va-actions ts-center-actions"
-            style={{ display: "flex", gap: "12px", justifyContent: "center" }}
-          >
+          {saved && (
+            <div className="ts-success-msg" style={{ marginTop: 8 }}>
+              💾 Strategy saved successfully to student profile.
+            </div>
+          )}
+
+          <div className="ts-actions" style={{ marginTop: 20 }}>
             <button
-              className="btn"
-              style={{ background: "#e67e22", color: "white" }}
+              className="ts-btn ts-btn-secondary"
               onClick={handleGenerate}
               disabled={loading}
             >
-              {loading ? "Regenerating…" : "🔄 Generate Again"}
+              🔄 Regenerate
             </button>
             <button
-              className="btn btn-submit"
+              className="ts-btn ts-btn-primary"
               onClick={handleSave}
-              disabled={loading}
+              disabled={loading || saved}
             >
               💾 Confirm & Save Strategy
             </button>
@@ -279,45 +436,58 @@ function GenerateTab({ onSave }) {
   );
 }
 
-// ── Strategy Detail View ───────────────────────────────────────────────────────
+// ── Strategy Detail View ──────────────────────────────────────────────────────
 function StrategyDetails({ strategy, onBack }) {
   return (
-    <div className="va-card ts-detail-card">
-      <h2>{strategy.title}</h2>
-      <div className="ts-detail-grid">
-        <section>
-          <h4>Student</h4>
-          <p>{strategy.studentName}</p>
-        </section>
-        <section>
-          <h4>Date Created</h4>
-          <p>{strategy.formattedDate}</p>
-        </section>
-        <section className="ts-wide">
-          <h4>Strategy Content</h4>
-          {/* Also render saved strategies with the formatter */}
-          <StrategyRenderer content={strategy.strategyContent} />
-        </section>
+    <div className="ts-card">
+      <Breadcrumb
+        items={[
+          { label: "All Strategies", onClick: onBack },
+          { label: strategy.title },
+        ]}
+      />
+
+      <div className="ts-detail-hero">
+        <h2 className="ts-detail-title">{strategy.title}</h2>
+        <div className="ts-detail-meta">
+          <div className="ts-meta-chip">
+            <span className="ts-meta-chip-icon">👤</span>
+            {strategy.studentName}
+          </div>
+          <div className="ts-meta-chip">
+            <span className="ts-meta-chip-icon">🗓</span>
+            {strategy.formattedDate}
+          </div>
+        </div>
       </div>
-      <div className="ts-page-actions">
-        <button className="btn btn-back" onClick={onBack}>
-          BACK
+
+      <div className="ts-output-box">
+        <div className="ts-output-label">
+          Strategy Content
+          <div className="ts-output-label-line" />
+        </div>
+        <StrategyRenderer content={strategy.strategyContent} />
+      </div>
+
+      <div className="ts-actions space-between" style={{ marginTop: 20 }}>
+        <button className="ts-btn ts-btn-ghost" onClick={onBack}>
+          ← Back
         </button>
         <a
           href={teachingStrategiesAPI.exportUrl(strategy.strategyID)}
           target="_blank"
           rel="noreferrer"
-          className="btn btn-submit"
+          className="ts-btn ts-btn-primary"
           style={{ textDecoration: "none" }}
         >
-          EXPORT
+          ↗ Export PDF
         </a>
       </div>
     </div>
   );
 }
 
-// ── View Tab ───────────────────────────────────────────────────────────────────
+// ── View Tab ──────────────────────────────────────────────────────────────────
 function ViewTab() {
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
@@ -353,81 +523,78 @@ function ViewTab() {
 
   if (selectedStudent) {
     return (
-      <div className="va-card">
-        <p className="va-card-title ts-centered-title">
-          {selectedStudent.studentName} – Teaching Strategies
-        </p>
-        {error && <p style={{ color: "#c0392b", fontSize: 13 }}>⚠️ {error}</p>}
-        {loadingStrats ? (
-          <StudentShimmer />
-        ) : strategies.length === 0 ? (
-          <EmptyState message="No teaching strategies found for this student." />
-        ) : (
-          <table className="va-table">
-            <thead>
-              <tr>
-                <th>Strategy Title</th>
-                <th>Date Created</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {strategies.map((strategy) => (
-                <tr key={strategy.strategyID}>
-                  <td>{strategy.title}</td>
-                  <td>{strategy.formattedDate}</td>
-                  <td>
-                    <button
-                      className="va-view-btn"
-                      onClick={() => setSelected(strategy)}
-                    >
-                      View
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        <div className="ts-page-actions" style={{ marginTop: 16 }}>
-          <button
-            className="btn btn-back"
-            onClick={() => {
-              setSelectedStudent(null);
-              setStrategies([]);
-            }}
-          >
-            ← Back to Students
-          </button>
+      <div className="ts-card">
+        <Breadcrumb
+          items={[
+            {
+              label: "All Students",
+              onClick: () => {
+                setSelectedStudent(null);
+                setStrategies([]);
+              },
+            },
+            { label: selectedStudent.studentName },
+          ]}
+        />
+        <div className="ts-card-header">
+          <div className="ts-card-icon">📚</div>
+          <div>
+            <p className="ts-card-title">Teaching Strategies</p>
+            <p className="ts-card-subtitle">
+              For {selectedStudent.studentName}
+            </p>
+          </div>
         </div>
+        <ErrorBanner message={error} />
+        {loadingStrats ? (
+          <Loading text="Loading strategies…" />
+        ) : strategies.length === 0 ? (
+          <EmptyState
+            icon="📭"
+            message="No teaching strategies found for this student."
+          />
+        ) : (
+          <StrategyRowList
+            strategies={strategies}
+            actionLabel="View"
+            onAction={(s) => setSelected(s)}
+            actionClass="ts-btn ts-btn-primary"
+          />
+        )}
       </div>
     );
   }
 
   return (
-    <div className="va-card">
-      <p className="va-card-title ts-centered-title">
-        Saved Teaching Strategies
-      </p>
-      {error && <p style={{ color: "#c0392b", fontSize: 13 }}>⚠️ {error}</p>}
+    <div className="ts-card">
+      <div className="ts-card-header">
+        <div className="ts-card-icon">📚</div>
+        <div>
+          <p className="ts-card-title">Saved Teaching Strategies</p>
+          <p className="ts-card-subtitle">
+            Select a student to view their strategies
+          </p>
+        </div>
+      </div>
+      <ErrorBanner message={error} />
       {loadingDir ? (
-        <StudentShimmer />
+        <Loading text="Fetching students…" />
       ) : directory.length === 0 ? (
-        <EmptyState message="No students found." />
+        <EmptyState icon="🏫" message="No students found." />
       ) : (
-        <div className="va-student-list">
+        <div className="ts-student-grid">
           {directory.map((s) => (
-            <div key={s.studentID} className="va-student-row">
-              <div className="va-student-avatar" />
-              <div className="va-student-info">
-                <span className="va-student-name">{s.studentName}</span>
+            <div
+              key={s.studentID}
+              className="ts-student-card"
+              onClick={() => handleSelectStudent(s)}
+            >
+              <div className="ts-avatar">{getInitials(s.studentName)}</div>
+              <div className="ts-student-meta">
+                <div className="ts-student-name">{s.studentName}</div>
+                <span className="ts-student-tag">Student</span>
               </div>
-              <button
-                className="va-select-btn"
-                onClick={() => handleSelectStudent(s)}
-              >
-                Select
-              </button>
+              <div className="ts-student-check" />
             </div>
           ))}
         </div>
@@ -436,7 +603,7 @@ function ViewTab() {
   );
 }
 
-// ── Edit Tab ───────────────────────────────────────────────────────────────────
+// ── Edit Tab ──────────────────────────────────────────────────────────────────
 function EditTab() {
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
@@ -448,6 +615,7 @@ function EditTab() {
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     teachingStrategiesAPI
@@ -473,6 +641,8 @@ function EditTab() {
       title: strategy.title,
       strategyContent: strategy.strategyContent,
     });
+    setSuccess(false);
+    setError("");
   };
 
   const saveEdit = async () => {
@@ -485,8 +655,12 @@ function EditTab() {
           s.strategyID === selected.strategyID ? { ...s, ...form } : s,
         ),
       );
-      setSelected(null);
-      setForm(null);
+      setSuccess(true);
+      setTimeout(() => {
+        setSelected(null);
+        setForm(null);
+        setSuccess(false);
+      }, 1200);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -494,133 +668,151 @@ function EditTab() {
     }
   };
 
+  // Edit form
   if (selected && form) {
     return (
-      <div className="va-card ts-edit-card">
-        <h2>{selected.title}</h2>
-        <div className="ts-form-grid">
-          <label>
-            Strategy Title
-            <input
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-            />
-          </label>
-          <label>
-            Strategy Content
-            <textarea
-              value={form.strategyContent}
-              onChange={(e) =>
-                setForm({ ...form, strategyContent: e.target.value })
-              }
-              style={{ minHeight: 160 }}
-            />
-          </label>
+      <div className="ts-card">
+        <Breadcrumb
+          items={[
+            {
+              label: "All Strategies",
+              onClick: () => {
+                setSelected(null);
+                setForm(null);
+              },
+            },
+            { label: "Edit Strategy" },
+          ]}
+        />
+        <div className="ts-card-header">
+          <div className="ts-card-icon">✏️</div>
+          <div>
+            <p className="ts-card-title">Edit Teaching Strategy</p>
+            <p className="ts-card-subtitle">Make changes and save</p>
+          </div>
         </div>
-        {error && (
-          <p style={{ color: "#c0392b", fontSize: 13, marginTop: 8 }}>
-            ⚠️ {error}
-          </p>
+        <ErrorBanner message={error} />
+        {success && (
+          <div className="ts-success-msg">✅ Strategy saved successfully!</div>
         )}
-        <div className="ts-page-actions">
+
+        <div className="ts-form-group">
+          <label className="ts-form-label">Strategy Title</label>
+          <input
+            className="ts-form-input"
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+          />
+        </div>
+        <div className="ts-form-group">
+          <label className="ts-form-label">Strategy Content</label>
+          <textarea
+            className="ts-form-textarea"
+            value={form.strategyContent}
+            onChange={(e) =>
+              setForm({ ...form, strategyContent: e.target.value })
+            }
+          />
+        </div>
+
+        <div className="ts-actions space-between" style={{ marginTop: 8 }}>
           <button
-            className="btn btn-back"
+            className="ts-btn ts-btn-ghost"
             onClick={() => {
               setSelected(null);
               setForm(null);
             }}
           >
-            BACK
+            ← Back
           </button>
           <button
-            className="btn btn-submit"
+            className="ts-btn ts-btn-primary"
             onClick={saveEdit}
             disabled={saving}
           >
-            {saving ? "Saving…" : "SAVE"}
+            {saving ? "Saving…" : "💾 Save Changes"}
           </button>
         </div>
       </div>
     );
   }
 
+  // Strategy list for student
   if (selectedStudent) {
     return (
-      <div className="va-card">
-        <p className="va-card-title ts-centered-title">
-          {selectedStudent.studentName} – Teaching Strategies
-        </p>
-        {error && <p style={{ color: "#c0392b", fontSize: 13 }}>⚠️ {error}</p>}
-        {loadingStrats ? (
-          <StudentShimmer />
-        ) : strategies.length === 0 ? (
-          <EmptyState message="No teaching strategies found for this student." />
-        ) : (
-          <table className="va-table">
-            <thead>
-              <tr>
-                <th>Strategy Title</th>
-                <th>Date Created</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {strategies.map((strategy) => (
-                <tr key={strategy.strategyID}>
-                  <td>{strategy.title}</td>
-                  <td>{strategy.formattedDate}</td>
-                  <td>
-                    <button
-                      className="va-view-btn"
-                      onClick={() => openEdit(strategy)}
-                    >
-                      Edit
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        <div className="ts-page-actions" style={{ marginTop: 16 }}>
-          <button
-            className="btn btn-back"
-            onClick={() => {
-              setSelectedStudent(null);
-              setStrategies([]);
-            }}
-          >
-            ← Back to Students
-          </button>
+      <div className="ts-card">
+        <Breadcrumb
+          items={[
+            {
+              label: "All Students",
+              onClick: () => {
+                setSelectedStudent(null);
+                setStrategies([]);
+              },
+            },
+            { label: selectedStudent.studentName },
+          ]}
+        />
+        <div className="ts-card-header">
+          <div className="ts-card-icon">✏️</div>
+          <div>
+            <p className="ts-card-title">Teaching Strategies</p>
+            <p className="ts-card-subtitle">
+              For {selectedStudent.studentName}
+            </p>
+          </div>
         </div>
+        <ErrorBanner message={error} />
+        {loadingStrats ? (
+          <Loading text="Loading strategies…" />
+        ) : strategies.length === 0 ? (
+          <EmptyState
+            icon="📭"
+            message="No teaching strategies found for this student."
+          />
+        ) : (
+          <StrategyRowList
+            strategies={strategies}
+            actionLabel="Edit"
+            onAction={openEdit}
+            actionClass="ts-btn ts-btn-secondary"
+          />
+        )}
       </div>
     );
   }
 
+  // Student list
   return (
-    <div className="va-card">
-      <p className="va-card-title ts-centered-title">
-        Edit Teaching Strategies
-      </p>
-      {error && <p style={{ color: "#c0392b", fontSize: 13 }}>⚠️ {error}</p>}
+    <div className="ts-card">
+      <div className="ts-card-header">
+        <div className="ts-card-icon">✏️</div>
+        <div>
+          <p className="ts-card-title">Edit Teaching Strategies</p>
+          <p className="ts-card-subtitle">
+            Select a student to edit their strategies
+          </p>
+        </div>
+      </div>
+      <ErrorBanner message={error} />
       {loadingDir ? (
-        <StudentShimmer />
+        <Loading text="Fetching students…" />
       ) : directory.length === 0 ? (
-        <EmptyState message="No students found." />
+        <EmptyState icon="🏫" message="No students found." />
       ) : (
-        <div className="va-student-list">
+        <div className="ts-student-grid">
           {directory.map((s) => (
-            <div key={s.studentID} className="va-student-row">
-              <div className="va-student-avatar" />
-              <div className="va-student-info">
-                <span className="va-student-name">{s.studentName}</span>
+            <div
+              key={s.studentID}
+              className="ts-student-card"
+              onClick={() => handleSelectStudent(s)}
+            >
+              <div className="ts-avatar">{getInitials(s.studentName)}</div>
+              <div className="ts-student-meta">
+                <div className="ts-student-name">{s.studentName}</div>
+                <span className="ts-student-tag">Student</span>
               </div>
-              <button
-                className="va-select-btn"
-                onClick={() => handleSelectStudent(s)}
-              >
-                Select
-              </button>
+              <div className="ts-student-check" />
             </div>
           ))}
         </div>
@@ -629,7 +821,7 @@ function EditTab() {
   );
 }
 
-// ── Delete Tab ─────────────────────────────────────────────────────────────────
+// ── Delete Tab ────────────────────────────────────────────────────────────────
 function DeleteTab() {
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
@@ -679,72 +871,64 @@ function DeleteTab() {
 
   if (selectedStudent) {
     return (
-      <div className="va-card">
-        <p className="va-card-title ts-centered-title">
-          {selectedStudent.studentName} – Teaching Strategies
-        </p>
-        {error && <p style={{ color: "#c0392b", fontSize: 13 }}>⚠️ {error}</p>}
-        {loadingStrats ? (
-          <StudentShimmer />
-        ) : strategies.length === 0 ? (
-          <EmptyState message="No teaching strategies to delete for this student." />
-        ) : (
-          <table className="va-table">
-            <thead>
-              <tr>
-                <th>Strategy Title</th>
-                <th>Date Created</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {strategies.map((strategy) => (
-                <tr key={strategy.strategyID}>
-                  <td>{strategy.title}</td>
-                  <td>{strategy.formattedDate}</td>
-                  <td>
-                    <button
-                      className="va-delete-btn"
-                      onClick={() => setToDelete(strategy.strategyID)}
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        <div className="ts-page-actions" style={{ marginTop: 16 }}>
-          <button
-            className="btn btn-back"
-            onClick={() => {
-              setSelectedStudent(null);
-              setStrategies([]);
-            }}
-          >
-            ← Back to Students
-          </button>
+      <div className="ts-card">
+        <Breadcrumb
+          items={[
+            {
+              label: "All Students",
+              onClick: () => {
+                setSelectedStudent(null);
+                setStrategies([]);
+              },
+            },
+            { label: selectedStudent.studentName },
+          ]}
+        />
+        <div className="ts-card-header">
+          <div className="ts-card-icon">🗑️</div>
+          <div>
+            <p className="ts-card-title">Teaching Strategies</p>
+            <p className="ts-card-subtitle">
+              For {selectedStudent.studentName}
+            </p>
+          </div>
         </div>
+        <ErrorBanner message={error} />
+        {loadingStrats ? (
+          <Loading text="Loading strategies…" />
+        ) : strategies.length === 0 ? (
+          <EmptyState
+            icon="📭"
+            message="No teaching strategies to delete for this student."
+          />
+        ) : (
+          <StrategyRowList
+            strategies={strategies}
+            actionLabel="Delete"
+            onAction={(s) => setToDelete(s.strategyID)}
+            actionClass="ts-btn ts-btn-danger"
+          />
+        )}
 
         {toDelete && (
-          <div className="va-modal-overlay">
-            <div className="va-modal">
-              <p className="va-modal-title">Delete Teaching Strategy?</p>
-              <p className="va-modal-body">
-                Are you sure you want to delete <strong>{item?.title}</strong>?
-                This action cannot be undone.
+          <div className="ts-modal-overlay">
+            <div className="ts-modal">
+              <div className="ts-modal-icon">🗑️</div>
+              <p className="ts-modal-title">Delete Strategy?</p>
+              <p className="ts-modal-body">
+                You're about to permanently delete{" "}
+                <strong>"{item?.title}"</strong>. This action cannot be undone.
               </p>
-              <div className="va-modal-actions">
+              <div className="ts-modal-actions">
                 <button
-                  className="btn btn-back"
+                  className="ts-btn ts-btn-ghost"
                   onClick={() => setToDelete(null)}
                   disabled={deleting}
                 >
                   Cancel
                 </button>
                 <button
-                  className="btn va-btn-danger"
+                  className="ts-btn ts-btn-danger-solid"
                   onClick={confirmDelete}
                   disabled={deleting}
                 >
@@ -759,29 +943,35 @@ function DeleteTab() {
   }
 
   return (
-    <div className="va-card">
-      <p className="va-card-title ts-centered-title">
-        Delete Teaching Strategies
-      </p>
-      {error && <p style={{ color: "#c0392b", fontSize: 13 }}>⚠️ {error}</p>}
+    <div className="ts-card">
+      <div className="ts-card-header">
+        <div className="ts-card-icon">🗑️</div>
+        <div>
+          <p className="ts-card-title">Delete Teaching Strategies</p>
+          <p className="ts-card-subtitle">
+            Select a student to manage their strategies
+          </p>
+        </div>
+      </div>
+      <ErrorBanner message={error} />
       {loadingDir ? (
-        <StudentShimmer />
+        <Loading text="Fetching students…" />
       ) : directory.length === 0 ? (
-        <EmptyState message="No students found." />
+        <EmptyState icon="🏫" message="No students found." />
       ) : (
-        <div className="va-student-list">
+        <div className="ts-student-grid">
           {directory.map((s) => (
-            <div key={s.studentID} className="va-student-row">
-              <div className="va-student-avatar" />
-              <div className="va-student-info">
-                <span className="va-student-name">{s.studentName}</span>
+            <div
+              key={s.studentID}
+              className="ts-student-card"
+              onClick={() => handleSelectStudent(s)}
+            >
+              <div className="ts-avatar">{getInitials(s.studentName)}</div>
+              <div className="ts-student-meta">
+                <div className="ts-student-name">{s.studentName}</div>
+                <span className="ts-student-tag">Student</span>
               </div>
-              <button
-                className="va-select-btn"
-                onClick={() => handleSelectStudent(s)}
-              >
-                Select
-              </button>
+              <div className="ts-student-check" />
             </div>
           ))}
         </div>
@@ -790,7 +980,7 @@ function DeleteTab() {
   );
 }
 
-// ── Main Page ──────────────────────────────────────────────────────────────────
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ManageTeachingStrategies() {
   const [activeTab, setActiveTab] = useState("generate");
   const [strategies, setStrategies] = useState([]);
@@ -800,23 +990,39 @@ export default function ManageTeachingStrategies() {
   };
 
   return (
-    <div className="page-content">
-      <div className="va-header ts-header">
-        <span className="va-header-title">Manage Teaching Strategies</span>
-        <div className="va-tabs">
+    <div className="page-content ts-page">
+      {/* Hero + tabs */}
+      <div className="ts-page-hero">
+        <div className="ts-hero-top">
+          <div>
+            <div className="ts-hero-eyebrow">
+              <div className="ts-hero-eyebrow-dot" />
+              NeuroPath · AI-Powered Tools
+            </div>
+            <h1 className="ts-hero-title">Manage Teaching Strategies</h1>
+            <p className="ts-hero-subtitle">
+              Generate, review, edit, and manage AI-crafted strategies for each
+              student
+            </p>
+          </div>
+        </div>
+
+        <div className="ts-tab-bar">
           {TABS.map((tab) => (
             <button
               key={tab.key}
-              className={`va-tab ${activeTab === tab.key ? "active" : ""}`}
+              className={`ts-tab-btn ${activeTab === tab.key ? "active" : ""}`}
               onClick={() => setActiveTab(tab.key)}
             >
+              <span className="ts-tab-icon">{tab.icon}</span>
               {tab.label}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="va-body">
+      {/* Body */}
+      <div className="ts-body">
         {activeTab === "generate" && <GenerateTab onSave={saveStrategy} />}
         {activeTab === "view" && <ViewTab />}
         {activeTab === "edit" && <EditTab />}
