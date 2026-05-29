@@ -7,7 +7,8 @@ from .views import (
     IEPDetailAPIView, 
     IEPEditAPIView, 
     IEPDeleteAPIView,
-    StandaloneIEPGoalViewSet
+    StandaloneIEPGoalViewSet,
+    GenerateIEPGoalAPIView
 )
 
 
@@ -26,6 +27,7 @@ urlpatterns = [
     
     path('delete/<int:pk>/', IEPDeleteAPIView.as_view(), name='delete_iep'),
     
+    path('generate-goal/', GenerateIEPGoalAPIView.as_view(), name='generate_iep_goal'),
     
     # 1. Endpoint to trigger the AI insight generation
     path('student/<int:student_id>/generate-insight/', views.generate_ai_insight, name='generate_ai_insight'),
