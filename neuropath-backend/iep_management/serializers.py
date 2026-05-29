@@ -71,28 +71,6 @@ class IEPUpdateSerializer(serializers.ModelSerializer):
             'generatedDetails': {'required': False},
         }
 
-class StandaloneIEPGoalSerializer(serializers.ModelSerializer):
-    studentName = serializers.CharField(source='iep.studentID.name', read_only=True)
-    studentID = serializers.IntegerField(source='iep.studentID.pk', read_only=True)
-
-    class Meta:
-        model = IEPGoal
-        fields = [
-            'goalID',
-            'iep',
-            'studentID',
-            'studentName',
-            'subject_category',
-            'annual_goal',
-            'enroute_objectives',
-            'interventions_procedures',
-            'timeline_mins_session',
-            'individuals_responsible',
-            'progress_instructional',
-            'remarks'
-        ]
-        
-        
 class IEPObjectiveRowSerializer(serializers.ModelSerializer):
     class Meta:
         model = IEPObjectiveRow

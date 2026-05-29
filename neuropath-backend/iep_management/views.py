@@ -148,26 +148,11 @@ class IEPGenerationAPIView(APIView):
             if serializer.is_valid():
                 iep_instance = serializer.save()
 
-                raw_goals_text = iep_instance.goals or ''
-                goal_items = re.split(r'\n\d+\.\s*', raw_goals_text)
-                for item in goal_items:
-                    cleaned_goal = item.strip()
-                    if cleaned_goal and len(cleaned_goal) > 10:
-                        parent_goal = IEPGoal.objects.create(
-                            iep=iep_instance,
-                            goalName=cleaned_goal[:200], 
-                            target_metric='Standard IEP Metric',
-                            subject_category='GENERAL',
-                            annual_goal=cleaned_goal
-                        )
-                        # 2. Create at least one blank/initial child row to build the grid relation safely
-                        IEPObjectiveRow.objects.create(
-                            parent_goal=parent_goal,
-                            enroute_objectives="Initial baseline objective target.",
-                            interventions_procedures="Standard accommodations protocols.",
-                            timeline_mins_session="15-20 mins daily",
-                            individuals_responsible="SPED Teacher"
-                        )
+                # NOTE: IEPGoal rows are NOT created here intentionally.
+                # The actual AI-generated goals are created separately by
+                # GenerateIEPGoalsFromIEPView (POST /iep/generate-goals-from-iep/)
+                # and then saved via StandaloneIEPGoalViewSet (POST /iep/goals/).
+                # Creating goals here too caused duplicate tables in the frontend.
 
                 return Response({
                     'message': 'IEP Created Successfully.',
@@ -254,13 +239,17 @@ class StandaloneIEPGoalViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Allows filtering by student profile ID directly via query parameters.
-        Example URL path lookup: /api/iep/goals/?student_id=5
+        Supports filtering by either:
+          ?student_id=5  -> all goals for a student across all their IEPs
+          ?iep=3         -> all goals belonging to a specific IEP document
         """
         queryset = self.queryset
         student_id = self.request.query_params.get('student_id')
+        iep_id = self.request.query_params.get('iep')
         if student_id:
             return queryset.filter(iep__studentID__pk=student_id)
+        if iep_id:
+            return queryset.filter(iep__iepID=iep_id)
         return queryset
     
     
@@ -409,6 +398,8 @@ class GenerateIEPGoalsFromIEPView(APIView):
             )
  
         # --- 2. Extract IEP context fields ---
+        goal_area           = data.get('goal_area', '')          # e.g. "Mathematical Skills"
+        teacher_prompt      = data.get('teacher_prompt', '')     # free-text teacher instructions
         accommodations      = data.get('accommodations', '')
         difficulties        = data.get('difficulties', '')
         learning_barriers   = data.get('learning_barriers', '')
@@ -427,52 +418,54 @@ class GenerateIEPGoalsFromIEPView(APIView):
         # Build a shared student context string for R-GORI evaluation
         student_context = (
             f"Student: {student_name}. "
+            f"Goal Area: {goal_area}. "
             f"Difficulties: {difficulties}. "
             f"Learning Barriers: {learning_barriers} ({barrier_qualifiers}). "
             f"Facilitators: {facilitators} ({fac_qualifiers}). "
             f"Accommodations: {accommodations}."
+            + (f" Teacher Instructions: {teacher_prompt}." if teacher_prompt else "")
         )
  
-        # --- 3. Generate one goal payload per special factor ---
-        generated_goals = []
-        errors = []
- 
-        for factor in special_factors:
-            difficulty         = factor.get('difficulty', 'General difficulty')
-            assistive_tech     = factor.get('assistive_technology', '')
- 
-            goal_payload, error = self._generate_validated_goal(
-                iep_id=iep_id,
-                student_name=student_name,
-                difficulty=difficulty,
-                assistive_tech=assistive_tech,
-                accommodations=accommodations,
-                facilitators=facilitators,
-                student_context=student_context,
-            )
- 
-            if error:
-                errors.append({"difficulty": difficulty, "error": error})
-            else:
-                generated_goals.append(goal_payload)
- 
-        if not generated_goals:
+        # --- 3. Consolidate ALL difficulties into one single goal + table ---
+        # Combine every difficulty row into one joined string so the AI sees
+        # the full picture and produces a single consolidated annual goal.
+        all_difficulties = " | ".join(
+            f.get('difficulty', '') for f in special_factors if f.get('difficulty', '').strip()
+        )
+        all_assistive_tech = " | ".join(
+            f.get('assistive_technology', '') for f in special_factors if f.get('assistive_technology', '').strip()
+        )
+
+        goal_payload, error = self._generate_validated_goal(
+            iep_id=iep_id,
+            student_name=student_name,
+            difficulty=all_difficulties,
+            assistive_tech=all_assistive_tech,
+            accommodations=accommodations,
+            facilitators=facilitators,
+            student_context=student_context,
+            goal_area=goal_area,
+            teacher_prompt=teacher_prompt,
+        )
+
+        if error:
             return Response(
-                {"error": "All goal generations failed.", "details": errors},
+                {"error": "Goal generation failed.", "details": error},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
- 
+
         return Response({
             "iep_id": iep_id,
-            "total_goals_generated": len(generated_goals),
-            "goals": generated_goals,
-            "warnings": errors  # partial failures reported but not fatal
+            "total_goals_generated": 1,
+            "goals": [goal_payload],
+            "warnings": []
         }, status=status.HTTP_200_OK)
  
  
     def _generate_validated_goal(
         self, iep_id, student_name, difficulty, assistive_tech,
-        accommodations, facilitators, student_context
+        accommodations, facilitators, student_context,
+        goal_area='', teacher_prompt=''
     ):
         """
         Runs the R-GORI generation loop for a single difficulty area.
@@ -486,7 +479,8 @@ class GenerateIEPGoalsFromIEPView(APIView):
             try:
                 # --- Step A: Generate annual goal ---
                 annual_goal = self._generate_annual_goal(
-                    student_name, difficulty, assistive_tech, accommodations, facilitators
+                    student_name, difficulty, assistive_tech, accommodations,
+                    facilitators, goal_area, teacher_prompt
                 )
  
                 # --- Step B: Validate with R-GORI ---
@@ -498,15 +492,22 @@ class GenerateIEPGoalsFromIEPView(APIView):
                 # --- Step C: Generate objective rows for this goal ---
                 objective_rows = self._generate_objective_rows(
                     student_name, difficulty, assistive_tech,
-                    annual_goal, facilitators
+                    annual_goal, facilitators, goal_area
+                )
+ 
+                # Use the teacher-selected goal_area as the authoritative subject category;
+                # fall back to difficulty-based mapping only when no area was chosen.
+                subject_category = (
+                    goal_area if goal_area
+                    else self._map_difficulty_to_category(difficulty)
                 )
  
                 # Build the full goal payload (ready for POST /api/iep/goals/)
                 payload = {
                     "iep": iep_id,
-                    "subject_category": self._map_difficulty_to_category(difficulty),
+                    "subject_category": subject_category,
                     "annual_goal": annual_goal,
-                    "goalName": self._derive_goal_name(difficulty),
+                    "goalName": self._derive_goal_name(difficulty, goal_area),
                     "target_metric": self._derive_target_metric(difficulty, assistive_tech),
                     "objective_rows": objective_rows,
                     # Meta info (not sent to /goals/ but useful for the frontend)
@@ -541,29 +542,47 @@ class GenerateIEPGoalsFromIEPView(APIView):
  
  
     def _generate_annual_goal(
-        self, student_name, difficulty, assistive_tech, accommodations, facilitators
+        self, student_name, difficulty, assistive_tech, accommodations,
+        facilitators, goal_area='', teacher_prompt=''
     ):
+        teacher_instructions = (
+            f"Additional teacher instructions: {teacher_prompt}\n"
+            if teacher_prompt else ""
+        )
+        goal_area_line = (
+            f"PRIMARY Goal Area (this MUST be the focus of the goal): {goal_area}\n"
+            if goal_area else ""
+        )
         prompt = (
             f"☁️system☁️"
             f"You are an expert Special Education teacher writing IEP goals. "
             f"Write ONE specific, measurable, achievable, relevant, and time-bound (SMART) annual IEP goal. "
+            f"The goal MUST directly address the PRIMARY Goal Area specified below. "
+            f"Do NOT write a goal for a different domain. "
             f"Output ONLY the goal sentence. No explanations, no bullet points, no preamble."
             f"☁️/system☁️"
             f"☁️user☁️"
             f"Student: {student_name}\n"
-            f"Area of Difficulty: {difficulty}\n"
+            f"{goal_area_line}"
+            f"Areas of Difficulty (all Section B rows, consolidated): {difficulty}\n"
             f"Assistive Technology Available: {assistive_tech}\n"
             f"Accommodations: {accommodations}\n"
-            f"Support Personnel: {facilitators}\n\n"
-            f"Write the annual IEP goal for this student targeting the area of difficulty above."
+            f"Support Personnel: {facilitators}\n"
+            f"{teacher_instructions}\n"
+            f"Write the annual IEP goal for this student. It MUST target the PRIMARY Goal Area above."
             f"☁️/user☁️"
         )
         return CustomLlamaService.generate_text(prompt, max_new_tokens=200)
  
  
     def _generate_objective_rows(
-        self, student_name, difficulty, assistive_tech, annual_goal, facilitators
+        self, student_name, difficulty, assistive_tech, annual_goal, facilitators, goal_area=''
     ):
+        goal_area_instruction = (
+            f"ALL objectives MUST be stepping-stone skills toward the PRIMARY Goal Area: {goal_area}. "
+            f"Do NOT write objectives about communication, social behavior, or any other domain. "
+            if goal_area else ""
+        )
         prompt = (
             f"☁️system☁️"
             f"You are a Special Education teacher writing IEP objective rows. "
@@ -571,15 +590,21 @@ class GenerateIEPGoalsFromIEPView(APIView):
             f"Each object must have exactly these keys: "
             f"enroute_objectives, interventions_procedures, timeline_mins_session, "
             f"individuals_responsible, progress_instructional, remarks. "
+            f"The enroute_objectives must be concrete, sequential sub-skills that build toward the annual goal — "
+            f"NOT a restatement of the annual goal itself. "
+            f"{goal_area_instruction}"
             f"Do not include markdown, backticks, or any text outside the JSON array."
             f"☁️/system☁️"
             f"☁️user☁️"
             f"Student: {student_name}\n"
-            f"Area of Difficulty: {difficulty}\n"
+            f"PRIMARY Goal Area: {goal_area}\n"
+            f"Areas of Difficulty (all Section B rows, consolidated): {difficulty}\n"
             f"Assistive Technology: {assistive_tech}\n"
             f"Annual Goal: {annual_goal}\n"
             f"Support Personnel: {facilitators}\n\n"
-            f"Generate 2-3 objective rows as a JSON array."
+            f"Generate 2-3 enroute objective rows as a JSON array. "
+            f"Each enroute_objectives entry must be a distinct, measurable sub-skill "
+            f"that leads toward the annual goal above (e.g. 'Student will recognize numbers 0–5 with 80% accuracy')."
             f"☁️/user☁️"
         )
         raw = CustomLlamaService.generate_text(prompt, max_new_tokens=600)
@@ -597,11 +622,11 @@ class GenerateIEPGoalsFromIEPView(APIView):
         except (json.JSONDecodeError, ValueError):
             # Fallback: return one generic row so the payload is still usable
             return [{
-                "enroute_objectives": f"Work toward: {annual_goal}",
-                "interventions_procedures": f"Use {assistive_tech} to support learning.",
+                "enroute_objectives": f"Student will demonstrate an initial sub-skill toward: {annual_goal[:120]}",
+                "interventions_procedures": f"Use {assistive_tech} and structured practice to support {goal_area or 'the goal area'}.",
                 "timeline_mins_session": "15-20 minutes every day",
                 "individuals_responsible": facilitators or "SNED Teacher",
-                "progress_instructional": "Monitor weekly progress toward goal.",
+                "progress_instructional": "Monitor weekly progress through teacher observation and skill checklists.",
                 "remarks": "To be updated based on actual learning outcomes."
             }]
  
@@ -624,8 +649,10 @@ class GenerateIEPGoalsFromIEPView(APIView):
         return 'FUNCTIONAL SKILLS'
  
  
-    def _derive_goal_name(self, difficulty):
-        """Derives a short goal name from the difficulty."""
+    def _derive_goal_name(self, difficulty, goal_area=''):
+        """Derives a short goal name — prefers the teacher-selected goal_area."""
+        if goal_area:
+            return goal_area  # e.g. "Mathematical Skills", "Care Skills"
         d = difficulty.lower()
         if 'communicat' in d or 'speech' in d:
             return 'Communication Development'
