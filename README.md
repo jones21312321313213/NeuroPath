@@ -8,10 +8,10 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![React](https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB)](https://reactjs.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-4EA94B?style=flat&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![Django](https://img.shields.io/badge/Django-092E20?style=flat&logo=django&logoColor=white)](https://www.djangoproject.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=flat&logo=supabase&logoColor=white)](https://supabase.com/)
 [![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=flat&logo=openai&logoColor=white)](https://openai.com/)
-[![Express](https://img.shields.io/badge/Express-000000?style=flat&logo=express&logoColor=white)](https://expressjs.com/)
 
 [Mission Overview](#-mission-overview) •
 [System Architecture](#-system-architecture) •
@@ -48,99 +48,129 @@ The system is designed to unify three critical workflows into one intelligent pl
 
 ## 🏗️ System Architecture
 
-Below is the complete structural schematic for the NeuroPath backend API and the frontend interface.
+Below is the complete structural schematic for the NeuroPath Django backend and the React frontend interface.
 
 ```text
 📦 NeuroPath
 │
-├── 📂 neuropath-backend                  # Mission Control (Backend API)
-│   ├── 📄 .env                           # Environment variables (never commit)
+├── 📂 neuropath-backend                        # Mission Control (Django Backend)
+│   ├── 📄 .env                                 # Environment variables (never commit)
 │   ├── 📄 .gitignore
-│   ├── 📄 package.json
-│   ├── 📄 package-lock.json
-│   ├── 📄 server.js                      # Primary Express/Node entry point
+│   ├── 📄 manage.py                            # Django management entry point
+│   ├── 📄 requirements.txt                     # Python dependencies
+│   ├── 📄 Pipfile / Pipfile.lock               # (Optional) Pipenv lockfile
 │   │
-│   ├── 📂 config                         # Configuration & DB connection
-│   │   └── 📄 db.js
+│   ├── 📂 neuropath                            # Django project settings package
+│   │   ├── 📄 __init__.py
+│   │   ├── 📄 settings.py                      # Core Django & Supabase/PostgreSQL config
+│   │   ├── 📄 urls.py                          # Root URL dispatcher
+│   │   ├── 📄 wsgi.py                          # WSGI entry point (production)
+│   │   └── 📄 asgi.py                          # ASGI entry point (async support)
 │   │
-│   ├── 📂 models                         # MongoDB Schemas (Mongoose)
-│   │   ├── 📄 User.js                    # Teacher/user accounts
-│   │   ├── 📄 Student.js                 # Student profiles & PLAAFP data
-│   │   ├── 📄 IEP.js                     # IEP documents & generated goals
-│   │   ├── 📄 LessonPlan.js              # Auto-generated lesson plan templates
-│   │   └── 📄 ProgressLog.js             # Behavioral tally & outcome tracking
+│   ├── 📂 apps                                 # Django applications (one per module)
+│   │   │
+│   │   ├── 📂 accounts                         # Teacher authentication & user management
+│   │   │   ├── 📄 __init__.py
+│   │   │   ├── 📄 admin.py
+│   │   │   ├── 📄 models.py                    # Custom User model (Teacher profile)
+│   │   │   ├── 📄 serializers.py               # DRF serializers for auth endpoints
+│   │   │   ├── 📄 views.py                     # Register, login, token refresh views
+│   │   │   ├── 📄 urls.py
+│   │   │   └── 📄 permissions.py               # Role-based access (teacher, admin)
+│   │   │
+│   │   ├── 📂 students                         # Module 1 — Student Profiling
+│   │   │   ├── 📄 __init__.py
+│   │   │   ├── 📄 admin.py
+│   │   │   ├── 📄 models.py                    # Student & PLAAFP data models
+│   │   │   ├── 📄 serializers.py               # PLAAFP input validation & serialization
+│   │   │   ├── 📄 views.py                     # Student CRUD API views
+│   │   │   ├── 📄 urls.py
+│   │   │   └── 📄 validators.py                # PLAAFP completeness & formatting checks (≤5% error)
+│   │   │
+│   │   ├── 📂 iep                              # Module 2 — IEP Generation
+│   │   │   ├── 📄 __init__.py
+│   │   │   ├── 📄 admin.py
+│   │   │   ├── 📄 models.py                    # IEP document, Goal, CompletionThreshold models
+│   │   │   ├── 📄 serializers.py
+│   │   │   ├── 📄 views.py                     # IEP generation & retrieval API views
+│   │   │   ├── 📄 urls.py
+│   │   │   └── 📂 services                     # Business logic & AI integration
+│   │   │       ├── 📄 ai_service.py            # OpenAI API calls for goal generation
+│   │   │       ├── 📄 rgori_validator.py       # R-GORI compliance scoring engine (≥65%)
+│   │   │       └── 📄 completeness_algorithm.py # Multi-threshold quality check (20/59/80/100%)
+│   │   │
+│   │   ├── 📂 instructional                    # Module 3 — Instructional Support
+│   │   │   ├── 📄 __init__.py
+│   │   │   ├── 📄 admin.py
+│   │   │   ├── 📄 models.py                    # LessonPlan, VisualAid, GeneralizationStrategy models
+│   │   │   ├── 📄 serializers.py
+│   │   │   ├── 📄 views.py                     # Lesson plan & visual aid generation views
+│   │   │   ├── 📄 urls.py
+│   │   │   └── 📂 services
+│   │   │       ├── 📄 lesson_plan_service.py   # Auto-populates templates from IEP goals (≥95%)
+│   │   │       ├── 📄 visual_aid_service.py    # Generates print-ready, localized picture cards
+│   │   │       └── 📄 generalization_service.py # Real-world transfer strategy recommendations
+│   │   │
+│   │   └── 📂 progress                         # Module 4 — Outcome Monitoring & Security
+│   │       ├── 📄 __init__.py
+│   │       ├── 📄 admin.py
+│   │       ├── 📄 models.py                    # ProgressLog, BehavioralTally, GoalMilestone models
+│   │       ├── 📄 serializers.py
+│   │       ├── 📄 views.py                     # Analytics dashboard API views
+│   │       └── 📄 urls.py
 │   │
-│   ├── 📂 routes                         # RESTful API Endpoints
-│   │   ├── 📄 auth.js                    # Registration, login, token refresh
-│   │   ├── 📄 students.js                # Student profile CRUD
-│   │   ├── 📄 iep.js                     # IEP generation & retrieval
-│   │   ├── 📄 instructional.js           # Lesson plans & visual aid generation
-│   │   └── 📄 progress.js               # Analytics & progress monitoring
-│   │
-│   ├── 📂 controllers                    # Business logic layer
-│   │   ├── 📄 authController.js
-│   │   ├── 📄 studentController.js
-│   │   ├── 📄 iepController.js
-│   │   ├── 📄 instructionalController.js
-│   │   └── 📄 progressController.js
-│   │
-│   ├── 📂 middleware                     # Express middleware
-│   │   ├── 📄 authMiddleware.js          # JWT verification
-│   │   ├── 📄 errorHandler.js
-│   │   └── 📄 validator.js              # Input validation & PLAAFP schema checks
-│   │
-│   └── 📂 services                       # External API integrations
-│       ├── 📄 aiService.js               # OpenAI / LLM integration for IEP generation
-│       ├── 📄 rgoriValidator.js          # R-GORI compliance scoring engine
-│       └── 📄 completenessAlgorithm.js  # Multi-threshold quality algorithm (20/59/80/100%)
+│   └── 📂 core                                 # Shared utilities & middleware
+│       ├── 📄 middleware.py                     # Request logging, error handling
+│       ├── 📄 pagination.py                     # Custom DRF pagination
+│       └── 📄 utils.py                          # Shared helper functions
 │
-└── 📂 src                                # Flight Interface (Frontend UI)
-    ├── 📄 index.css                      # Global styles & design tokens
-    ├── 📄 main.jsx                       # React DOM entry point
+└── 📂 src                                      # Flight Interface (React Frontend)
+    ├── 📄 index.css                             # Global styles & design tokens
+    ├── 📄 main.jsx                              # React DOM entry point
     │
-    ├── 📂 components                     # UI Modules
-    │   ├── 📄 App.jsx                    # Root component & routing
+    ├── 📂 components                            # UI Modules
+    │   ├── 📄 App.jsx                           # Root component & routing
     │   ├── 📄 Header.jsx
     │   ├── 📄 Sidebar.jsx
-    │   ├── 📄 ProtectedRoute.jsx         # Auth-guarded routes
+    │   ├── 📄 ProtectedRoute.jsx                # Auth-guarded routes
     │   │
-    │   ├── 📂 auth                       # Authentication screens
+    │   ├── 📂 auth                              # Authentication screens
     │   │   ├── 📄 Login.jsx
     │   │   └── 📄 Register.jsx
     │   │
-    │   ├── 📂 dashboard                  # Module 4 — Analytics & monitoring
+    │   ├── 📂 dashboard                         # Module 4 — Analytics & monitoring
     │   │   ├── 📄 Dashboard.jsx
     │   │   ├── 📄 ProgressChart.jsx
     │   │   └── 📄 GoalAttainmentWidget.jsx
     │   │
-    │   ├── 📂 students                   # Module 1 — Student profiling
+    │   ├── 📂 students                          # Module 1 — Student profiling
     │   │   ├── 📄 StudentList.jsx
     │   │   ├── 📄 StudentProfile.jsx
-    │   │   └── 📄 PLAAFPForm.jsx         # Structured PLAAFP data entry form
+    │   │   └── 📄 PLAAFPForm.jsx                # Structured PLAAFP data entry form
     │   │
-    │   ├── 📂 iep                        # Module 2 — IEP Generation
+    │   ├── 📂 iep                               # Module 2 — IEP Generation
     │   │   ├── 📄 IEPGenerator.jsx
     │   │   ├── 📄 IEPGoalEditor.jsx
-    │   │   ├── 📄 CompletenessIndicator.jsx  # Visual 20/59/80/100% threshold gauge
-    │   │   └── 📄 IEPDocument.jsx        # Printable IEP output
+    │   │   ├── 📄 CompletenessIndicator.jsx     # Visual 20/59/80/100% threshold gauge
+    │   │   └── 📄 IEPDocument.jsx               # Printable IEP output
     │   │
-    │   └── 📂 instructional              # Module 3 — Instructional support
+    │   └── 📂 instructional                     # Module 3 — Instructional support
     │       ├── 📄 LessonPlanView.jsx
-    │       ├── 📄 VisualAidGenerator.jsx # Printable picture cards & visual supports
-    │       └── 📄 GeneralizationTips.jsx # Real-world transfer strategy recommendations
+    │       ├── 📄 VisualAidGenerator.jsx        # Printable picture cards & visual supports
+    │       └── 📄 GeneralizationTips.jsx        # Real-world transfer strategy recommendations
     │
-    └── 📂 hooks                          # Custom React Hooks
-        ├── 📄 useAuth.js                 # Auth state & token management
-        ├── 📄 useStudent.js              # Student data fetching & mutations
-        ├── 📄 useIEP.js                  # IEP generation & quality score state
-        └── 📄 useProgress.js            # Progress tracking & analytics data
+    └── 📂 hooks                                 # Custom React Hooks
+        ├── 📄 useAuth.js                        # Auth state & token management
+        ├── 📄 useStudent.js                     # Student data fetching & mutations
+        ├── 📄 useIEP.js                         # IEP generation & quality score state
+        └── 📄 useProgress.js                   # Progress tracking & analytics data
 ```
 
 ---
 
 ## ⚙️ Tech Stack
 
-NeuroPath operates on a modern JavaScript full-stack with AI and data visualization layers:
+NeuroPath operates on a Python/Django backend with a React frontend, backed by a Supabase-hosted PostgreSQL database.
 
 | Layer | Technology | Purpose |
 |---|---|---|
@@ -149,14 +179,16 @@ NeuroPath operates on a modern JavaScript full-stack with AI and data visualizat
 | **State Management** | React Context + Custom Hooks | Auth state, student data, IEP generation state |
 | **UI Components** | Custom CSS / Tailwind CSS | Component styling & responsive layout |
 | **Charts & Analytics** | Recharts / Chart.js | Progress dashboards & goal attainment visualization |
-| **Backend Runtime** | Node.js + Express | RESTful API server & business logic |
-| **Database** | MongoDB + Mongoose | NoSQL storage for users, students, IEPs, and progress logs |
-| **Authentication** | JSON Web Tokens (JWT) + bcrypt | Secure teacher authentication & session management |
+| **Backend Framework** | Django + Django REST Framework (DRF) | RESTful API server & business logic |
+| **Database** | PostgreSQL (via Supabase) | Relational storage for users, students, IEPs, and progress logs |
+| **Database Host** | Supabase | Managed PostgreSQL — auth, storage, and real-time capabilities |
+| **ORM** | Django ORM | Database abstraction & migration management |
+| **Authentication** | Simple JWT (`djangorestframework-simplejwt`) + bcrypt | Secure teacher authentication & session management |
 | **AI Engine** | OpenAI API (GPT-4o) | Adaptive IEP goal generation from PLAAFP baseline data |
 | **Validation** | Custom R-GORI Scoring Engine | Automated pedagogical compliance checking at ≥ 65% threshold |
-| **PDF Generation** | jsPDF / Puppeteer | Printable IEP documents, lesson plans & visual aids |
-| **Security** | Helmet.js + express-rate-limit | HTTP header hardening & API abuse prevention |
-| **Environment** | dotenv | Secure credential & configuration management |
+| **PDF Generation** | ReportLab / WeasyPrint | Printable IEP documents, lesson plans & visual aids |
+| **Security** | Django Security Middleware + django-cors-headers | CSRF protection, secure headers & CORS policy |
+| **Environment** | python-decouple / django-environ | Secure credential & configuration management |
 
 ---
 
@@ -221,8 +253,9 @@ Follow these steps to deploy a local instance of NeuroPath on your machine.
 
 Ensure your local environment has the following:
 
+- **Python** (v3.11 or higher) and **pip**
 - **Node.js** (v18.0.0 or higher) and **npm**
-- **MongoDB** (Local instance or a MongoDB Atlas URI)
+- **Supabase Account** with a project set up (free tier works)
 - **OpenAI API Key** with access to GPT-4o or GPT-4-turbo
 - A modern browser (Chrome, Firefox, Edge)
 
@@ -237,13 +270,30 @@ cd NeuroPath
 
 ---
 
-### 2. Backend Setup
+### 2. Backend Setup (Django)
 
 Open a terminal and navigate to the backend directory:
 
 ```bash
 cd neuropath-backend
-npm install
+```
+
+Create and activate a virtual environment:
+
+```bash
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+
+# macOS / Linux
+source venv/bin/activate
+```
+
+Install Python dependencies:
+
+```bash
+pip install -r requirements.txt
 ```
 
 Create a `.env` file inside `neuropath-backend/` (see [Environment Variables](#-environment-variables) below for the full reference):
@@ -253,21 +303,30 @@ cp .env.example .env
 # Then fill in your values
 ```
 
-Start the backend server:
+Run database migrations against your Supabase PostgreSQL instance:
 
 ```bash
-# Development (with auto-reload via nodemon)
-npm run dev
-
-# Production
-npm start
+python manage.py migrate
 ```
 
-The API will be running at `http://localhost:5000`.
+Create a superuser (admin account):
+
+```bash
+python manage.py createsuperuser
+```
+
+Start the Django development server:
+
+```bash
+# Development
+python manage.py runserver
+
+# The API will be running at http://localhost:8000
+```
 
 ---
 
-### 3. Frontend Setup
+### 3. Frontend Setup (React)
 
 Open a **second terminal** and navigate to the root directory:
 
@@ -297,6 +356,8 @@ Open your browser and navigate to **`http://localhost:5173/`**
 
 Register a teacher account, create a student profile, input your PLAAFP observations, and let NeuroPath generate your first adaptive IEP.
 
+> The Django admin panel is accessible at **`http://localhost:8000/admin/`** using your superuser credentials.
+
 ---
 
 ## 🔐 Environment Variables
@@ -311,20 +372,32 @@ NeuroPath uses separate `.env` files for the backend and frontend. **Never commi
 # ───────────────────────────────────────────
 # SERVER
 # ───────────────────────────────────────────
-PORT=5000
-NODE_ENV=development
+DEBUG=True
+SECRET_KEY=TOKEN
+ALLOWED_HOSTS=localhost,127.0.0.1
 
 # ───────────────────────────────────────────
-# DATABASE
+# DATABASE (Supabase PostgreSQL)
 # ───────────────────────────────────────────
-DB_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/neuropath?retryWrites=true&w=majority
+DB_NAME=postgres
+DB_USER=postgres
+DB_PASSWORD=TOKEN
+DB_HOST=db.<your-supabase-project-ref>.supabase.co
+DB_PORT=5432
 
 # ───────────────────────────────────────────
-# AUTHENTICATION
+# SUPABASE (Direct client access — optional)
 # ───────────────────────────────────────────
-JWT_SECRET=TOKEN
-JWT_EXPIRES_IN=7d
-BCRYPT_SALT_ROUNDS=12
+SUPABASE_URL=https://<your-supabase-project-ref>.supabase.co
+SUPABASE_ANON_KEY=TOKEN
+SUPABASE_SERVICE_ROLE_KEY=TOKEN
+
+# ───────────────────────────────────────────
+# AUTHENTICATION (Simple JWT)
+# ───────────────────────────────────────────
+JWT_SECRET_KEY=TOKEN
+JWT_ACCESS_TOKEN_LIFETIME_MINUTES=60
+JWT_REFRESH_TOKEN_LIFETIME_DAYS=7
 
 # ───────────────────────────────────────────
 # AI ENGINE (OpenAI)
@@ -345,13 +418,15 @@ THRESHOLD_COMPLETE=100
 # ───────────────────────────────────────────
 # CORS
 # ───────────────────────────────────────────
-CLIENT_ORIGIN=http://localhost:5173
+CORS_ALLOWED_ORIGINS=http://localhost:5173
 
 # ───────────────────────────────────────────
-# RATE LIMITING
+# EMAIL (Optional — for password reset)
 # ───────────────────────────────────────────
-RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX=100
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_HOST_USER=TOKEN
+EMAIL_HOST_PASSWORD=TOKEN
 ```
 
 ---
@@ -362,12 +437,13 @@ RATE_LIMIT_MAX=100
 # ───────────────────────────────────────────
 # API
 # ───────────────────────────────────────────
-VITE_API_BASE_URL=http://localhost:5000/api
+VITE_API_BASE_URL=http://localhost:8000/api
 
 # ───────────────────────────────────────────
-# AUTHENTICATION
+# SUPABASE (Frontend direct access — optional)
 # ───────────────────────────────────────────
-VITE_JWT_STORAGE_KEY=TOKEN
+VITE_SUPABASE_URL=TOKEN
+VITE_SUPABASE_ANON_KEY=TOKEN
 
 # ───────────────────────────────────────────
 # FEATURE FLAGS
@@ -377,7 +453,7 @@ VITE_ENABLE_VISUAL_AIDS=true
 VITE_ENABLE_ANALYTICS_DASHBOARD=true
 ```
 
-> ⚠️ **Security Note:** Never expose your `OPENAI_API_KEY`, `JWT_SECRET`, or `DB_URI` to the frontend. All sensitive keys must live exclusively in the backend `.env` file and be accessed only server-side.
+> ⚠️ **Security Note:** Never expose your `OPENAI_API_KEY`, `JWT_SECRET_KEY`, `DB_PASSWORD`, or `SUPABASE_SERVICE_ROLE_KEY` to the frontend. All sensitive keys must live exclusively in the backend `.env` file and be accessed only server-side. The `SUPABASE_ANON_KEY` is safe to expose on the frontend as it is governed by Supabase Row Level Security (RLS) policies.
 
 ---
 
@@ -391,7 +467,7 @@ Full technical documentation for NeuroPath is maintained in the `/docs` director
 | [📄 Software Design Document (SDD)](./docs/SDD.md) | System architecture, database schema, API endpoint reference, and UI wireframes | 🔜 Coming Soon |
 | [📄 R-GORI Compliance Guide](./docs/RGORI_Guide.md) | Explanation of the R-GORI pedagogical framework and how NeuroPath's validation engine applies it | 🔜 Coming Soon |
 | [📄 Completeness Algorithm Reference](./docs/CompletenessAlgorithm.md) | Technical specification of the 20/59/80/100% threshold quality engine | 🔜 Coming Soon |
-| [📄 API Reference](./docs/API.md) | Full REST API endpoint documentation with request/response schemas | 🔜 Coming Soon |
+| [📄 API Reference](./docs/API.md) | Full DRF API endpoint documentation with request/response schemas | 🔜 Coming Soon |
 
 ---
 
