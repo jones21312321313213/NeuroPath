@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { iepAPI, studentsAPI } from "../api/client";
 
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const barrierQualifierOptions = [
   "No barrier",
@@ -170,6 +171,56 @@ function getStudentName(s) {
 
 function getStudentId(s) {
   return s?.studentID || s?.id || s?.pk || null;
+}
+
+function normalizeTextList(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item || "").trim())
+      .filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(/\r?\n|\s*\|\s*/g)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function getStudentProfileDifficulties(student) {
+  const p = getStudentProfileDetails(student);
+  const candidates = [
+    p.difficultyMarkers,
+    p.difficulties,
+    p.difficulty,
+    student?.difficultyMarkers,
+    student?.difficulties,
+    student?.difficulty,
+  ];
+
+  for (const candidate of candidates) {
+    const list = normalizeTextList(candidate);
+    if (list.length) return [...new Set(list)];
+  }
+  return [];
+}
+
+function buildProfileBarrierRows(difficulties, previousRows = []) {
+  return difficulties.map((difficulty) => {
+    const existing = previousRows.find(
+      (row) =>
+        String(row.difficulty || "").trim().toLowerCase() ===
+        String(difficulty || "").trim().toLowerCase(),
+    );
+
+    return {
+      difficulty,
+      barrierQualifier: existing?.barrierQualifier || "Moderate barrier",
+      facilitator: existing?.facilitator || "",
+      accommodation: existing?.accommodation || "",
+    };
+  });
 }
 
 function normalizeDbGoal(dbGoal) {
@@ -882,13 +933,11 @@ function ViewIEPPanel({
             </div>
           )}
 
-          {!isEditing && (
-            <>
-              {/* Section B read-only */}
-              <div>
-                <h3 className="iep-view-section-title">
-                  Section B: Difficulties, Barriers, and Enabling Supports
-                </h3>
+          {/* Section B read-only */}
+          <div>
+            <h3 className="iep-view-section-title">
+              Section B: Difficulties, Barriers, and Enabling Supports
+            </h3>
             <div className="iep-table-wrap">
               <table className="iep-table">
                 <thead>
@@ -931,13 +980,18 @@ function ViewIEPPanel({
                 </tbody>
               </table>
             </div>
+            {(details?.generatedAccommodations || selectedIep.accommodations) && (
+              <InfoBlock title="AI-Generated Accommodations / Resources">
+                {details?.generatedAccommodations || selectedIep.accommodations}
+              </InfoBlock>
+            )}
           </div>
 
-              {/* Section C: goals from DB */}
-              <div>
-                <h3 className="iep-view-section-title">
-                  Section C: Learner's Goals
-                </h3>
+          {/* Section C: goals from DB */}
+          <div>
+            <h3 className="iep-view-section-title">
+              Section C: Learner's Goals
+            </h3>
             {loadingGoals ? (
               <p className="iep-muted">Loading learner goals…</p>
             ) : goalsToRender.length ? (
@@ -959,9 +1013,7 @@ function ViewIEPPanel({
                 </span>
               </div>
             )}
-              </div>
-            </>
-          )}
+          </div>
         </div>
       )}
 
@@ -1148,6 +1200,8 @@ export default function IEPGenerationPage({ mode = "generate" }) {
   useEffect(() => {
     if (activeView !== "generate" || !selectedStudent) return;
     const p = getStudentProfileDetails(selectedStudent);
+    const profileDifficulties = getStudentProfileDifficulties(selectedStudent);
+
     setForm((prev) => ({
       ...prev,
       school: p.school || prev.school,
@@ -1176,6 +1230,11 @@ export default function IEPGenerationPage({ mode = "generate" }) {
         p.academicNeeds || selectedStudent.support_needs || prev.academicNeeds,
       parentalConcerns: p.parentalConcerns || prev.parentalConcerns,
       curriculumImpact: p.curriculumImpact || prev.curriculumImpact,
+      // Difficulties must come from the saved student profile only.
+      // Teachers can adjust barriers, facilitators, and accommodations here,
+      // but the difficulty labels themselves stay locked to the profile.
+      difficultyMarkers: profileDifficulties,
+      barrierRows: buildProfileBarrierRows(profileDifficulties, prev.barrierRows),
     }));
     // Reset generation state on student switch
     setGenerationDone(false);
@@ -1293,7 +1352,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
     }
     if (form.barrierRows.every((r) => !r.difficulty.trim())) {
       alert(
-        "Please fill in at least one difficulty in Section B before generating.",
+        "No difficulties were found in this student profile. Please update the student profile difficulties first before generating an IEP.",
       );
       return;
     }
@@ -1616,33 +1675,28 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                   <div className="form-two-col-sections">
                     <div>
                       <h3 className="iep-small-title">Difficulties</h3>
+                      <p className="iep-muted">
+                        Loaded from the saved student profile. Update the student
+                        profile if these difficulties need to change.
+                      </p>
                       <div className="iep-input-row-list">
-                        {form.difficultyMarkers.map((item, i) => (
-                          <div key={i} className="iep-input-row-item">
-                            <input
-                              className="form-input"
-                              value={item}
-                              placeholder={`Difficulty ${i + 1}`}
-                              onChange={(e) =>
-                                updateDifficultyRow(i, e.target.value)
-                              }
-                            />
-                            <button
-                              type="button"
-                              className="iep-link-danger"
-                              onClick={() => removeDifficultyRow(i)}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ))}
-                        <button
-                          type="button"
-                          className="btn btn-back iep-add-row-inline"
-                          onClick={addDifficultyRow}
-                        >
-                          + Add Row
-                        </button>
+                        {form.difficultyMarkers.length ? (
+                          form.difficultyMarkers.map((item, i) => (
+                            <div key={i} className="iep-input-row-item">
+                              <input
+                                className="form-input"
+                                value={item}
+                                placeholder={`Difficulty ${i + 1}`}
+                                readOnly
+                                aria-readonly="true"
+                              />
+                            </div>
+                          ))
+                        ) : (
+                          <p className="iep-muted">
+                            No difficulties found in this student profile.
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div>
@@ -1690,7 +1744,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
 
                   <SectionHeader
                     title="Section B: Difficulties, Barriers, and Enabling Supports"
-                    subtitle="Type the difficulty manually, then identify barriers, facilitators, and accommodations for each entry."
+                    subtitle="Difficulties are loaded from the saved student profile and cannot be edited here. Identify barriers, facilitators, and accommodations for each entry."
                   />
                   <div className="iep-table-wrap">
                     <table className="iep-table">
@@ -1700,24 +1754,25 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                           <th>Learning Barriers</th>
                           <th>Learning Facilitators</th>
                           <th>Accommodation</th>
-                          <th>Action</th>
                         </tr>
                       </thead>
                       <tbody>
+                        {form.barrierRows.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="iep-muted">
+                              No difficulties found in this student profile.
+                            </td>
+                          </tr>
+                        )}
                         {form.barrierRows.map((row, i) => (
                           <tr key={i}>
                             <td>
                               <input
                                 value={row.difficulty}
                                 className="form-input"
-                                placeholder="Type difficulty"
-                                onChange={(e) =>
-                                  updateBarrierRow(
-                                    i,
-                                    "difficulty",
-                                    e.target.value,
-                                  )
-                                }
+                                placeholder="Difficulty from profile"
+                                readOnly
+                                aria-readonly="true"
                               />
                             </td>
                             <td>
@@ -1767,27 +1822,18 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                                 }
                               />
                             </td>
-                            <td className="iep-action-cell">
-                              <button
-                                type="button"
-                                className="iep-link-danger"
-                                onClick={() => removeBarrierRow(i)}
-                              >
-                                Remove
-                              </button>
-                            </td>
+
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-back iep-add-row"
-                    onClick={addBarrierRow}
-                  >
-                    + ADD DIFFICULTY
-                  </button>
+
+                  {generatedAccommodations && (
+                    <InfoBlock title="AI-Generated Accommodations / Resources">
+                      {generatedAccommodations}
+                    </InfoBlock>
+                  )}
                 </section>
               )}
 
