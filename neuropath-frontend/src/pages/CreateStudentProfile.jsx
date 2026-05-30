@@ -14,7 +14,7 @@ const difficultyOptions = [
 
 const diagnosisOptions = ["Autism Spectrum Disorder"];
 
-const genderOptions = ["Male", "Female", "Other", "Prefer not to say"];
+const genderOptions = ["Male", "Female"];
 
 function FormField({
   label,
