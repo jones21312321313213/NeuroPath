@@ -524,13 +524,7 @@ This is an academic Capstone project. Contributions, code reviews, and issue rep
 
 Please follow the existing code style and include relevant test coverage for any new features.
 
----
 
-## 📄 License
-
-This project is licensed under the **MIT License** — see the [LICENSE](./LICENSE) file for details.
-
----
 
 <div align="center">
 
