@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import "../styles/ManageTeachingStrategies.css";
 import StudentShimmer from "../components/StudentShimmer";
-import { teachingStrategiesAPI } from "../api/client";
+import { iepAPI, teachingStrategiesAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
 const TABS = [
@@ -142,6 +142,17 @@ function getInitials(name) {
     .toUpperCase();
 }
 
+function formatSavedIepGoal(goal) {
+  const goalArea = goal.subject_category || goal.goalName || "IEP Goal";
+  const annualGoal = goal.annual_goal || goal.goalName || "Saved IEP goal";
+  return {
+    ...goal,
+    goalID: goal.goalID,
+    goalArea,
+    label: `${goalArea} — ${annualGoal}`,
+  };
+}
+
 // ── Student Selector shared component ────────────────────────────────────────
 function StudentSelector({
   directory,
@@ -231,12 +242,23 @@ function GenerateTab({ onSave }) {
       .finally(() => setLoadingDir(false));
   }, [user?.id]);
 
-  const selectStudent = (student) => {
-    setSelectedStudent(student);
+  const selectStudent = async (student) => {
+    const baseStudent = { ...student, availableGoals: [] };
+    setSelectedStudent(baseStudent);
     setSelectedGoal(null);
     setGenerated(null);
     setError("");
     setSaved(false);
+
+    try {
+      const savedGoals = await iepAPI.listLatestGoalsByStudent(student.studentID);
+      setSelectedStudent({
+        ...baseStudent,
+        availableGoals: (savedGoals || []).map(formatSavedIepGoal),
+      });
+    } catch (err) {
+      setError(err.message || "Failed to load saved IEP goals for this student.");
+    }
   };
 
   const handleGenerate = async () => {

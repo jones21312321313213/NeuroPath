@@ -38,7 +38,7 @@ class LessonGenerationSerializer(serializers.Serializer):
     # 🚀 REWIRED: We only need the precise Goal ID now!
     goalID = serializers.IntegerField(required=True)
     subject = serializers.CharField(max_length=100, required=True)
-    topic = serializers.CharField(max_length=255, required=True)
+    topic = serializers.CharField(required=True)
     
     gradeLevel = serializers.CharField(max_length=50, required=False, allow_blank=True)
     specificGoals = serializers.CharField(required=False, allow_blank=True)

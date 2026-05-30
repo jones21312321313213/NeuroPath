@@ -16,10 +16,92 @@ from rest_framework.permissions import IsAuthenticated
 from django.http import HttpResponse
 from django.contrib.auth.models import User as DjangoUser
 from users.models import Teacher,StudentProfile
-from iep_management.models import IEPModel, IEPGoal
+from iep_management.models import IEPModel, IEPGoal, IEPObjectiveRow
 from .models import LessonPlan,VisualAid,TeachingStrategy
 from .services import TeachingStrategyGenerationService,LessonPlanGenerationService
 #from .permissions import UserAuthPermissions uncomment this back to check user auth and permission
+
+
+def _safe_generated_details(details):
+    if not details:
+        return {}
+    if isinstance(details, dict):
+        return details
+    if isinstance(details, str):
+        try:
+            import json
+            parsed = json.loads(details)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+def _first_non_empty(*values, default=""):
+    for value in values:
+        if value is None:
+            continue
+        value = str(value).strip()
+        if value:
+            return value
+    return default
+
+
+def _sync_goals_from_generated_details(iep):
+    """Backfill old IEPs whose Section C is only stored in generatedDetails."""
+    if not iep or IEPGoal.objects.filter(iep=iep).exists():
+        return
+
+    details = _safe_generated_details(iep.generatedDetails)
+    learner_goals = (
+        details.get('learnerGoals')
+        or details.get('sectionC')
+        or details.get('goals')
+        or details.get('generatedGoals')
+        or []
+    )
+    if not isinstance(learner_goals, list):
+        return
+
+    for idx, goal in enumerate(learner_goals, start=1):
+        if not isinstance(goal, dict):
+            continue
+        subject_category = _first_non_empty(
+            goal.get('subject_category'), goal.get('subjectCategory'),
+            goal.get('type'), goal.get('goalArea'), goal.get('goalName'),
+            default=f'Goal {idx}',
+        )
+        annual_goal = _first_non_empty(
+            goal.get('annual_goal'), goal.get('annualGoal'), goal.get('label'),
+            goal.get('goal'), goal.get('description'),
+        )
+        if not annual_goal:
+            continue
+
+        parent_goal = IEPGoal.objects.create(
+            iep=iep,
+            subject_category=subject_category,
+            annual_goal=annual_goal,
+            goalName=_first_non_empty(goal.get('goalName'), subject_category, default=f'Goal {idx}'),
+            target_metric=_first_non_empty(goal.get('target_metric'), goal.get('targetMetric'), default='Standard IEP Metric'),
+        )
+
+        rows = goal.get('objective_rows') or goal.get('rows') or goal.get('objectives') or []
+        if not isinstance(rows, list):
+            rows = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            IEPObjectiveRow.objects.create(
+                parent_goal=parent_goal,
+                enroute_objectives=_first_non_empty(row.get('enroute_objectives'), row.get('objective'), row.get('enrouteObjectives')),
+                interventions_procedures=_first_non_empty(row.get('interventions_procedures'), row.get('interventions'), row.get('activities')),
+                timeline_mins_session=_first_non_empty(row.get('timeline_mins_session'), row.get('timeline'), row.get('session')),
+                individuals_responsible=_first_non_empty(row.get('individuals_responsible'), row.get('responsible'), row.get('individualsResponsible')),
+                progress_instructional=_first_non_empty(row.get('progress_instructional'), row.get('evaluation'), row.get('progress')),
+                remarks=_first_non_empty(row.get('remarks')),
+            )
+
 from .serializers import (
     UserContextSerializer,
     LessonPlanSerializer,
@@ -33,6 +115,45 @@ from .serializers import (
     StrategyRetrievalSerializer,
     StrategyDeleteValidationSerializer,
 )
+
+
+def _latest_saved_iep_for_student(student):
+    """Return the newest saved IEP/version for one student."""
+    return (
+        IEPModel.objects
+        .filter(studentID=student)
+        .order_by('-version', '-createdDate', '-iepID')
+        .first()
+    )
+
+
+def _goal_option_payload(goal):
+    """Small goal shape used by Lesson Plans and Teaching Strategies."""
+    goal_area = goal.subject_category or goal.goalName or "IEP Goal"
+    annual_goal = goal.annual_goal or goal.goalName or "Saved IEP goal"
+    return {
+        "goalID": goal.pk,
+        "goalArea": goal_area,
+        "label": annual_goal,
+        "annual_goal": annual_goal,
+        "subject_category": goal.subject_category or goal_area,
+    }
+
+
+def _latest_goal_options_for_student(student):
+    latest_iep = _latest_saved_iep_for_student(student)
+    if not latest_iep:
+        return []
+
+    _sync_goals_from_generated_details(latest_iep)
+
+    goals = (
+        IEPGoal.objects
+        .filter(iep=latest_iep)
+        .prefetch_related('objective_rows')
+        .order_by('goalID')
+    )
+    return [_goal_option_payload(goal) for goal in goals]
 
 
 
@@ -214,16 +335,8 @@ class GenerateLessonPlanAPIView(APIView):
 
         directory_payload = []
         for student in students:
-            # Fetch all IEP Goals for this student
-            student_goals = IEPGoal.objects.filter(iep__studentID=student)
-            goal_list = [
-                {
-                    "goalID": goal.pk,
-                    "goalArea": getattr(goal, 'subject_category', None) or "General",
-                    "label": getattr(goal, 'subject_category', None) or "General",
-                }
-                for goal in student_goals
-            ]
+            # Use the saved Section C goals from the student's latest IEP/version.
+            goal_list = _latest_goal_options_for_student(student)
             directory_payload.append({
                 "studentID": student.pk,
                 "studentName": student.name,
@@ -903,8 +1016,8 @@ class TeachingStrategyGenerationController(APIView):
 
         directory_payload = []
         for student in students:
-            student_goals = IEPGoal.objects.filter(iep__studentID=student)
-            goal_list = [{"goalID": goal.pk, "label": f"{goal.subject_category}: {goal.annual_goal[:40]}..."} for goal in student_goals]
+            # Use the saved Section C goals from the student's latest IEP/version.
+            goal_list = _latest_goal_options_for_student(student)
             directory_payload.append({
                 "studentID": student.pk,
                 "studentName": student.name,

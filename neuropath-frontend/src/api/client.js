@@ -169,9 +169,13 @@ export const iepAPI = {
 
   // Fetch all IEPGoal rows (with nested objective_rows) for a specific IEP
   listGoalsByIep: (iepId) => request(`/iep/goals/?iep=${iepId}`),
-  // List all IEP goals for a specific student (used by ManageVisualAids)
+  // List IEP goals for a specific student
   listGoalsByStudent: (studentId) =>
     request(`/iep/goals/?student_id=${studentId}`),
+
+  // List goals only from the latest saved IEP/version for a student
+  listLatestGoalsByStudent: (studentId) =>
+    request(`/iep/goals/?student_id=${studentId}&latest=true`),
 
   getInsights: (studentId) => request(`/iep/student/${studentId}/insights/`),
 

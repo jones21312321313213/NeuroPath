@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import "../styles/ManageLessonPlans.css";
-import { lessonPlansAPI, studentsAPI } from "../api/client";
+import { iepAPI, lessonPlansAPI, studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import StudentShimmer from "../components/StudentShimmer";
 
@@ -75,6 +75,17 @@ function getInitials(name) {
     .slice(0, 2)
     .join("")
     .toUpperCase();
+}
+
+function formatSavedIepGoal(goal) {
+  const goalArea = goal.subject_category || goal.goalName || "IEP Goal";
+  const annualGoal = goal.annual_goal || goal.goalName || "Saved IEP goal";
+  return {
+    ...goal,
+    goalID: goal.goalID,
+    goalArea,
+    label: annualGoal,
+  };
 }
 
 function StatusBadge({ status }) {
@@ -290,14 +301,25 @@ function GenerateTab({ onSave }) {
       .then((data) => setDirectory(data.directory || []))
       .catch(() => setError("Failed to load students and IEP goals."))
       .finally(() => setLoadingDir(false));
-  }, []);
+  }, [user?.id]);
 
-  const selectStudent = (student) => {
-    setSelectedStudent(student);
+  const selectStudent = async (student) => {
+    const baseStudent = { ...student, availableGoals: [] };
+    setSelectedStudent(baseStudent);
     setSelectedGoal(null);
     setGenerated(null);
     setError("");
     setSaved(false);
+
+    try {
+      const savedGoals = await iepAPI.listLatestGoalsByStudent(student.studentID);
+      setSelectedStudent({
+        ...baseStudent,
+        availableGoals: (savedGoals || []).map(formatSavedIepGoal),
+      });
+    } catch (err) {
+      setError(err.message || "Failed to load saved IEP goals for this student.");
+    }
   };
 
   const handleGenerate = async () => {
@@ -308,7 +330,7 @@ function GenerateTab({ onSave }) {
       const data = await lessonPlansAPI.generate({
         goalID: selectedGoal.goalID,
         subject: selectedGoal.goalArea || "General Learning",
-        topic: selectedGoal.label || "General Learning",
+        topic: (selectedGoal.goalArea || selectedGoal.label || "General Learning").slice(0, 250),
       });
       setGenerated(data);
     } catch (err) {
