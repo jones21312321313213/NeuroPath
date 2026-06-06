@@ -10,14 +10,6 @@ const TABS = [
   { key: "delete", label: "Delete", icon: "⊘" },
 ];
 
-const SKILL_CATEGORIES = [
-  { label: "Mathematical Skills", icon: "🔢" },
-  { label: "Functional Academic Skills", icon: "📖" },
-  { label: "Communication Skills", icon: "💬" },
-  { label: "Social / Interpersonal Skills", icon: "🤝" },
-  { label: "Behavioral Skills", icon: "🧠" },
-];
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getInitials(name) {
@@ -178,9 +170,6 @@ function GenerateTab() {
   const [selectedGoal, setSelectedGoal] = useState(null);
   const [extraPrompt, setExtraPrompt] = useState("");
 
-  // Step 3 — Category
-  const [selectedCategory, setSelectedCategory] = useState(null);
-
   // Result
   const [result, setResult] = useState(null); // saved VisualAid record from DB
   const [generating, setGenerating] = useState(false);
@@ -212,13 +201,12 @@ function GenerateTab() {
     setSelectedStudent(s);
     setSelectedGoal(null);
     setExtraPrompt("");
-    setSelectedCategory(null);
     setResult(null);
     setError("");
   };
 
   const handleGenerate = async () => {
-    if (!selectedGoal || !selectedCategory) return;
+    if (!selectedGoal) return;
     setGenerating(true);
     setError("");
     setResult(null);
@@ -226,7 +214,6 @@ function GenerateTab() {
       const data = await visualAidsAPI.generate({
         iep_goal_id: selectedGoal.goalID,
         prompt: extraPrompt.trim(),
-        category: selectedCategory,
       });
       setResult(data.data);
     } catch (err) {
@@ -244,7 +231,6 @@ function GenerateTab() {
     setGoals([]);
     setSelectedGoal(null);
     setExtraPrompt("");
-    setSelectedCategory(null);
     setResult(null);
     setGenerating(false);
     setError("");
@@ -278,8 +264,8 @@ function GenerateTab() {
         )}
       </div>
 
-      {/* ── Step 2 — Pick IEP Goal + optional extra prompt ── */}
-      {selectedStudent && (
+      {/* ── Step 2 — Pick IEP Goal + optional extra prompt + Generate ── */}
+      {selectedStudent && !result && !generating && (
         <div className="va-card">
           <div className="va-step-badge">
             <span className="va-step-num">2</span>IEP Goal &amp; Prompt
@@ -351,41 +337,6 @@ function GenerateTab() {
               style={{ minHeight: 72 }}
             />
           </div>
-        </div>
-      )}
-
-      {/* ── Step 3 — Pick Category ── */}
-      {selectedStudent && selectedGoal && !result && !generating && (
-        <div className="va-card">
-          <div className="va-step-badge">
-            <span className="va-step-num">3</span>Skill Category
-          </div>
-          <p style={{ fontSize: 13, color: "#5a7491", marginBottom: 14 }}>
-            Choose the skill area this visual aid targets.
-          </p>
-          <div className="va-skill-grid">
-            {SKILL_CATEGORIES.map(({ label, icon }) => {
-              const checked = selectedCategory === label;
-              return (
-                <label
-                  key={label}
-                  className={`va-skill-label ${checked ? "checked" : ""}`}
-                  onClick={() => setSelectedCategory(label)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <input
-                    type="radio"
-                    name="skill_category"
-                    className="va-skill-checkbox"
-                    checked={checked}
-                    onChange={() => setSelectedCategory(label)}
-                  />
-                  <span className="va-skill-icon">{icon}</span>
-                  <span>{label}</span>
-                </label>
-              );
-            })}
-          </div>
 
           <div className="va-actions" style={{ marginTop: 16 }}>
             <button className="va-btn va-btn-ghost" onClick={handleReset}>
@@ -394,8 +345,8 @@ function GenerateTab() {
             <button
               className="va-generate-btn"
               onClick={handleGenerate}
-              disabled={!selectedCategory}
-              style={{ maxWidth: 260, opacity: selectedCategory ? 1 : 0.5 }}
+              disabled={!selectedGoal}
+              style={{ maxWidth: 260, opacity: selectedGoal ? 1 : 0.5 }}
             >
               <span>🖼️</span>
               Generate Visual Aid
@@ -417,11 +368,11 @@ function GenerateTab() {
         </div>
       )}
 
-      {/* ── Step 4 — Result (saved to DB) ── */}
+      {/* ── Step 3 — Result (saved to DB) ── */}
       {result && !generating && (
         <div className="va-card">
           <div className="va-step-badge">
-            <span className="va-step-num">4</span>Generated &amp; Saved ✓
+            <span className="va-step-num">3</span>Generated &amp; Saved ✓
           </div>
 
           <div className="va-detail-hero">
@@ -430,10 +381,6 @@ function GenerateTab() {
               <div className="va-meta-chip">
                 <span>👤</span>
                 {result.studentName}
-              </div>
-              <div className="va-meta-chip">
-                <span>🎯</span>
-                {selectedCategory}
               </div>
               <div className="va-meta-chip">
                 <span>💾</span>Saved to database (ID #{result.visualAidID})
@@ -574,7 +521,8 @@ function ViewTab() {
       {selectedStudent && (
         <div style={{ marginTop: 22 }}>
           <div className="va-step-badge" style={{ marginBottom: 14 }}>
-            <span className="va-step-num">2</span>{selectedStudent.name}'s Visual Aids
+            <span className="va-step-num">2</span>
+            {selectedStudent.name}'s Visual Aids
           </div>
 
           {loading ? (
@@ -694,13 +642,17 @@ function DeleteTab() {
       {selectedStudent && (
         <div style={{ marginTop: 22 }}>
           <div className="va-step-badge" style={{ marginBottom: 14 }}>
-            <span className="va-step-num">2</span>{selectedStudent.name}'s Visual Aids
+            <span className="va-step-num">2</span>
+            {selectedStudent.name}'s Visual Aids
           </div>
 
           {loading ? (
             <Loading text="Loading visual aids…" />
           ) : aids.length === 0 ? (
-            <EmptyState icon="📭" message="No visual aids saved for this student." />
+            <EmptyState
+              icon="📭"
+              message="No visual aids saved for this student."
+            />
           ) : (
             <AidRowList
               aids={aids}

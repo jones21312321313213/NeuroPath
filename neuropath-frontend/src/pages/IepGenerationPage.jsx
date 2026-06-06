@@ -175,9 +175,7 @@ function getStudentId(s) {
 
 function normalizeTextList(value) {
   if (Array.isArray(value)) {
-    return value
-      .map((item) => String(item || "").trim())
-      .filter(Boolean);
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
   }
   if (typeof value === "string") {
     return value
@@ -210,8 +208,12 @@ function buildProfileBarrierRows(difficulties, previousRows = []) {
   return difficulties.map((difficulty) => {
     const existing = previousRows.find(
       (row) =>
-        String(row.difficulty || "").trim().toLowerCase() ===
-        String(difficulty || "").trim().toLowerCase(),
+        String(row.difficulty || "")
+          .trim()
+          .toLowerCase() ===
+        String(difficulty || "")
+          .trim()
+          .toLowerCase(),
     );
 
     return {
@@ -450,10 +452,12 @@ function ViewIEPPanel({
           ],
     );
     setEditGoals(
-      goalsToRender.length ? goalsToRender.map((goal) => ({
-        ...goal,
-        rows: (goal.rows || []).map((row) => ({ ...row })),
-      })) : [emptyEditableGoal()],
+      goalsToRender.length
+        ? goalsToRender.map((goal) => ({
+            ...goal,
+            rows: (goal.rows || []).map((row) => ({ ...row })),
+          }))
+        : [emptyEditableGoal()],
     );
     setGoalsToDelete([]);
     setIsEditing(true);
@@ -485,7 +489,8 @@ function ViewIEPPanel({
       ),
     );
 
-  const addEditGoal = () => setEditGoals((prev) => [...prev, emptyEditableGoal()]);
+  const addEditGoal = () =>
+    setEditGoals((prev) => [...prev, emptyEditableGoal()]);
 
   const removeEditGoal = (goalIndex) =>
     setEditGoals((prev) => {
@@ -585,7 +590,8 @@ function ViewIEPPanel({
       const savedGoals = [];
       for (const goal of editGoals) {
         const payload = goalToApiPayload(goal, selectedIep.iepID);
-        if (!payload.subject_category.trim() && !payload.annual_goal.trim()) continue;
+        if (!payload.subject_category.trim() && !payload.annual_goal.trim())
+          continue;
         if (goal.goalID) {
           const updatedGoal = await iepAPI.updateGoal(goal.goalID, payload);
           savedGoals.push(normalizeDbGoal(updatedGoal));
@@ -808,7 +814,10 @@ function ViewIEPPanel({
               <h3 style={{ marginTop: 22 }}>Edit Section C: Learner's Goals</h3>
               <div className="iep-edit-goals-list">
                 {editGoals.map((goal, goalIndex) => (
-                  <div className="iep-edit-goal-card" key={goal.goalID || goalIndex}>
+                  <div
+                    className="iep-edit-goal-card"
+                    key={goal.goalID || goalIndex}
+                  >
                     <div className="iep-edit-goal-header">
                       <div className="form-group">
                         <label className="form-label">Skill / Goal Area</label>
@@ -980,7 +989,8 @@ function ViewIEPPanel({
                 </tbody>
               </table>
             </div>
-            {(details?.generatedAccommodations || selectedIep.accommodations) && (
+            {(details?.generatedAccommodations ||
+              selectedIep.accommodations) && (
               <InfoBlock title="AI-Generated Accommodations / Resources">
                 {details?.generatedAccommodations || selectedIep.accommodations}
               </InfoBlock>
@@ -1023,7 +1033,9 @@ function ViewIEPPanel({
             <div className="ts-modal-icon">🗑️</div>
             <p className="ts-modal-title">Delete IEP?</p>
             <p className="ts-modal-body">
-              You're about to permanently delete <strong>IEP Version {deleteTarget.version || "—"}</strong>. This action cannot be undone.
+              You're about to permanently delete{" "}
+              <strong>IEP Version {deleteTarget.version || "—"}</strong>. This
+              action cannot be undone.
             </p>
             <div className="ts-modal-actions">
               <button
@@ -1234,7 +1246,10 @@ export default function IEPGenerationPage({ mode = "generate" }) {
       // Teachers can adjust barriers, facilitators, and accommodations here,
       // but the difficulty labels themselves stay locked to the profile.
       difficultyMarkers: profileDifficulties,
-      barrierRows: buildProfileBarrierRows(profileDifficulties, prev.barrierRows),
+      barrierRows: buildProfileBarrierRows(
+        profileDifficulties,
+        prev.barrierRows,
+      ),
     }));
     // Reset generation state on student switch
     setGenerationDone(false);
@@ -1510,8 +1525,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
               iep: savedIepId,
               goalName:
                 goalPayload.goalName || goalPayload.subject_category || "Goal",
-              target_metric:
-                goalPayload.target_metric || "Standard IEP Metric",
+              target_metric: goalPayload.target_metric || "Standard IEP Metric",
             });
           } catch {
             allSaved = false;
@@ -1676,8 +1690,8 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                     <div>
                       <h3 className="iep-small-title">Difficulties</h3>
                       <p className="iep-muted">
-                        Loaded from the saved student profile. Update the student
-                        profile if these difficulties need to change.
+                        Loaded from the saved student profile. Update the
+                        student profile if these difficulties need to change.
                       </p>
                       <div className="iep-input-row-list">
                         {form.difficultyMarkers.length ? (
@@ -1822,7 +1836,6 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                                 }
                               />
                             </td>
-
                           </tr>
                         ))}
                       </tbody>
