@@ -134,10 +134,10 @@ class StrategyGenerationService:
         )
         
         mock_generated_text = (
-            f"Recommended Strategy for Target Goal:\n"
-            f"1. Pre-teach vocabulary before the main lesson.\n"
-            f"2. Use visual schedules to map out the activity.\n"
-            f"3. Provide frequent, specific praise for approximations of the target behavior."
+            "Recommended Strategy for Target Goal:\n"
+            "1. Pre-teach vocabulary before the main lesson.\n"
+            "2. Use visual schedules to map out the activity.\n"
+            "3. Provide frequent, specific praise for approximations of the target behavior."
         )
         
         return {

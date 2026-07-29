@@ -422,12 +422,14 @@ function ViewIEPPanel({
   }, [selectedIep?.iepID]);
 
   useEffect(() => {
-    setIsEditing(false);
-    setEditBarrierRows([]);
-    setEditGoals([]);
-    setGoalsToDelete([]);
-    setIepGoals([]);
-    setDeleteTarget(null);
+    queueMicrotask(() => {
+      setIsEditing(false);
+      setEditBarrierRows([]);
+      setEditGoals([]);
+      setGoalsToDelete([]);
+      setIepGoals([]);
+      setDeleteTarget(null);
+    });
   }, [selectedIep]);
 
   const barrierRowsToRender =
@@ -1134,11 +1136,13 @@ export default function IEPGenerationPage({ mode = "generate" }) {
 
   // Reset state when switching tabs
   useEffect(() => {
-    setSearchTerm("");
-    setSelectedStudent(null);
-    setIeps([]);
-    setSelectedIep(null);
-    setViewError("");
+    queueMicrotask(() => {
+      setSearchTerm("");
+      setSelectedStudent(null);
+      setIeps([]);
+      setSelectedIep(null);
+      setViewError("");
+    });
   }, [activeView]);
 
   // Load students
@@ -1214,52 +1218,54 @@ export default function IEPGenerationPage({ mode = "generate" }) {
     const p = getStudentProfileDetails(selectedStudent);
     const profileDifficulties = getStudentProfileDifficulties(selectedStudent);
 
-    setForm((prev) => ({
-      ...prev,
-      school: p.school || prev.school,
-      schoolYear: p.schoolYear || prev.schoolYear,
-      learnerName:
-        p.studentName ||
-        p.learnerName ||
-        getStudentName(selectedStudent) ||
-        prev.learnerName,
-      birthdate: p.birthdate || prev.birthdate,
-      disabilityCategory:
-        p.disabilityCategory ||
-        selectedStudent.diagnosis ||
-        prev.disabilityCategory,
-      diagnosisDetails:
-        p.diagnosisDetails ||
-        selectedStudent.asdBackground ||
-        selectedStudent.diagnosis ||
-        prev.diagnosisDetails,
-      presentEvaluation:
-        p.presentEvaluation ||
-        selectedStudent.assessmentResult ||
-        prev.presentEvaluation,
-      academicStrengths: p.academicStrengths || prev.academicStrengths,
-      academicNeeds:
-        p.academicNeeds || selectedStudent.support_needs || prev.academicNeeds,
-      parentalConcerns: p.parentalConcerns || prev.parentalConcerns,
-      curriculumImpact: p.curriculumImpact || prev.curriculumImpact,
-      // Difficulties must come from the saved student profile only.
-      // Teachers can adjust barriers, facilitators, and accommodations here,
-      // but the difficulty labels themselves stay locked to the profile.
-      difficultyMarkers: profileDifficulties,
-      barrierRows: buildProfileBarrierRows(
-        profileDifficulties,
-        prev.barrierRows,
-      ),
-    }));
-    // Reset generation state on student switch
-    setGenerationDone(false);
-    setAiGeneratedGoals([]);
-    setGoalSaveStatus("");
-    setActiveGeneratedIepId(null);
-    setTeacherPrompt("");
-    setSelectedGoalCategory("");
-    setGeneratedAccommodations("");
-    setStep(1);
+    queueMicrotask(() => {
+      setForm((prev) => ({
+        ...prev,
+        school: p.school || prev.school,
+        schoolYear: p.schoolYear || prev.schoolYear,
+        learnerName:
+          p.studentName ||
+          p.learnerName ||
+          getStudentName(selectedStudent) ||
+          prev.learnerName,
+        birthdate: p.birthdate || prev.birthdate,
+        disabilityCategory:
+          p.disabilityCategory ||
+          selectedStudent.diagnosis ||
+          prev.disabilityCategory,
+        diagnosisDetails:
+          p.diagnosisDetails ||
+          selectedStudent.asdBackground ||
+          selectedStudent.diagnosis ||
+          prev.diagnosisDetails,
+        presentEvaluation:
+          p.presentEvaluation ||
+          selectedStudent.assessmentResult ||
+          prev.presentEvaluation,
+        academicStrengths: p.academicStrengths || prev.academicStrengths,
+        academicNeeds:
+          p.academicNeeds || selectedStudent.support_needs || prev.academicNeeds,
+        parentalConcerns: p.parentalConcerns || prev.parentalConcerns,
+        curriculumImpact: p.curriculumImpact || prev.curriculumImpact,
+        // Difficulties must come from the saved student profile only.
+        // Teachers can adjust barriers, facilitators, and accommodations here,
+        // but the difficulty labels themselves stay locked to the profile.
+        difficultyMarkers: profileDifficulties,
+        barrierRows: buildProfileBarrierRows(
+          profileDifficulties,
+          prev.barrierRows,
+        ),
+      }));
+      // Reset generation state on student switch
+      setGenerationDone(false);
+      setAiGeneratedGoals([]);
+      setGoalSaveStatus("");
+      setActiveGeneratedIepId(null);
+      setTeacherPrompt("");
+      setSelectedGoalCategory("");
+      setGeneratedAccommodations("");
+      setStep(1);
+    });
   }, [activeView, selectedStudent]);
 
   const filteredStudents = useMemo(() => {
@@ -1274,24 +1280,6 @@ export default function IEPGenerationPage({ mode = "generate" }) {
 
   const setField = (field) => (e) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
-
-  const addDifficultyRow = () =>
-    setForm((prev) => ({
-      ...prev,
-      difficultyMarkers: [...prev.difficultyMarkers, ""],
-    }));
-  const updateDifficultyRow = (i, v) =>
-    setForm((prev) => ({
-      ...prev,
-      difficultyMarkers: prev.difficultyMarkers.map((x, idx) =>
-        idx === i ? v : x,
-      ),
-    }));
-  const removeDifficultyRow = (i) =>
-    setForm((prev) => ({
-      ...prev,
-      difficultyMarkers: prev.difficultyMarkers.filter((_, idx) => idx !== i),
-    }));
 
   const addAssistiveTechRow = () =>
     setForm((prev) => ({
@@ -1320,25 +1308,6 @@ export default function IEPGenerationPage({ mode = "generate" }) {
         idx === i ? { ...row, [field]: value } : row,
       ),
     }));
-  const addBarrierRow = () =>
-    setForm((prev) => ({
-      ...prev,
-      barrierRows: [
-        ...prev.barrierRows,
-        {
-          difficulty: "",
-          barrierQualifier: "Moderate barrier",
-          facilitator: "",
-          accommodation: "",
-        },
-      ],
-    }));
-  const removeBarrierRow = (i) =>
-    setForm((prev) => ({
-      ...prev,
-      barrierRows: prev.barrierRows.filter((_, idx) => idx !== i),
-    }));
-
   // ── Accommodation builder ─────────────────────────────────────────────────
 
   const buildGeneratedAccommodations = () => {
@@ -1559,7 +1528,9 @@ export default function IEPGenerationPage({ mode = "generate" }) {
       if (typeof generatedDetails === "string") {
         try {
           generatedDetails = JSON.parse(generatedDetails);
-        } catch {}
+        } catch {
+          // best-effort; failure here shouldn't block the main update
+        }
       }
       const updated = await iepAPI.update(iep.iepID, {
         baselineData: payload.baselineData,

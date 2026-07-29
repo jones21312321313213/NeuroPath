@@ -6,19 +6,13 @@ from rest_framework.permissions import IsAuthenticated
 from .serializers import IEPDataSerializer, IEPListDetailSerializer, IEPUpdateSerializer,StandaloneIEPGoalSerializer,IEPGenerationRequestSerializer
 from users.models import StudentProfile
 from tracking.models import AIGenerationLog
-from .models import Assessment, IEPGoal, IEPModel,IEPObjectiveRow,GeneratedAIInsight,StudentProfile
+from .models import Assessment, IEPGoal, IEPModel,GeneratedAIInsight
 from django.shortcuts import get_object_or_404
 from .services import AIGenerationService
 from .huggingface_service import CustomLlamaService
 from .rgori_service import RGORICheckerService
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .huggingface_service import CustomLlamaService
-from .rgori_service import RGORICheckerService
 import time
 import json
-import re
 
 class IEPGeneratorService:
     @staticmethod

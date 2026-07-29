@@ -8,9 +8,7 @@ from django.utils.decorators import method_decorator
 from .models import StudentProfile
 from django.contrib.auth.models import User
 from .serializers import StudentProfileSerializer, ValidationService,TeacherSerializer
-from django.contrib.auth import authenticate, login
-import requests
-import json
+from django.contrib.auth import authenticate
 # =====================================================================
 # SDD MODULE: TEACHER REGISTRATION
 # Component Name: TeacherCreateController
@@ -174,15 +172,6 @@ class ValidationService:
 class AIGenerationService:
     @staticmethod
     def generate_insight(student):
-        prompt = (
-            f"Analyze the following student profile for {student.name}. "
-            f"Age: {student.age}, Grade: {student.grade}. "
-            f"ASD Background: {student.ASDBackground}. "
-            f"Preferences: {student.preferences}. "
-            f"Assessment Results: {student.assessmentResults}. "
-            f"Provide actionable pedagogical insights."
-        )
-        
         # Mock AI generation response pattern matching your design documentation flow
         mock_ai_response = (
             f"Based on the data provided for {student.name}, the AI recommends "

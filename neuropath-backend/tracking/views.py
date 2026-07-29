@@ -1,7 +1,7 @@
 import io
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status,serializers,viewsets,status
+from rest_framework import viewsets,status
 from rest_framework.decorators import action
 from django.http import HttpResponse
 from users.models import StudentProfile

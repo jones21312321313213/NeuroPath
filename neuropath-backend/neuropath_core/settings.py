@@ -9,7 +9,6 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
-import sys
 import os
 from pathlib import Path
 import environ
@@ -87,15 +86,14 @@ WSGI_APPLICATION = 'neuropath_core.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-'default': {
+    'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres.mdlsncdlpgbfjcccavuv', 
+        'NAME': env('DB_NAME', default='postgres'),
+        'USER': env('DB_USER', default='postgres.mdlsncdlpgbfjcccavuv'),
         'PASSWORD': env('DB_PASSWORD'),
-        'HOST': 'aws-1-ap-southeast-1.pooler.supabase.com',
-        'PORT': '6543',
+        'HOST': env('DB_HOST', default='aws-1-ap-southeast-1.pooler.supabase.com'),
+        'PORT': env('DB_PORT', default='6543'),
     }
-    #'default':env.db('DATABASE_URL')
 }
 
 

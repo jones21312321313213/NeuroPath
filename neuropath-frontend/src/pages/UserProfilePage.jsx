@@ -26,14 +26,16 @@ export default function MyProfile() {
 
   useEffect(() => {
     if (user) {
-      setForm({
-        firstName: user.first_name || "",
-        lastName: user.last_name || "",
-        email: user.email || "",
-        password: "",
-        confirmPassword: "",
+      queueMicrotask(() => {
+        setForm({
+          firstName: user.first_name || "",
+          lastName: user.last_name || "",
+          email: user.email || "",
+          password: "",
+          confirmPassword: "",
+        });
+        setAvatarPreview(user.profile_picture || null);
       });
-      setAvatarPreview(user.profile_picture || null);
     }
   }, [user, isEditing]);
 
