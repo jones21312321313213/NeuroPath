@@ -40,3 +40,17 @@ class StudentProfile(models.Model):
 
     def __str__(self):
         return self.name or f"Student {self.studentID}"
+
+
+def get_teacher_for_user(user):
+    """Resolve the Teacher row that mirrors a Django auth User's account.
+
+    Auth Users and Teacher rows are separate models linked only by matching
+    email address (set at registration). Returns None if no Teacher row
+    exists for this user's email, so callers can reject the request instead
+    of silently operating unscoped.
+    """
+    try:
+        return Teacher.objects.get(email=user.email)
+    except Teacher.DoesNotExist:
+        return None

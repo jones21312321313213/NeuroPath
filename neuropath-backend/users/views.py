@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authtoken.models import Token
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from .models import StudentProfile
+from .models import StudentProfile, get_teacher_for_user
 from django.contrib.auth.models import User
 from .serializers import StudentProfileSerializer, ValidationService,TeacherSerializer
 from django.contrib.auth import authenticate
@@ -42,33 +42,36 @@ class TeacherCreateController(generics.ListCreateAPIView):
 # =====================================================================
 class StudentProfileListCreateView(generics.ListCreateAPIView):
     serializer_class = StudentProfileSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         """
         Return only the students that belong to the requesting teacher.
 
-        The frontend passes the logged-in teacher's Django User ID as the
-        ?teacher_id= query parameter.  We resolve that User → Teacher record
-        and filter the queryset accordingly.  If no valid teacher_id is
-        supplied we return an empty queryset so no data leaks.
+        The requesting teacher is derived from the authenticated request
+        user (never from a client-supplied id/query param), so a caller can
+        never list another teacher's students. If the authenticated user has
+        no matching Teacher row we return an empty queryset so no data leaks.
         """
-        from django.contrib.auth.models import User
-        from .models import Teacher
-
-        teacher_id = self.request.query_params.get('teacher_id')
-        if not teacher_id:
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
             return StudentProfile.objects.none()
-
-        try:
-            user = User.objects.get(pk=int(teacher_id))
-            teacher = Teacher.objects.get(email=user.email)
-            return StudentProfile.objects.filter(teacher=teacher)
-        except (User.DoesNotExist, Teacher.DoesNotExist, ValueError, TypeError):
-            return StudentProfile.objects.none()
+        return StudentProfile.objects.filter(teacher=teacher)
 
     def create(self, request, *args, **kwargs):
+        # 0. Force the new profile onto the authenticated teacher's own
+        #    account — never trust a client-supplied teacher id.
+        teacher = get_teacher_for_user(request.user)
+        if not teacher:
+            return Response({
+                "message": "Unable to verify teacher account."
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        data = request.data.copy()
+        data['teacher'] = teacher.pk
+
         # 1. Receive data from the React Form
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=data)
 
         # 2. Process Validation rules via Serializer
         if serializer.is_valid():
@@ -91,8 +94,16 @@ class StudentProfileListCreateView(generics.ListCreateAPIView):
 #              validation, and commits data edits to PostgreSQL.
 # =====================================================================
 class ProfileUpdateController(generics.RetrieveUpdateAPIView):
-    queryset = StudentProfile.objects.all()
     serializer_class = ValidationService  # Links to your update ValidationService
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Scope to the requesting teacher's own students so a caller can
+        # never read/write another teacher's student by guessing a pk.
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return StudentProfile.objects.none()
+        return StudentProfile.objects.filter(teacher=teacher)
 
     def update(self, request, *args, **kwargs):
         # 1. ProfileService context: Verify record existence
@@ -125,8 +136,16 @@ class ProfileUpdateController(generics.RetrieveUpdateAPIView):
 #              isolate specific student records safely.
 # =====================================================================
 class ProfileViewController(generics.RetrieveAPIView):
-    queryset = StudentProfile.objects.all()
     serializer_class = StudentProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Scope to the requesting teacher's own students so a caller can
+        # never read another teacher's student by guessing a pk.
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return StudentProfile.objects.none()
+        return StudentProfile.objects.filter(teacher=teacher)
 
     def retrieve(self, request, *args, **kwargs):
         # 1. ProfileService context: Retrieve targeted profile record
@@ -252,26 +271,16 @@ class TeacherLoginController(APIView):
 # =====================================================================
 # TEACHER PROFILE UPDATE
 # PATCH /api/users/profile/update/
-# Accepts: { id, first_name, last_name, email, password? }
-# Identifies the teacher by the Django User id sent in the request body.
+# Accepts: { first_name, last_name, email, password? }
+# Identifies the teacher from the authenticated request user — never from a
+# client-supplied id — so a caller can only ever update their own account.
 # Also keeps the Teacher mirror-row (name, email) in sync.
 # =====================================================================
 class TeacherProfileUpdateController(APIView):
-    def patch(self, request, *args, **kwargs):
-        user_id = request.data.get("id")
-        if not user_id:
-            return Response(
-                {"detail": "User ID is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+    permission_classes = [IsAuthenticated]
 
-        try:
-            user = User.objects.get(pk=user_id)
-        except User.DoesNotExist:
-            return Response(
-                {"detail": "User not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+    def patch(self, request, *args, **kwargs):
+        user = request.user
 
         first_name = request.data.get("first_name", user.first_name).strip()
         last_name  = request.data.get("last_name",  user.last_name).strip()
@@ -291,7 +300,7 @@ class TeacherProfileUpdateController(APIView):
             return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
 
         # Check email uniqueness (exclude the current user)
-        if User.objects.filter(email=email).exclude(pk=user_id).exists():
+        if User.objects.filter(email=email).exclude(pk=user.pk).exists():
             return Response(
                 {"errors": {"email": "This email is already in use."}},
                 status=status.HTTP_400_BAD_REQUEST,
