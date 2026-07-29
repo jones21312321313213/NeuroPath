@@ -75,13 +75,13 @@ class IEPGenerationAPIView(APIView):
 
     def post(self, request, *args, **kwargs):
         action = request.data.get('action')
+        # Always the authenticated caller's identity — never a client-supplied value.
         teacher = get_teacher_for_user(request.user)
 
         if action == 'generate':
             student_id = request.data.get('studentID')
             baseline_data = request.data.get('baselineData', '')
             target_domains = request.data.get('domains', '')
-
             if not teacher:
                 return Response({'error': 'Unable to verify teacher account.'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -209,6 +209,9 @@ class IEPDeleteAPIView(generics.DestroyAPIView):
         return IEPModel.objects.filter(studentID__teacher=teacher)
 
     def destroy(self, request, *args, **kwargs):
+        # Ownership is already enforced by get_queryset() above — a pk
+        # belonging to another teacher's student simply isn't in scope, so
+        # get_object() 404s before we ever reach perform_destroy.
         instance = self.get_object()
         self.perform_destroy(instance)
         return Response({'message': 'IEP record successfully permanently deleted.'}, status=status.HTTP_200_OK)
