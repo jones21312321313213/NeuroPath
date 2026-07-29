@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import RotatingText from "../components/ui/RotatingText";
 const features = [
@@ -87,25 +86,7 @@ export default function LandingPage({ onGetStarted }) {
     };
   }, []);
 
-  const rotatingPhrases = [
-    "deserves a path",
-    "has the potential",
-    "learns differently",
-    "deserves a champion",
-  ];
-  const [phraseIndex, setPhraseIndex] = useState(0);
-  const [animating, setAnimating] = useState(false);
   const navigate = useNavigate();
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setAnimating(true);
-      setTimeout(() => {
-        setPhraseIndex((i) => (i + 1) % rotatingPhrases.length);
-        setAnimating(false);
-      }, 400); // halfway through transition — swap text while faded out
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
   return (
     <div
       className="min-h-screen font-sans overflow-x-hidden"

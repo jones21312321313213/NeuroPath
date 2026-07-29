@@ -430,7 +430,7 @@ export default function ViewStudentRecords() {
         const raw = res.data || res;
         const pd = raw.profileDetails || {};
 
-        let latestIep = null;
+        let latestIep;
         let learnerGoals = [];
         try {
           const iepRes = await iepAPI.listByStudent(s.studentID, user?.id);

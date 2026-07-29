@@ -6,19 +6,14 @@ from rest_framework.permissions import IsAuthenticated
 from .serializers import IEPDataSerializer, IEPListDetailSerializer, IEPUpdateSerializer,StandaloneIEPGoalSerializer,IEPGenerationRequestSerializer
 from users.models import StudentProfile
 from tracking.models import AIGenerationLog
-from .models import Assessment, IEPGoal, IEPModel,IEPObjectiveRow,GeneratedAIInsight,StudentProfile
+from .models import Assessment, IEPGoal, IEPModel,GeneratedAIInsight
 from django.shortcuts import get_object_or_404
 from .services import AIGenerationService
 from .huggingface_service import CustomLlamaService
 from .rgori_service import RGORICheckerService
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .huggingface_service import CustomLlamaService
-from .rgori_service import RGORICheckerService
+from users.models import get_teacher_for_user
 import time
 import json
-import re
 
 class IEPGeneratorService:
     @staticmethod
@@ -76,6 +71,8 @@ class IEPGeneratorService:
 
 
 class IEPGenerationAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def _get_teacher_from_user_id(self, teacher_user_id):
         if not teacher_user_id:
             return None
@@ -95,14 +92,14 @@ class IEPGenerationAPIView(APIView):
             student_id = request.data.get('studentID')
             baseline_data = request.data.get('baselineData', '')
             target_domains = request.data.get('domains', '')
-            teacher_id = request.user.id if request.user.is_authenticated else request.data.get('teacherID')
+            # Always the authenticated caller's identity — never a client-supplied value.
+            teacher_id = request.user.id
+            teacher = self._get_teacher_from_user_id(teacher_id)
+            if not teacher:
+                return Response({'error': 'Unable to verify teacher account.'}, status=status.HTTP_403_FORBIDDEN)
 
             try:
-                teacher = self._get_teacher_from_user_id(teacher_id)
-                student_query = StudentProfile.objects.filter(pk=student_id)
-                if teacher:
-                    student_query = student_query.filter(teacher=teacher)
-                student = student_query.get()
+                student = StudentProfile.objects.get(pk=student_id, teacher=teacher)
             except StudentProfile.DoesNotExist:
                 return Response({'error': 'Student not found for this teacher account.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -123,8 +120,8 @@ class IEPGenerationAPIView(APIView):
 
             # Only allow saving an IEP for a student owned by this teacher account.
             student_id = payload.get('studentID')
-            # Prefer the authenticated user's ID; fall back to payload teacherID
-            teacher_user_id = request.user.id if request.user.is_authenticated else payload.get('teacherID')
+            # Always the authenticated caller's identity — never a client-supplied value.
+            teacher_user_id = request.user.id
             teacher = self._get_teacher_from_user_id(teacher_user_id)
             try:
                 student_query = StudentProfile.objects.filter(pk=student_id)
@@ -221,8 +218,10 @@ class IEPDeleteAPIView(generics.DestroyAPIView):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        # Safety check: only the teacher who created the IEP can delete it
-        if hasattr(instance, 'teacherID') and instance.teacherID != request.user:
+        # Ownership check: IEPModel has no teacherID field — ownership flows
+        # through the student it belongs to (instance.studentID.teacher).
+        teacher = get_teacher_for_user(request.user)
+        if not teacher or instance.studentID.teacher_id != teacher.pk:
             return Response(
                 {'error': 'You do not have permission to delete this IEP.'},
                 status=status.HTTP_403_FORBIDDEN

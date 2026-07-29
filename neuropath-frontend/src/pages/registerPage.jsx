@@ -44,7 +44,7 @@ export default function RegisterPage({ onNavigateLogin }) {
     setLoading(true);
     try {
       // Mapping the data to match Django's exact Serializer expectations
-      const data = await register({
+      await register({
         username: form.email.trim().toLowerCase(), // Django requires a username!
         email: form.email.trim().toLowerCase(),
         first_name: form.firstName.trim(), // Converted to snake_case

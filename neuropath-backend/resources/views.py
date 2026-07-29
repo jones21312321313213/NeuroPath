@@ -7,12 +7,11 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.enums import TA_CENTER
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status,viewsets
-from rest_framework.permissions import IsAuthenticated 
 from django.http import HttpResponse
 from django.contrib.auth.models import User as DjangoUser
 from users.models import Teacher,StudentProfile
@@ -926,20 +925,7 @@ class StorageCleanupWorker:
 class StrategyGenerationManagerService:
     @staticmethod
     def generate_strategy_content(title, student_profile):
-        # 1. Format the target prompt for the AI Core Engine
-        ai_prompt = (
-            f"☁️system☁️Act as a Special Education Behavioral Specialist.☁️/system☁️\n"
-            f"☁️user☁️\n"
-            f"Generate an actionable teaching strategy focusing on: {title}.\n"
-            f"Student Profile Context:\n"
-            f"- Diagnosis: {student_profile.diagnosis}\n"
-            f"- Support Needs: {student_profile.support_needs}\n"
-            f"- Sensory Profile: {student_profile.sensory_preferences}\n"
-            f"- Interests/Reinforcers: {student_profile.interests}\n"
-            f"☁️/user☁️"
-        )
-        
-        # 2. Simulate the AI processing the pedagogical criteria
+        # Simulate the AI processing the pedagogical criteria
         mock_generated_text = (
             f"Strategy Overview for {title}:\n"
             f"- Break down the target task into smaller, manageable micro-steps tailored to a {student_profile.learning_style} learner.\n"

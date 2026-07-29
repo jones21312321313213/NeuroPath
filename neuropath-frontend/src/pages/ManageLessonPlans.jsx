@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import "../styles/ManageLessonPlans.css";
 import { iepAPI, lessonPlansAPI, studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import StudentShimmer from "../components/StudentShimmer";
 
 const TABS = [
   { key: "generate", label: "Generate", icon: "✦" },
@@ -790,7 +789,7 @@ function EditTab() {
   }, []);
 
   useEffect(() => {
-    fetchPlans();
+    queueMicrotask(fetchPlans);
   }, [fetchPlans]);
 
   const openEdit = (plan) => {
@@ -934,7 +933,7 @@ function DeleteTab() {
   }, []);
 
   useEffect(() => {
-    fetchPlans();
+    queueMicrotask(fetchPlans);
   }, [fetchPlans]);
 
   const confirmDelete = async () => {
@@ -1011,7 +1010,7 @@ function DeleteTab() {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ManageLessonPlans() {
   const [activeTab, setActiveTab] = useState("generate");
-  const [lessonPlans, setLessonPlans] = useState([]);
+  const [, setLessonPlans] = useState([]);
 
   const saveLessonPlan = (plan) => {
     if (plan) setLessonPlans((prev) => [plan, ...prev]);

@@ -15,7 +15,7 @@ export default function ViewStudentProfile({
   useEffect(() => {
     const teacherId = user?.id;
     if (!teacherId) {
-      setLoading(false);
+      queueMicrotask(() => setLoading(false));
       return;
     }
 

@@ -47,7 +47,7 @@ export default function ViewSelectedStudentProfile({ studentId, setActivePage })
   useEffect(() => {
     if (!studentId) return;
 
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
 
     fetch(`http://localhost:8000/api/users/students/${studentId}/view/`)
       .then((res) => res.json())

@@ -1,6 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
 import "../styles/ManageTeachingStrategies.css";
-import StudentShimmer from "../components/StudentShimmer";
 import { iepAPI, teachingStrategiesAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
@@ -151,48 +150,6 @@ function formatSavedIepGoal(goal) {
     goalArea,
     label: `${goalArea} — ${annualGoal}`,
   };
-}
-
-// ── Student Selector shared component ────────────────────────────────────────
-function StudentSelector({
-  directory,
-  selectedStudent,
-  onSelect,
-  title,
-  subtitle,
-}) {
-  return (
-    <div className="ts-card">
-      <div className="ts-card-header">
-        <div className="ts-card-icon">👨‍🎓</div>
-        <div>
-          <p className="ts-card-title">{title || "Select a Student"}</p>
-          {subtitle && <p className="ts-card-subtitle">{subtitle}</p>}
-        </div>
-      </div>
-      <div className="ts-student-grid">
-        {directory.map((student) => {
-          const isSelected = selectedStudent?.studentID === student.studentID;
-          return (
-            <div
-              key={student.studentID}
-              className={`ts-student-card ${isSelected ? "selected" : ""}`}
-              onClick={() => onSelect(student)}
-            >
-              <div className="ts-avatar">
-                {getInitials(student.studentName)}
-              </div>
-              <div className="ts-student-meta">
-                <div className="ts-student-name">{student.studentName}</div>
-                <span className="ts-student-tag">Student</span>
-              </div>
-              <div className="ts-student-check">{isSelected && "✓"}</div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
 }
 
 // ── Strategy Row List ─────────────────────────────────────────────────────────
@@ -1005,7 +962,7 @@ function DeleteTab() {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ManageTeachingStrategies() {
   const [activeTab, setActiveTab] = useState("generate");
-  const [strategies, setStrategies] = useState([]);
+  const [, setStrategies] = useState([]);
 
   const saveStrategy = (strategy) => {
     if (strategy) setStrategies((prev) => [strategy, ...prev]);

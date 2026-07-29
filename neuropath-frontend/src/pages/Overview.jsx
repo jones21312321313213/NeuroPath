@@ -52,20 +52,18 @@ const quickActions = [
 
 export default function Overview({ setActivePage }) {
   const { user } = useAuth();
-  const [greeting, setGreeting] = useState("Good morning");
+  const [greeting] = useState(() => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 17) return "Good afternoon";
+    return "Good evening";
+  });
   const [counts, setCounts] = useState({
     students: 0,
     ieps: 0,
     insights: 0,
     reviews: 0,
   });
-
-  useEffect(() => {
-    const h = new Date().getHours();
-    if (h < 12) setGreeting("Good morning");
-    else if (h < 17) setGreeting("Good afternoon");
-    else setGreeting("Good evening");
-  }, []);
 
   // Fetch total students
   useEffect(() => {

@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import "../styles/ManageVisualAids.css";
 import { visualAidsAPI, studentsAPI, iepAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import StudentShimmer from "../components/StudentShimmer";
 
 const TABS = [
   { key: "generate", label: "Generate", icon: "🖼" },
@@ -50,28 +49,6 @@ function ErrorBanner({ message }) {
     <div className="va-error-banner">
       <span>⚠️</span>
       <span>{message}</span>
-    </div>
-  );
-}
-
-function Breadcrumb({ items }) {
-  return (
-    <div className="va-breadcrumb">
-      {items.map((item, i) => (
-        <span key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {i > 0 && <span className="va-breadcrumb-sep">›</span>}
-          {item.onClick ? (
-            <button className="va-breadcrumb-link" onClick={item.onClick}>
-              {i === 0 && "← "}
-              {item.label}
-            </button>
-          ) : (
-            <span style={{ color: "#1a2b40", fontWeight: 600 }}>
-              {item.label}
-            </span>
-          )}
-        </span>
-      ))}
     </div>
   );
 }
@@ -187,9 +164,11 @@ function GenerateTab() {
   // Load IEP goals when student is selected
   useEffect(() => {
     if (!selectedStudent) return;
-    setLoadingGoals(true);
-    setGoals([]);
-    setSelectedGoal(null);
+    queueMicrotask(() => {
+      setLoadingGoals(true);
+      setGoals([]);
+      setSelectedGoal(null);
+    });
     iepAPI
       .listGoalsByStudent(selectedStudent.studentID)
       .then(setGoals)
