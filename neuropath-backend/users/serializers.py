@@ -21,14 +21,10 @@ def get_default_teacher():
 
 
 class StudentProfileSerializer(serializers.ModelSerializer):
-    teacher = serializers.PrimaryKeyRelatedField(
-        queryset=Teacher.objects.all(),
-        required=False,
-        allow_null=True,
-    )
-    # Accepts the Django User ID from the frontend (login response gives user.id)
-    # This is write-only — it's only used during create to look up the Teacher row.
-    teacher_user_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    # The owning teacher is always derived server-side from the authenticated
+    # request user (see create() below) — never accepted from the client, so
+    # one teacher cannot assign/reassign a student to another teacher.
+    teacher = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = StudentProfile
@@ -85,23 +81,13 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        from django.contrib.auth.models import User as DjangoUser
+        from .utils import get_teacher_for_user
 
-        # Pop the write-only helper field — it is not a model field.
-        teacher_user_id = validated_data.pop('teacher_user_id', None)
-
-        # If the frontend supplied a Django User ID, resolve it to the
-        # matching Teacher row (linked by email at registration time).
-        if teacher_user_id and not validated_data.get('teacher'):
-            try:
-                django_user = DjangoUser.objects.get(pk=teacher_user_id)
-                validated_data['teacher'] = Teacher.objects.get(email=django_user.email)
-            except (DjangoUser.DoesNotExist, Teacher.DoesNotExist):
-                pass
+        request = self.context.get('request')
+        teacher = get_teacher_for_user(request.user) if request else None
 
         # Last resort: fall back to the demo teacher so the record still saves.
-        if not validated_data.get('teacher'):
-            validated_data['teacher'] = get_default_teacher()
+        validated_data['teacher'] = teacher or get_default_teacher()
 
         return super().create(validated_data)
 

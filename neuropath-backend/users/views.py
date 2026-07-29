@@ -20,6 +20,13 @@ class TeacherCreateController(generics.ListCreateAPIView):
     queryset = User.objects.all()
     serializer_class = TeacherSerializer
 
+    def get_permissions(self):
+        # Registration (POST) must stay open to anonymous users; listing every
+        # registered account (GET) must not be exposed to the public.
+        if self.request.method == 'POST':
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
@@ -47,24 +54,16 @@ class StudentProfileListCreateView(generics.ListCreateAPIView):
         """
         Return only the students that belong to the requesting teacher.
 
-        The frontend passes the logged-in teacher's Django User ID as the
-        ?teacher_id= query parameter.  We resolve that User → Teacher record
-        and filter the queryset accordingly.  If no valid teacher_id is
-        supplied we return an empty queryset so no data leaks.
+        The teacher is always resolved from the authenticated request user
+        (never from a client-supplied id) so one teacher cannot list another
+        teacher's roster by passing an arbitrary id.
         """
-        from django.contrib.auth.models import User
-        from .models import Teacher
+        from .utils import get_teacher_for_user
 
-        teacher_id = self.request.query_params.get('teacher_id')
-        if not teacher_id:
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
             return StudentProfile.objects.none()
-
-        try:
-            user = User.objects.get(pk=int(teacher_id))
-            teacher = Teacher.objects.get(email=user.email)
-            return StudentProfile.objects.filter(teacher=teacher)
-        except (User.DoesNotExist, Teacher.DoesNotExist, ValueError, TypeError):
-            return StudentProfile.objects.none()
+        return StudentProfile.objects.filter(teacher=teacher)
 
     def create(self, request, *args, **kwargs):
         # 1. Receive data from the React Form
@@ -91,8 +90,15 @@ class StudentProfileListCreateView(generics.ListCreateAPIView):
 #              validation, and commits data edits to PostgreSQL.
 # =====================================================================
 class ProfileUpdateController(generics.RetrieveUpdateAPIView):
-    queryset = StudentProfile.objects.all()
     serializer_class = ValidationService  # Links to your update ValidationService
+
+    def get_queryset(self):
+        from .utils import get_teacher_for_user
+
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return StudentProfile.objects.none()
+        return StudentProfile.objects.filter(teacher=teacher)
 
     def update(self, request, *args, **kwargs):
         # 1. ProfileService context: Verify record existence
@@ -125,8 +131,15 @@ class ProfileUpdateController(generics.RetrieveUpdateAPIView):
 #              isolate specific student records safely.
 # =====================================================================
 class ProfileViewController(generics.RetrieveAPIView):
-    queryset = StudentProfile.objects.all()
     serializer_class = StudentProfileSerializer
+
+    def get_queryset(self):
+        from .utils import get_teacher_for_user
+
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return StudentProfile.objects.none()
+        return StudentProfile.objects.filter(teacher=teacher)
 
     def retrieve(self, request, *args, **kwargs):
         # 1. ProfileService context: Retrieve targeted profile record
@@ -192,10 +205,12 @@ class AIInsightController(APIView):
         
         
     def post(self, request, pk, format=None):
-        
+        from .utils import get_teacher_for_user
+
         # 1. Coordinate data isolation via Manager layer
         student = StudentProfileManager.get_student_record(pk)
-        if not student:
+        teacher = get_teacher_for_user(request.user)
+        if not student or not teacher or student.teacher_id != teacher.teacherID:
             return Response({
                 "error": "Profile not found. Cannot generate insights."
             }, status=status.HTTP_404_NOT_FOUND)
@@ -257,21 +272,13 @@ class TeacherLoginController(APIView):
 # Also keeps the Teacher mirror-row (name, email) in sync.
 # =====================================================================
 class TeacherProfileUpdateController(APIView):
-    def patch(self, request, *args, **kwargs):
-        user_id = request.data.get("id")
-        if not user_id:
-            return Response(
-                {"detail": "User ID is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+    permission_classes = [IsAuthenticated]
 
-        try:
-            user = User.objects.get(pk=user_id)
-        except User.DoesNotExist:
-            return Response(
-                {"detail": "User not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+    def patch(self, request, *args, **kwargs):
+        # Always operate on the authenticated caller's own account — never a
+        # client-supplied id — so one teacher cannot edit another's profile.
+        user = request.user
+        user_id = user.id
 
         first_name = request.data.get("first_name", user.first_name).strip()
         last_name  = request.data.get("last_name",  user.last_name).strip()
