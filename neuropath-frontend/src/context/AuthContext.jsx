@@ -37,13 +37,12 @@ export function AuthProvider({ children }) {
   }, []);
 
   // ── Update teacher profile ─────────────────────────────
-  // PATCH /api/users/profile/update/ — the backend identifies the teacher by
-  // the `id` field in the body and authenticates via the Token header.
+  // PATCH /api/users/profile/update/ — the backend resolves the account from
+  // the Token header, so no user id is sent (it would be ignored anyway).
   const updateUser = useCallback(
     async (formData) => {
       // Convert FormData → plain object so we can send JSON
       const payload = {
-        id: user?.id,
         first_name: formData.get("first_name") || "",
         last_name: formData.get("last_name") || "",
         email: formData.get("email") || "",

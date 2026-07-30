@@ -252,26 +252,17 @@ class TeacherLoginController(APIView):
 # =====================================================================
 # TEACHER PROFILE UPDATE
 # PATCH /api/users/profile/update/
-# Accepts: { id, first_name, last_name, email, password? }
-# Identifies the teacher by the Django User id sent in the request body.
+# Accepts: { first_name, last_name, email, password? }
+# The target account is the authenticated caller. Any `id` in the request body
+# is deliberately ignored — trusting it let an unauthenticated caller rewrite
+# another user's name, email and password.
 # Also keeps the Teacher mirror-row (name, email) in sync.
 # =====================================================================
 class TeacherProfileUpdateController(APIView):
-    def patch(self, request, *args, **kwargs):
-        user_id = request.data.get("id")
-        if not user_id:
-            return Response(
-                {"detail": "User ID is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+    permission_classes = [IsAuthenticated]
 
-        try:
-            user = User.objects.get(pk=user_id)
-        except User.DoesNotExist:
-            return Response(
-                {"detail": "User not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+    def patch(self, request, *args, **kwargs):
+        user = request.user
 
         first_name = request.data.get("first_name", user.first_name).strip()
         last_name  = request.data.get("last_name",  user.last_name).strip()
@@ -291,7 +282,7 @@ class TeacherProfileUpdateController(APIView):
             return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
 
         # Check email uniqueness (exclude the current user)
-        if User.objects.filter(email=email).exclude(pk=user_id).exists():
+        if User.objects.filter(email=email).exclude(pk=user.pk).exists():
             return Response(
                 {"errors": {"email": "This email is already in use."}},
                 status=status.HTTP_400_BAD_REQUEST,
