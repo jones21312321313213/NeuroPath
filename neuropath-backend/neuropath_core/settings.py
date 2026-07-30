@@ -30,7 +30,13 @@ SECRET_KEY = 'django-insecure-&#qef2xq6#8jz$_e)-j%hyq329arlj7yok$ksib+n#400vll=0
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+# Hosts this backend will answer for. Defaults match what DEBUG mode allowed
+# implicitly; set ALLOWED_HOSTS in .env to serve a non-localhost deployment
+# without editing this file.
+ALLOWED_HOSTS = env.list(
+    'ALLOWED_HOSTS',
+    default=['localhost', '127.0.0.1', '[::1]'],
+)
 
 
 # Application definition
@@ -134,13 +140,17 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 # ── CORS SETTINGS ───────────────────────────────────────
-# Authorize your local React development origins
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+# Origins the React app is served from. Defaults cover local development; set
+# CORS_ALLOWED_ORIGINS in .env to authorize a deployed frontend origin.
+CORS_ALLOWED_ORIGINS = env.list(
+    'CORS_ALLOWED_ORIGINS',
+    default=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+)
 
 # Allows credential sharing and session syncing across your local ports
 CORS_ALLOW_CREDENTIALS = True
@@ -150,10 +160,13 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 
 
 # Add this right below your CORS settings!
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+CSRF_TRUSTED_ORIGINS = env.list(
+    'CSRF_TRUSTED_ORIGINS',
+    default=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+)
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
