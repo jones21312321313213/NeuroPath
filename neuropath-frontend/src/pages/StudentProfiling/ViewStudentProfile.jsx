@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import "../../styles/ViewStudentProfile.css";
 import { useAuth } from "../../context/AuthContext";
 import StudentShimmer from "../../components/StudentShimmer";
+import { studentsAPI } from "../../api/client";
 
 export default function ViewStudentProfile({
   setActivePage,
@@ -9,6 +10,7 @@ export default function ViewStudentProfile({
 }) {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const { user } = useAuth();
 
@@ -19,16 +21,26 @@ export default function ViewStudentProfile({
       return;
     }
 
-    fetch(`http://localhost:8000/api/users/students/?teacher_id=${teacherId}`)
-      .then((res) => res.json())
+    let cancelled = false;
+    queueMicrotask(() => setError(""));
+
+    studentsAPI
+      .list(teacherId)
       .then((data) => {
-        setStudents(data);
+        if (cancelled) return;
+        setStudents(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch((err) => {
+        if (cancelled) return;
         console.error(err);
+        setError(err.message || "Failed to load student profiles.");
         setLoading(false);
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   const handleView = (id) => {
@@ -55,6 +67,17 @@ export default function ViewStudentProfile({
         <div className="form-card">
           <h2 className="form-section-title">View Student Profiles</h2>
           <StudentShimmer rows={6} variant="table" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="page-content">
+        <div className="form-card">
+          <h2 className="form-section-title">View Student Profiles</h2>
+          <div className="placeholder-page">{error}</div>
         </div>
       </div>
     );
