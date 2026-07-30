@@ -322,4 +322,21 @@ class TeacherProfileUpdateController(APIView):
             },
             status=status.HTTP_200_OK,
         )
-        
+
+
+# =====================================================================
+# TEACHER LOGOUT
+# POST /api/users/logout/
+# Deletes the caller's DRF auth token so the credential can no longer
+# be replayed. Requires Authorization: Token <key>.
+# =====================================================================
+class TeacherLogoutController(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        Token.objects.filter(user=request.user).delete()
+        return Response(
+            {"message": "Logout successful."},
+            status=status.HTTP_200_OK,
+        )
+
