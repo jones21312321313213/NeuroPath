@@ -3,23 +3,44 @@
 export const BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
+// Drop local auth state and route to the login screen. Used when the backend
+// rejects a token we believed was good, so the user gets a way back in instead
+// of a bare "Invalid token." on a dead page.
+function forceReauth() {
+  localStorage.removeItem("neuropath_access_token");
+  localStorage.removeItem("neuropath_user");
+  if (!window.location.pathname.startsWith("/login")) {
+    // replace(), not href: the page we came from is unusable without a token.
+    window.location.replace("/login");
+  }
+}
+
 async function request(endpoint, options = {}) {
+  // skipAuthRedirect is ours, not fetch's — keep it out of the fetch init.
+  const { skipAuthRedirect = false, ...fetchOptions } = options;
   const token = localStorage.getItem("neuropath_access_token");
 
   const headers = {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Token ${token}` } : {}),
-    ...options.headers,
+    ...fetchOptions.headers,
   };
 
   const response = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
+    ...fetchOptions,
     headers,
   });
 
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    // Only a token we actually sent can be stale. A 401 on a request with no
+    // token is the endpoint's own auth failure — e.g. a wrong login password,
+    // where clearing state and reloading would discard the error message.
+    if (response.status === 401 && token && !skipAuthRedirect) {
+      forceReauth();
+    }
+
     const errors = data.errors || data.detail || data;
     let message = "Something went wrong.";
     if (typeof errors === "string") {
@@ -53,8 +74,14 @@ export const authAPI = {
     request("/users/login/", { method: "POST", body: JSON.stringify(payload) }),
   // Body is an empty object, not omitted: request() always sends
   // Content-Type: application/json, so an empty payload must still be valid JSON.
+  // skipAuthRedirect: an already-revoked token 401s here, and the caller is
+  // logging out anyway — it must finish its own teardown, not be redirected.
   logout: () =>
-    request("/users/logout/", { method: "POST", body: JSON.stringify({}) }),
+    request("/users/logout/", {
+      method: "POST",
+      body: JSON.stringify({}),
+      skipAuthRedirect: true,
+    }),
 };
 
 // ── Students ───────────────────────────────────────────────────────────────────
@@ -214,8 +241,8 @@ export const iepAPI = {
 // ── Users / Teacher Profile ────────────────────────────────────────────────────
 export const usersAPI = {
   // PATCH /api/users/profile/update/
-  // Accepts { id, first_name, last_name, email, password? } as JSON — the
-  // backend controller reads request.data and does not handle file uploads.
+  // Accepts { first_name, last_name, email, password? } as JSON. The account is
+  // resolved from the Token header; the endpoint does not handle file uploads.
   updateProfile: (payload) =>
     request("/users/profile/update/", {
       method: "PATCH",
