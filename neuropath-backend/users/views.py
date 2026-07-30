@@ -5,7 +5,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authtoken.models import Token
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from .models import StudentProfile, get_teacher_for_user
+from .models import StudentProfile
+from .utils import get_teacher_for_user
 from django.contrib.auth.models import User
 from .serializers import StudentProfileSerializer, ValidationService,TeacherSerializer
 from django.contrib.auth import authenticate
@@ -19,6 +20,13 @@ from django.contrib.auth import authenticate
 class TeacherCreateController(generics.ListCreateAPIView):
     queryset = User.objects.all()
     serializer_class = TeacherSerializer
+
+    def get_permissions(self):
+        # Registration (POST) must stay open to anonymous users; listing every
+        # registered account (GET) must not be exposed to the public.
+        if self.request.method == 'POST':
+            return [AllowAny()]
+        return [IsAuthenticated()]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -60,18 +68,18 @@ class StudentProfileListCreateView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         # 0. Force the new profile onto the authenticated teacher's own
-        #    account — never trust a client-supplied teacher id.
+        #    account — never trust a client-supplied teacher id. The
+        #    `teacher` field is read-only on the serializer (see
+        #    StudentProfileSerializer.create), so this check exists purely
+        #    to reject up front instead of silently falling back.
         teacher = get_teacher_for_user(request.user)
         if not teacher:
             return Response({
                 "message": "Unable to verify teacher account."
             }, status=status.HTTP_403_FORBIDDEN)
 
-        data = request.data.copy()
-        data['teacher'] = teacher.pk
-
         # 1. Receive data from the React Form
-        serializer = self.get_serializer(data=data)
+        serializer = self.get_serializer(data=request.data)
 
         # 2. Process Validation rules via Serializer
         if serializer.is_valid():
@@ -211,10 +219,10 @@ class AIInsightController(APIView):
         
         
     def post(self, request, pk, format=None):
-        
         # 1. Coordinate data isolation via Manager layer
         student = StudentProfileManager.get_student_record(pk)
-        if not student:
+        teacher = get_teacher_for_user(request.user)
+        if not student or not teacher or student.teacher_id != teacher.teacherID:
             return Response({
                 "error": "Profile not found. Cannot generate insights."
             }, status=status.HTTP_404_NOT_FOUND)
@@ -280,6 +288,8 @@ class TeacherProfileUpdateController(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, *args, **kwargs):
+        # Always operate on the authenticated caller's own account — never a
+        # client-supplied id — so one teacher cannot edit another's profile.
         user = request.user
 
         first_name = request.data.get("first_name", user.first_name).strip()
