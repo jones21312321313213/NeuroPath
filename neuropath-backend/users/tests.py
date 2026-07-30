@@ -19,9 +19,10 @@ class TeacherLogoutControllerTests(APITestCase):
         self.url = reverse("teacher-logout")
 
     def test_logout_deletes_the_token(self):
+        """Mirrors the frontend call: Token header plus an empty JSON body."""
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
 
-        response = self.client.post(self.url)
+        response = self.client.post(self.url, {}, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(Token.objects.filter(user=self.user).exists())

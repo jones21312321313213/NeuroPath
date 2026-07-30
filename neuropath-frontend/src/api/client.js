@@ -51,7 +51,10 @@ export const authAPI = {
     }),
   login: (payload) =>
     request("/users/login/", { method: "POST", body: JSON.stringify(payload) }),
-  logout: () => request("/users/logout/", { method: "POST" }),
+  // Body is an empty object, not omitted: request() always sends
+  // Content-Type: application/json, so an empty payload must still be valid JSON.
+  logout: () =>
+    request("/users/logout/", { method: "POST", body: JSON.stringify({}) }),
 };
 
 // ── Students ───────────────────────────────────────────────────────────────────
