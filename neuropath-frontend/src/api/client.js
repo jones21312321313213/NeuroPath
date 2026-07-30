@@ -1,5 +1,7 @@
-// Base URL — change for production
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+// Single source of truth for the backend host. Set VITE_API_URL (including the
+// /api prefix) to point the app at a non-localhost backend — see .env.example.
+export const BASE_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
 async function request(endpoint, options = {}) {
   const token = localStorage.getItem("neuropath_access_token");
@@ -33,25 +35,18 @@ async function request(endpoint, options = {}) {
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────────────
+// Routes live under /api/users/ (see neuropath-backend/users/urls.py).
+// The backend uses DRF TokenAuthentication: tokens do not expire and there is
+// no refresh endpoint, so there is nothing to refresh.
 export const authAPI = {
   register: (payload) =>
-    request("/auth/register/", {
+    request("/users/register/", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
   login: (payload) =>
-    request("/auth/login/", { method: "POST", body: JSON.stringify(payload) }),
-  me: () => request("/auth/me/"),
-  logout: (refreshToken) =>
-    request("/auth/logout/", {
-      method: "POST",
-      body: JSON.stringify({ refresh: refreshToken }),
-    }),
-  refreshToken: (refresh) =>
-    request("/auth/token/refresh/", {
-      method: "POST",
-      body: JSON.stringify({ refresh }),
-    }),
+    request("/users/login/", { method: "POST", body: JSON.stringify(payload) }),
+  logout: () => request("/users/logout/", { method: "POST" }),
 };
 
 // ── Students ───────────────────────────────────────────────────────────────────
@@ -112,8 +107,7 @@ export const visualAidsAPI = {
     }),
   delete: (id) =>
     request(`/resources/visual-aids/${id}/`, { method: "DELETE" }),
-  exportUrl: (id) =>
-    `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/resources/export-visual-aid/${id}/`,
+  exportUrl: (id) => `${BASE_URL}/resources/export-visual-aid/${id}/`,
 };
 
 // ── Teaching Strategies ────────────────────────────────────────────────────────
@@ -130,8 +124,7 @@ export const teachingStrategiesAPI = {
   list: (studentID) =>
     request(`/resources/query-strategies/?studentID=${studentID}`),
   get: (id) => request(`/resources/query-strategies/${id}/`),
-  exportUrl: (id) =>
-    `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/resources/query-strategies/${id}/export/`,
+  exportUrl: (id) => `${BASE_URL}/resources/query-strategies/${id}/export/`,
   update: (id, payload) =>
     request(`/resources/edit-strategy/${id}/`, {
       method: "PUT",
@@ -212,28 +205,12 @@ export const iepAPI = {
 
 // ── Users / Teacher Profile ────────────────────────────────────────────────────
 export const usersAPI = {
-  // PATCH /api/users/profile/update/ — accepts FormData (supports profile_picture upload)
-  updateProfile: (formData) => {
-    const token = localStorage.getItem("neuropath_access_token");
-    return fetch(`${BASE_URL}/users/profile/update/`, {
+  // PATCH /api/users/profile/update/
+  // Accepts { id, first_name, last_name, email, password? } as JSON — the
+  // backend controller reads request.data and does not handle file uploads.
+  updateProfile: (payload) =>
+    request("/users/profile/update/", {
       method: "PATCH",
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: formData,
-    }).then(async (res) => {
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const errors = data.errors || data.detail || data;
-        let message = "Failed to update profile.";
-        if (typeof errors === "string") message = errors;
-        else if (typeof errors === "object") {
-          const msgs = Object.values(errors).flat();
-          message = msgs[0] || message;
-        }
-        throw new Error(message);
-      }
-      return data;
-    });
-  },
+      body: JSON.stringify(payload),
+    }),
 };
