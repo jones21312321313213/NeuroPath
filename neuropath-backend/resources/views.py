@@ -12,13 +12,18 @@ from reportlab.lib.enums import TA_CENTER
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status,viewsets
+from rest_framework.permissions import IsAuthenticated
 from django.http import HttpResponse
-from django.contrib.auth.models import User as DjangoUser
 from users.models import Teacher,StudentProfile
+from users.utils import get_teacher_for_user
 from iep_management.models import IEPModel, IEPGoal, IEPObjectiveRow
 from .models import LessonPlan,VisualAid,TeachingStrategy
 from .services import TeachingStrategyGenerationService,LessonPlanGenerationService
-#from .permissions import UserAuthPermissions uncomment this back to check user auth and permission
+from .permissions import UserAuthPermissions
+
+
+def _goal_owned_by_teacher(iep_goal, teacher):
+    return bool(teacher and iep_goal and iep_goal.iep.studentID.teacher_id == teacher.teacherID)
 
 
 def _safe_generated_details(details):
@@ -163,17 +168,11 @@ def _latest_goal_options_for_student(student):
 #              the workspace environment, and serving profile metadata.
 # =====================================================================
 class InstructionalSupportDashboardAPIView(APIView):
-    # TEMPORARY: Allow anyone to view this page during local development testing
-    permission_classes = [] 
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        # 1. Check if a real user is logged in via Django sessions/JWT
-        if request.user and request.user.is_authenticated:
-            lookup_email = request.user.email
-        else:
-            # DEVELOPMENT BYPASS: Default to your test teacher's email from your Supabase screenshot
-            lookup_email = "test@gmail.com" 
-            
+        lookup_email = request.user.email
+
         try:
             # Query the custom teacher profile database row
             teacher_profile = Teacher.objects.get(email=lookup_email)
@@ -222,9 +221,14 @@ class LessonPlanManagerService:
 # =====================================================================
 class LessonPlanViewSet(viewsets.ModelViewSet):
     # ModelViewSet automatically handles list(), retrieve(), update(), and destroy()!
-    queryset = LessonPlan.objects.all()
     serializer_class = LessonPlanSerializer
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready for security
+    permission_classes = [UserAuthPermissions]
+
+    def get_queryset(self):
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return LessonPlan.objects.none()
+        return LessonPlan.objects.filter(iep_goal__iep__studentID__teacher=teacher)
 
     def create(self, request, *args, **kwargs):
         # Action: "Generate Lesson Plan"
@@ -300,7 +304,7 @@ class LessonPlanGeneratorService:
 #              Routes manual parameters to the generation service.
 # =====================================================================
 class GenerateLessonPlanAPIView(APIView):
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
 
     # =================================================================
     # GET: Populates the React Frontend Directory (Step 1 & 2)
@@ -310,21 +314,8 @@ class GenerateLessonPlanAPIView(APIView):
         Returns the directory of students and their IEP Goal Areas for the
         Generate Lesson Plan tab.
         """
-        teacher_id = request.query_params.get("teacher_id")
-        
-        # If no teacher_id is provided in query params, fallback to the authenticated user's ID
-        if not teacher_id and hasattr(request.user, 'id'):
-            teacher_id = request.user.id
-
-        if teacher_id:
-            try:
-                django_user = DjangoUser.objects.get(pk=int(teacher_id))
-                teacher = Teacher.objects.get(email=django_user.email)
-                students = StudentProfile.objects.filter(teacher=teacher)
-            except (DjangoUser.DoesNotExist, Teacher.DoesNotExist, ValueError, TypeError):
-                students = StudentProfile.objects.none()
-        else:
-            students = StudentProfile.objects.none()
+        teacher = get_teacher_for_user(request.user)
+        students = StudentProfile.objects.filter(teacher=teacher) if teacher else StudentProfile.objects.none()
 
         if not students.exists():
             return Response(
@@ -353,11 +344,18 @@ class GenerateLessonPlanAPIView(APIView):
         
         if serializer.is_valid():
             goal_id = serializer.validated_data['goalID']
+            teacher = get_teacher_for_user(request.user)
+
+            if not teacher or not IEPGoal.objects.filter(pk=goal_id, iep__studentID__teacher=teacher).exists():
+                return Response(
+                    {"error": "Targeted IEP Goal could not be located."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
 
             try:
                 # 2. Trigger the new Service to generate the JSON Array
                 generated_data = LessonPlanGenerationService.execute_generation(
-                    goal_id=goal_id, 
+                    goal_id=goal_id,
                     teacher_instance=request.user
                 )
                 
@@ -415,10 +413,18 @@ class LessonPlanFilterService:
 # =====================================================================
 class LessonPlanReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = LessonPlanDetailSerializer
+    permission_classes = [UserAuthPermissions]
 
     def get_queryset(self):
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return LessonPlan.objects.none()
         # 🚀 REWIRED: select_related must follow the new chain to optimize database speed
-        base_queryset = LessonPlan.objects.all().select_related('iep_goal__iep__studentID').order_by('-dateCreated')
+        base_queryset = (
+            LessonPlan.objects.filter(iep_goal__iep__studentID__teacher=teacher)
+            .select_related('iep_goal__iep__studentID')
+            .order_by('-dateCreated')
+        )
         filtered_queryset = LessonPlanFilterService.apply_filters(base_queryset, self.request.query_params)
         return filtered_queryset
     
@@ -446,25 +452,27 @@ class LessonPlanUpdateService:
 #              and PUT (to receive updated payloads and execute modifications).
 # =====================================================================
 class LessonPlanEditAPIView(APIView):
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
 
     def get(self, request, pk, *args, **kwargs):
         """Matches Class Diagram: retrieveCurrentPlan(lessonID)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            # Locate the exact record in Supabase
-            lesson_plan = LessonPlan.objects.get(pk=pk)
-            
+            # Locate the exact record, scoped to the requesting teacher's own students
+            lesson_plan = LessonPlan.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
+
             # Re-use our read-only serializer to send the data safely
             serializer = LessonPlanDetailSerializer(lesson_plan)
             return Response(serializer.data, status=status.HTTP_200_OK)
-            
+
         except LessonPlan.DoesNotExist:
             return Response({"error": "Lesson Plan not found."}, status=status.HTTP_404_NOT_FOUND)
 
     def put(self, request, pk, *args, **kwargs):
         """Matches Class Diagram: validateAndSubmitEdits(lessonID, updatedPayload)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            lesson_plan = LessonPlan.objects.get(pk=pk)
+            lesson_plan = LessonPlan.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except LessonPlan.DoesNotExist:
             return Response({"error": "Lesson Plan not found."}, status=status.HTTP_404_NOT_FOUND)
         
@@ -507,22 +515,20 @@ class LessonPlanDeletionService:
 # =====================================================================
 class LessonPlanDeleteAPIView(APIView):
     # Enforces the UserAuthPermissions security component
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
 
     def delete(self, request, pk, *args, **kwargs):
         """Matches Class Diagram: executeDeletion(lessonID)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            lesson_plan = LessonPlan.objects.get(pk=pk)
+            # 1. SDD Security Check: verifyAuthorization(userID, lessonID) — scope the
+            #    lookup itself to the requesting teacher's own students.
+            lesson_plan = LessonPlan.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except LessonPlan.DoesNotExist:
             return Response(
-                {"error": "Lesson Plan not found or already deleted."}, 
+                {"error": "Lesson Plan not found or already deleted."},
                 status=status.HTTP_404_NOT_FOUND
             )
-            
-        # 1. SDD Security Check: verifyAuthorization(userID, lessonID)
-        # Note: Once authentication is fully turned on, you would ensure:
-        # if lesson_plan.student.teacher != request.user:
-        #     return Response({"error": "Unauthorized"}, status=403)
 
         # 2. Trigger Business Logic Service
         LessonPlanDeletionService.execute_deletion(lesson_plan)
@@ -538,9 +544,14 @@ class LessonPlanDeleteAPIView(APIView):
 # =====================================================================
 class VisualAidViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'delete']
-    queryset = VisualAid.objects.all().order_by('-dateCreated')
     serializer_class = VisualAidSerializer
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
+
+    def get_queryset(self):
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return VisualAid.objects.none()
+        return VisualAid.objects.filter(iep_goal__iep__studentID__teacher=teacher).order_by('-dateCreated')
 
     def list(self, request, *args, **kwargs):
         """Return saved visual aids, optionally filtered by student.
@@ -589,15 +600,19 @@ class VisualAidViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         """Matches Sequence Diagram: [Tab Option Selected = "Generate Visual Aid"]"""
         serializer = self.get_serializer(data=request.data)
-        
+
         if serializer.is_valid():
+            teacher = get_teacher_for_user(request.user)
+            if not _goal_owned_by_teacher(serializer.validated_data.get('iep_goal'), teacher):
+                return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
+
             self.perform_create(serializer)
             # Matches Sequence Diagram: "Return parsed JSON asset descriptors"
             return Response({
                 "message": "Visual Aid generated and saved successfully.",
                 "data": serializer.data
             }, status=status.HTTP_201_CREATED)
-            
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, *args, **kwargs):
@@ -781,6 +796,8 @@ class VisualAidGeneratorService:
 # SDD CONTROLLER: GenerateVisualAidAPIView
 # =====================================================================
 class GenerateVisualAidAPIView(APIView):
+    permission_classes = [UserAuthPermissions]
+
     def post(self, request, *args, **kwargs):
         iep_goal_id = request.data.get("iep_goal_id")
         extra_prompt = request.data.get("prompt", "").strip()
@@ -792,6 +809,7 @@ class GenerateVisualAidAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        teacher = get_teacher_for_user(request.user)
         try:
             target_goal = IEPGoal.objects.select_related("iep__studentID").get(pk=iep_goal_id)
             student = target_goal.iep.studentID
@@ -799,6 +817,9 @@ class GenerateVisualAidAPIView(APIView):
             return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": f"Goal lookup failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        if not _goal_owned_by_teacher(target_goal, teacher):
+            return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
 
         # Build the image prompt
         try:
@@ -863,9 +884,12 @@ class GenerateVisualAidAPIView(APIView):
 #              PDF Export Engine to return a downloadable file response.
 # =====================================================================
 class ExportVisualAidAPIView(APIView):
+    permission_classes = [UserAuthPermissions]
+
     def get(self, request, pk, *args, **kwargs):
+        teacher = get_teacher_for_user(request.user)
         try:
-            visual_aid = VisualAid.objects.get(pk=pk)
+            visual_aid = VisualAid.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except VisualAid.DoesNotExist:
             return Response({"error": "Saved Visual Aid not found."}, status=status.HTTP_404_NOT_FOUND)
             
@@ -940,15 +964,24 @@ class StrategyGenerationManagerService:
 # Description: Centralized API controller handling inbound pathways.
 # =====================================================================
 class TeachingStrategyViewSet(viewsets.ModelViewSet):
-    queryset = TeachingStrategy.objects.all().order_by('-dateCreated')
     serializer_class = TeachingStrategySerializer
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
+
+    def get_queryset(self):
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return TeachingStrategy.objects.none()
+        return TeachingStrategy.objects.filter(iep_goal__iep__studentID__teacher=teacher).order_by('-dateCreated')
 
     def create(self, request, *args, **kwargs):
         """Matches Sequence Diagram: [Strategy Route Option = "Generate Teaching Strategy" Tab]"""
         serializer = self.get_serializer(data=request.data)
-        
+
         if serializer.is_valid():
+            teacher = get_teacher_for_user(request.user)
+            if not _goal_owned_by_teacher(serializer.validated_data.get('iep_goal'), teacher):
+                return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
+
             if not serializer.validated_data.get('strategyContent'):
                 student_profile = serializer.validated_data['student']
                 title = serializer.validated_data['title']
@@ -976,23 +1009,13 @@ class TeachingStrategyViewSet(viewsets.ModelViewSet):
 #              directory requests and POST execution requests.
 # =====================================================================
 class TeachingStrategyGenerationController(APIView):
-    # 🎯 1. THE BOUNCER: This forces the user to be logged in. 
+    # 🎯 1. THE BOUNCER: This forces the user to be logged in.
     # If there is no valid session/token, it instantly blocks them with a 401 Unauthorized error.
-    # permission_classes = [IsAuthenticated] 
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        from django.contrib.auth.models import User as DjangoUser
-
-        teacher_id = request.query_params.get("teacher_id")
-        if teacher_id:
-            try:
-                django_user = DjangoUser.objects.get(pk=int(teacher_id))
-                teacher = Teacher.objects.get(email=django_user.email)
-                students = StudentProfile.objects.filter(teacher=teacher)
-            except (DjangoUser.DoesNotExist, Teacher.DoesNotExist, ValueError, TypeError):
-                students = StudentProfile.objects.none()
-        else:
-            students = StudentProfile.objects.none()
+        teacher = get_teacher_for_user(request.user)
+        students = StudentProfile.objects.filter(teacher=teacher) if teacher else StudentProfile.objects.none()
 
         if not students.exists():
             return Response(
@@ -1029,10 +1052,17 @@ class TeachingStrategyGenerationController(APIView):
                 
             except IEPGoal.DoesNotExist:
                 return Response(
-                    {"error": "Targeted IEP Goal could not be located."}, 
+                    {"error": "Targeted IEP Goal could not be located."},
                     status=status.HTTP_404_NOT_FOUND
                 )
-                
+
+            teacher = get_teacher_for_user(request.user)
+            if not _goal_owned_by_teacher(target_goal, teacher):
+                return Response(
+                    {"error": "Targeted IEP Goal could not be located."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
             try:
                 # 2. Trigger the AI Generation & Database Save via our new Service
                 # request.user contains the teacher automatically due to your auth middleware
@@ -1267,36 +1297,42 @@ class StrategyBinaryExportEngine:
     
     
 class TeachingStrategyQueryController(viewsets.ViewSet):
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
 
     def getSavedStrategies(self, request):
         """Matches Class Diagram: getSavedStrategies(studentID)"""
         student_id = request.query_params.get('studentID')
-        
-        # Pull base query and run it through the Filter Service
-        base_queryset = TeachingStrategy.objects.all()
+        teacher = get_teacher_for_user(request.user)
+
+        if not teacher:
+            return Response([], status=status.HTTP_200_OK)
+
+        # Pull base query (scoped to the requesting teacher) and run it through the Filter Service
+        base_queryset = TeachingStrategy.objects.filter(iep_goal__iep__studentID__teacher=teacher)
         filtered_queryset = StrategyQueryFilterService.get_filtered_strategies(base_queryset, student_id)
-        
+
         if not filtered_queryset.exists():
             return Response([], status=status.HTTP_200_OK)
-            
+
         serializer = StrategyRetrievalSerializer(filtered_queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def getStrategyDetails(self, request, pk=None):
         """Matches Class Diagram: getStrategyDetails(strategyID)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            strategy = TeachingStrategy.objects.get(pk=pk)
+            strategy = TeachingStrategy.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except TeachingStrategy.DoesNotExist:
             return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
-            
+
         serializer = StrategyRetrievalSerializer(strategy)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def exportStrategyGuide(self, request, pk=None):
         """Matches Class Diagram: exportStrategyGuide(strategyID)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            strategy = TeachingStrategy.objects.get(pk=pk)
+            strategy = TeachingStrategy.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except TeachingStrategy.DoesNotExist:
             return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
             
@@ -1337,23 +1373,25 @@ class StrategyModificationService:
 #              pathways. Handles GET for preloading and PUT/PATCH for mutations.
 # =====================================================================
 class TeachingStrategyUpdateController(APIView):
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
 
     def get(self, request, pk, *args, **kwargs):
         """Matches Sequence Diagram: Populating historical data arrays"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            strategy = TeachingStrategy.objects.get(pk=pk)
+            strategy = TeachingStrategy.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except TeachingStrategy.DoesNotExist:
             return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
-            
+
         # Use the read-only retrieval serializer to securely format the dates/names
         serializer = StrategyRetrievalSerializer(strategy)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, pk, *args, **kwargs):
         """Matches Sequence Diagram: saveStrategyEdits(strategyID, updatedContent)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            strategy = TeachingStrategy.objects.get(pk=pk)
+            strategy = TeachingStrategy.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except TeachingStrategy.DoesNotExist:
             return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -1382,11 +1420,10 @@ class TeachingStrategyUpdateController(APIView):
 class StrategyRemovalService:
     @staticmethod
     def execute_extraction(strategy_record):
-        # SDD Security Enforcement: Multi-tenant boundary safety
-        # In a fully authenticated production state, you would check:
-        # if strategy_record.student.teacher != request.user: 
-        #     raise PermissionDenied("You do not have authorization to delete this record.")
-        
+        # Multi-tenant boundary safety is enforced by the caller (see
+        # TeachingStrategyDeleteController.delete), which only looks up
+        # strategy_record scoped to the requesting teacher's own students.
+
         # Execute the raw physical row deletion to the Supabase Postgres cluster
         strategy_record.delete()
         
@@ -1400,29 +1437,31 @@ class StrategyRemovalService:
 #              hydration and DELETE operations for destructive pipeline actions.
 # =====================================================================
 class TeachingStrategyDeleteController(APIView):
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
 
     def get(self, request, pk=None, *args, **kwargs):
+        teacher = get_teacher_for_user(request.user)
         if pk:
             try:
-                strategy = TeachingStrategy.objects.get(pk=pk)
+                strategy = TeachingStrategy.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
                 serializer = StrategyRetrievalSerializer(strategy)
                 return Response(serializer.data, status=status.HTTP_200_OK)
             except TeachingStrategy.DoesNotExist:
                 return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
         else:
             serializer = StrategyDeleteValidationSerializer(data=request.query_params)
-            
+
             if serializer.is_valid():
                 student_id = serializer.validated_data.get('studentID')
                 if not student_id:
                     return Response({"error": "studentID parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
-                    
-                # 🚀 REWIRED: Traverse the new architectural chain!
+
+                # 🚀 REWIRED: Traverse the new architectural chain! (scoped to this teacher)
                 strategies = TeachingStrategy.objects.filter(
-                    iep_goal__iep__studentID__pk=student_id
+                    iep_goal__iep__studentID__pk=student_id,
+                    iep_goal__iep__studentID__teacher=teacher,
                 ).order_by('-dateCreated')
-                
+
                 if not strategies.exists():
                     return Response([], status=status.HTTP_200_OK)
                     
@@ -1433,11 +1472,12 @@ class TeachingStrategyDeleteController(APIView):
 
     def delete(self, request, pk, *args, **kwargs):
         """Matches Sequence Diagram: executeStrategyDeletion(strategyID)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            strategy = TeachingStrategy.objects.get(pk=pk)
+            strategy = TeachingStrategy.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except TeachingStrategy.DoesNotExist:
             return Response(
-                {"error": "Strategy record does not exist or has already been removed."}, 
+                {"error": "Strategy record does not exist or has already been removed."},
                 status=status.HTTP_404_NOT_FOUND
             )
             
