@@ -5,6 +5,7 @@ from rest_framework import viewsets,status
 from rest_framework.decorators import action
 from django.http import HttpResponse
 from users.models import StudentProfile
+from users.utils import get_teacher_for_user
 from .permissions import SessionAuthenticationGuard
 from .serializers import HistoricalRecordDataSerializer,ProgressAnalyticsSerializer
 from .models import StudentProgress
@@ -59,11 +60,12 @@ class OutcomeMonitoringRouter(APIView):
 class ContextualDataIsolationFilter:
     @staticmethod
     def enforce_tenant_isolation(queryset, user=None):
-        # In a fully authenticated production environment, you would filter by teacher:
-        # return queryset.filter(teacher=user)
-        
-        # For development, we return the raw queryset to simulate successful isolation
-        return queryset
+        # Resolve the requesting Django auth User to their Teacher record and
+        # scope the queryset to that teacher's own students only.
+        teacher = get_teacher_for_user(user)
+        if not teacher:
+            return queryset.none()
+        return queryset.filter(teacher=teacher)
 
 # =====================================================================
 # SDD COMPONENT: BinaryReportRenderEngine
@@ -110,19 +112,25 @@ class StudentRecordQueryController(viewsets.ViewSet):
 
     def retrieve(self, request, pk=None):
         """Matches Class Diagram: getSpecificRecord(studentID)"""
+        teacher = get_teacher_for_user(request.user)
+        if not teacher:
+            return Response({"error": "Student record not found."}, status=status.HTTP_404_NOT_FOUND)
         try:
-            student = StudentProfile.objects.get(pk=pk)
+            student = StudentProfile.objects.get(pk=pk, teacher=teacher)
         except StudentProfile.DoesNotExist:
             return Response({"error": "Student record not found."}, status=status.HTTP_404_NOT_FOUND)
-            
+
         serializer = HistoricalRecordDataSerializer(student)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get'])
     def export(self, request, pk=None):
         """Matches Class Diagram: exportRecordPDF(studentID)"""
+        teacher = get_teacher_for_user(request.user)
+        if not teacher:
+            return Response({"error": "Student record not found."}, status=status.HTTP_404_NOT_FOUND)
         try:
-            student = StudentProfile.objects.get(pk=pk)
+            student = StudentProfile.objects.get(pk=pk, teacher=teacher)
         except StudentProfile.DoesNotExist:
             return Response({"error": "Student record not found."}, status=status.HTTP_404_NOT_FOUND)
             
@@ -142,10 +150,11 @@ class StudentRecordQueryController(viewsets.ViewSet):
 # =====================================================================
 class ProgressAnalyticsService:
     @staticmethod
-    def compute_historical_trends(student_id, subject_name=None):
-        # 1. Fetch the raw chronological logs for the target student
-        queryset = StudentProgress.objects.filter(student__pk=student_id)
-        
+    def compute_historical_trends(student_id, teacher, subject_name=None):
+        # 1. Fetch the raw chronological logs for the target student, scoped
+        #    to records for students belonging to the requesting teacher
+        queryset = StudentProgress.objects.filter(student__pk=student_id, student__teacher=teacher)
+
         # 2. If a specific subject is requested (e.g., "Math"), filter it down
         if subject_name:
             queryset = queryset.filter(subjectName__iexact=subject_name)
@@ -171,12 +180,19 @@ class ProgressAnalyticsAPIView(APIView):
         
         if not student_id:
             return Response(
-                {"error": "A valid studentID query parameter is required to load analytics."}, 
+                {"error": "A valid studentID query parameter is required to load analytics."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-            
+
+        teacher = get_teacher_for_user(request.user)
+        if not teacher or not StudentProfile.objects.filter(pk=student_id, teacher=teacher).exists():
+            return Response(
+                {"error": "Student record not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
         # 2. Trigger the SDD Component: ProgressAnalyticsService
-        raw_trend_data = ProgressAnalyticsService.compute_historical_trends(student_id, subject)
+        raw_trend_data = ProgressAnalyticsService.compute_historical_trends(student_id, teacher, subject)
         
         # Alternative Flow: No data available to graph
         if not raw_trend_data.exists():

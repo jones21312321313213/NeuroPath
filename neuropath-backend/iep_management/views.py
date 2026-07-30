@@ -5,6 +5,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from .serializers import IEPDataSerializer, IEPListDetailSerializer, IEPUpdateSerializer,StandaloneIEPGoalSerializer,IEPGenerationRequestSerializer
 from users.models import StudentProfile
+from users.utils import get_teacher_for_user
 from tracking.models import AIGenerationLog
 from .models import Assessment, IEPGoal, IEPModel,GeneratedAIInsight
 from django.shortcuts import get_object_or_404
@@ -70,33 +71,22 @@ class IEPGeneratorService:
 
 
 class IEPGenerationAPIView(APIView):
-    def _get_teacher_from_user_id(self, teacher_user_id):
-        if not teacher_user_id:
-            return None
-        try:
-            from django.contrib.auth.models import User
-            from users.models import Teacher
-
-            django_user = User.objects.get(pk=int(teacher_user_id))
-            return Teacher.objects.get(email=django_user.email)
-        except (User.DoesNotExist, Teacher.DoesNotExist, ValueError, TypeError):
-            return None
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         action = request.data.get('action')
+        # Always the authenticated caller's identity — never a client-supplied value.
+        teacher = get_teacher_for_user(request.user)
 
         if action == 'generate':
             student_id = request.data.get('studentID')
             baseline_data = request.data.get('baselineData', '')
             target_domains = request.data.get('domains', '')
-            teacher_id = request.user.id if request.user.is_authenticated else request.data.get('teacherID')
+            if not teacher:
+                return Response({'error': 'Unable to verify teacher account.'}, status=status.HTTP_403_FORBIDDEN)
 
             try:
-                teacher = self._get_teacher_from_user_id(teacher_id)
-                student_query = StudentProfile.objects.filter(pk=student_id)
-                if teacher:
-                    student_query = student_query.filter(teacher=teacher)
-                student = student_query.get()
+                student = StudentProfile.objects.get(pk=student_id, teacher=teacher)
             except StudentProfile.DoesNotExist:
                 return Response({'error': 'Student not found for this teacher account.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -104,7 +94,7 @@ class IEPGenerationAPIView(APIView):
                 student=student,
                 baseline_input=baseline_data,
                 target_domains=target_domains,
-                teacher_id=teacher_id,
+                teacher_id=request.user.id,
             )
 
             return Response({
@@ -117,17 +107,11 @@ class IEPGenerationAPIView(APIView):
 
             # Only allow saving an IEP for a student owned by this teacher account.
             student_id = payload.get('studentID')
-            # Prefer the authenticated user's ID; fall back to payload teacherID
-            teacher_user_id = request.user.id if request.user.is_authenticated else payload.get('teacherID')
-            teacher = self._get_teacher_from_user_id(teacher_user_id)
+            if not teacher:
+                # No resolvable teacher — reject to prevent unscoped saves
+                return Response({'error': 'Unable to verify teacher account.'}, status=status.HTTP_403_FORBIDDEN)
             try:
-                student_query = StudentProfile.objects.filter(pk=student_id)
-                if teacher:
-                    student_query = student_query.filter(teacher=teacher)
-                else:
-                    # No resolvable teacher — reject to prevent unscoped saves
-                    return Response({'error': 'Unable to verify teacher account.'}, status=status.HTTP_403_FORBIDDEN)
-                student_query.get()
+                StudentProfile.objects.get(pk=student_id, teacher=teacher)
             except StudentProfile.DoesNotExist:
                 return Response({'error': 'Student not found for this teacher account.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -160,39 +144,43 @@ class IEPGenerationAPIView(APIView):
 
 class IEPListAPIView(generics.ListAPIView):
     serializer_class = IEPListDetailSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         student_id = self.kwargs.get('student_id')
-        queryset = IEPModel.objects.filter(studentID_id=student_id).order_by('-createdDate')
 
-        # Keep View IEP scoped to the currently logged-in teacher account.
-        # The React app sends the Django User ID as ?teacher_id=... and the
-        # Teacher row is linked by the same email used at registration/login.
-        teacher_user_id = self.request.query_params.get('teacher_id')
-        if not teacher_user_id:
+        # Keep View IEP scoped to the currently logged-in teacher account —
+        # resolved from the authenticated request user, never a query param.
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
             return IEPModel.objects.none()
 
-        try:
-            from django.contrib.auth.models import User
-            from users.models import Teacher
-
-            django_user = User.objects.get(pk=int(teacher_user_id))
-            teacher = Teacher.objects.get(email=django_user.email)
-            return queryset.filter(studentID__teacher=teacher)
-        except (User.DoesNotExist, Teacher.DoesNotExist, ValueError, TypeError):
-            return IEPModel.objects.none()
+        return IEPModel.objects.filter(
+            studentID_id=student_id, studentID__teacher=teacher
+        ).order_by('-createdDate')
 
 
 
 class IEPDetailAPIView(generics.RetrieveAPIView):
-    queryset = IEPModel.objects.all()
     serializer_class = IEPListDetailSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return IEPModel.objects.none()
+        return IEPModel.objects.filter(studentID__teacher=teacher)
 
 
 class IEPEditAPIView(generics.UpdateAPIView):
-    queryset = IEPModel.objects.all()
     serializer_class = IEPUpdateSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return IEPModel.objects.none()
+        return IEPModel.objects.filter(studentID__teacher=teacher)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -210,32 +198,42 @@ class IEPEditAPIView(generics.UpdateAPIView):
 
 
 class IEPDeleteAPIView(generics.DestroyAPIView):
-    queryset = IEPModel.objects.all()
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        # Only the teacher who owns the IEP's student can delete it — scoping
+        # the lookup itself means an unowned pk simply 404s via get_object().
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return IEPModel.objects.none()
+        return IEPModel.objects.filter(studentID__teacher=teacher)
+
     def destroy(self, request, *args, **kwargs):
+        # Ownership is already enforced by get_queryset() above — a pk
+        # belonging to another teacher's student simply isn't in scope, so
+        # get_object() 404s before we ever reach perform_destroy.
         instance = self.get_object()
-        # Safety check: only the teacher who created the IEP can delete it
-        if hasattr(instance, 'teacherID') and instance.teacherID != request.user:
-            return Response(
-                {'error': 'You do not have permission to delete this IEP.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
         self.perform_destroy(instance)
         return Response({'message': 'IEP record successfully permanently deleted.'}, status=status.HTTP_200_OK)
 
 
 class StandaloneIEPGoalViewSet(viewsets.ModelViewSet):
-    queryset = IEPGoal.objects.all().select_related('iep__studentID')
     serializer_class = StandaloneIEPGoalSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         """
         Supports filtering by either:
           ?student_id=5  -> all goals for a student across all their IEPs
           ?iep=3         -> all goals belonging to a specific IEP document
+
+        Always scoped to the requesting teacher's own students.
         """
-        queryset = self.queryset
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return IEPGoal.objects.none()
+
+        queryset = IEPGoal.objects.filter(iep__studentID__teacher=teacher).select_related('iep__studentID')
         student_id = self.request.query_params.get('student_id')
         iep_id = self.request.query_params.get('iep')
         if student_id:
@@ -243,6 +241,19 @@ class StandaloneIEPGoalViewSet(viewsets.ModelViewSet):
         if iep_id:
             return queryset.filter(iep__iepID=iep_id)
         return queryset
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        teacher = get_teacher_for_user(request.user)
+        iep = serializer.validated_data.get('iep')
+        if not teacher or not iep or iep.studentID.teacher_id != teacher.teacherID:
+            return Response({'error': 'IEP not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
     
     
 # 1. GENERATE INSIGHT ENDPOINT
@@ -329,6 +340,8 @@ def dashboard_stats(request):
 
 
 class GenerateIEPGoalAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         # 1. Validate the incoming data from React
         serializer = IEPGenerationRequestSerializer(data=request.data)
@@ -414,8 +427,9 @@ class GenerateIEPGoalsFromIEPView(APIView):
     }
     """
  
+    permission_classes = [IsAuthenticated]
     MAX_ATTEMPTS = 3
- 
+
     def post(self, request):
         data = request.data
  
