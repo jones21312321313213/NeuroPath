@@ -28,7 +28,12 @@ async function request(endpoint, options = {}) {
       const msgs = Object.values(errors).flat();
       message = msgs[0] || message;
     }
-    throw new Error(message);
+    const error = new Error(message);
+    // Callers needing field-level detail (e.g. duplicate-email on register)
+    // inspect the raw body instead of re-parsing the flattened message.
+    error.status = response.status;
+    error.data = data;
+    throw error;
   }
 
   return data;

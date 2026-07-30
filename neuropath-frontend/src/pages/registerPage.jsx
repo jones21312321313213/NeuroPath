@@ -57,11 +57,10 @@ export default function RegisterPage({ onNavigateLogin }) {
         `Account created for ${form.firstName.trim()}! Please sign in.`,
       );
     } catch (err) {
-      const msg =
-        err.response?.data?.message || err.message || "Registration failed.";
+      const msg = err.message || err.data?.message || "Registration failed.";
 
       // Django often returns a dictionary of specific field errors
-      const fieldErrors = err.response?.data?.errors;
+      const fieldErrors = err.data?.errors;
 
       if (fieldErrors?.username || fieldErrors?.email) {
         setErrors({ email: "This email is already registered." });

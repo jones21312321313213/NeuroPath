@@ -100,11 +100,7 @@ export default function MyProfile() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
-      const msg =
-        err.response?.data?.detail ||
-        err.response?.data?.message ||
-        err.message ||
-        "Failed to update profile.";
+      const msg = err.message || "Failed to update profile.";
       setErrors({ general: msg });
     } finally {
       setLoading(false);

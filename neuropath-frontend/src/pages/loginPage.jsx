@@ -39,7 +39,7 @@ export default function LoginPage({
         onLoginSuccess(); 
       } catch (err) {
         // Catch-all for incorrect passwords or unmapped profiles
-        const errorMsg = err.response?.data?.error || "Invalid email or password.";
+        const errorMsg = err.message || "Invalid email or password.";
         setError(errorMsg); // 📑 Fixed spelling: removed the "s"
       } finally {
         setLoading(false);
