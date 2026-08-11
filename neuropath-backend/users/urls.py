@@ -5,11 +5,13 @@ from .views import( StudentProfileListCreateView,
                    AIInsightController,
                    TeacherCreateController,
                    TeacherLoginController,
+                   TeacherLogoutController,
                    TeacherProfileUpdateController)
 
 urlpatterns = [
     path('register/', TeacherCreateController.as_view(), name='teacher-register'),
     path('login/', TeacherLoginController.as_view(), name='teacher-login'),
+    path('logout/', TeacherLogoutController.as_view(), name='teacher-logout'),
     
     
     path('teachers/', TeacherCreateController.as_view(), name='teacher-create'),

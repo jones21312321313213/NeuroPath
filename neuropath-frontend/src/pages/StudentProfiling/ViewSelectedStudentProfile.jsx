@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "../../styles/ViewSelectedStudentProfile.css";
 import StudentInsightsTab from "./StudentInsightsTab";
+import { studentsAPI } from "../../api/client";
 
 function getProfileDetails(student) {
   if (student?.profileDetails && typeof student.profileDetails === "object") {
@@ -42,23 +43,35 @@ function ReadOnlyTextArea({ label, value, rows = 4 }) {
 export default function ViewSelectedStudentProfile({ studentId, setActivePage }) {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("info");
 
   useEffect(() => {
     if (!studentId) return;
 
-    queueMicrotask(() => setLoading(true));
+    let cancelled = false;
+    queueMicrotask(() => {
+      setLoading(true);
+      setError("");
+    });
 
-    fetch(`http://localhost:8000/api/users/students/${studentId}/view/`)
-      .then((res) => res.json())
+    studentsAPI
+      .get(studentId)
       .then((response) => {
+        if (cancelled) return;
         setSelected(response?.data || response);
         setLoading(false);
       })
       .catch((err) => {
+        if (cancelled) return;
         console.error(err);
+        setError(err.message || "Failed to load student details.");
         setLoading(false);
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [studentId]);
 
   const details = useMemo(() => getProfileDetails(selected), [selected]);
@@ -73,10 +86,12 @@ export default function ViewSelectedStudentProfile({ studentId, setActivePage })
     );
   }
 
-  if (!selected) {
+  if (error || !selected) {
     return (
       <div className="page-content">
-        <div className="placeholder-page">No student details found.</div>
+        <div className="placeholder-page">
+          {error || "No student details found."}
+        </div>
       </div>
     );
   }

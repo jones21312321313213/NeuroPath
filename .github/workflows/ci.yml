@@ -92,7 +92,7 @@ jobs:
         run: npm run lint
 
       - name: Run tests
-        run: npm test --if-present
+        run: npm test
 
       - name: Build
         run: npm run build
