@@ -1,5 +1,4 @@
 import { useState } from "react";
-import axios from "axios";
 import { useAuth } from "../../context/AuthContext";
 import LogoutModal from "./LogoutModal";
 
@@ -48,7 +47,7 @@ const navItems = [
 ];
 
 export default function Sidebar({ activePage, setActivePage }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [expanded, setExpanded] = useState({
     "student-profiling": false,
     "iep-generation": false,
@@ -60,20 +59,12 @@ export default function Sidebar({ activePage, setActivePage }) {
   };
 
   const handleConfirmLogout = async () => {
-    try {
-      await axios.post(
-        "http://127.0.0.1:8000/api/users/logout/",
-        {},
-        { withCredentials: true },
-      );
-    } catch (error) {
-      console.error("Logout failed:", error);
-    } finally {
-      localStorage.clear();
-      sessionStorage.clear();
-      setIsModalOpen(false);
-      window.location.href = "/login";
-    }
+    // AuthContext.logout() revokes the token server-side and clears auth state;
+    // it never throws, so the redirect below always runs.
+    await logout();
+    sessionStorage.clear();
+    setIsModalOpen(false);
+    window.location.href = "/login";
   };
 
   const getInitials = () => {

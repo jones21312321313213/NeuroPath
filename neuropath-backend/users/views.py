@@ -282,6 +282,8 @@ class TeacherLoginController(APIView):
 # Accepts: { first_name, last_name, email, password? }
 # Identifies the teacher from the authenticated request user — never from a
 # client-supplied id — so a caller can only ever update their own account.
+# Any `id` in the request body is deliberately ignored: trusting it let an
+# unauthenticated caller rewrite another user's name, email and password.
 # Also keeps the Teacher mirror-row (name, email) in sync.
 # =====================================================================
 class TeacherProfileUpdateController(APIView):
@@ -341,4 +343,21 @@ class TeacherProfileUpdateController(APIView):
             },
             status=status.HTTP_200_OK,
         )
-        
+
+
+# =====================================================================
+# TEACHER LOGOUT
+# POST /api/users/logout/
+# Deletes the caller's DRF auth token so the credential can no longer
+# be replayed. Requires Authorization: Token <key>.
+# =====================================================================
+class TeacherLogoutController(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        Token.objects.filter(user=request.user).delete()
+        return Response(
+            {"message": "Logout successful."},
+            status=status.HTTP_200_OK,
+        )
+
