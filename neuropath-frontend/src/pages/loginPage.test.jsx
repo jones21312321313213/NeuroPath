@@ -59,9 +59,7 @@ describe("LoginPage", () => {
   });
 
   it("shows the server-provided error message when login fails", async () => {
-    login.mockRejectedValueOnce({
-      response: { data: { error: "Account locked." } },
-    });
+    login.mockRejectedValueOnce(new Error("Account locked."));
     const user = userEvent.setup();
     renderPage();
 
@@ -74,7 +72,7 @@ describe("LoginPage", () => {
   });
 
   it("shows a generic error message when login fails without a server message", async () => {
-    login.mockRejectedValueOnce(new Error("network down"));
+    login.mockRejectedValueOnce({});
     const user = userEvent.setup();
     renderPage();
 
@@ -96,13 +94,13 @@ describe("LoginPage", () => {
     await user.type(screen.getByLabelText(/^password$/i), "wrong");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
     expect(
-      await screen.findByText("Invalid email or password."),
+      await screen.findByText("fail"),
     ).toBeInTheDocument();
 
     await user.type(screen.getByLabelText(/^password$/i), "x");
 
     expect(
-      screen.queryByText("Invalid email or password."),
+      screen.queryByText("fail"),
     ).not.toBeInTheDocument();
   });
 
