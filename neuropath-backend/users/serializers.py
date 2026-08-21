@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from .models import StudentProfile, Teacher
 
 
@@ -118,22 +120,45 @@ class ValidationService(serializers.ModelSerializer):
 
 
 class TeacherSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(required=True)
+
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'password', 'first_name', 'last_name']
-        extra_kwargs = {'password': {'write_only': True}}
+        extra_kwargs = {
+            'password': {'write_only': True, 'required': True},
+            'username': {'required': False},
+        }
+
+    def validate_email(self, value):
+        email = value.strip().lower()
+        if not email:
+            raise serializers.ValidationError('This field may not be blank.')
+        if User.objects.filter(email__iexact=email).exists() or Teacher.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError('An account with this email already exists.')
+        return email
+
+    def validate_password(self, value):
+        try:
+            validate_password(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(list(exc.messages))
+        return value
 
     def create(self, validated_data):
+        email = validated_data['email'].strip().lower()
+        validated_data['email'] = email
+        if not validated_data.get('username'):
+            validated_data['username'] = email
+
         user = User.objects.create_user(**validated_data)
         first = validated_data.get('first_name', '')
         last = validated_data.get('last_name', '')
         full_name = f'{first} {last}'.strip() if first or last else user.username
 
-        Teacher.objects.get_or_create(
-            email=validated_data.get('email', ''),
-            defaults={
-                'name': full_name,
-                'passwordHash': user.password,
-            },
+        Teacher.objects.create(
+            email=email,
+            name=full_name,
+            passwordHash=user.password,
         )
         return user
