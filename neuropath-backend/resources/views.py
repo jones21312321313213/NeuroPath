@@ -1,5 +1,6 @@
 from django.db.models import Q
 import io
+import json
 import re
 import uuid
 import requests as http_client
@@ -231,31 +232,34 @@ class LessonPlanViewSet(viewsets.ModelViewSet):
         return LessonPlan.objects.filter(iep_goal__iep__studentID__teacher=teacher)
 
     def create(self, request, *args, **kwargs):
-        # Action: "Generate Lesson Plan"
-        student_id = request.data.get('studentID')
-        title = request.data.get('title', 'AI Generated Lesson')
-        topic = request.data.get('topic', 'General Learning')
-        
-        # Trigger the workflow manager
-        generated_content = LessonPlanManagerService.generate_lesson_payload(student_id, topic)
-        
-        # Package the data for the database
-        payload = {
-            'studentID': student_id,
-            'title': title,
-            'content': generated_content,
-            'status': 'Generated'
-        }
-        
-        # Validate and Save Record
-        serializer = self.get_serializer(data=payload)
+        """Matches Sequence Diagram: [Generate / Save Lesson Plan]"""
+        serializer = self.get_serializer(data=request.data)
+
         if serializer.is_valid():
+            teacher = get_teacher_for_user(request.user)
+            if not _goal_owned_by_teacher(serializer.validated_data.get('iep_goal'), teacher):
+                return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if not serializer.validated_data.get('lessonContent'):
+                iep_goal = serializer.validated_data.get('iep_goal')
+                student_id = iep_goal.iep.studentID.pk
+                topic = request.data.get('topic') or serializer.validated_data.get('title') or 'General Learning'
+
+                generated_content = LessonPlanManagerService.generate_lesson_payload(student_id, topic)
+                serializer.validated_data['lessonContent'] = (
+                    json.dumps(generated_content)
+                    if isinstance(generated_content, (dict, list))
+                    else str(generated_content)
+                )
+
+            serializer.validated_data.setdefault('status', request.data.get('status', 'Generated'))
             self.perform_create(serializer)
+
             return Response({
                 "message": "Lesson Plan generated and saved successfully.",
                 "data": serializer.data
             }, status=status.HTTP_201_CREATED)
-            
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
