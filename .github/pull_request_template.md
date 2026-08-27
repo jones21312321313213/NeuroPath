@@ -1,5 +1,5 @@
 ## 🔗 Linked Issue
-Closes #14
+Closes #
 
 ## Summary
 Replace this text with a summary of the feature you're adding
