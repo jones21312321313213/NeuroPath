@@ -41,21 +41,27 @@ export function AuthProvider({ children }) {
   // the Token header, so no user id is sent (it would be ignored anyway).
   const updateUser = useCallback(
     async (formData) => {
-      // Convert FormData → plain object so we can send JSON
-      const payload = {
-        first_name: formData.get("first_name") || "",
-        last_name: formData.get("last_name") || "",
-        email: formData.get("email") || "",
-      };
+      let profilePicture = null;
+      if (typeof FormData !== "undefined" && formData instanceof FormData) {
+        const pic = formData.get("profile_picture");
+        if (typeof File !== "undefined" && pic instanceof File && pic.size > 0) {
+          profilePicture = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(pic);
+          });
+        }
+      }
 
-      // Only include password if the user actually typed one
-      const password = formData.get("password");
-      if (password) payload.password = password;
-
-      const data = await usersAPI.updateProfile(payload);
+      const data = await usersAPI.updateProfile(formData);
 
       // Merge updated fields back into React state + localStorage
-      const updated = { ...user, ...data };
+      const updated = {
+        ...user,
+        ...data,
+        ...(profilePicture ? { profile_picture: profilePicture } : {}),
+      };
       localStorage.setItem("neuropath_user", JSON.stringify(updated));
       setUser(updated);
 

@@ -2,62 +2,62 @@ import { useState, useEffect } from "react";
 import "../../styles/StudentInsight.css";
 import { iepAPI } from "../../api/client";
 
+const USE_MOCK_INSIGHTS = import.meta.env.VITE_USE_MOCK_INSIGHTS === "true";
+
 export default function StudentInsightsTab({ studentId }) {
-  // Use studentId === 4 for mock data fallback, otherwise start empty or fetch from DB
-  const [insights, setInsights] = useState(studentId === 4 ? mockInsights : []);
+  const [insights, setInsights] = useState(USE_MOCK_INSIGHTS ? mockInsights : []);
   const [generating, setGenerating] = useState(false);
   const [openIndex, setOpenIndex] = useState(null);
   const [error, setError] = useState(null);
 
   // 1. Fetch real historical insights from the backend on tab mount
   useEffect(() => {
-      if (!studentId || studentId === 4) return;
+    if (!studentId || USE_MOCK_INSIGHTS) return;
 
-      // 🎯 Use your client API instead of raw fetch
-      iepAPI.getInsights(studentId)
-        .then((data) => {
-          const mappedData = data.map(item => ({
-            id: item.id,
-            timestamp: item.created_at, 
-            summary_text: item.summary_text
-          }));
-          setInsights(mappedData);
-        })
-        .catch((err) => setError(err.message));
-    }, [studentId]);
-  
+    iepAPI
+      .getInsights(studentId)
+      .then((data) => {
+        const mappedData = data.map((item) => ({
+          id: item.id,
+          timestamp: item.created_at,
+          summary_text: item.summary_text,
+        }));
+        setInsights(mappedData);
+      })
+      .catch((err) => setError(err.message));
+  }, [studentId]);
 
-     // 2. Trigger the local AI text generation pipeline via Django
-    const handleGenerate = async () => {
+  // 2. Trigger the local AI text generation pipeline via Django
+  const handleGenerate = async () => {
     setGenerating(true);
     setError(null);
 
-    // Mock Behavior for testing without backend active
-    if (studentId === 4) {
+    // Mock Behavior for testing without backend active (env gated)
+    if (USE_MOCK_INSIGHTS) {
       setTimeout(() => {
         const mockNew = {
           id: Date.now(),
           timestamp: new Date().toLocaleString(),
-          summary_text: "Ethan Carter demonstrates high affinity for tactile spatial modules and mathematical patterns. However, he encounters processing delays with multi-sentence contexts. It is highly recommended to present text blocks inside short, discrete structural segments while managing structural auditory breaks."
+          summary_text:
+            "Ethan Carter demonstrates high affinity for tactile spatial modules and mathematical patterns. However, he encounters processing delays with multi-sentence contexts. It is highly recommended to present text blocks inside short, discrete structural segments while managing structural auditory breaks.",
         };
-        setInsights(prev => [mockNew, ...prev]); // Prepend to show the newest at the top
+        setInsights((prev) => [mockNew, ...prev]);
         setGenerating(false);
-        setOpenIndex(0); // Auto-open the newest generation accordion
+        setOpenIndex(0);
       }, 1500);
       return;
     }
 
     try {
-      // 🎯 Use your client API instead of raw fetch
       const newInsight = await iepAPI.generateInsight(studentId);
-      
+
       const formattedNewInsight = {
         id: newInsight.id,
         timestamp: newInsight.created_at,
-        summary_text: newInsight.summary_text
+        summary_text: newInsight.summary_text,
       };
 
-      setInsights(prev => [formattedNewInsight, ...prev]);
+      setInsights((prev) => [formattedNewInsight, ...prev]);
       setOpenIndex(0);
     } catch (err) {
       setError(err.message);

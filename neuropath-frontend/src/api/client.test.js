@@ -114,6 +114,29 @@ describe("api client", () => {
       expect.objectContaining({
         method: "PATCH",
         body: JSON.stringify({ first_name: "Jane" }),
+        headers: expect.objectContaining({
+          "Content-Type": "application/json",
+        }),
+      }),
+    );
+  });
+
+  it("forwards FormData in updateProfile and omits Content-Type header", async () => {
+    fetch.mockResolvedValueOnce(jsonResponse({ first_name: "Jane" }));
+    const formData = new FormData();
+    formData.append("first_name", "Jane");
+
+    const result = await usersAPI.updateProfile(formData);
+
+    expect(result).toEqual({ first_name: "Jane" });
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:8000/api/users/profile/update/",
+      expect.objectContaining({
+        method: "PATCH",
+        body: formData,
+        headers: expect.not.objectContaining({
+          "Content-Type": "application/json",
+        }),
       }),
     );
   });
