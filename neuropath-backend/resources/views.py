@@ -983,10 +983,11 @@ class TeachingStrategyViewSet(viewsets.ModelViewSet):
                 return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
 
             if not serializer.validated_data.get('strategyContent'):
-                student_profile = serializer.validated_data['student']
+                iep_goal = serializer.validated_data.get('iep_goal')
+                student_profile = iep_goal.iep.studentID
                 title = serializer.validated_data['title']
                 
-                # NEW: Pass the entire student_profile object, not just the name string!
+                # Pass the student_profile object resolved from the IEP goal foreign key
                 generated_content = StrategyGenerationManagerService.generate_strategy_content(
                     title=title, 
                     student_profile=student_profile 

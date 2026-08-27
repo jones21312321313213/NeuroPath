@@ -128,3 +128,80 @@ class ResourcesAuthAndTenantIsolationTests(TestCase):
         response = self.client.get('/api/resources/instructional-support/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['userContext']['email'], self.teacher1.email)
+
+
+class TeachingStrategyCreateTests(TestCase):
+    """Regression tests for TeachingStrategyViewSet.create endpoint."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user1, self.teacher1, self.token1 = create_teacher_with_login('strat_owner@example.com')
+        self.user2, self.teacher2, self.token2 = create_teacher_with_login('strat_other@example.com')
+
+        self.student1 = create_student(
+            self.teacher1,
+            name='Student One',
+            learning_style='Visual',
+            interests='Dinosaurs',
+            sensory_preferences='Low noise'
+        )
+        self.iep1 = IEPModel.objects.create(studentID=self.student1)
+        self.goal1 = IEPGoal.objects.create(
+            iep=self.iep1,
+            goalName='Math Goal',
+            target_metric='Count to 20',
+            annual_goal='Master basic counting'
+        )
+
+    def _auth(self, token):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+    def test_create_teaching_strategy_with_blank_content_generates_strategy(self):
+        self._auth(self.token1)
+        response = self.client.post('/api/resources/teaching-strategies/', {
+            'iep_goal': self.goal1.pk,
+            'title': 'Visual Counting Strategy',
+            'strategyContent': ''
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIn('data', response.data)
+        self.assertTrue(len(response.data['data']['strategyContent']) > 0)
+        self.assertIn('Visual', response.data['data']['strategyContent'])
+        self.assertTrue(
+            TeachingStrategy.objects.filter(
+                iep_goal=self.goal1,
+                title='Visual Counting Strategy'
+            ).exists()
+        )
+
+    def test_create_teaching_strategy_with_explicit_content(self):
+        self._auth(self.token1)
+        custom_content = "This is custom actionable strategy content that exceeds ten characters."
+        response = self.client.post('/api/resources/teaching-strategies/', {
+            'iep_goal': self.goal1.pk,
+            'title': 'Custom Strategy',
+            'strategyContent': custom_content
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['data']['strategyContent'], custom_content)
+
+    def test_create_teaching_strategy_with_foreign_goal_rejected(self):
+        self._auth(self.token2)
+        response = self.client.post('/api/resources/teaching-strategies/', {
+            'iep_goal': self.goal1.pk,
+            'title': 'Hijack Strategy',
+            'strategyContent': 'Some valid content here.'
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_create_teaching_strategy_invalid_data_rejected(self):
+        self._auth(self.token1)
+        response = self.client.post('/api/resources/teaching-strategies/', {
+            'iep_goal': 999999,
+            'title': ''
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
