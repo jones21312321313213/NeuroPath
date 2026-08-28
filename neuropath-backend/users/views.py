@@ -5,10 +5,14 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authtoken.models import Token
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from .models import StudentProfile
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
+from django.db.models import Q
+from .models import StudentProfile, Teacher
 from .utils import get_teacher_for_user
 from django.contrib.auth.models import User
-from .serializers import StudentProfileSerializer, ValidationService,TeacherSerializer
+from .serializers import StudentProfileSerializer, ValidationService, TeacherSerializer
 from django.contrib.auth import authenticate
 # =====================================================================
 # SDD MODULE: TEACHER REGISTRATION
@@ -306,33 +310,39 @@ class TeacherProfileUpdateController(APIView):
             errors["last_name"] = "Last name is required."
         if not email or "@" not in email:
             errors["email"] = "A valid email address is required."
-        if password and len(password) < 6:
-            errors["password"] = "Password must be at least 6 characters."
+        if password:
+            try:
+                validate_password(password, user=user)
+            except DjangoValidationError as exc:
+                errors["password"] = list(exc.messages)
         if errors:
             return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check email uniqueness (exclude the current user)
-        if User.objects.filter(email=email).exclude(pk=user.pk).exists():
+        # Check email uniqueness (exclude the current user and teacher)
+        if User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).exclude(pk=user.pk).exists() or \
+           Teacher.objects.filter(email__iexact=email).exclude(email__iexact=user.email).exists():
             return Response(
                 {"errors": {"email": "This email is already in use."}},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Update the Django User row
-        user.first_name = first_name
-        user.last_name  = last_name
-        user.email      = email
-        user.username   = email   # username == email convention used at registration
-        if password:
-            user.set_password(password)
-        user.save()
+        old_email = user.email
 
-        # Keep the Teacher mirror-row in sync
-        from .models import Teacher
-        Teacher.objects.filter(email__iexact=user.email).update(
-            name=f"{first_name} {last_name}".strip(),
-            email=email,
-        )
+        with transaction.atomic():
+            # Update the Django User row
+            user.first_name = first_name
+            user.last_name  = last_name
+            user.email      = email
+            user.username   = email   # username == email convention used at registration
+            if password:
+                user.set_password(password)
+            user.save()
+
+            # Keep the Teacher mirror-row in sync
+            Teacher.objects.filter(email__iexact=old_email).update(
+                name=f"{first_name} {last_name}".strip(),
+                email=email,
+            )
 
         return Response(
             {
