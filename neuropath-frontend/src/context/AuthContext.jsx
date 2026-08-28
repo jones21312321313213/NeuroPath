@@ -56,13 +56,29 @@ export function AuthProvider({ children }) {
 
       const data = await usersAPI.updateProfile(formData);
 
+      // Unpack response payload before merging (handles { user: ... }, { teacher: ... }, or flat)
+      const updatedUser = (data && (data.user || data.teacher)) || data || {};
+
       // Merge updated fields back into React state + localStorage
       const updated = {
         ...user,
-        ...data,
+        ...updatedUser,
         ...(profilePicture ? { profile_picture: profilePicture } : {}),
       };
-      localStorage.setItem("neuropath_user", JSON.stringify(updated));
+
+      try {
+        localStorage.setItem("neuropath_user", JSON.stringify(updated));
+      } catch (e) {
+        console.warn("Failed to persist user profile to localStorage:", e);
+        try {
+          const fallbackUser = { ...updated };
+          delete fallbackUser.profile_picture;
+          localStorage.setItem("neuropath_user", JSON.stringify(fallbackUser));
+        } catch {
+          // Ignore further storage errors (e.g. QuotaExceededError)
+        }
+      }
+
       setUser(updated);
 
       return data;
