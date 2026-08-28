@@ -2,6 +2,8 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
+from django.db.models import Q
 from .models import StudentProfile, Teacher
 
 
@@ -134,7 +136,7 @@ class TeacherSerializer(serializers.ModelSerializer):
         email = value.strip().lower()
         if not email:
             raise serializers.ValidationError('This field may not be blank.')
-        if User.objects.filter(email__iexact=email).exists() or Teacher.objects.filter(email__iexact=email).exists():
+        if User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).exists() or Teacher.objects.filter(email__iexact=email).exists():
             raise serializers.ValidationError('An account with this email already exists.')
         return email
 
@@ -145,6 +147,7 @@ class TeacherSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(list(exc.messages))
         return value
 
+    @transaction.atomic
     def create(self, validated_data):
         email = validated_data['email'].strip().lower()
         validated_data['email'] = email

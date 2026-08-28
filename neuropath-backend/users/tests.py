@@ -1,3 +1,4 @@
+from unittest import mock
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
@@ -159,6 +160,95 @@ class TeacherProfileUpdateFieldRulesTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         teacher.refresh_from_db()
         self.assertEqual(teacher.email, "new.owner.email@example.com")
+
+    def test_login_succeeds_with_new_email_after_profile_update(self):
+        """Teacher can immediately authenticate using the new email after profile update."""
+        Teacher.objects.create(
+            name="Owner One",
+            email="owner@example.com",
+            passwordHash="not-used",
+        )
+        self._authenticate()
+
+        # Update profile email
+        response = self.client.patch(
+            self.url,
+            {
+                "first_name": "Owner",
+                "last_name": "One",
+                "email": "updated.owner@example.com",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Clear authentication credentials from client to simulate a fresh login
+        self.client.credentials()
+
+        # Attempt login using the updated email and original password
+        login_url = reverse("teacher-login")
+        login_response = self.client.post(
+            login_url,
+            {
+                "email": "updated.owner@example.com",
+                "password": "owner-original-pw",
+            },
+            format="json",
+        )
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+        self.assertIn("token", login_response.data)
+        self.assertEqual(login_response.data["teacher"]["email"], "updated.owner@example.com")
+
+    def test_login_succeeds_with_new_email_and_new_password_after_profile_update(self):
+        """Teacher can authenticate using new email and new password when both are updated."""
+        Teacher.objects.create(
+            name="Owner One",
+            email="owner@example.com",
+            passwordHash="not-used",
+        )
+        self._authenticate()
+
+        response = self.client.patch(
+            self.url,
+            {
+                "first_name": "Owner",
+                "last_name": "One",
+                "email": "new.both@example.com",
+                "password": "NewSecretPassword123!@#",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.client.credentials()
+
+        login_url = reverse("teacher-login")
+        login_response = self.client.post(
+            login_url,
+            {
+                "email": "new.both@example.com",
+                "password": "NewSecretPassword123!@#",
+            },
+            format="json",
+        )
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+        self.assertIn("token", login_response.data)
+
+    def test_profile_update_rejects_email_matching_another_users_username(self):
+        """Profile update rejects email if it collides with another user's username."""
+        self._authenticate()
+
+        response = self.client.patch(
+            self.url,
+            {
+                "first_name": "Owner",
+                "last_name": "One",
+                "email": "victim@example.com",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("email", response.data["errors"])
 
 
 class UsersAuthAndTenantIsolationTests(TestCase):
@@ -456,4 +546,21 @@ class TeacherRegistrationSecurityTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(User.objects.filter(email='valid@example.com').exists())
         self.assertTrue(Teacher.objects.filter(email='valid@example.com').exists())
+
+    @mock.patch('users.serializers.Teacher.objects.create')
+    def test_registration_atomic_rollback_on_teacher_creation_failure(self, mock_teacher_create):
+        """If Teacher creation fails during registration, the User record is rolled back atomically."""
+        mock_teacher_create.side_effect = RuntimeError("Simulated failure during Teacher creation")
+
+        with self.assertRaises(RuntimeError):
+            self.client.post('/api/users/register/', {
+                'username': 'atomic.fail@example.com',
+                'email': 'atomic.fail@example.com',
+                'password': 'StrongPass123!@#',
+                'first_name': 'Atomic',
+                'last_name': 'Test',
+            }, format='json')
+
+        self.assertFalse(User.objects.filter(email='atomic.fail@example.com').exists())
+        self.assertFalse(Teacher.objects.filter(email='atomic.fail@example.com').exists())
 

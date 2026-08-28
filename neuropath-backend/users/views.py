@@ -7,6 +7,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
+from django.db.models import Q
 from .models import StudentProfile, Teacher
 from .utils import get_teacher_for_user
 from django.contrib.auth.models import User
@@ -317,7 +319,7 @@ class TeacherProfileUpdateController(APIView):
             return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
 
         # Check email uniqueness (exclude the current user and teacher)
-        if User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists() or \
+        if User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).exclude(pk=user.pk).exists() or \
            Teacher.objects.filter(email__iexact=email).exclude(email__iexact=user.email).exists():
             return Response(
                 {"errors": {"email": "This email is already in use."}},
@@ -326,20 +328,21 @@ class TeacherProfileUpdateController(APIView):
 
         old_email = user.email
 
-        # Update the Django User row
-        user.first_name = first_name
-        user.last_name  = last_name
-        user.email      = email
-        user.username   = email   # username == email convention used at registration
-        if password:
-            user.set_password(password)
-        user.save()
+        with transaction.atomic():
+            # Update the Django User row
+            user.first_name = first_name
+            user.last_name  = last_name
+            user.email      = email
+            user.username   = email   # username == email convention used at registration
+            if password:
+                user.set_password(password)
+            user.save()
 
-        # Keep the Teacher mirror-row in sync
-        Teacher.objects.filter(email__iexact=old_email).update(
-            name=f"{first_name} {last_name}".strip(),
-            email=email,
-        )
+            # Keep the Teacher mirror-row in sync
+            Teacher.objects.filter(email__iexact=old_email).update(
+                name=f"{first_name} {last_name}".strip(),
+                email=email,
+            )
 
         return Response(
             {
