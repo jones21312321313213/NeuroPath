@@ -1,9 +1,48 @@
 from django.test import TestCase
-from rest_framework.test import APIClient
 from rest_framework import status
+from rest_framework.test import APIClient
 
 from common_test_utils import create_teacher_with_login, create_student
+from tracking.views import BinaryReportRenderEngine
+from users.models import StudentProfile
 from .models import StudentProgress
+
+
+class BinaryReportRenderEngineTestCase(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user, self.teacher, self.token = create_teacher_with_login('teacher@test.com')
+        self.student = StudentProfile.objects.create(
+            name='Alice Johnson',
+            age=8,
+            grade=2,
+            gender='Female',
+            teacher=self.teacher,
+            diagnosis='Autism Spectrum Disorder',
+            support_needs='Visual cues, structured routine',
+            learning_style='Visual / Kinesthetic',
+            assessmentResult='Baseline evaluation complete.'
+        )
+
+    def test_generate_report_stream_valid_pdf_structure(self):
+        pdf_stream = BinaryReportRenderEngine.generate_report_stream(self.student)
+        content = pdf_stream.getvalue()
+
+        # PDF must start with valid header
+        self.assertTrue(content.startswith(b'%PDF-'))
+        # PDF must contain valid trailer / EOF marker
+        self.assertTrue(b'%%EOF' in content)
+        # PDF must be non-trivial ReportLab binary output (> 1000 bytes)
+        self.assertGreater(len(content), 1000)
+
+    def test_export_record_pdf_endpoint(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        response = self.client.get(f'/api/tracking/student-records/{self.student.pk}/export/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertIn(f'StudentRecord_{self.student.pk}.pdf', response['Content-Disposition'])
+        self.assertTrue(response.content.startswith(b'%PDF-'))
+        self.assertTrue(b'%%EOF' in response.content)
 
 
 class TrackingAuthAndTenantIsolationTests(TestCase):
