@@ -9,6 +9,7 @@ from users.utils import get_teacher_for_user
 from tracking.models import AIGenerationLog
 from .models import Assessment, IEPGoal, IEPModel,GeneratedAIInsight
 from django.shortcuts import get_object_or_404
+from django.db import transaction
 from .services import AIGenerationService
 from .huggingface_service import CustomLlamaService
 from .rgori_service import RGORICheckerService
@@ -115,29 +116,33 @@ class IEPGenerationAPIView(APIView):
             except StudentProfile.DoesNotExist:
                 return Response({'error': 'Student not found for this teacher account.'}, status=status.HTTP_404_NOT_FOUND)
 
-            # Auto-version per student.
-            if student_id and not payload.get('version'):
-                latest = IEPModel.objects.filter(studentID_id=student_id).order_by('-version').first()
-                payload['version'] = (latest.version + 1) if latest else 1
-
             payload.pop('teacherID', None)
 
-            serializer = IEPDataSerializer(data=payload)
-            if serializer.is_valid():
-                iep_instance = serializer.save()
+            with transaction.atomic():
+                # Lock the student record to serialize concurrent version calculations
+                StudentProfile.objects.select_for_update().get(pk=student_id)
 
-                # NOTE: IEPGoal rows are NOT created here intentionally.
-                # The actual AI-generated goals are created separately by
-                # GenerateIEPGoalsFromIEPView (POST /iep/generate-goals-from-iep/)
-                # and then saved via StandaloneIEPGoalViewSet (POST /iep/goals/).
-                # Creating goals here too caused duplicate tables in the frontend.
+                # Auto-version per student.
+                if not payload.get('version'):
+                    latest = IEPModel.objects.filter(studentID_id=student_id).order_by('-version').first()
+                    payload['version'] = (latest.version + 1) if latest else 1
 
-                return Response({
-                    'message': 'IEP Created Successfully.',
-                    'data': IEPListDetailSerializer(iep_instance).data,
-                }, status=status.HTTP_201_CREATED)
+                serializer = IEPDataSerializer(data=payload)
+                if serializer.is_valid():
+                    iep_instance = serializer.save()
 
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    # NOTE: IEPGoal rows are NOT created here intentionally.
+                    # The actual AI-generated goals are created separately by
+                    # GenerateIEPGoalsFromIEPView (POST /iep/generate-goals-from-iep/)
+                    # and then saved via StandaloneIEPGoalViewSet (POST /iep/goals/).
+                    # Creating goals here too caused duplicate tables in the frontend.
+
+                    return Response({
+                        'message': 'IEP Created Successfully.',
+                        'data': IEPListDetailSerializer(iep_instance).data,
+                    }, status=status.HTTP_201_CREATED)
+
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({'error': 'Invalid action specified.'}, status=status.HTTP_400_BAD_REQUEST)
 
