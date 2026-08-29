@@ -1,11 +1,37 @@
 import json
 from django.test import TestCase
+from django.urls import resolve
 from rest_framework.test import APIClient
 from rest_framework import status
 
 from common_test_utils import create_teacher_with_login, create_student
 from iep_management.models import IEPModel, IEPGoal
+from resources.urls import urlpatterns
 from .models import LessonPlan, VisualAid, TeachingStrategy
+
+
+class ResourceUrlRoutingTestCase(TestCase):
+    def test_no_duplicate_router_include(self):
+        router_includes = [
+            p for p in urlpatterns
+            if hasattr(p, 'url_patterns') and any(
+                'lesson-plans' in getattr(pattern, 'pattern', '').regex.pattern
+                for pattern in getattr(p, 'url_patterns', [])
+                if hasattr(getattr(pattern, 'pattern', None), 'regex')
+            )
+        ]
+        # Must only include router.urls once
+        self.assertEqual(len(router_includes), 1)
+
+    def test_resource_url_resolutions(self):
+        match_lesson = resolve('/api/resources/generate-lesson/')
+        self.assertEqual(match_lesson.view_name, 'generate-lesson-plan')
+
+        match_visual = resolve('/api/resources/generate-visual-aid/')
+        self.assertEqual(match_visual.view_name, 'generate-visual-aid')
+
+        match_strategy = resolve('/api/resources/generate-strategy/')
+        self.assertEqual(match_strategy.view_name, 'generate-teaching-strategy')
 
 
 class ResourcesAuthAndTenantIsolationTests(TestCase):
