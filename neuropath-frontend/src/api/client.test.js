@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { authAPI, studentsAPI, usersAPI } from "./client";
+import { authAPI, studentsAPI, usersAPI, trackingAPI } from "./client";
+
 
 function jsonResponse(body, { ok = true, status } = {}) {
   const resolvedStatus = status !== undefined ? status : ok ? 200 : 400;
@@ -189,4 +190,47 @@ describe("api client", () => {
     expect(localStorage.getItem("neuropath_user")).toBeNull();
     expect(replaceSpy).toHaveBeenCalledWith("/login");
   });
+
+  describe("trackingAPI", () => {
+    it("fetches progress dashboard for a student", async () => {
+      fetch.mockResolvedValueOnce(jsonResponse([{ name: "Math", progress: 85 }]));
+
+      const result = await trackingAPI.getProgressDashboard(12);
+
+      expect(result).toEqual([{ name: "Math", progress: 85 }]);
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/tracking/progress-dashboard/?studentID=12",
+        expect.objectContaining({
+          headers: expect.objectContaining({ "Content-Type": "application/json" }),
+        }),
+      );
+    });
+
+    it("fetches analytics with optional subject query parameter", async () => {
+      fetch.mockResolvedValueOnce(jsonResponse([{ performanceScore: 90 }]));
+
+      await trackingAPI.getAnalytics(12, "Math");
+
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/tracking/analytics/?studentID=12&subject=Math",
+        expect.anything(),
+      );
+    });
+
+    it("posts progress log to analytics endpoint", async () => {
+      fetch.mockResolvedValueOnce(jsonResponse({ progressID: 5 }, { status: 201 }));
+
+      const payload = { studentID: 12, subjectName: "Reading", performanceScore: 78 };
+      await trackingAPI.recordProgress(payload);
+
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/tracking/analytics/",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify(payload),
+        }),
+      );
+    });
+  });
 });
+
