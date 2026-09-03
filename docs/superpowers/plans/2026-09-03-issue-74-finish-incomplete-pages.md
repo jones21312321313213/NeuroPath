@@ -81,7 +81,7 @@ The frontend requires real per-student subject progress data (progress percentag
   - Body: `{"studentID": 1, "subjectName": "Math", "performanceScore": 85}`
   - Returns `201 Created` with created record.
 
-- [ ] **Step 1: Write failing tests for backend progress dashboard and logging**
+- [x] **Step 1: Write failing tests for backend progress dashboard and logging**
 
 In `neuropath-backend/tracking/tests.py`, add tests:
 
@@ -145,7 +145,7 @@ In `neuropath-backend/tracking/tests.py`, add tests:
         )
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 ```powershell
@@ -153,7 +153,7 @@ python manage.py test tracking
 ```
 Expected: FAIL with 404 (route `/api/tracking/progress-dashboard/` does not exist).
 
-- [ ] **Step 3: Implement `StudentProgressDashboardView` and `POST` in `tracking/views.py`**
+- [x] **Step 3: Implement `StudentProgressDashboardView` and `POST` in `tracking/views.py`**
 
 In `neuropath-backend/tracking/views.py`:
 1. Add `post` method to `ProgressAnalyticsAPIView`:
@@ -282,7 +282,7 @@ class StudentProgressDashboardView(APIView):
         return Response(results, status=status.HTTP_200_OK)
 ```
 
-- [ ] **Step 4: Register route in `neuropath-backend/tracking/urls.py`**
+- [x] **Step 4: Register route in `neuropath-backend/tracking/urls.py`**
 
 Modify `neuropath-backend/tracking/urls.py`:
 ```python
@@ -313,7 +313,7 @@ urlpatterns = [
 ]
 ```
 
-- [ ] **Step 5: Run tests and linter**
+- [x] **Step 5: Run tests and linter**
 
 Run:
 ```powershell
@@ -323,7 +323,7 @@ python manage.py test tracking
 ```
 Expected: All tests pass and ruff reports no issues.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add neuropath-backend/tracking/views.py neuropath-backend/tracking/urls.py neuropath-backend/tracking/tests.py
@@ -346,7 +346,7 @@ Add `trackingAPI` to `neuropath-frontend/src/api/client.js` so the frontend has 
   - `trackingAPI.getAnalytics(studentId, subject)` -> `GET /tracking/analytics/?studentID=<studentId>[&subject=<subject>]`
   - `trackingAPI.recordProgress(payload)` -> `POST /tracking/analytics/` with JSON payload
 
-- [ ] **Step 1: Add unit tests for `trackingAPI` in `client.test.js`**
+- [x] **Step 1: Add unit tests for `trackingAPI` in `client.test.js`**
 
 Add to `neuropath-frontend/src/api/client.test.js`:
 
@@ -401,7 +401,7 @@ describe("trackingAPI", () => {
 });
 ```
 
-- [ ] **Step 2: Implement `trackingAPI` in `client.js`**
+- [x] **Step 2: Implement `trackingAPI` in `client.js`**
 
 Export `trackingAPI` at the end of `neuropath-frontend/src/api/client.js`:
 
@@ -423,7 +423,7 @@ export const trackingAPI = {
 };
 ```
 
-- [ ] **Step 3: Run unit tests and lint**
+- [x] **Step 3: Run unit tests and lint**
 
 Run:
 ```powershell
@@ -432,7 +432,7 @@ npm run lint
 ```
 Expected: Tests pass without lint errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add neuropath-frontend/src/api/client.js neuropath-frontend/src/api/client.test.js
@@ -455,7 +455,7 @@ Wire `ViewProgressDashboard.jsx` to fetch real subject progress data from `track
   - `subjectsLoading`: boolean indicating fetch in progress
   - `subjectsError`: string error message if fetch fails
 
-- [ ] **Step 1: Update `ViewProgressDashboard.jsx`**
+- [x] **Step 1: Update `ViewProgressDashboard.jsx`**
 
 1. Import `trackingAPI` alongside `studentsAPI`:
 ```javascript
@@ -625,7 +625,7 @@ function LineChart({ data, months }) {
   }
 ```
 
-- [ ] **Step 2: Run frontend verification**
+- [x] **Step 2: Run frontend verification**
 
 Run:
 ```powershell
@@ -634,7 +634,7 @@ npm run build
 ```
 Expected: Clean build without errors or warnings.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add neuropath-frontend/src/pages/ViewProgressDashboard.jsx
@@ -655,7 +655,7 @@ Create a user-friendly 404 page matching the NeuroPath aesthetic and update `App
 **Interfaces:**
 - Produces: `<NotFoundPage />` rendered on `path="*"`
 
-- [ ] **Step 1: Create `NotFoundPage.jsx`**
+- [x] **Step 1: Create `NotFoundPage.jsx`**
 
 Create `neuropath-frontend/src/pages/NotFoundPage.jsx`:
 
@@ -696,7 +696,7 @@ export default function NotFoundPage() {
 }
 ```
 
-- [ ] **Step 2: Create `NotFound.css`**
+- [x] **Step 2: Create `NotFound.css`**
 
 Create `neuropath-frontend/src/styles/NotFound.css`:
 
@@ -779,7 +779,7 @@ Create `neuropath-frontend/src/styles/NotFound.css`:
 }
 ```
 
-- [ ] **Step 3: Wire 404 Route in `App.jsx`**
+- [x] **Step 3: Wire 404 Route in `App.jsx`**
 
 In `neuropath-frontend/src/App.jsx`:
 1. Import `NotFoundPage`:
@@ -792,7 +792,7 @@ import NotFoundPage from "./pages/NotFoundPage";
           <Route path="*" element={<NotFoundPage />} />
 ```
 
-- [ ] **Step 4: Run frontend verification**
+- [x] **Step 4: Run frontend verification**
 
 Run:
 ```powershell
@@ -801,7 +801,7 @@ npm run build
 ```
 Expected: Clean build with no errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add neuropath-frontend/src/pages/NotFoundPage.jsx neuropath-frontend/src/styles/NotFound.css neuropath-frontend/src/App.jsx
@@ -817,7 +817,7 @@ Remove the dead `"ai-insight"` route and unused `Placeholder` component from `Ap
 **Files:**
 - Modify: `neuropath-frontend/src/App.jsx:24-108`
 
-- [ ] **Step 1: Clean up `App.jsx`**
+- [x] **Step 1: Clean up `App.jsx`**
 
 1. Remove line 30 in `breadcrumbMap`:
 ```javascript
@@ -831,7 +831,7 @@ Remove the dead `"ai-insight"` route and unused `Placeholder` component from `Ap
 //   return <Placeholder title="Analyze & Generate AI Insight" />;
 ```
 
-- [ ] **Step 2: Run frontend verification**
+- [x] **Step 2: Run frontend verification**
 
 Run:
 ```powershell
@@ -840,7 +840,7 @@ npm run build
 ```
 Expected: Lint passes and build succeeds with zero dead code warnings.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add neuropath-frontend/src/App.jsx
@@ -853,7 +853,7 @@ git commit -m "refactor(routing): remove orphaned ai-insight placeholder route a
 
 Verify the entire repository against all acceptance criteria and Definition of Done.
 
-- [ ] **Step 1: Run full backend verification**
+- [x] **Step 1: Run full backend verification**
 
 Run:
 ```powershell
@@ -863,7 +863,7 @@ python manage.py test
 ```
 Expected: All lints pass, system check identifies 0 issues, and all unit tests pass.
 
-- [ ] **Step 2: Run full frontend verification**
+- [x] **Step 2: Run full frontend verification**
 
 Run:
 ```powershell
@@ -873,7 +873,7 @@ npm run build
 ```
 Expected: All ESLint checks pass, Vitest tests pass, and Vite production build succeeds.
 
-- [ ] **Step 3: Verify Acceptance Criteria**
+- [x] **Step 3: Verify Acceptance Criteria**
 1. Progress Dashboard reflects real student data from backend endpoints (`/api/tracking/progress-dashboard/`), with no `MOCK_SUBJECTS` remaining in frontend code.
 2. Navigating to an unknown URL displays `NotFoundPage` (404) with clear recovery buttons.
 3. The dead `ai-insight` placeholder route is eradicated from navigation and `App.jsx`.

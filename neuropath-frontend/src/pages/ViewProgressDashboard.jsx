@@ -15,7 +15,7 @@ function EmptyState({ message }) {
   );
 }
 
-function LineChart({ data, months }) {
+function LineChart({ data = [], months = [] }) {
   if (!data || data.length === 0) return null;
   const w = 280,
     h = 100,
