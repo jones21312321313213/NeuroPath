@@ -128,3 +128,24 @@ class ResourcesAuthAndTenantIsolationTests(TestCase):
         response = self.client.get('/api/resources/instructional-support/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['userContext']['email'], self.teacher1.email)
+
+    def test_visual_aid_detail_returns_clean_image_url(self):
+        self._auth(self.token1)
+        response = self.client.get(f'/api/resources/visual-aids/{self.visual_aid.pk}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['imageUrl'], self.visual_aid.imageUrl)
+        self.assertNotIn('stream_auth', response.data['imageUrl'])
+
+    def test_visual_aid_list_returns_clean_image_url(self):
+        self._auth(self.token1)
+        response = self.client.get(f'/api/resources/visual-aids/?student_id={self.student1.pk}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]['imageUrl'], self.visual_aid.imageUrl)
+        self.assertNotIn('stream_auth', response.data[0]['imageUrl'])
+
+    def test_visual_aid_delete_succeeds(self):
+        self._auth(self.token1)
+        response = self.client.delete(f'/api/resources/visual-aids/{self.visual_aid.pk}/')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(VisualAid.objects.filter(pk=self.visual_aid.pk).exists())
+
