@@ -19,7 +19,9 @@ import ViewStudentProfile from "./pages/StudentProfiling/ViewStudentProfile";
 import ViewSelectedStudentProfile from "./pages/StudentProfiling/ViewSelectedStudentProfile";
 import UpdateStudentProfile from "./pages/StudentProfiling/UpdateStudentProfile";
 import LoginSplash from "./components/LoginSplash";
+import NotFoundPage from "./pages/NotFoundPage";
 import "./App.css";
+
 
 const breadcrumbMap = {
   overview: "DASHBOARD/Overview",
@@ -199,7 +201,7 @@ function AppRoutes() {
           />
 
           {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       )}
     </>
