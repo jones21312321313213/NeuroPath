@@ -181,9 +181,9 @@ NeuroPath operates on a Python/Django backend with a React frontend, backed by a
 | **Charts & Analytics** | Recharts / Chart.js | Progress dashboards & goal attainment visualization |
 | **Backend Framework** | Django + Django REST Framework (DRF) | RESTful API server & business logic |
 | **Database** | PostgreSQL (via Supabase) | Relational storage for users, students, IEPs, and progress logs |
-| **Database Host** | Supabase | Managed PostgreSQL — auth, storage, and real-time capabilities |
+| **Database Host** | Supabase | Managed PostgreSQL instance |
 | **ORM** | Django ORM | Database abstraction & migration management |
-| **Authentication** | Simple JWT (`djangorestframework-simplejwt`) + bcrypt | Secure teacher authentication & session management |
+| **Authentication** | Django REST Framework TokenAuthentication (`rest_framework.authtoken`) + bcrypt | Secure teacher authentication & session management |
 | **AI Engine** | OpenAI API (GPT-4o) | Adaptive IEP goal generation from PLAAFP baseline data |
 | **Validation** | Custom R-GORI Scoring Engine | Automated pedagogical compliance checking at ≥ 65% threshold |
 | **PDF Generation** | ReportLab / WeasyPrint | Printable IEP documents, lesson plans & visual aids |
@@ -239,7 +239,7 @@ A secure, web-based database module that aggregates daily behavioral tallies and
 
 **Key capabilities:**
 - Progress dashboards with visual goal attainment forecasting
-- Secure data access with standard cryptographic protocols (JWT + bcrypt)
+- Secure data access with standard cryptographic protocols (DRF TokenAuthentication + bcrypt)
 - SUS-validated usability interface
 - Role-based access control (teacher, administrator)
 
@@ -386,20 +386,6 @@ DB_HOST=db.<your-supabase-project-ref>.supabase.co
 DB_PORT=5432
 
 # ───────────────────────────────────────────
-# SUPABASE (Direct client access — optional)
-# ───────────────────────────────────────────
-SUPABASE_URL=https://<your-supabase-project-ref>.supabase.co
-SUPABASE_ANON_KEY=TOKEN
-SUPABASE_SERVICE_ROLE_KEY=TOKEN
-
-# ───────────────────────────────────────────
-# AUTHENTICATION (Simple JWT)
-# ───────────────────────────────────────────
-JWT_SECRET_KEY=TOKEN
-JWT_ACCESS_TOKEN_LIFETIME_MINUTES=60
-JWT_REFRESH_TOKEN_LIFETIME_DAYS=7
-
-# ───────────────────────────────────────────
 # AI ENGINE (OpenAI)
 # ───────────────────────────────────────────
 OPENAI_API_KEY=TOKEN
@@ -437,13 +423,7 @@ EMAIL_HOST_PASSWORD=TOKEN
 # ───────────────────────────────────────────
 # API
 # ───────────────────────────────────────────
-VITE_API_BASE_URL=http://localhost:8000/api
-
-# ───────────────────────────────────────────
-# SUPABASE (Frontend direct access — optional)
-# ───────────────────────────────────────────
-VITE_SUPABASE_URL=TOKEN
-VITE_SUPABASE_ANON_KEY=TOKEN
+VITE_API_URL=http://localhost:8000/api
 
 # ───────────────────────────────────────────
 # FEATURE FLAGS
@@ -453,7 +433,7 @@ VITE_ENABLE_VISUAL_AIDS=true
 VITE_ENABLE_ANALYTICS_DASHBOARD=true
 ```
 
-> ⚠️ **Security Note:** Never expose your `OPENAI_API_KEY`, `JWT_SECRET_KEY`, `DB_PASSWORD`, or `SUPABASE_SERVICE_ROLE_KEY` to the frontend. All sensitive keys must live exclusively in the backend `.env` file and be accessed only server-side. The `SUPABASE_ANON_KEY` is safe to expose on the frontend as it is governed by Supabase Row Level Security (RLS) policies.
+> ⚠️ **Security Note:** Never expose backend secrets such as `DB_PASSWORD`, `HF_TOKEN`, or `GROQ_API_KEY` to the frontend. All sensitive keys must live exclusively in the backend `.env` file and be accessed only server-side.
 
 ---
 
