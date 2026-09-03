@@ -29,7 +29,6 @@ const breadcrumbMap = {
   "create-student-profile": "DASHBOARD/Student Profiling",
   "view-student-profile": "DASHBOARD/Student Profiling",
   "update-student-profile": "DASHBOARD/Student Profiling",
-  "ai-insight": "DASHBOARD/Student Profiling",
   "iep-generation": "DASHBOARD/AI-Based IEP Generation",
   "generate-iep": "DASHBOARD/AI-Based IEP Generation/ Generate IEP",
   "view-iep": "DASHBOARD/AI-Based IEP Generation/ View IEP",
@@ -40,17 +39,6 @@ const breadcrumbMap = {
   "view-progress-dashboard":
     "DASHBOARD/Outcome Monitoring/ View Progress Dashboard",
 };
-
-function Placeholder({ title }) {
-  return (
-    <div className="page-content">
-      <div className="placeholder-page">
-        <h2>{title}</h2>
-        <p>This page is under construction.</p>
-      </div>
-    </div>
-  );
-}
 
 function renderPage(
   activePage,
@@ -86,8 +74,6 @@ function renderPage(
           onBack={() => setActivePage("view-student-profile")}
         />
       );
-    case "ai-insight":
-      return <Placeholder title="Analyze & Generate AI Insight" />;
     case "iep-generation":
     case "generate-iep":
       return <IEPGenerationPage mode="generate" />;
@@ -99,13 +85,13 @@ function renderPage(
       return <ManageVisualAids />;
     case "manage-teaching-strategies":
       return <ManageTeachingStrategies />;
-
-    default:
-      return <Overview setActivePage={setActivePage} />;
     case "view-student-records":
       return <ViewStudentRecords />;
     case "view-progress-dashboard":
       return <ViewProgressDashboard />;
+
+    default:
+      return <Overview setActivePage={setActivePage} />;
   }
 }
 
