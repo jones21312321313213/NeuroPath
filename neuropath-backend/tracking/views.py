@@ -202,3 +202,124 @@ class ProgressAnalyticsAPIView(APIView):
         serializer = ProgressAnalyticsSerializer(raw_trend_data, many=True)
         
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, *args, **kwargs):
+        """Matches SDD: Records a new progress performance log for a student."""
+        student_id = request.data.get('studentID')
+        subject_name = request.data.get('subjectName')
+        performance_score = request.data.get('performanceScore')
+
+        if not student_id or not subject_name or performance_score is None:
+            return Response(
+                {"error": "studentID, subjectName, and performanceScore are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            score = int(performance_score)
+            if not (0 <= score <= 100):
+                raise ValueError()
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "performanceScore must be an integer between 0 and 100."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        teacher = get_teacher_for_user(request.user)
+        try:
+            student = StudentProfile.objects.get(pk=student_id, teacher=teacher)
+        except StudentProfile.DoesNotExist:
+            return Response(
+                {"error": "Student record not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        record = StudentProgress.objects.create(
+            student=student,
+            subjectName=str(subject_name).strip(),
+            performanceScore=score,
+        )
+        serializer = ProgressAnalyticsSerializer(record)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+# =====================================================================
+# SDD COMPONENT: StudentProgressDashboardView
+# Description: Aggregates chronological StudentProgress records into
+#              per-subject summaries for the Outcome Monitoring Dashboard.
+# =====================================================================
+class StudentProgressDashboardView(APIView):
+    permission_classes = [SessionAuthenticationGuard]
+
+    def get(self, request, *args, **kwargs):
+        student_id = request.query_params.get('studentID')
+        if not student_id:
+            return Response(
+                {"error": "A valid studentID query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        teacher = get_teacher_for_user(request.user)
+        if not teacher or not StudentProfile.objects.filter(pk=student_id, teacher=teacher).exists():
+            return Response(
+                {"error": "Student record not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        records = (
+            StudentProgress.objects
+            .filter(student__pk=student_id, student__teacher=teacher)
+            .order_by('dateLogged')
+        )
+
+        if not records.exists():
+            return Response([], status=status.HTTP_200_OK)
+
+        # Group chronologically by subject
+        subjects_map = {}
+        for rec in records:
+            subj = rec.subjectName.strip() if rec.subjectName else "General"
+            if subj not in subjects_map:
+                subjects_map[subj] = []
+            subjects_map[subj].append(rec)
+
+        def compute_level(score):
+            if score < 50:
+                return "Emerging"
+            elif score < 75:
+                return "Developing"
+            elif score < 90:
+                return "Proficient"
+            return "Advanced"
+
+        def compute_target(score):
+            if score < 50:
+                return "Developing"
+            elif score < 75:
+                return "Proficient"
+            return "Advanced"
+
+        results = []
+        for subj_name, entries in subjects_map.items():
+            latest = entries[-1]
+            latest_score = latest.performanceScore
+            scores = [e.performanceScore for e in entries]
+            months = [e.dateLogged.strftime("%b") for e in entries]
+            total_count = len(scores)
+            mastered_count = sum(1 for s in scores if s >= 75)
+
+            results.append({
+                "id": latest.progressID,
+                "name": subj_name,
+                "progress": latest_score,
+                "status": "On Track" if latest_score >= 70 else "Needs Support",
+                "lastUpdated": latest.dateLogged.strftime("%B %d, %Y"),
+                "assessmentsCompleted": f"{total_count} / {total_count}",
+                "skillsMastered": f"{mastered_count} / {total_count}",
+                "currentLevel": compute_level(latest_score),
+                "targetLevel": compute_target(latest_score),
+                "chartData": scores,
+                "months": months,
+            })
+
+        return Response(results, status=status.HTTP_200_OK)

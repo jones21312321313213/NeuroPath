@@ -80,3 +80,62 @@ class TrackingAuthAndTenantIsolationTests(TestCase):
         self._auth(self.token1)
         response = self.client.get('/api/tracking/analytics/', {'studentID': self.student1.pk})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    # ---- Progress Dashboard Tests ----
+
+    def test_unauthenticated_progress_dashboard_rejected(self):
+        response = self.client.get('/api/tracking/progress-dashboard/', {'studentID': self.student1.pk})
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_progress_dashboard_missing_student_id_rejected(self):
+        self._auth(self.token1)
+        response = self.client.get('/api/tracking/progress-dashboard/')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cross_teacher_cannot_view_progress_dashboard(self):
+        self._auth(self.token2)
+        response = self.client.get('/api/tracking/progress-dashboard/', {'studentID': self.student1.pk})
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_progress_dashboard_empty_when_no_records(self):
+        student_empty = create_student(self.teacher1, name='Empty Student')
+        self._auth(self.token1)
+        response = self.client.get('/api/tracking/progress-dashboard/', {'studentID': student_empty.pk})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [])
+
+    def test_progress_dashboard_returns_aggregated_subject_data(self):
+        # Create additional progress data points
+        StudentProgress.objects.create(
+            student=self.student1, subjectName='Math', performanceScore=90,
+        )
+        StudentProgress.objects.create(
+            student=self.student1, subjectName='Reading', performanceScore=60,
+        )
+        self._auth(self.token1)
+        response = self.client.get('/api/tracking/progress-dashboard/', {'studentID': self.student1.pk})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+
+        math_subj = next((s for s in response.data if s['name'] == 'Math'), None)
+        self.assertIsNotNone(math_subj)
+        self.assertEqual(math_subj['progress'], 90)
+        self.assertEqual(math_subj['status'], 'On Track')
+        self.assertEqual(math_subj['chartData'], [80, 90])
+        self.assertEqual(len(math_subj['months']), 2)
+
+    def test_record_progress_via_post(self):
+        self._auth(self.token1)
+        payload = {
+            'studentID': self.student1.pk,
+            'subjectName': 'Science',
+            'performanceScore': 85,
+        }
+        response = self.client.post('/api/tracking/analytics/', payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(
+            StudentProgress.objects.filter(
+                student=self.student1, subjectName='Science', performanceScore=85
+            ).exists()
+        )
+
