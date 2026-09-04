@@ -25,17 +25,17 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-&#qef2xq6#8jz$_e)-j%hyq329arlj7yok$ksib+n#400vll=0'
+SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-production-environment')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env.bool('DEBUG', default=False)
 
 # Hosts this backend will answer for. Defaults match what DEBUG mode allowed
 # implicitly; set ALLOWED_HOSTS in .env to serve a non-localhost deployment
 # without editing this file.
 ALLOWED_HOSTS = env.list(
     'ALLOWED_HOSTS',
-    default=['localhost', '127.0.0.1', '[::1]'],
+    default=['localhost', '127.0.0.1', '[::1]'] if DEBUG else [],
 )
 
 
@@ -91,25 +91,16 @@ WSGI_APPLICATION = 'neuropath_core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-if env('DB_ENGINE', default='') == 'sqlite3':
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
+DATABASES = {
+    'default': {
+        'ENGINE': env('DB_ENGINE', default='django.db.backends.postgresql'),
+        'NAME': env('DB_NAME', default='postgres'),
+        'USER': env('DB_USER', default='postgres'),
+        'PASSWORD': env('DB_PASSWORD', default=''),
+        'HOST': env('DB_HOST', default='localhost'),
+        'PORT': env('DB_PORT', default='5432'),
     }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': env('DB_NAME', default='postgres'),
-            'USER': env('DB_USER', default='postgres.mdlsncdlpgbfjcccavuv'),
-            'PASSWORD': env('DB_PASSWORD', default=''),
-            'HOST': env('DB_HOST', default='aws-1-ap-southeast-1.pooler.supabase.com'),
-            'PORT': env('DB_PORT', default='6543'),
-        }
-    }
-
+}
 
 
 # Password validation

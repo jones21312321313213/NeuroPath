@@ -78,10 +78,7 @@ describe("ViewProgressDashboard", () => {
         progress: 85,
         status: "On Track",
         lastUpdated: "May 15, 2026",
-        assessmentsCompleted: "5 / 5",
-        skillsMastered: "4 / 5",
         currentLevel: "Proficient",
-        targetLevel: "Advanced",
         chartData: [75, 85],
         months: ["Apr", "May"],
       },
@@ -103,7 +100,7 @@ describe("ViewProgressDashboard", () => {
     expect(screen.getByText("85%")).toBeInTheDocument();
     expect(screen.getByText("On Track")).toBeInTheDocument();
     expect(screen.getByText("May 15, 2026", { exact: false })).toBeInTheDocument();
-    expect(screen.getByText("Assessments Completed")).toBeInTheDocument();
+    expect(screen.getByText("Current Level")).toBeInTheDocument();
 
     // Navigate back to subject list
     const backBtn = screen.getByRole("button", { name: /← back/i });
@@ -127,10 +124,7 @@ describe("ViewProgressDashboard", () => {
         progress: 90,
         status: "On Track",
         lastUpdated: "June 01, 2026",
-        assessmentsCompleted: "1 / 1",
-        skillsMastered: "1 / 1",
         currentLevel: "Advanced",
-        targetLevel: "Advanced",
         chartData: [90],
         months: ["Jun"],
       },

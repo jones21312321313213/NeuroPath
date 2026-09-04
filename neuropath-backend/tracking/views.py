@@ -292,21 +292,12 @@ class StudentProgressDashboardView(APIView):
                 return "Proficient"
             return "Advanced"
 
-        def compute_target(score):
-            if score < 50:
-                return "Developing"
-            elif score < 75:
-                return "Proficient"
-            return "Advanced"
-
         results = []
         for subj_name, entries in subjects_map.items():
             latest = entries[-1]
             latest_score = latest.performanceScore
             scores = [e.performanceScore for e in entries]
             months = [e.dateLogged.strftime("%b") for e in entries]
-            total_count = len(scores)
-            mastered_count = sum(1 for s in scores if s >= 75)
 
             results.append({
                 "id": latest.progressID,
@@ -314,10 +305,7 @@ class StudentProgressDashboardView(APIView):
                 "progress": latest_score,
                 "status": "On Track" if latest_score >= 70 else "Needs Support",
                 "lastUpdated": latest.dateLogged.strftime("%B %d, %Y"),
-                "assessmentsCompleted": f"{total_count} / {total_count}",
-                "skillsMastered": f"{mastered_count} / {total_count}",
                 "currentLevel": compute_level(latest_score),
-                "targetLevel": compute_target(latest_score),
                 "chartData": scores,
                 "months": months,
             })

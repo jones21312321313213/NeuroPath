@@ -213,20 +213,8 @@ export default function ViewProgressDashboard() {
                 <div className="om-summary-rows">
                   {[
                     {
-                      label: "Assessments Completed",
-                      value: selectedSubject.assessmentsCompleted,
-                    },
-                    {
-                      label: "Skills Mastered",
-                      value: selectedSubject.skillsMastered,
-                    },
-                    {
                       label: "Current Level",
                       value: selectedSubject.currentLevel,
-                    },
-                    {
-                      label: "Target Level",
-                      value: selectedSubject.targetLevel,
                     },
                   ].map((row) => (
                     <div key={row.label} className="om-summary-row">

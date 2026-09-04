@@ -124,6 +124,25 @@ class TrackingAuthAndTenantIsolationTests(TestCase):
         self.assertEqual(math_subj['chartData'], [80, 90])
         self.assertEqual(len(math_subj['months']), 2)
 
+    def test_unauthenticated_post_analytics_rejected(self):
+        payload = {
+            'studentID': self.student1.pk,
+            'subjectName': 'Science',
+            'performanceScore': 85,
+        }
+        response = self.client.post('/api/tracking/analytics/', payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_cross_teacher_cannot_post_analytics(self):
+        self._auth(self.token2)
+        payload = {
+            'studentID': self.student1.pk,
+            'subjectName': 'Science',
+            'performanceScore': 85,
+        }
+        response = self.client.post('/api/tracking/analytics/', payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_record_progress_via_post(self):
         self._auth(self.token1)
         payload = {
