@@ -2,7 +2,6 @@ from django.db.models import Q
 import io
 import json
 import re
-import uuid
 import requests as http_client
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -578,13 +577,7 @@ class VisualAidViewSet(viewsets.ModelViewSet):
             return Response([], status=status.HTTP_200_OK)
             
         serializer = self.get_serializer(queryset, many=True)
-        response_data = serializer.data
-        
-        # Route every image URL through the MediaStreamingService
-        for item in response_data:
-            item['imageUrl'] = MediaStreamingService.resolve_secure_stream_url(item['imageUrl'])
-            
-        return Response(response_data, status=status.HTTP_200_OK)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def retrieve(self, request, *args, **kwargs):
         """Matches Sequence Diagram: handleSelectVisualAid(aidId) -> return storageUrl String"""
@@ -594,12 +587,7 @@ class VisualAidViewSet(viewsets.ModelViewSet):
             return Response({"error": "Visual aid asset not found."}, status=status.HTTP_404_NOT_FOUND)
             
         serializer = self.get_serializer(instance)
-        response_data = serializer.data
-        
-        # Route the specific image URL through the MediaStreamingService
-        response_data['imageUrl'] = MediaStreamingService.resolve_secure_stream_url(instance.imageUrl)
-        
-        return Response(response_data, status=status.HTTP_200_OK)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
         """Matches Sequence Diagram: [Tab Option Selected = "Generate Visual Aid"]"""
@@ -622,7 +610,7 @@ class VisualAidViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         """
         Matches Sequence Diagram: [confirmDelete == true] -> handleConfirmDeletion(aidId)
-        Executes permission checks, drops the database row, and triggers cloud cleanup.
+        Executes permission checks and drops the database row.
         """
         try:
             instance = self.get_object()
@@ -632,34 +620,14 @@ class VisualAidViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # 1. Capture the file path URL before we erase the record from the database
-        target_image_url = instance.imageUrl
-
-        # 2. Drop the row from the Supabase PostgreSQL table (Classic Django ORM Link)
+        # Drop the row from the database
         self.perform_destroy(instance)
 
-        # 3. Trigger SDD Component: StorageCleanupWorker to maintain cloud hygiene
-        StorageCleanupWorker.purge_orphan_file(target_image_url)
-
-        # 4. Return successful execution state (204 No Content is standard for clean API deletes)
+        # Return successful execution state (204 No Content is standard for clean API deletes)
         return Response(
-            {"message": "Visual Aid database entry and storage file successfully deleted."},
+            {"message": "Visual Aid database entry successfully deleted."},
             status=status.HTTP_204_NO_CONTENT
         )
-        
-        
-# =====================================================================
-# SDD COMPONENT: SupabaseStorageManager
-# Description: Establishes secure cloud connections, managing binary data 
-#              streams and bucket directory paths for the visual assets.
-# =====================================================================
-class SupabaseStorageManager:
-    @staticmethod
-    def upload_temp_image(binary_data, filename_hint):
-        # In a production environment, this integrates with the supabase-py client 
-        # to push the binary image into your storage bucket.
-        # For now, we simulate a successful cloud upload returning a public URL.
-        return f"https://your-supabase-project.supabase.co/storage/v1/object/public/visual-aids/preview_{filename_hint}.png"
     
     
 
@@ -772,30 +740,6 @@ class VisualAidGeneratorService:
         resp.raise_for_status()
         return resp.content, resp.headers.get("Content-Type", "image/jpeg"), url
 
-    @staticmethod
-    def upload_to_supabase(image_bytes, filename, content_type):
-        """Upload image bytes to Supabase Storage. Returns public URL."""
-        from django.conf import settings
-        supabase_url = getattr(settings, "SUPABASE_URL", None)
-        supabase_key = getattr(settings, "SUPABASE_SERVICE_KEY", None)
-        bucket = getattr(settings, "SUPABASE_STORAGE_BUCKET", "visual-aids")
-
-        if not supabase_url or not supabase_key:
-            return None  # Not configured — caller will use Pollinations URL directly
-
-        upload_url = f"{supabase_url}/storage/v1/object/{bucket}/{filename}"
-        headers = {
-            "Authorization": f"Bearer {supabase_key}",
-            "Content-Type": content_type,
-            "x-upsert": "true",
-        }
-        resp = http_client.post(upload_url, data=image_bytes, headers=headers, timeout=30)
-        resp.raise_for_status()
-        # Build the public URL
-        public_url = f"{supabase_url}/storage/v1/object/public/{bucket}/{filename}"
-        return public_url
-
-
 # =====================================================================
 # SDD CONTROLLER: GenerateVisualAidAPIView
 # =====================================================================
@@ -836,22 +780,14 @@ class GenerateVisualAidAPIView(APIView):
 
         # Fetch image from Pollinations (server-side — no CORS)
         try:
-            image_bytes, content_type, pollinations_url = VisualAidGeneratorService.fetch_image_from_pollinations(full_prompt)
+            _, _, pollinations_url = VisualAidGeneratorService.fetch_image_from_pollinations(full_prompt)
         except Exception as e:
             return Response(
                 {"error": f"Image generation failed: {str(e)}"},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        # Try to upload to Supabase Storage for a permanent URL
-        filename = f"visual-aid-{student.studentID}-{uuid.uuid4().hex[:8]}.jpg"
-        final_url = pollinations_url  # default fallback
-        try:
-            supabase_result = VisualAidGeneratorService.upload_to_supabase(image_bytes, filename, content_type)
-            if supabase_result:
-                final_url = supabase_result
-        except Exception:
-            pass  # Supabase not configured — use Pollinations URL directly
+        final_url = pollinations_url
 
         # Build a descriptive title
         category_label = f"{category} — " if category else ""
@@ -905,46 +841,8 @@ class ExportVisualAidAPIView(APIView):
         response['Content-Disposition'] = f'attachment; filename="VisualAid_{visual_aid.visualAidID}.pdf"'
         
         return response
-    
-    
-# =====================================================================
-# SDD COMPONENT: MediaStreamingService
-# Description: Utility module handling cloud file retrieval workflows. 
-#              Resolves raw binary paths into secure URL streams.
-# =====================================================================
-class MediaStreamingService:
-    @staticmethod
-    def resolve_secure_stream_url(raw_storage_url):
-        if not raw_storage_url:
-            return None
-            
-        # In a fully integrated production environment, you would use the 
-        # supabase-py client here to request a signed, time-limited URL.
-        # For now, we simulate the security handshake by appending a mock stream token.
-        secure_stream_url = f"{raw_storage_url}?stream_auth=verified_token_123"
-        return secure_stream_url
-    
-    
-# =====================================================================
-# SDD COMPONENT: StorageCleanupWorker
-# Description: Post-delete handler that communicates with Supabase 
-#              storage buckets to permanently purge orphan binary files.
-# =====================================================================
-class StorageCleanupWorker:
-    @staticmethod
-    def purge_orphan_file(image_url):
-        if not image_url:
-            return False
-            
-        # In your production setup with the real supabase client, you'd extract 
-        # the file path from the URL and run:
-        # supabase.storage.from_('visual-aids').remove(['path/to/file.png'])
-        
-        # Simulating cloud storage file extraction and successful removal log
-        print(f"[StorageCleanupWorker] Successfully purged orphan asset from Supabase: {image_url}")
-        return True
-    
-    
+
+
 # =====================================================================
 # SDD COMPONENT: StrategyGenerationManagerService
 # Description: Orchestrates automated strategy generation sequences.

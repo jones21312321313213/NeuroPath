@@ -41,6 +41,14 @@ class IEPModel(models.Model):
     facilitator_qualifiers = models.CharField(max_length=255, blank=True, null=True)
     learning_accommodations = models.TextField(help_text="Accommodations per difficulty row", blank=True, null=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['studentID', 'version'],
+                name='unique_student_iep_version'
+            )
+        ]
+
     def __str__(self):
         return f'IEP v{self.version} for Student: {self.studentID.name}'
 

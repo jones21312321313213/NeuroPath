@@ -1,13 +1,107 @@
 from django.contrib.auth.models import User
+from django.db import IntegrityError
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.authtoken.models import Token
-from rest_framework.test import APIClient, APITestCase
+from rest_framework.test import APIClient, APIRequestFactory, APITestCase, force_authenticate
 
 from common_test_utils import create_teacher_with_login, create_student
 from users.models import StudentProfile, Teacher
 from .models import IEPModel, IEPGoal, GeneratedAIInsight
+from .views import IEPGenerationAPIView
+
+
+class IEPVersionRaceConditionTestCase(TestCase):
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.user = User.objects.create_user(username='testteacher', email='teacher@test.com', password='password123')
+        self.teacher = Teacher.objects.create(name='Test Teacher', email='teacher@test.com', passwordHash='hash')
+        self.student = StudentProfile.objects.create(
+            name='Jane Doe',
+            age=10,
+            grade=4,
+            teacher=self.teacher,
+            diagnosis='ASD Level 1'
+        )
+
+    def test_unique_constraint_on_student_and_version(self):
+        IEPModel.objects.create(studentID=self.student, version=1, goals='Goal 1')
+        with self.assertRaises(IntegrityError):
+            IEPModel.objects.create(studentID=self.student, version=1, goals='Duplicate version goal')
+
+    def test_auto_increment_version_on_save(self):
+        view = IEPGenerationAPIView.as_view()
+
+        # Save first IEP
+        request1 = self.factory.post('/api/iep/generate-iep/', {
+            'action': 'save',
+            'studentID': self.student.pk,
+            'goals': 'Goal version 1',
+            'accommodations': 'Visual schedule'
+        }, format='json')
+        force_authenticate(request1, user=self.user)
+        response1 = view(request1)
+        self.assertEqual(response1.status_code, 201)
+        self.assertEqual(response1.data['data']['version'], 1)
+
+        # Save second IEP
+        request2 = self.factory.post('/api/iep/generate-iep/', {
+            'action': 'save',
+            'studentID': self.student.pk,
+            'goals': 'Goal version 2',
+            'accommodations': 'Sensory breaks'
+        }, format='json')
+        force_authenticate(request2, user=self.user)
+        response2 = view(request2)
+        self.assertEqual(response2.status_code, 201)
+        self.assertEqual(response2.data['data']['version'], 2)
+
+    def test_different_students_can_have_same_version(self):
+        student2 = StudentProfile.objects.create(
+            name='John Smith',
+            age=9,
+            grade=3,
+            teacher=self.teacher
+        )
+        iep1 = IEPModel.objects.create(studentID=self.student, version=1, goals='Jane IEP 1')
+        iep2 = IEPModel.objects.create(studentID=student2, version=1, goals='John IEP 1')
+        self.assertEqual(iep1.version, 1)
+        self.assertEqual(iep2.version, 1)
+
+    def test_client_version_is_ignored(self):
+        """Server must always assign version server-side, even if the client sends one."""
+        view = IEPGenerationAPIView.as_view()
+        request = self.factory.post('/api/iep/generate-iep/', {
+            'action': 'save',
+            'studentID': self.student.pk,
+            'version': 999,  # should be ignored
+            'goals': 'Goal',
+            'accommodations': 'Acc',
+        }, format='json')
+        force_authenticate(request, user=self.user)
+        response = view(request)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['data']['version'], 1)  # not 999
+
+    def test_integrity_error_returns_409_after_retries(self):
+        """Exhausted retries on IntegrityError should return 409 Conflict."""
+        from unittest.mock import patch, MagicMock
+        view = IEPGenerationAPIView.as_view()
+        request = self.factory.post('/api/iep/generate-iep/', {
+            'action': 'save',
+            'studentID': self.student.pk,
+            'goals': 'Goal',
+            'accommodations': 'Acc',
+        }, format='json')
+        force_authenticate(request, user=self.user)
+        with patch('iep_management.views.IEPDataSerializer') as MockSerializer:
+            mock_instance = MagicMock()
+            mock_instance.is_valid.return_value = True
+            mock_instance.save.side_effect = IntegrityError('duplicate key')
+            MockSerializer.return_value = mock_instance
+            response = view(request)
+        self.assertEqual(response.status_code, 409)
 
 
 class IEPManagementAuthAndTenantIsolationTests(TestCase):

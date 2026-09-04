@@ -1,13 +1,13 @@
 import io
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import viewsets,status
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from django.http import HttpResponse
 from users.models import StudentProfile
 from users.utils import get_teacher_for_user
 from .permissions import SessionAuthenticationGuard
-from .serializers import HistoricalRecordDataSerializer,ProgressAnalyticsSerializer
+from .serializers import HistoricalRecordDataSerializer, ProgressAnalyticsSerializer
 from .models import StudentProgress
 
 
@@ -75,16 +75,145 @@ class ContextualDataIsolationFilter:
 class BinaryReportRenderEngine:
     @staticmethod
     def generate_report_stream(student_record):
-        # Generates a standard PDF byte stream for local client-side download
+        # Generates a standard PDF byte stream for local client-side download using ReportLab
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.units import mm
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.enums import TA_CENTER
+
         buffer = io.BytesIO()
-        buffer.write(b"%PDF-1.4\n")
-        
-        # Inject standard layout maps and metadata text blocks
-        buffer.write(f"Official Student Record: {student_record.name}\n".encode('utf-8'))
-        buffer.write(f"Record ID: {student_record.pk}\n".encode('utf-8'))
-        buffer.write(b"--------------------------------------------------\n\n")
-        buffer.write(b"Performance Matrices & Objective Criteria Logs...\n")
-        
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=20 * mm,
+            leftMargin=20 * mm,
+            topMargin=20 * mm,
+            bottomMargin=20 * mm,
+        )
+
+        styles = getSampleStyleSheet()
+
+        style_title = ParagraphStyle(
+            'DocTitle',
+            parent=styles['Title'],
+            fontSize=18,
+            leading=24,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold',
+            textColor=colors.HexColor('#1E293B'),
+            spaceAfter=4,
+        )
+        style_subtitle = ParagraphStyle(
+            'DocSubtitle',
+            parent=styles['Normal'],
+            fontSize=11,
+            leading=16,
+            alignment=TA_CENTER,
+            fontName='Helvetica',
+            textColor=colors.HexColor('#64748B'),
+            spaceAfter=12,
+        )
+        style_section_heading = ParagraphStyle(
+            'SectionHeading',
+            parent=styles['Normal'],
+            fontSize=12,
+            fontName='Helvetica-Bold',
+            leading=16,
+            textColor=colors.HexColor('#0F172A'),
+            spaceBefore=10,
+            spaceAfter=6,
+        )
+        style_cell_label = ParagraphStyle(
+            'CellLabel',
+            parent=styles['Normal'],
+            fontSize=9,
+            fontName='Helvetica-Bold',
+            textColor=colors.HexColor('#334155'),
+            leading=13,
+        )
+        style_cell_value = ParagraphStyle(
+            'CellValue',
+            parent=styles['Normal'],
+            fontSize=9,
+            fontName='Helvetica',
+            textColor=colors.HexColor('#1E293B'),
+            leading=13,
+        )
+        style_body = ParagraphStyle(
+            'DocBody',
+            parent=styles['Normal'],
+            fontSize=9,
+            fontName='Helvetica',
+            textColor=colors.HexColor('#334155'),
+            leading=14,
+        )
+
+        story = []
+
+        # Document Header
+        story.append(Paragraph("NeuroPath — Official Student Record", style_title))
+        story.append(Paragraph("NeuroPath Special Education Outcome Monitoring & Tracking Report", style_subtitle))
+        story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#3B82F6'), spaceAfter=12))
+
+        # Student Information Grid
+        info_data = [
+            [
+                Paragraph("Student Name:", style_cell_label),
+                Paragraph(student_record.name or 'N/A', style_cell_value),
+                Paragraph("Record ID:", style_cell_label),
+                Paragraph(str(student_record.pk), style_cell_value),
+            ],
+            [
+                Paragraph("Age / Grade:", style_cell_label),
+                Paragraph(f"{student_record.age} yrs / Grade {student_record.grade}", style_cell_value),
+                Paragraph("Gender:", style_cell_label),
+                Paragraph(student_record.gender or 'N/A', style_cell_value),
+            ],
+            [
+                Paragraph("Diagnosis:", style_cell_label),
+                Paragraph(student_record.diagnosis or student_record.asdBackground or 'N/A', style_cell_value),
+                Paragraph("Learning Style:", style_cell_label),
+                Paragraph(student_record.learning_style or 'N/A', style_cell_value),
+            ],
+            [
+                Paragraph("Support Needs:", style_cell_label),
+                Paragraph(student_record.support_needs or 'N/A', style_cell_value),
+                Paragraph("Sensory Prefs:", style_cell_label),
+                Paragraph(student_record.sensory_preferences or 'N/A', style_cell_value),
+            ],
+        ]
+
+        info_table = Table(info_data, colWidths=[32 * mm, 53 * mm, 32 * mm, 53 * mm])
+        info_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+        story.append(info_table)
+        story.append(Spacer(1, 10 * mm))
+
+        # Assessment & Baseline Summary
+        story.append(Paragraph("Assessment & Baseline Information", style_section_heading))
+        assessment_text = student_record.assessmentResult or "No formal assessment results recorded."
+        story.append(Paragraph(assessment_text, style_body))
+        story.append(Spacer(1, 6 * mm))
+
+        # Performance Matrices & Objective Criteria Logs
+        story.append(Paragraph("Performance Matrices & Objective Criteria Logs", style_section_heading))
+        perf_summary = (
+            "This document certifies the active tracking records and outcome evaluation metrics for the student. "
+            "All instructional interventions and IEP objective progressions are recorded in the central NeuroPath tracking subsystem."
+        )
+        story.append(Paragraph(perf_summary, style_body))
+
+        doc.build(story)
         buffer.seek(0)
         return buffer
     
@@ -310,4 +439,4 @@ class StudentProgressDashboardView(APIView):
                 "months": months,
             })
 
-        return Response(results, status=status.HTTP_200_OK)
+        return Response(results, status=status.HTTP_200_OK)

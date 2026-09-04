@@ -1,11 +1,37 @@
 import json
 from django.test import TestCase
+from django.urls import resolve
 from rest_framework.test import APIClient
 from rest_framework import status
 
 from common_test_utils import create_teacher_with_login, create_student
 from iep_management.models import IEPModel, IEPGoal
+from resources.urls import urlpatterns
 from .models import LessonPlan, VisualAid, TeachingStrategy
+
+
+class ResourceUrlRoutingTestCase(TestCase):
+    def test_no_duplicate_router_include(self):
+        router_includes = [
+            p for p in urlpatterns
+            if hasattr(p, 'url_patterns') and any(
+                'lesson-plans' in getattr(pattern, 'pattern', '').regex.pattern
+                for pattern in getattr(p, 'url_patterns', [])
+                if hasattr(getattr(pattern, 'pattern', None), 'regex')
+            )
+        ]
+        # Must only include router.urls once
+        self.assertEqual(len(router_includes), 1)
+
+    def test_resource_url_resolutions(self):
+        match_lesson = resolve('/api/resources/generate-lesson/')
+        self.assertEqual(match_lesson.view_name, 'generate-lesson-plan')
+
+        match_visual = resolve('/api/resources/generate-visual-aid/')
+        self.assertEqual(match_visual.view_name, 'generate-visual-aid')
+
+        match_strategy = resolve('/api/resources/generate-strategy/')
+        self.assertEqual(match_strategy.view_name, 'generate-teaching-strategy')
 
 
 class ResourcesAuthAndTenantIsolationTests(TestCase):
@@ -129,6 +155,26 @@ class ResourcesAuthAndTenantIsolationTests(TestCase):
         response = self.client.get('/api/resources/instructional-support/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['userContext']['email'], self.teacher1.email)
+
+    def test_visual_aid_detail_returns_clean_image_url(self):
+        self._auth(self.token1)
+        response = self.client.get(f'/api/resources/visual-aids/{self.visual_aid.pk}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['imageUrl'], self.visual_aid.imageUrl)
+        self.assertNotIn('stream_auth', response.data['imageUrl'])
+
+    def test_visual_aid_list_returns_clean_image_url(self):
+        self._auth(self.token1)
+        response = self.client.get(f'/api/resources/visual-aids/?student_id={self.student1.pk}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]['imageUrl'], self.visual_aid.imageUrl)
+        self.assertNotIn('stream_auth', response.data[0]['imageUrl'])
+
+    def test_visual_aid_delete_succeeds(self):
+        self._auth(self.token1)
+        response = self.client.delete(f'/api/resources/visual-aids/{self.visual_aid.pk}/')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(VisualAid.objects.filter(pk=self.visual_aid.pk).exists())
 
 
 class TeachingStrategyCreateTests(TestCase):

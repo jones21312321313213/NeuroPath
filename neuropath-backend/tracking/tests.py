@@ -1,9 +1,58 @@
 from django.test import TestCase
-from rest_framework.test import APIClient
 from rest_framework import status
+from rest_framework.test import APIClient
+
+import io
+from pypdf import PdfReader
 
 from common_test_utils import create_teacher_with_login, create_student
+from tracking.views import BinaryReportRenderEngine
+from users.models import StudentProfile
 from .models import StudentProgress
+
+
+class BinaryReportRenderEngineTestCase(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user, self.teacher, self.token = create_teacher_with_login('teacher@test.com')
+        self.student = StudentProfile.objects.create(
+            name='Alice Johnson',
+            age=8,
+            grade=2,
+            gender='Female',
+            teacher=self.teacher,
+            diagnosis='Autism Spectrum Disorder',
+            support_needs='Visual cues, structured routine',
+            learning_style='Visual / Kinesthetic',
+            assessmentResult='Baseline evaluation complete.'
+        )
+
+    def test_generate_report_stream_valid_pdf_structure(self):
+        pdf_stream = BinaryReportRenderEngine.generate_report_stream(self.student)
+        content = pdf_stream.getvalue()
+
+        # Parse with a real PDF reader — not just byte markers
+        reader = PdfReader(io.BytesIO(content))
+        self.assertGreaterEqual(len(reader.pages), 1)
+
+        page_text = reader.pages[0].extract_text()
+        self.assertIn('Alice Johnson', page_text)
+        self.assertIn('Autism Spectrum Disorder', page_text)
+        self.assertIn('Official Student Record', page_text)
+
+    def test_export_record_pdf_endpoint(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        response = self.client.get(f'/api/tracking/student-records/{self.student.pk}/export/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertIn(f'StudentRecord_{self.student.pk}.pdf', response['Content-Disposition'])
+
+        # Parse the response PDF and verify content
+        reader = PdfReader(io.BytesIO(response.content))
+        self.assertGreaterEqual(len(reader.pages), 1)
+
+        page_text = reader.pages[0].extract_text()
+        self.assertIn('Alice Johnson', page_text)
 
 
 class TrackingAuthAndTenantIsolationTests(TestCase):

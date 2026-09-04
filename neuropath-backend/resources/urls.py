@@ -46,9 +46,6 @@ urlpatterns = [
     # Delete Lesson Workflow Endpoint (Module 3.1.4)
     path('delete-lesson/<int:pk>/', LessonPlanDeleteAPIView.as_view(), name='delete-lesson-plan'),
     
-    # ViewSet Endpoints
-    path('', include(router.urls)),
-    
     # Generate Visual Aid Workflow (Module 3.2.1)
     path('generate-visual-aid/', GenerateVisualAidAPIView.as_view(), name='generate-visual-aid'),
     
