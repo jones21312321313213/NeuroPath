@@ -1,55 +1,8 @@
 import { useState, useEffect } from "react";
 import "../styles/OutcomeMonitoring.css";
-import { studentsAPI } from "../api/client";
+import { studentsAPI, trackingAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import StudentShimmer from "../components/StudentShimmer";
-
-// NOTE: Progress data (subjects, chart data, summary) is mocked because
-// the Outcome Monitoring backend endpoints don't exist yet.
-// Replace MOCK_SUBJECTS with real API calls once the backend is ready.
-const MOCK_SUBJECTS = {
-  default: [
-    {
-      id: 1,
-      name: "Communication Skills",
-      progress: 75,
-      status: "On Track",
-      lastUpdated: "May 15, 2026",
-      assessmentsCompleted: "8 / 20",
-      skillsMastered: "6 / 10",
-      currentLevel: "Developing",
-      targetLevel: "Proficient",
-      chartData: [20, 35, 45, 55, 75],
-      months: ["Jan", "Feb", "Mar", "Apr", "May"],
-    },
-    {
-      id: 2,
-      name: "Reading",
-      progress: 50,
-      status: "Needs Support",
-      lastUpdated: "May 10, 2026",
-      assessmentsCompleted: "5 / 20",
-      skillsMastered: "4 / 10",
-      currentLevel: "Emerging",
-      targetLevel: "Developing",
-      chartData: [10, 20, 30, 40, 50],
-      months: ["Jan", "Feb", "Mar", "Apr", "May"],
-    },
-    {
-      id: 3,
-      name: "Mathematics",
-      progress: 88,
-      status: "On Track",
-      lastUpdated: "May 18, 2026",
-      assessmentsCompleted: "15 / 20",
-      skillsMastered: "9 / 10",
-      currentLevel: "Proficient",
-      targetLevel: "Advanced",
-      chartData: [50, 60, 70, 80, 88],
-      months: ["Jan", "Feb", "Mar", "Apr", "May"],
-    },
-  ],
-};
 
 function EmptyState({ message }) {
   return (
@@ -62,13 +15,15 @@ function EmptyState({ message }) {
   );
 }
 
-function LineChart({ data, months }) {
+function LineChart({ data = [], months = [] }) {
+  if (!data || data.length === 0) return null;
   const w = 280,
     h = 100,
     max = 100;
+  const divisor = data.length > 1 ? data.length - 1 : 1;
   const points = data
     .map((v, i) => {
-      const x = (i / (data.length - 1)) * (w - 20) + 10;
+      const x = data.length > 1 ? (i / divisor) * (w - 20) + 10 : w / 2;
       const y = h - (v / max) * (h - 10) - 5;
       return `${x},${y}`;
     })
@@ -103,7 +58,7 @@ function LineChart({ data, months }) {
         strokeLinecap="round"
       />
       {data.map((v, i) => {
-        const x = (i / (data.length - 1)) * (w - 20) + 10;
+        const x = data.length > 1 ? (i / divisor) * (w - 20) + 10 : w / 2;
         const y = h - (v / max) * (h - 10) - 5;
         return (
           <circle
@@ -118,10 +73,10 @@ function LineChart({ data, months }) {
         );
       })}
       {months.map((m, i) => {
-        const x = (i / (months.length - 1)) * (w - 20) + 10;
+        const x = months.length > 1 ? (i / (months.length - 1)) * (w - 20) + 10 : w / 2;
         return (
           <text
-            key={m}
+            key={i}
             x={x}
             y={h + 14}
             fontSize={9}
@@ -146,6 +101,9 @@ export default function ViewProgressDashboard() {
   const [filterAge, setFilterAge] = useState("");
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedSubject, setSelectedSubject] = useState(null);
+  const [subjects, setSubjects] = useState([]);
+  const [subjectsLoading, setSubjectsLoading] = useState(false);
+  const [subjectsError, setSubjectsError] = useState("");
 
   useEffect(() => {
     studentsAPI
@@ -153,7 +111,44 @@ export default function ViewProgressDashboard() {
       .then(setStudents)
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!selectedStudent?.studentID) return;
+
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setSubjectsLoading(true);
+        setSubjectsError("");
+      }
+    });
+
+    trackingAPI
+      .getProgressDashboard(selectedStudent.studentID)
+      .then((data) => {
+        if (!cancelled) {
+          setSubjects(data || []);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error(err);
+          setSubjectsError("Failed to load progress data for this student.");
+          setSubjects([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSubjectsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedStudent?.studentID]);
+
 
   const filtered = students.filter((s) => {
     const matchName = s.name.toLowerCase().includes(search.toLowerCase());
@@ -162,9 +157,6 @@ export default function ViewProgressDashboard() {
     return matchName && matchGrade && matchAge;
   });
 
-  // Subjects for selected student — swap with real API when backend is ready
-  const subjects =
-    MOCK_SUBJECTS[selectedStudent?.studentID] || MOCK_SUBJECTS.default;
 
   // ── Subject Detail ─────────────────────────────────────
   if (selectedSubject) {
@@ -221,20 +213,8 @@ export default function ViewProgressDashboard() {
                 <div className="om-summary-rows">
                   {[
                     {
-                      label: "Assessments Completed",
-                      value: selectedSubject.assessmentsCompleted,
-                    },
-                    {
-                      label: "Skills Mastered",
-                      value: selectedSubject.skillsMastered,
-                    },
-                    {
                       label: "Current Level",
                       value: selectedSubject.currentLevel,
-                    },
-                    {
-                      label: "Target Level",
-                      value: selectedSubject.targetLevel,
                     },
                   ].map((row) => (
                     <div key={row.label} className="om-summary-row">
@@ -270,12 +250,18 @@ export default function ViewProgressDashboard() {
         <div className="om-body">
           <div className="om-card">
             <h2 className="om-list-title">{selectedStudent.name} – Subjects</h2>
-            {subjects.length === 0 ? (
+            {subjectsLoading ? (
+              <StudentShimmer />
+            ) : subjectsError ? (
+              <p style={{ color: "#c0392b", fontSize: 13, marginBottom: 8 }}>
+                ⚠️ {subjectsError}
+              </p>
+            ) : subjects.length === 0 ? (
               <EmptyState message="No progress data found for this student." />
             ) : (
               <div className="om-subject-list">
                 {subjects.map((sub) => (
-                  <div key={sub.id} className="om-subject-row">
+                  <div key={sub.id || sub.name} className="om-subject-row">
                     <span className="om-subject-name">{sub.name}</span>
                     <button
                       className="va-select-btn"
@@ -290,7 +276,10 @@ export default function ViewProgressDashboard() {
             <div className="om-record-actions" style={{ marginTop: 20 }}>
               <button
                 className="btn btn-back"
-                onClick={() => setSelectedStudent(null)}
+                onClick={() => {
+                  setSelectedStudent(null);
+                  setSelectedSubject(null);
+                }}
               >
                 ← Back to Students
               </button>
@@ -366,7 +355,11 @@ export default function ViewProgressDashboard() {
                   </div>
                   <button
                     className="va-select-btn"
-                    onClick={() => setSelectedStudent(s)}
+                    onClick={() => {
+                      setSelectedStudent(s);
+                      setSelectedSubject(null);
+                      setSubjects([]);
+                    }}
                   >
                     Select
                   </button>

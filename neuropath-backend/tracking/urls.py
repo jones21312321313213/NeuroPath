@@ -1,6 +1,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import OutcomeMonitoringRouter, StudentRecordQueryController, ProgressAnalyticsAPIView
+from .views import (
+    OutcomeMonitoringRouter,
+    StudentRecordQueryController,
+    ProgressAnalyticsAPIView,
+    StudentProgressDashboardView,
+)
 
 # Initialize the router for Module 4 ViewSets
 router = DefaultRouter()
@@ -12,7 +17,10 @@ urlpatterns = [
     
     # Analytics Route (Module 4.2)
     path('analytics/', ProgressAnalyticsAPIView.as_view(), name='progress-analytics'),
+
+    # Progress Dashboard Aggregated Route
+    path('progress-dashboard/', StudentProgressDashboardView.as_view(), name='progress-dashboard'),
     
     # Sub-Module Routes (Module 4.1)
     path('', include(router.urls)),
-]
+]

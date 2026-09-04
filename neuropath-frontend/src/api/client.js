@@ -254,3 +254,20 @@ export const usersAPI = {
     });
   },
 };
+
+// ── Tracking & Outcome Monitoring ──────────────────────────────────────────────
+export const trackingAPI = {
+  getProgressDashboard: (studentId) =>
+    request(`/tracking/progress-dashboard/?studentID=${studentId}`),
+  getAnalytics: (studentId, subject) => {
+    const params = new URLSearchParams({ studentID: studentId });
+    if (subject) params.append("subject", subject);
+    return request(`/tracking/analytics/?${params.toString()}`);
+  },
+  recordProgress: (payload) =>
+    request("/tracking/analytics/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+};
+
