@@ -2,6 +2,9 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
+import io
+from pypdf import PdfReader
+
 from common_test_utils import create_teacher_with_login, create_student
 from tracking.views import BinaryReportRenderEngine
 from users.models import StudentProfile
@@ -28,12 +31,14 @@ class BinaryReportRenderEngineTestCase(TestCase):
         pdf_stream = BinaryReportRenderEngine.generate_report_stream(self.student)
         content = pdf_stream.getvalue()
 
-        # PDF must start with valid header
-        self.assertTrue(content.startswith(b'%PDF-'))
-        # PDF must contain valid trailer / EOF marker
-        self.assertTrue(b'%%EOF' in content)
-        # PDF must be non-trivial ReportLab binary output (> 1000 bytes)
-        self.assertGreater(len(content), 1000)
+        # Parse with a real PDF reader — not just byte markers
+        reader = PdfReader(io.BytesIO(content))
+        self.assertGreaterEqual(len(reader.pages), 1)
+
+        page_text = reader.pages[0].extract_text()
+        self.assertIn('Alice Johnson', page_text)
+        self.assertIn('Autism Spectrum Disorder', page_text)
+        self.assertIn('Official Student Record', page_text)
 
     def test_export_record_pdf_endpoint(self):
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
@@ -41,8 +46,13 @@ class BinaryReportRenderEngineTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response['Content-Type'], 'application/pdf')
         self.assertIn(f'StudentRecord_{self.student.pk}.pdf', response['Content-Disposition'])
-        self.assertTrue(response.content.startswith(b'%PDF-'))
-        self.assertTrue(b'%%EOF' in response.content)
+
+        # Parse the response PDF and verify content
+        reader = PdfReader(io.BytesIO(response.content))
+        self.assertGreaterEqual(len(reader.pages), 1)
+
+        page_text = reader.pages[0].extract_text()
+        self.assertIn('Alice Johnson', page_text)
 
 
 class TrackingAuthAndTenantIsolationTests(TestCase):

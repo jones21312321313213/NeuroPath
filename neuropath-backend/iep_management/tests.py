@@ -69,6 +69,40 @@ class IEPVersionRaceConditionTestCase(TestCase):
         self.assertEqual(iep1.version, 1)
         self.assertEqual(iep2.version, 1)
 
+    def test_client_version_is_ignored(self):
+        """Server must always assign version server-side, even if the client sends one."""
+        view = IEPGenerationAPIView.as_view()
+        request = self.factory.post('/api/iep/generate-iep/', {
+            'action': 'save',
+            'studentID': self.student.pk,
+            'version': 999,  # should be ignored
+            'goals': 'Goal',
+            'accommodations': 'Acc',
+        }, format='json')
+        force_authenticate(request, user=self.user)
+        response = view(request)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['data']['version'], 1)  # not 999
+
+    def test_integrity_error_returns_409_after_retries(self):
+        """Exhausted retries on IntegrityError should return 409 Conflict."""
+        from unittest.mock import patch, MagicMock
+        view = IEPGenerationAPIView.as_view()
+        request = self.factory.post('/api/iep/generate-iep/', {
+            'action': 'save',
+            'studentID': self.student.pk,
+            'goals': 'Goal',
+            'accommodations': 'Acc',
+        }, format='json')
+        force_authenticate(request, user=self.user)
+        with patch('iep_management.views.IEPDataSerializer') as MockSerializer:
+            mock_instance = MagicMock()
+            mock_instance.is_valid.return_value = True
+            mock_instance.save.side_effect = IntegrityError('duplicate key')
+            MockSerializer.return_value = mock_instance
+            response = view(request)
+        self.assertEqual(response.status_code, 409)
+
 
 class IEPManagementAuthAndTenantIsolationTests(TestCase):
     """IEP documents and goals must require authentication, and one teacher

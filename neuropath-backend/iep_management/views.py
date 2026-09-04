@@ -9,7 +9,7 @@ from users.utils import get_teacher_for_user
 from tracking.models import AIGenerationLog
 from .models import Assessment, IEPGoal, IEPModel,GeneratedAIInsight
 from django.shortcuts import get_object_or_404
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from .services import AIGenerationService
 from .huggingface_service import CustomLlamaService
 from .rgori_service import RGORICheckerService
@@ -117,32 +117,48 @@ class IEPGenerationAPIView(APIView):
                 return Response({'error': 'Student not found for this teacher account.'}, status=status.HTTP_404_NOT_FOUND)
 
             payload.pop('teacherID', None)
+            # Always assign version server-side — ignore any client-supplied value.
+            payload.pop('version', None)
 
-            with transaction.atomic():
-                # Lock the student record to serialize concurrent version calculations
-                StudentProfile.objects.select_for_update().get(pk=student_id)
+            MAX_VERSION_RETRIES = 3
+            for attempt in range(MAX_VERSION_RETRIES):
+                try:
+                    with transaction.atomic():
+                        # Lock the student record to serialize concurrent version calculations
+                        StudentProfile.objects.select_for_update().get(pk=student_id)
 
-                # Auto-version per student.
-                if not payload.get('version'):
-                    latest = IEPModel.objects.filter(studentID_id=student_id).order_by('-version').first()
-                    payload['version'] = (latest.version + 1) if latest else 1
+                        # Compute next version from the current maximum.
+                        latest_version = (
+                            IEPModel.objects.filter(studentID_id=student_id)
+                            .order_by('-version')
+                            .values_list('version', flat=True)
+                            .first()
+                        )
+                        payload['version'] = (latest_version + 1) if latest_version else 1
 
-                serializer = IEPDataSerializer(data=payload)
-                if serializer.is_valid():
-                    iep_instance = serializer.save()
+                        serializer = IEPDataSerializer(data=payload)
+                        if serializer.is_valid():
+                            iep_instance = serializer.save()
 
-                    # NOTE: IEPGoal rows are NOT created here intentionally.
-                    # The actual AI-generated goals are created separately by
-                    # GenerateIEPGoalsFromIEPView (POST /iep/generate-goals-from-iep/)
-                    # and then saved via StandaloneIEPGoalViewSet (POST /iep/goals/).
-                    # Creating goals here too caused duplicate tables in the frontend.
+                            # NOTE: IEPGoal rows are NOT created here intentionally.
+                            # The actual AI-generated goals are created separately by
+                            # GenerateIEPGoalsFromIEPView (POST /iep/generate-goals-from-iep/)
+                            # and then saved via StandaloneIEPGoalViewSet (POST /iep/goals/).
+                            # Creating goals here too caused duplicate tables in the frontend.
 
-                    return Response({
-                        'message': 'IEP Created Successfully.',
-                        'data': IEPListDetailSerializer(iep_instance).data,
-                    }, status=status.HTTP_201_CREATED)
+                            return Response({
+                                'message': 'IEP Created Successfully.',
+                                'data': IEPListDetailSerializer(iep_instance).data,
+                            }, status=status.HTTP_201_CREATED)
 
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                except IntegrityError:
+                    if attempt == MAX_VERSION_RETRIES - 1:
+                        return Response(
+                            {'error': 'IEP version conflict. Please retry.'},
+                            status=status.HTTP_409_CONFLICT,
+                        )
+                    continue  # retry with fresh version calculation
 
         return Response({'error': 'Invalid action specified.'}, status=status.HTTP_400_BAD_REQUEST)
 
