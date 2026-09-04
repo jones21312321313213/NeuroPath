@@ -610,7 +610,7 @@ class VisualAidViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         """
         Matches Sequence Diagram: [confirmDelete == true] -> handleConfirmDeletion(aidId)
-        Executes permission checks, drops the database row, and triggers cloud cleanup.
+        Executes permission checks and drops the database row.
         """
         try:
             instance = self.get_object()
