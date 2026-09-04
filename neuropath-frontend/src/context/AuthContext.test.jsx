@@ -136,14 +136,21 @@ describe("AuthContext", () => {
     expect(localStorage.getItem("neuropath_access_token")).toBeNull();
   });
 
-  it("updates user profile and updates state and localStorage", async () => {
+  it("updates user profile with FormData and updates state and localStorage", async () => {
     localStorage.setItem(
       "neuropath_user",
       JSON.stringify({ email: "jane@example.com", first_name: "Jane" }),
     );
     localStorage.setItem("neuropath_access_token", "abc123");
     fetch.mockResolvedValueOnce(
-      jsonResponse({ first_name: "Jane Updated", last_name: "Doe" }),
+      jsonResponse({
+        message: "Profile updated successfully.",
+        user: {
+          first_name: "Jane Updated",
+          last_name: "Doe",
+          email: "jane@example.com",
+        },
+      }),
     );
 
     const { result } = renderAuthHook();
@@ -166,13 +173,84 @@ describe("AuthContext", () => {
       "http://localhost:8000/api/users/profile/update/",
       expect.objectContaining({
         method: "PATCH",
-        body: JSON.stringify({
+        body: formData,
+      }),
+    );
+  });
+
+  it("persists uploaded profile picture file in user state and localStorage", async () => {
+    localStorage.setItem(
+      "neuropath_user",
+      JSON.stringify({ email: "jane@example.com", first_name: "Jane" }),
+    );
+    localStorage.setItem("neuropath_access_token", "abc123");
+    fetch.mockResolvedValueOnce(
+      jsonResponse({
+        message: "Profile updated successfully.",
+        user: {
+          first_name: "Jane",
+          last_name: "Doe",
+          email: "jane@example.com",
+        },
+      }),
+    );
+
+    const { result } = renderAuthHook();
+
+    const file = new File(["dummy image content"], "avatar.png", {
+      type: "image/png",
+    });
+    const formData = new FormData();
+    formData.append("first_name", "Jane");
+    formData.append("last_name", "Doe");
+    formData.append("profile_picture", file);
+
+    await act(async () => {
+      await result.current.updateUser(formData);
+    });
+
+    expect(result.current.user.first_name).toBe("Jane");
+    expect(result.current.user.profile_picture).toMatch(/^data:image\/png;base64,/);
+    expect(
+      JSON.parse(localStorage.getItem("neuropath_user")).profile_picture,
+    ).toMatch(/^data:image\/png;base64,/);
+  });
+
+  it("gracefully handles localStorage quota errors when saving user profile", async () => {
+    localStorage.setItem(
+      "neuropath_user",
+      JSON.stringify({ email: "jane@example.com", first_name: "Jane" }),
+    );
+    localStorage.setItem("neuropath_access_token", "abc123");
+    fetch.mockResolvedValueOnce(
+      jsonResponse({
+        message: "Profile updated successfully.",
+        user: {
           first_name: "Jane Updated",
           last_name: "Doe",
           email: "jane@example.com",
-        }),
+        },
       }),
     );
+
+    const setItemSpy = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementationOnce(() => {
+        throw new DOMException("QuotaExceededError", "QuotaExceededError");
+      });
+
+    const { result } = renderAuthHook();
+
+    const formData = new FormData();
+    formData.append("first_name", "Jane Updated");
+    formData.append("last_name", "Doe");
+
+    await act(async () => {
+      await result.current.updateUser(formData);
+    });
+
+    expect(result.current.user.first_name).toBe("Jane Updated");
+    setItemSpy.mockRestore();
   });
 
   it("throws when useAuth is used outside of an AuthProvider", () => {

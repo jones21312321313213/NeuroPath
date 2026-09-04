@@ -1,3 +1,4 @@
+from unittest import mock
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
@@ -120,6 +121,134 @@ class TeacherProfileUpdateFieldRulesTests(APITestCase):
         self.assertIn("email", response.data["errors"])
         self.owner.refresh_from_db()
         self.assertEqual(self.owner.email, "owner@example.com")
+
+    def test_weak_password_is_rejected_on_profile_update(self):
+        self._authenticate()
+
+        response = self.client.patch(
+            self.url,
+            {
+                "first_name": "Owner",
+                "last_name": "One",
+                "email": "owner@example.com",
+                "password": "123",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("password", response.data["errors"])
+
+    def test_email_change_updates_teacher_mirror_row(self):
+        teacher = Teacher.objects.create(
+            name="Owner One",
+            email="owner@example.com",
+            passwordHash="not-used",
+        )
+        self._authenticate()
+
+        response = self.client.patch(
+            self.url,
+            {
+                "first_name": "Owner",
+                "last_name": "One",
+                "email": "new.owner.email@example.com",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        teacher.refresh_from_db()
+        self.assertEqual(teacher.email, "new.owner.email@example.com")
+
+    def test_login_succeeds_with_new_email_after_profile_update(self):
+        """Teacher can immediately authenticate using the new email after profile update."""
+        Teacher.objects.create(
+            name="Owner One",
+            email="owner@example.com",
+            passwordHash="not-used",
+        )
+        self._authenticate()
+
+        # Update profile email
+        response = self.client.patch(
+            self.url,
+            {
+                "first_name": "Owner",
+                "last_name": "One",
+                "email": "updated.owner@example.com",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Clear authentication credentials from client to simulate a fresh login
+        self.client.credentials()
+
+        # Attempt login using the updated email and original password
+        login_url = reverse("teacher-login")
+        login_response = self.client.post(
+            login_url,
+            {
+                "email": "updated.owner@example.com",
+                "password": "owner-original-pw",
+            },
+            format="json",
+        )
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+        self.assertIn("token", login_response.data)
+        self.assertEqual(login_response.data["teacher"]["email"], "updated.owner@example.com")
+
+    def test_login_succeeds_with_new_email_and_new_password_after_profile_update(self):
+        """Teacher can authenticate using new email and new password when both are updated."""
+        Teacher.objects.create(
+            name="Owner One",
+            email="owner@example.com",
+            passwordHash="not-used",
+        )
+        self._authenticate()
+
+        response = self.client.patch(
+            self.url,
+            {
+                "first_name": "Owner",
+                "last_name": "One",
+                "email": "new.both@example.com",
+                "password": "NewSecretPassword123!@#",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.client.credentials()
+
+        login_url = reverse("teacher-login")
+        login_response = self.client.post(
+            login_url,
+            {
+                "email": "new.both@example.com",
+                "password": "NewSecretPassword123!@#",
+            },
+            format="json",
+        )
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+        self.assertIn("token", login_response.data)
+
+    def test_profile_update_rejects_email_matching_another_users_username(self):
+        """Profile update rejects email if it collides with another user's username."""
+        self._authenticate()
+
+        response = self.client.patch(
+            self.url,
+            {
+                "first_name": "Owner",
+                "last_name": "One",
+                "email": "victim@example.com",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("email", response.data["errors"])
 
 
 class UsersAuthAndTenantIsolationTests(TestCase):
@@ -365,3 +494,73 @@ class StudentProfileOwnershipTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.student_a.refresh_from_db()
         self.assertEqual(self.student_a.name, 'Updated Name')
+
+
+class TeacherRegistrationSecurityTests(APITestCase):
+    """Registration security tests: password validation and email uniqueness."""
+
+    def test_registration_rejects_weak_password(self):
+        """Registration must enforce AUTH_PASSWORD_VALIDATORS (reject short/numeric passwords)."""
+        response = self.client.post('/api/users/register/', {
+            'username': 'weakpass@example.com',
+            'email': 'weakpass@example.com',
+            'password': '123',
+            'first_name': 'Weak',
+            'last_name': 'Pass',
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('password', response.data.get('errors', {}))
+
+    def test_registration_rejects_duplicate_email(self):
+        """Registration must reject duplicate emails and prevent cross-tenant teacher roster sharing."""
+        # Create initial teacher
+        response1 = self.client.post('/api/users/register/', {
+            'username': 'teacher@example.com',
+            'email': 'teacher@example.com',
+            'password': 'StrongPass123!@#',
+            'first_name': 'Original',
+            'last_name': 'Teacher',
+        }, format='json')
+        self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
+
+        # Attempt to register second account with same email (different case)
+        response2 = self.client.post('/api/users/register/', {
+            'username': 'teacher2',
+            'email': 'Teacher@example.com',
+            'password': 'StrongPass123!@#',
+            'first_name': 'Imposter',
+            'last_name': 'Teacher',
+        }, format='json')
+        self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('email', response2.data.get('errors', {}))
+
+    def test_registration_succeeds_with_valid_credentials(self):
+        """Valid registration creates Django auth User and linked Teacher row."""
+        response = self.client.post('/api/users/register/', {
+            'username': 'valid@example.com',
+            'email': 'valid@example.com',
+            'password': 'StrongPass123!@#',
+            'first_name': 'Valid',
+            'last_name': 'Teacher',
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(User.objects.filter(email='valid@example.com').exists())
+        self.assertTrue(Teacher.objects.filter(email='valid@example.com').exists())
+
+    @mock.patch('users.serializers.Teacher.objects.create')
+    def test_registration_atomic_rollback_on_teacher_creation_failure(self, mock_teacher_create):
+        """If Teacher creation fails during registration, the User record is rolled back atomically."""
+        mock_teacher_create.side_effect = RuntimeError("Simulated failure during Teacher creation")
+
+        with self.assertRaises(RuntimeError):
+            self.client.post('/api/users/register/', {
+                'username': 'atomic.fail@example.com',
+                'email': 'atomic.fail@example.com',
+                'password': 'StrongPass123!@#',
+                'first_name': 'Atomic',
+                'last_name': 'Test',
+            }, format='json')
+
+        self.assertFalse(User.objects.filter(email='atomic.fail@example.com').exists())
+        self.assertFalse(Teacher.objects.filter(email='atomic.fail@example.com').exists())
+
