@@ -184,7 +184,7 @@ NeuroPath operates on a Python/Django backend with a React frontend, backed by a
 | **Database Host** | Supabase | Managed PostgreSQL instance |
 | **ORM** | Django ORM | Database abstraction & migration management |
 | **Authentication** | Django REST Framework TokenAuthentication (`rest_framework.authtoken`) + bcrypt | Secure teacher authentication & session management |
-| **AI Engine** | OpenAI API (GPT-4o) | Adaptive IEP goal generation from PLAAFP baseline data |
+| **AI Engine** | Groq / Hugging Face / Ollama / Pollinations | Adaptive goal, lesson plan & visual aid generation |
 | **Validation** | Custom R-GORI Scoring Engine | Automated pedagogical compliance checking at ≥ 65% threshold |
 | **PDF Generation** | ReportLab / WeasyPrint | Printable IEP documents, lesson plans & visual aids |
 | **Security** | Django Security Middleware + django-cors-headers | CSRF protection, secure headers & CORS policy |
@@ -370,49 +370,34 @@ NeuroPath uses separate `.env` files for the backend and frontend. **Never commi
 
 ```env
 # ───────────────────────────────────────────
-# SERVER
+# DJANGO CORE
 # ───────────────────────────────────────────
+SECRET_KEY=your-secret-key-here
 DEBUG=True
-SECRET_KEY=TOKEN
-ALLOWED_HOSTS=localhost,127.0.0.1
 
 # ───────────────────────────────────────────
-# DATABASE (Supabase PostgreSQL)
+# DATABASE (PostgreSQL / Supabase)
 # ───────────────────────────────────────────
+DB_ENGINE=django.db.backends.postgresql
 DB_NAME=postgres
 DB_USER=postgres
-DB_PASSWORD=TOKEN
+DB_PASSWORD=your-db-password
 DB_HOST=db.<your-supabase-project-ref>.supabase.co
 DB_PORT=5432
 
 # ───────────────────────────────────────────
-# AI ENGINE (OpenAI)
+# HOSTS & ORIGINS
 # ───────────────────────────────────────────
-OPENAI_API_KEY=TOKEN
-OPENAI_MODEL=gpt-4o
-OPENAI_MAX_TOKENS=2048
-
-# ───────────────────────────────────────────
-# COMPLETENESS ALGORITHM THRESHOLDS
-# (Customize if needed — defaults are pedagogically validated)
-# ───────────────────────────────────────────
-THRESHOLD_INITIAL=20
-THRESHOLD_DEVELOPING=59
-THRESHOLD_PROFICIENT=80
-THRESHOLD_COMPLETE=100
-
-# ───────────────────────────────────────────
-# CORS
-# ───────────────────────────────────────────
+ALLOWED_HOSTS=localhost,127.0.0.1
 CORS_ALLOWED_ORIGINS=http://localhost:5173
+CSRF_TRUSTED_ORIGINS=http://localhost:5173
 
 # ───────────────────────────────────────────
-# EMAIL (Optional — for password reset)
+# AI SERVICES
 # ───────────────────────────────────────────
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_HOST_USER=TOKEN
-EMAIL_HOST_PASSWORD=TOKEN
+HF_TOKEN=your-huggingface-token
+GROQ_API_KEY=your-groq-api-key
+OLLAMA_HOST=http://localhost:11434
 ```
 
 ---
