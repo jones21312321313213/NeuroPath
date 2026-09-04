@@ -19,9 +19,11 @@ async function request(endpoint, options = {}) {
   // skipAuthRedirect is ours, not fetch's — keep it out of the fetch init.
   const { skipAuthRedirect = false, ...fetchOptions } = options;
   const token = localStorage.getItem("neuropath_access_token");
+  const isFormData =
+    typeof FormData !== "undefined" && fetchOptions.body instanceof FormData;
 
   const headers = {
-    "Content-Type": "application/json",
+    ...(!isFormData ? { "Content-Type": "application/json" } : {}),
     ...(token ? { Authorization: `Token ${token}` } : {}),
     ...fetchOptions.headers,
   };
@@ -241,11 +243,14 @@ export const iepAPI = {
 // ── Users / Teacher Profile ────────────────────────────────────────────────────
 export const usersAPI = {
   // PATCH /api/users/profile/update/
-  // Accepts { first_name, last_name, email, password? } as JSON. The account is
-  // resolved from the Token header; the endpoint does not handle file uploads.
-  updateProfile: (payload) =>
-    request("/users/profile/update/", {
+  // Accepts FormData or { first_name, last_name, email, password? } as JSON. The
+  // account is resolved from the Token header.
+  updateProfile: (payload) => {
+    const isFormData =
+      typeof FormData !== "undefined" && payload instanceof FormData;
+    return request("/users/profile/update/", {
       method: "PATCH",
-      body: JSON.stringify(payload),
-    }),
+      body: isFormData ? payload : JSON.stringify(payload),
+    });
+  },
 };

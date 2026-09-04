@@ -43,13 +43,24 @@ export default function MyProfile() {
     if (isEditing) fileInputRef.current.click();
   };
 
+  const MAX_AVATAR_SIZE_MB = 2;
+  const MAX_AVATAR_SIZE_BYTES = MAX_AVATAR_SIZE_MB * 1024 * 1024;
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       if (!file.type.startsWith("image/")) {
-        setErrors({ ...errors, general: "Please select a valid image file." });
+        setErrors((prev) => ({ ...prev, general: "Please select a valid image file." }));
         return;
       }
+      if (file.size > MAX_AVATAR_SIZE_BYTES) {
+        setErrors((prev) => ({
+          ...prev,
+          general: `Image file size must be less than ${MAX_AVATAR_SIZE_MB}MB.`,
+        }));
+        return;
+      }
+      setErrors((prev) => ({ ...prev, general: "" }));
       setSelectedFile(file);
       const reader = new FileReader();
       reader.onloadend = () => setAvatarPreview(reader.result);
