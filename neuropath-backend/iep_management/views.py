@@ -301,23 +301,32 @@ def generate_ai_insight(request, student_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_insights(request, student_id):
-    # This query strictly filters by the student ID AND the Teacher ID. 
-    # It is impossible for them to fetch another teacher's generated insights.
+    # Verify the requesting teacher actually owns this student before
+    # exposing any data.  Return 404 for unowned students so that the
+    # endpoint doesn't leak the existence of other teachers' records.
+    student = get_object_or_404(StudentProfile, studentID=student_id)
+    teacher = get_teacher_for_user(request.user)
+    if not teacher or student.teacher != teacher:
+        return Response(
+            {"detail": "Not found."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
     insights = GeneratedAIInsight.objects.filter(
-        student_id=student_id, 
+        student_id=student_id,
         teacher=request.user
     )
-    
+
     # Format the data for React
     data = [
         {
             "id": insight.id,
             "summary_text": insight.summary_text,
             "created_at": insight.created_at.strftime('%Y-%m-%d %H:%M')
-        } 
+        }
         for insight in insights
     ]
-    
+
     return Response(data, status=status.HTTP_200_OK)
 
 

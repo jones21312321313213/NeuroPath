@@ -369,7 +369,6 @@ class IEPDashboardAndInsightEndpointsTests(TestCase):
     def test_get_student_insights_cross_teacher_denied(self):
         self._auth(self.token2)
         response = self.client.get(f'/api/iep/student/{self.student1.pk}/insights/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data, [])
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
