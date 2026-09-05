@@ -4,7 +4,7 @@ import { iepAPI } from "../../api/client";
 
 const USE_MOCK_INSIGHTS = import.meta.env.VITE_USE_MOCK_INSIGHTS === "true";
 
-export default function StudentInsightsTab({ studentId }) {
+export default function StudentInsightsTab({ studentId, setActivePage }) {
   const [insights, setInsights] = useState(USE_MOCK_INSIGHTS ? mockInsights : []);
   const [generating, setGenerating] = useState(false);
   const [openIndex, setOpenIndex] = useState(null);
@@ -73,7 +73,31 @@ export default function StudentInsightsTab({ studentId }) {
   return (
     <div className="tab-content">
       <section className="form-section">
-        <h2 className="form-section-title">Generated AI Insights</h2>
+        <h2 className="form-section-title">Quick Student Summary</h2>
+
+        {/* --- DISTINCTION & NOTICE BANNER --- */}
+        <div className="summary-disclaimer-box">
+          <div className="summary-disclaimer-content">
+            <span className="summary-disclaimer-icon" aria-hidden="true">ℹ️</span>
+            <div>
+              <p className="summary-disclaimer-text">
+                <strong>Quick Student Summary:</strong> Provides an immediate AI-assisted profile overview of student strengths, needs, and accommodations for quick reference.
+              </p>
+              <p className="summary-disclaimer-sub">
+                ⚠️ <em>Note: This is not a full Individualized Education Program (IEP). To create comprehensive annual goals, accommodations, and service schedules, use the full IEP generator.</em>
+              </p>
+            </div>
+          </div>
+          {setActivePage && (
+            <button
+              type="button"
+              className="btn-go-iep"
+              onClick={() => setActivePage("iep-generation")}
+            >
+              Go to Generate IEP →
+            </button>
+          )}
+        </div>
 
         {error && (
           <div className="error-banner" style={{ color: "#721c24", backgroundColor: "#f8d7da", padding: "12px", borderRadius: "6px", marginBottom: "15px", border: "1px solid #f5c6cb" }}>
@@ -84,7 +108,7 @@ export default function StudentInsightsTab({ studentId }) {
         {/* --- INSIGHT DISPLAY LIST --- */}
         {insights.length === 0 ? (
           <p className="placeholder-page">
-            No insights yet. Click the button below to generate a professional student summary.
+            No quick summary generated yet. Click the button below to generate an immediate student summary.
           </p>
         ) : (
           <div className="insight-history">
@@ -95,7 +119,7 @@ export default function StudentInsightsTab({ studentId }) {
                   onClick={() => toggleAccordion(idx)}
                   type="button"
                 >
-                  Generation {insights.length - idx} — {entry.timestamp}
+                  Summary {insights.length - idx} — {entry.timestamp}
                   <span className="accordion-icon">
                     {openIndex === idx ? "▲" : "▼"}
                   </span>
@@ -135,7 +159,7 @@ export default function StudentInsightsTab({ studentId }) {
             disabled={generating}
             type="button"
           >
-            {generating ? "Analyzing Profile..." : "Generate and Analyze"}
+            {generating ? "Generating Summary..." : "Generate Quick Summary"}
           </button>
         </div>
       </section>
