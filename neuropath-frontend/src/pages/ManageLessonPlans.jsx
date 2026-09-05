@@ -25,11 +25,42 @@ function Loading({ text = "Loading…" }) {
   );
 }
 
-function EmptyState({ icon = "📭", message = "No records found." }) {
+function EmptyState({
+  icon = "📭",
+  message = "No records found.",
+  description,
+  actionLabel,
+  onAction,
+  actionIcon,
+}) {
   return (
     <div className="ts-empty">
       <span className="ts-empty-icon">{icon}</span>
       <p className="ts-empty-text">{message}</p>
+      {description && (
+        <p
+          style={{
+            fontSize: 13,
+            color: "#5a7491",
+            maxWidth: 480,
+            margin: "6px auto 0",
+            lineHeight: 1.5,
+          }}
+        >
+          {description}
+        </p>
+      )}
+      {actionLabel && onAction && (
+        <button
+          type="button"
+          className="ts-btn ts-btn-primary"
+          style={{ marginTop: 16 }}
+          onClick={onAction}
+        >
+          {actionIcon && <span>{actionIcon}</span>}
+          {actionLabel}
+        </button>
+      )}
     </div>
   );
 }
@@ -283,7 +314,7 @@ function StudentGrid({ students, selectedID, onSelect }) {
 }
 
 // ── Generate Tab ──────────────────────────────────────────────────────────────
-function GenerateTab({ onSave }) {
+function GenerateTab({ onSave, setActivePage }) {
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
@@ -312,37 +343,67 @@ function GenerateTab({ onSave }) {
 
     try {
       const savedGoals = await iepAPI.listLatestGoalsByStudent(student.studentID);
-      setSelectedStudent({
-        ...baseStudent,
-        availableGoals: (savedGoals || []).map(formatSavedIepGoal),
-      });
-    } catch (err) {
-      setError(err.message || "Failed to load saved IEP goals for this student.");
+      const parsedGoals = (Array.isArray(savedGoals) ? savedGoals : [])
+        .map(formatSavedIepGoal)
+        .filter((g) => g.goalArea || g.label);
+
+      if (parsedGoals.length > 0) {
+        setSelectedStudent({ ...student, availableGoals: parsedGoals });
+        return;
+      }
+    } catch {
+      // fallback to preloaded directory goals below
     }
+
+    setSelectedStudent({
+      ...student,
+      availableGoals: Array.isArray(student.availableGoals)
+        ? student.availableGoals
+        : [],
+    });
   };
 
   const handleGenerate = async () => {
     if (!selectedStudent || !selectedGoal) return;
     setLoading(true);
     setError("");
+    setGenerated(null);
+    setSaved(false);
+
     try {
-      const data = await lessonPlansAPI.generate({
+      const res = await lessonPlansAPI.generate({
+        studentID: selectedStudent.studentID,
         goalID: selectedGoal.goalID,
-        subject: selectedGoal.goalArea || "General Learning",
-        topic: (selectedGoal.goalArea || selectedGoal.label || "General Learning").slice(0, 250),
+        goalArea: selectedGoal.goalArea,
+        teacherPrompt: "",
       });
-      setGenerated(data);
+      setGenerated(res);
     } catch (err) {
-      setError(err.message || "Generation failed. Is the AI pipeline running?");
+      setError(err.message || "Failed to generate lesson plan.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSave = () => {
-    if (!generated) return;
-    onSave(generated.data);
-    setSaved(true);
+  const handleSave = async () => {
+    if (!generated?.lesson_plans || !selectedStudent) return;
+    setLoading(true);
+    setError("");
+
+    try {
+      const savedPlan = await lessonPlansAPI.save({
+        studentID: selectedStudent.studentID,
+        goalID: selectedGoal?.goalID || null,
+        title: `${selectedGoal?.goalArea || "ASD"} Lesson Plan`,
+        content: generated.lesson_plans,
+      });
+      setSaved(true);
+      onSave(savedPlan);
+    } catch (err) {
+      setError(err.message || "Failed to save lesson plan.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -359,7 +420,11 @@ function GenerateTab({ onSave }) {
         ) : directory.length === 0 ? (
           <EmptyState
             icon="🏫"
-            message="No students found. Add a student profile first."
+            message="No students found."
+            description="You need at least one registered student profile before generating a lesson plan."
+            actionLabel="Create Student Profile"
+            actionIcon="👤"
+            onAction={() => setActivePage && setActivePage("create-student-profile")}
           />
         ) : (
           <StudentGrid
@@ -385,7 +450,11 @@ function GenerateTab({ onSave }) {
           {selectedStudent.availableGoals.length === 0 ? (
             <EmptyState
               icon="🎯"
-              message="No IEP goals found for this student. Generate an IEP first."
+              message="No IEP goals found for this student."
+              description="Lesson plans are generated directly from saved IEP goals. Generate and save an IEP with goals for this student first."
+              actionLabel="Generate IEP"
+              actionIcon="✦"
+              onAction={() => setActivePage && setActivePage("iep-generation")}
             />
           ) : (
             <>
@@ -539,7 +608,7 @@ function GenerateTab({ onSave }) {
 }
 
 // ── View Tab ──────────────────────────────────────────────────────────────────
-function ViewTab() {
+function ViewTab({ setActivePage, onGoToGenerate }) {
   const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
@@ -598,33 +667,59 @@ function ViewTab() {
       <div className="ts-card">
         <Breadcrumb
           items={[
-            { label: "All Plans", onClick: () => setViewingPlan(null) },
-            { label: viewingPlan.title },
+            {
+              label: "All Students",
+              onClick: () => {
+                setViewingPlan(null);
+                setSelectedStudent(null);
+              },
+            },
+            {
+              label: selectedStudent?.name || "Student",
+              onClick: () => setViewingPlan(null),
+            },
+            { label: viewingPlan.title || "Lesson Plan" },
           ]}
         />
-
-        <div className="ts-detail-hero">
-          <h2 className="ts-detail-title">{viewingPlan.title}</h2>
-          <div className="ts-detail-meta">
-            <div className="ts-meta-chip">
-              <span className="ts-meta-chip-icon">👤</span>
-              {viewingPlan.studentName}
-            </div>
-            <div className="ts-meta-chip">
-              <span className="ts-meta-chip-icon">🗓</span>
-              {new Date(viewingPlan.dateCreated).toLocaleDateString()}
-            </div>
+        <div className="ts-card-header">
+          <div className="ts-card-icon">📋</div>
+          <div>
+            <p className="ts-card-title">{viewingPlan.title}</p>
+            <p className="ts-card-subtitle">
+              👤 {viewingPlan.studentName}
+              {viewingPlan.dateCreated && (
+                <>
+                  {" "}
+                  &nbsp;·&nbsp; 🗓{" "}
+                  {new Date(viewingPlan.dateCreated).toLocaleDateString()}
+                </>
+              )}
+              {viewingPlan.status && (
+                <>
+                  {" "}
+                  &nbsp;·&nbsp; <StatusBadge status={viewingPlan.status} />
+                </>
+              )}
+            </p>
           </div>
+        </div>
+
+        <div className="lp-goal-area-display" style={{ marginBottom: 24 }}>
+          <span className="lp-goal-area-label">Target IEP Goal Area</span>
+          <span className="lp-goal-area-value">
+            {viewingPlan.goalArea || "ASD Functional Learning Area"}
+          </span>
+          <span className="lp-goal-area-note">
+            Targeted instructional intervention tailored for this learner.
+          </span>
         </div>
 
         <div className="ts-output-box">
           <div className="ts-output-label">
-            Lesson Plan Content
+            <span>Lesson Plan Phases</span>
             <div className="ts-output-label-line" />
           </div>
-          <div
-            style={{ maxHeight: "60vh", overflowY: "auto", paddingRight: 4 }}
-          >
+          <div className="ts-strategy-body">
             {lessonsArray.length > 0 ? (
               lessonsArray.map((plan, index) => (
                 <LessonPhaseBlock
@@ -686,6 +781,10 @@ function ViewTab() {
           <EmptyState
             icon="📭"
             message="No lesson plans found for this student."
+            description="Create an AI-generated lesson plan tailored to this student's IEP goals."
+            actionLabel="Generate Lesson Plan"
+            actionIcon="✦"
+            onAction={onGoToGenerate}
           />
         ) : (
           <PlanRowList
@@ -757,7 +856,26 @@ function ViewTab() {
       {loadingStudents ? (
         <Loading text="Fetching students…" />
       ) : filteredStudents.length === 0 ? (
-        <EmptyState icon="🏫" message="No students found." />
+        <EmptyState
+          icon="🏫"
+          message={search || filterGrade || filterAge ? "No students match your filter." : "No students found."}
+          description={
+            search || filterGrade || filterAge
+              ? "Try adjusting your search query or filters."
+              : "Register a student profile first to manage and view lesson plans."
+          }
+          actionLabel={search || filterGrade || filterAge ? "Clear Filters" : "Create Student Profile"}
+          actionIcon={search || filterGrade || filterAge ? "✕" : "👤"}
+          onAction={() => {
+            if (search || filterGrade || filterAge) {
+              setSearch("");
+              setFilterGrade("");
+              setFilterAge("");
+            } else if (setActivePage) {
+              setActivePage("create-student-profile");
+            }
+          }}
+        />
       ) : (
         <StudentGrid
           students={filteredStudents}
@@ -770,7 +888,7 @@ function ViewTab() {
 }
 
 // ── Edit Tab ──────────────────────────────────────────────────────────────────
-function EditTab() {
+function EditTab({ onGoToGenerate }) {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -795,28 +913,20 @@ function EditTab() {
   const openEdit = (plan) => {
     setEditingPlan(plan);
     setFormValue({ title: plan.title, status: plan.status });
-    setSuccess(false);
     setError("");
+    setSuccess(false);
   };
 
   const handleSave = async () => {
+    if (!editingPlan) return;
     setSaving(true);
     setError("");
+    setSuccess(false);
+
     try {
-      const updated = await lessonPlansAPI.update(
-        editingPlan.lessonID,
-        formValue,
-      );
-      setPlans((prev) =>
-        prev.map((p) =>
-          p.lessonID === editingPlan.lessonID ? { ...p, ...updated } : p,
-        ),
-      );
+      await lessonPlansAPI.update(editingPlan.lessonID, formValue);
       setSuccess(true);
-      setTimeout(() => {
-        setEditingPlan(null);
-        setSuccess(false);
-      }, 1200);
+      fetchPlans();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -852,7 +962,7 @@ function EditTab() {
             className="ts-form-input"
             value={formValue.title}
             onChange={(e) =>
-              setFormValue({ ...formValue, title: e.target.value })
+              setFormValue((prev) => ({ ...prev, title: e.target.value }))
             }
           />
         </div>
@@ -862,20 +972,20 @@ function EditTab() {
             className="ts-form-input"
             value={formValue.status}
             onChange={(e) =>
-              setFormValue({ ...formValue, status: e.target.value })
+              setFormValue((prev) => ({ ...prev, status: e.target.value }))
             }
           >
-            <option value="Active">Active</option>
             <option value="Draft">Draft</option>
-            <option value="Generated">Generated</option>
+            <option value="Active">Active</option>
+            <option value="Archived">Archived</option>
           </select>
         </div>
-        <div className="ts-actions space-between" style={{ marginTop: 8 }}>
+        <div className="ts-actions space-between" style={{ marginTop: 24 }}>
           <button
             className="ts-btn ts-btn-ghost"
             onClick={() => setEditingPlan(null)}
           >
-            ← Back
+            Cancel
           </button>
           <button
             className="ts-btn ts-btn-primary"
@@ -902,7 +1012,14 @@ function EditTab() {
       {loading ? (
         <Loading text="Loading lesson plans…" />
       ) : plans.length === 0 ? (
-        <EmptyState icon="📭" message="No lesson plans found." />
+        <EmptyState
+          icon="📭"
+          message="No lesson plans found."
+          description="You don't have any lesson plans to edit yet. Generate one first using student IEP goals."
+          actionLabel="Generate Lesson Plan"
+          actionIcon="✦"
+          onAction={onGoToGenerate}
+        />
       ) : (
         <PlanRowList
           plans={plans}
@@ -916,7 +1033,7 @@ function EditTab() {
 }
 
 // ── Delete Tab ────────────────────────────────────────────────────────────────
-function DeleteTab() {
+function DeleteTab({ onGoToGenerate }) {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -937,11 +1054,12 @@ function DeleteTab() {
   }, [fetchPlans]);
 
   const confirmDelete = async () => {
+    if (!toDelete) return;
     setDeleting(true);
     try {
       await lessonPlansAPI.delete(toDelete);
-      setPlans((prev) => prev.filter((p) => p.lessonID !== toDelete));
       setToDelete(null);
+      fetchPlans();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -964,7 +1082,14 @@ function DeleteTab() {
       {loading ? (
         <Loading text="Loading lesson plans…" />
       ) : plans.length === 0 ? (
-        <EmptyState icon="📭" message="No lesson plans to delete." />
+        <EmptyState
+          icon="📭"
+          message="No lesson plans to delete."
+          description="There are currently no lesson plans on file."
+          actionLabel="Generate Lesson Plan"
+          actionIcon="✦"
+          onAction={onGoToGenerate}
+        />
       ) : (
         <PlanRowList
           plans={plans}
@@ -1008,7 +1133,7 @@ function DeleteTab() {
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
-export default function ManageLessonPlans() {
+export default function ManageLessonPlans({ setActivePage }) {
   const [activeTab, setActiveTab] = useState("generate");
   const [, setLessonPlans] = useState([]);
 
@@ -1047,10 +1172,28 @@ export default function ManageLessonPlans() {
       </div>
 
       <div className="ts-body">
-        {activeTab === "generate" && <GenerateTab onSave={saveLessonPlan} />}
-        {activeTab === "view" && <ViewTab />}
-        {activeTab === "edit" && <EditTab />}
-        {activeTab === "delete" && <DeleteTab />}
+        {activeTab === "generate" && (
+          <GenerateTab
+            onSave={saveLessonPlan}
+            setActivePage={setActivePage}
+          />
+        )}
+        {activeTab === "view" && (
+          <ViewTab
+            setActivePage={setActivePage}
+            onGoToGenerate={() => setActiveTab("generate")}
+          />
+        )}
+        {activeTab === "edit" && (
+          <EditTab
+            onGoToGenerate={() => setActiveTab("generate")}
+          />
+        )}
+        {activeTab === "delete" && (
+          <DeleteTab
+            onGoToGenerate={() => setActiveTab("generate")}
+          />
+        )}
       </div>
     </div>
   );

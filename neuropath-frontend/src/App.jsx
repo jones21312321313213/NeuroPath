@@ -76,19 +76,21 @@ function renderPage(
       );
     case "iep-generation":
     case "generate-iep":
-      return <IEPGenerationPage mode="generate" />;
+      return (
+        <IEPGenerationPage mode="generate" setActivePage={setActivePage} />
+      );
     case "view-iep":
-      return <IEPGenerationPage mode="view" />;
+      return <IEPGenerationPage mode="view" setActivePage={setActivePage} />;
     case "manage-lesson-plans":
-      return <ManageLessonPlans />;
+      return <ManageLessonPlans setActivePage={setActivePage} />;
     case "manage-visual-aids":
-      return <ManageVisualAids />;
+      return <ManageVisualAids setActivePage={setActivePage} />;
     case "manage-teaching-strategies":
-      return <ManageTeachingStrategies />;
+      return <ManageTeachingStrategies setActivePage={setActivePage} />;
     case "view-student-records":
-      return <ViewStudentRecords />;
+      return <ViewStudentRecords setActivePage={setActivePage} />;
     case "view-progress-dashboard":
-      return <ViewProgressDashboard />;
+      return <ViewProgressDashboard setActivePage={setActivePage} />;
 
     default:
       return <Overview setActivePage={setActivePage} />;
