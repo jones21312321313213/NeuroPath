@@ -64,6 +64,7 @@ jobs:
 
       - name: Run tests
         run: |
+          set -o pipefail
           python manage.py test -v 2 2>&1 | tee test_output.txt
           echo "--- Checking minimum test count ---"
           MIN_TESTS=100
