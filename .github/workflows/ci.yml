@@ -63,7 +63,17 @@ jobs:
         run: python manage.py check
 
       - name: Run tests
-        run: python manage.py test
+        run: |
+          set -o pipefail
+          python manage.py test -v 2 2>&1 | tee test_output.txt
+          echo "--- Checking minimum test count ---"
+          MIN_TESTS=100
+          COUNT=$(grep -oP 'Ran \K[0-9]+' test_output.txt || echo "0")
+          echo "Tests executed: $COUNT (minimum required: $MIN_TESTS)"
+          if [ "$COUNT" -lt "$MIN_TESTS" ]; then
+            echo "::error::CI gate failed — only $COUNT test(s) ran, minimum is $MIN_TESTS."
+            exit 1
+          fi
 
       - name: Build (collect static files)
         run: python manage.py collectstatic --noinput
