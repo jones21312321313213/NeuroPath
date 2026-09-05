@@ -30,7 +30,7 @@ describe("StudentInsightsTab", () => {
     expect(iepAPI.getInsights).toHaveBeenCalledWith(4);
 
     expect(
-      await screen.findByText(/Generation 1 — 2026-08-28 10:00/i),
+      await screen.findByText(/Summary 1 — 2026-08-28 10:00/i),
     ).toBeInTheDocument();
   });
 
@@ -41,7 +41,7 @@ describe("StudentInsightsTab", () => {
 
     expect(iepAPI.getInsights).toHaveBeenCalledWith(4);
     expect(
-      await screen.findByText(/No insights yet. Click the button below/i),
+      await screen.findByText(/No quick summary generated yet/i),
     ).toBeInTheDocument();
   });
 
@@ -53,6 +53,26 @@ describe("StudentInsightsTab", () => {
     expect(
       await screen.findByText(/Network error loading insights/i),
     ).toBeInTheDocument();
+  });
+
+  it("renders distinction notice stating this is not a full IEP and links to Generate IEP", async () => {
+    iepAPI.getInsights.mockResolvedValueOnce([]);
+    const setActivePage = vi.fn();
+
+    const user = userEvent.setup();
+    render(<StudentInsightsTab studentId={4} setActivePage={setActivePage} />);
+
+    expect(
+      screen.getByText(/Note: This is not a full Individualized Education Program \(IEP\)/i),
+    ).toBeInTheDocument();
+
+    const goIepBtn = screen.getByRole("button", {
+      name: /go to generate iep/i,
+    });
+    expect(goIepBtn).toBeInTheDocument();
+
+    await user.click(goIepBtn);
+    expect(setActivePage).toHaveBeenCalledWith("iep-generation");
   });
 
   it("calls iepAPI.generateInsight when Generate button is clicked for studentId=4", async () => {
@@ -69,14 +89,14 @@ describe("StudentInsightsTab", () => {
     await waitFor(() => expect(iepAPI.getInsights).toHaveBeenCalledWith(4));
 
     const generateBtn = screen.getByRole("button", {
-      name: /generate and analyze/i,
+      name: /generate quick summary/i,
     });
     await user.click(generateBtn);
 
     expect(iepAPI.generateInsight).toHaveBeenCalledWith(4);
 
     expect(
-      await screen.findByText(/Generation 1 — 2026-08-28 12:00/i),
+      await screen.findByText(/Summary 1 — 2026-08-28 12:00/i),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/Newly generated AI insight for Ethan./i),
@@ -96,7 +116,7 @@ describe("StudentInsightsTab", () => {
     render(<StudentInsightsTab studentId={4} />);
 
     const header = await screen.findByRole("button", {
-      name: /Generation 1 — 2026-08-28 10:00/i,
+      name: /Summary 1 — 2026-08-28 10:00/i,
     });
 
     // Initially collapsed
