@@ -368,6 +368,7 @@ function ViewIEPPanel({
   viewError,
   onDeleteIep,
   onUpdateIep,
+  setActivePage,
 }) {
   const selectedStudentId = getStudentId(selectedStudent);
   const studentIeps = selectedStudentId
@@ -723,6 +724,49 @@ function ViewIEPPanel({
             </p>
           </div>
 
+          {/* Post-IEP Next Steps / Classroom Tools */}
+          <div className="iep-next-steps-card">
+            <div className="iep-next-steps-header">
+              <span className="iep-next-steps-icon" aria-hidden="true">💡</span>
+              <div>
+                <h4>Instructional Support: Use this IEP in the Classroom</h4>
+                <p>
+                  This IEP is ready. Generate tailored lesson plans, visual aids, and teaching strategies based on this student's goals.
+                </p>
+              </div>
+            </div>
+            <div className="iep-next-steps-grid">
+              <button
+                type="button"
+                className="iep-next-step-btn"
+                onClick={() => setActivePage && setActivePage("manage-lesson-plans")}
+              >
+                <i className="ti ti-book" aria-hidden="true" /> Create Lesson Plan
+              </button>
+              <button
+                type="button"
+                className="iep-next-step-btn"
+                onClick={() => setActivePage && setActivePage("manage-visual-aids")}
+              >
+                <i className="ti ti-photo" aria-hidden="true" /> Create Visual Aid
+              </button>
+              <button
+                type="button"
+                className="iep-next-step-btn iep-next-step-secondary"
+                onClick={() => setActivePage && setActivePage("manage-teaching-strategies")}
+              >
+                <i className="ti ti-bulb" aria-hidden="true" /> Teaching Strategies
+              </button>
+              <button
+                type="button"
+                className="iep-next-step-btn iep-next-step-ghost"
+                onClick={() => setActivePage && setActivePage("overview")}
+              >
+                <i className="ti ti-home" aria-hidden="true" /> Back to Overview
+              </button>
+            </div>
+          </div>
+
           {/* Inline edit panel */}
           {isEditing && (
             <div className="iep-edit-panel">
@@ -1064,7 +1108,7 @@ function ViewIEPPanel({
 
 // ─── Generate IEP Page ────────────────────────────────────────────────────────
 
-export default function IEPGenerationPage({ mode = "generate" }) {
+export default function IEPGenerationPage({ mode = "generate", setActivePage }) {
   const activeView = mode;
 
   const currentUser = useMemo(() => {
@@ -1928,6 +1972,49 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                         </div>
                       </div>
 
+                      {/* --- POST-IEP NEXT STEPS TO CLASSROOM TOOLS --- */}
+                      <div className="iep-next-steps-card">
+                        <div className="iep-next-steps-header">
+                          <span className="iep-next-steps-icon" aria-hidden="true">🚀</span>
+                          <div>
+                            <h4>Next Steps: Classroom Tools & Instructional Support</h4>
+                            <p>
+                              Your IEP is saved and ready! Put this IEP into action by creating aligned classroom materials or returning to your dashboard.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="iep-next-steps-grid">
+                          <button
+                            type="button"
+                            className="iep-next-step-btn"
+                            onClick={() => setActivePage && setActivePage("manage-lesson-plans")}
+                          >
+                            <i className="ti ti-book" aria-hidden="true" /> Create Lesson Plan
+                          </button>
+                          <button
+                            type="button"
+                            className="iep-next-step-btn"
+                            onClick={() => setActivePage && setActivePage("manage-visual-aids")}
+                          >
+                            <i className="ti ti-photo" aria-hidden="true" /> Create Visual Aid
+                          </button>
+                          <button
+                            type="button"
+                            className="iep-next-step-btn iep-next-step-secondary"
+                            onClick={() => setActivePage && setActivePage("manage-teaching-strategies")}
+                          >
+                            <i className="ti ti-bulb" aria-hidden="true" /> Teaching Strategies
+                          </button>
+                          <button
+                            type="button"
+                            className="iep-next-step-btn iep-next-step-ghost"
+                            onClick={() => setActivePage && setActivePage("overview")}
+                          >
+                            <i className="ti ti-home" aria-hidden="true" /> Back to Overview
+                          </button>
+                        </div>
+                      </div>
+
                       {goalSaveStatus === "saving" && (
                         <p className="iep-muted" style={{ marginBottom: 12 }}>
                           💾 Saving goals to IEP record...
@@ -2054,6 +2141,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
           viewError={viewError}
           onDeleteIep={handleDeleteIep}
           onUpdateIep={handleUpdateIep}
+          setActivePage={setActivePage}
         />
       )}
     </div>

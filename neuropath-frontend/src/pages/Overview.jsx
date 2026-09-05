@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 import { studentsAPI, iepAPI } from "../api/client";
 import CountUp from "../components/ui/CountUp";
@@ -23,30 +23,6 @@ const stats = [
     key: "reviews",
     icon: "ti-calendar-event",
     color: "#BA7517",
-  },
-];
-
-const quickActions = [
-  {
-    label: "Create Student Profile",
-    page: "create-student-profile",
-    desc: "Add a new student with ASD background and learning preferences.",
-    icon: "ti-user-plus",
-    color: "#378ADD",
-  },
-  {
-    label: "View All Students",
-    page: "view-student-profile",
-    desc: "Browse and manage existing student records.",
-    icon: "ti-users",
-    color: "#1D9E75",
-  },
-  {
-    label: "Generate IEP",
-    page: "iep-generation",
-    desc: "Use AI to generate a personalized education plan.",
-    icon: "ti-sparkles",
-    color: "#7F77DD",
   },
 ];
 
@@ -92,6 +68,41 @@ export default function Overview({ setActivePage }) {
       .catch(() => {});
   }, [user]);
 
+  const actions = useMemo(
+    () => [
+      {
+        label: "Create Student Profile",
+        page: "create-student-profile",
+        desc: "Add a new student with ASD background and learning preferences.",
+        icon: "ti-user-plus",
+        color: "#378ADD",
+      },
+      {
+        label: "View All Students",
+        page: "view-student-profile",
+        desc: "Browse and manage existing student records.",
+        icon: "ti-users",
+        color: "#1D9E75",
+      },
+      counts.ieps > 0
+        ? {
+            label: "Classroom Tools",
+            page: "manage-lesson-plans",
+            desc: `${counts.ieps} active IEP${counts.ieps === 1 ? "" : "s"} ready! Generate lesson plans and visual aids.`,
+            icon: "ti-book",
+            color: "#7F77DD",
+          }
+        : {
+            label: "Generate IEP",
+            page: "iep-generation",
+            desc: "Use AI to generate a personalized education plan.",
+            icon: "ti-sparkles",
+            color: "#7F77DD",
+          },
+    ],
+    [counts.ieps],
+  );
+
   return (
     <div className="page-content">
       <div className="overview-wrapper">
@@ -136,7 +147,7 @@ export default function Overview({ setActivePage }) {
         {/* Quick Actions */}
         <p className="overview-section-label">Quick actions</p>
         <div className="quick-actions">
-          {quickActions.map((a) => (
+          {actions.map((a) => (
             <button
               key={a.page}
               className="quick-action-card"
