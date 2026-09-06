@@ -368,6 +368,8 @@ function ViewIEPPanel({
   viewError,
   onDeleteIep,
   onUpdateIep,
+  totalStudents = 0,
+  setActivePage,
 }) {
   const selectedStudentId = getStudentId(selectedStudent);
   const studentIeps = selectedStudentId
@@ -660,8 +662,20 @@ function ViewIEPPanel({
           <div>⌕</div>
           <strong>Search and select a student</strong>
           <span>
-            The IEP preview will appear here after selecting a student.
+            {totalStudents === 0
+              ? "You don't have any students registered yet. Create a student profile first to view or generate IEPs."
+              : "The IEP preview will appear here after selecting a student from the search above."}
           </span>
+          {totalStudents === 0 && setActivePage && (
+            <button
+              type="button"
+              className="btn btn-submit"
+              style={{ marginTop: 12 }}
+              onClick={() => setActivePage("create-student-profile")}
+            >
+              + CREATE STUDENT
+            </button>
+          )}
         </div>
       ) : loadingIeps ? (
         <div className="iep-empty-state">
@@ -674,9 +688,19 @@ function ViewIEPPanel({
           <div>📄</div>
           <strong>No IEP records found</strong>
           <span>
-            No saved IEP records were found for this student. Use Generate IEP
-            to create one.
+            No saved IEP records were found for this student. Use Generate IEP to
+            create one.
           </span>
+          {setActivePage && (
+            <button
+              type="button"
+              className="btn btn-submit"
+              style={{ marginTop: 12 }}
+              onClick={() => setActivePage("generate-iep")}
+            >
+              ✦ GENERATE IEP
+            </button>
+          )}
         </div>
       ) : !selectedIep ? (
         <div className="iep-empty-state">
@@ -1067,6 +1091,7 @@ function ViewIEPPanel({
 export default function IEPGenerationPage({
   mode = "generate",
   initialStudentId = null,
+  setActivePage,
 }) {
   const activeView = mode;
 
@@ -1670,11 +1695,26 @@ export default function IEPGenerationPage({
           {!selectedStudent ? (
             <div className="iep-empty-state compact">
               <div>⌕</div>
-              <strong>Select a student to start Generate IEP</strong>
+              <strong>
+                {students.length === 0
+                  ? "No students registered"
+                  : "Select a student to start Generate IEP"}
+              </strong>
               <span>
-                Search a student above to load their profile and begin filling
-                out the IEP form.
+                {students.length === 0
+                  ? "You need at least one registered student profile before generating an Individualized Education Plan (IEP)."
+                  : "Search a student above to load their profile and begin filling out the IEP form."}
               </span>
+              {students.length === 0 && setActivePage && (
+                <button
+                  type="button"
+                  className="btn btn-submit"
+                  style={{ marginTop: 12 }}
+                  onClick={() => setActivePage("create-student-profile")}
+                >
+                  + CREATE STUDENT
+                </button>
+              )}
             </div>
           ) : (
             <>
@@ -2082,6 +2122,8 @@ export default function IEPGenerationPage({
           viewError={viewError}
           onDeleteIep={handleDeleteIep}
           onUpdateIep={handleUpdateIep}
+          totalStudents={students.length}
+          setActivePage={setActivePage}
         />
       )}
     </div>

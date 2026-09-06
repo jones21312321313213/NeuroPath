@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import "../styles/ManageTeachingStrategies.css";
 import { iepAPI, teachingStrategiesAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -25,11 +25,42 @@ function Loading({ text = "Loading…" }) {
   );
 }
 
-function EmptyState({ icon = "📭", message = "No records found." }) {
+function EmptyState({
+  icon = "📭",
+  message = "No records found.",
+  description,
+  actionLabel,
+  onAction,
+  actionIcon,
+}) {
   return (
     <div className="ts-empty">
       <span className="ts-empty-icon">{icon}</span>
       <p className="ts-empty-text">{message}</p>
+      {description && (
+        <p
+          style={{
+            fontSize: 13,
+            color: "#5a7491",
+            maxWidth: 480,
+            margin: "6px auto 0",
+            lineHeight: 1.5,
+          }}
+        >
+          {description}
+        </p>
+      )}
+      {actionLabel && onAction && (
+        <button
+          type="button"
+          className="ts-btn ts-btn-primary"
+          style={{ marginTop: 16 }}
+          onClick={onAction}
+        >
+          {actionIcon && <span>{actionIcon}</span>}
+          {actionLabel}
+        </button>
+      )}
     </div>
   );
 }
@@ -180,7 +211,7 @@ function StrategyRowList({
 }
 
 // ── Generate Tab ──────────────────────────────────────────────────────────────
-function GenerateTab({ onSave }) {
+function GenerateTab({ onSave, setActivePage }) {
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
@@ -258,7 +289,11 @@ function GenerateTab({ onSave }) {
         ) : directory.length === 0 ? (
           <EmptyState
             icon="🏫"
-            message="No students found. Add a student profile first."
+            message="No students found."
+            description="You need at least one registered student profile before generating a teaching strategy."
+            actionLabel="Create Student Profile"
+            actionIcon="👤"
+            onAction={() => setActivePage && setActivePage("create-student-profile")}
           />
         ) : (
           <div className="ts-student-grid">
@@ -302,6 +337,10 @@ function GenerateTab({ onSave }) {
             <EmptyState
               icon="🎯"
               message="No IEP goals found for this student."
+              description="Teaching strategies are generated directly from saved IEP goals. Generate and save an IEP with goals for this student first."
+              actionLabel="Generate IEP"
+              actionIcon="✦"
+              onAction={() => setActivePage && setActivePage("iep-generation")}
             />
           ) : (
             <div className="ts-goal-grid">
@@ -467,7 +506,7 @@ function StrategyDetails({ strategy, onBack }) {
 }
 
 // ── View Tab ──────────────────────────────────────────────────────────────────
-function ViewTab() {
+function ViewTab({ setActivePage, onGoToGenerate }) {
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
@@ -483,7 +522,7 @@ function ViewTab() {
       .then((data) => setDirectory(data.directory || []))
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoadingDir(false));
-  }, []);
+  }, [user?.id]);
 
   const handleSelectStudent = (s) => {
     setSelectedStudent(s);
@@ -531,6 +570,10 @@ function ViewTab() {
           <EmptyState
             icon="📭"
             message="No teaching strategies found for this student."
+            description="Generate an AI-powered teaching strategy tailored to this student's IEP goals."
+            actionLabel="Generate Strategy"
+            actionIcon="✦"
+            onAction={onGoToGenerate}
           />
         ) : (
           <StrategyRowList
@@ -559,7 +602,14 @@ function ViewTab() {
       {loadingDir ? (
         <Loading text="Fetching students…" />
       ) : directory.length === 0 ? (
-        <EmptyState icon="🏫" message="No students found." />
+        <EmptyState
+          icon="🏫"
+          message="No students found."
+          description="Register a student profile first to view and manage teaching strategies."
+          actionLabel="Create Student Profile"
+          actionIcon="👤"
+          onAction={() => setActivePage && setActivePage("create-student-profile")}
+        />
       ) : (
         <div className="ts-student-grid">
           {directory.map((s) => (
@@ -583,7 +633,7 @@ function ViewTab() {
 }
 
 // ── Edit Tab ──────────────────────────────────────────────────────────────────
-function EditTab() {
+function EditTab({ setActivePage, onGoToGenerate }) {
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
@@ -602,7 +652,7 @@ function EditTab() {
       .then((data) => setDirectory(data.directory || []))
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoadingDir(false));
-  }, []);
+  }, [user?.id]);
 
   const handleSelectStudent = (s) => {
     setSelectedStudent(s);
@@ -620,28 +670,31 @@ function EditTab() {
       title: strategy.title,
       strategyContent: strategy.strategyContent,
     });
-    setSuccess(false);
     setError("");
+    setSuccess(false);
   };
 
   const saveEdit = async () => {
+    if (!form.title || !form.strategyContent) {
+      setError("Please fill out all fields.");
+      return;
+    }
     setSaving(true);
     setError("");
+    setSuccess(false);
+
     try {
       await teachingStrategiesAPI.update(selected.strategyID, form);
-      setStrategies((prev) =>
-        prev.map((s) =>
-          s.strategyID === selected.strategyID ? { ...s, ...form } : s,
-        ),
-      );
       setSuccess(true);
+      teachingStrategiesAPI
+        .list(selectedStudent.studentID)
+        .then(setStrategies);
       setTimeout(() => {
         setSelected(null);
         setForm(null);
-        setSuccess(false);
-      }, 1200);
+      }, 1000);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Failed to update strategy.");
     } finally {
       setSaving(false);
     }
@@ -748,6 +801,10 @@ function EditTab() {
           <EmptyState
             icon="📭"
             message="No teaching strategies found for this student."
+            description="You don't have any strategies to edit for this student yet."
+            actionLabel="Generate Strategy"
+            actionIcon="✦"
+            onAction={onGoToGenerate}
           />
         ) : (
           <StrategyRowList
@@ -777,7 +834,14 @@ function EditTab() {
       {loadingDir ? (
         <Loading text="Fetching students…" />
       ) : directory.length === 0 ? (
-        <EmptyState icon="🏫" message="No students found." />
+        <EmptyState
+          icon="🏫"
+          message="No students found."
+          description="Register a student profile first to manage teaching strategies."
+          actionLabel="Create Student Profile"
+          actionIcon="👤"
+          onAction={() => setActivePage && setActivePage("create-student-profile")}
+        />
       ) : (
         <div className="ts-student-grid">
           {directory.map((s) => (
@@ -801,7 +865,7 @@ function EditTab() {
 }
 
 // ── Delete Tab ────────────────────────────────────────────────────────────────
-function DeleteTab() {
+function DeleteTab({ setActivePage, onGoToGenerate }) {
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
@@ -812,41 +876,39 @@ function DeleteTab() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
 
-  const item = useMemo(
-    () => strategies.find((s) => s.strategyID === toDelete),
-    [strategies, toDelete],
-  );
-
   useEffect(() => {
     teachingStrategiesAPI
       .getDirectory(user?.id)
       .then((data) => setDirectory(data.directory || []))
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoadingDir(false));
-  }, []);
+  }, [user?.id]);
 
   const handleSelectStudent = (s) => {
     setSelectedStudent(s);
     setLoadingStrats(true);
     teachingStrategiesAPI
-      .listForDelete(s.studentID)
+      .list(s.studentID)
       .then(setStrategies)
       .catch(() => setError("Failed to load strategies."))
       .finally(() => setLoadingStrats(false));
   };
 
   const confirmDelete = async () => {
+    if (!toDelete) return;
     setDeleting(true);
     try {
       await teachingStrategiesAPI.delete(toDelete);
       setStrategies((prev) => prev.filter((s) => s.strategyID !== toDelete));
       setToDelete(null);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Failed to delete strategy.");
     } finally {
       setDeleting(false);
     }
   };
+
+  const item = strategies.find((s) => s.strategyID === toDelete);
 
   if (selectedStudent) {
     return (
@@ -866,7 +928,7 @@ function DeleteTab() {
         <div className="ts-card-header">
           <div className="ts-card-icon">🗑️</div>
           <div>
-            <p className="ts-card-title">Teaching Strategies</p>
+            <p className="ts-card-title">Delete Teaching Strategies</p>
             <p className="ts-card-subtitle">
               For {selectedStudent.studentName}
             </p>
@@ -879,6 +941,10 @@ function DeleteTab() {
           <EmptyState
             icon="📭"
             message="No teaching strategies to delete for this student."
+            description="There are currently no teaching strategies recorded for this student."
+            actionLabel="Generate Strategy"
+            actionIcon="✦"
+            onAction={onGoToGenerate}
           />
         ) : (
           <StrategyRowList
@@ -936,7 +1002,14 @@ function DeleteTab() {
       {loadingDir ? (
         <Loading text="Fetching students…" />
       ) : directory.length === 0 ? (
-        <EmptyState icon="🏫" message="No students found." />
+        <EmptyState
+          icon="🏫"
+          message="No students found."
+          description="Register a student profile first to manage teaching strategies."
+          actionLabel="Create Student Profile"
+          actionIcon="👤"
+          onAction={() => setActivePage && setActivePage("create-student-profile")}
+        />
       ) : (
         <div className="ts-student-grid">
           {directory.map((s) => (
@@ -960,7 +1033,7 @@ function DeleteTab() {
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
-export default function ManageTeachingStrategies() {
+export default function ManageTeachingStrategies({ setActivePage }) {
   const [activeTab, setActiveTab] = useState("generate");
   const [, setStrategies] = useState([]);
 
@@ -1002,10 +1075,30 @@ export default function ManageTeachingStrategies() {
 
       {/* Body */}
       <div className="ts-body">
-        {activeTab === "generate" && <GenerateTab onSave={saveStrategy} />}
-        {activeTab === "view" && <ViewTab />}
-        {activeTab === "edit" && <EditTab />}
-        {activeTab === "delete" && <DeleteTab />}
+        {activeTab === "generate" && (
+          <GenerateTab
+            onSave={saveStrategy}
+            setActivePage={setActivePage}
+          />
+        )}
+        {activeTab === "view" && (
+          <ViewTab
+            setActivePage={setActivePage}
+            onGoToGenerate={() => setActiveTab("generate")}
+          />
+        )}
+        {activeTab === "edit" && (
+          <EditTab
+            setActivePage={setActivePage}
+            onGoToGenerate={() => setActiveTab("generate")}
+          />
+        )}
+        {activeTab === "delete" && (
+          <DeleteTab
+            setActivePage={setActivePage}
+            onGoToGenerate={() => setActiveTab("generate")}
+          />
+        )}
       </div>
     </div>
   );
