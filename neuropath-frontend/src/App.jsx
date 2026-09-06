@@ -52,7 +52,13 @@ function renderPage(
     case "my-profile":
       return <UserProfile />; // Wired up the switch statement destination
     case "create-student-profile":
-      return <CreateStudentProfile onBack={() => setActivePage("overview")} />;
+      return (
+        <CreateStudentProfile
+          onBack={() => setActivePage("overview")}
+          setActivePage={setActivePage}
+          setSelectedStudentId={setSelectedStudentId}
+        />
+      );
     case "view-student-profile":
       return (
         <ViewStudentProfile
@@ -77,10 +83,20 @@ function renderPage(
     case "iep-generation":
     case "generate-iep":
       return (
-        <IEPGenerationPage mode="generate" setActivePage={setActivePage} />
+        <IEPGenerationPage
+          mode="generate"
+          initialStudentId={selectedStudentId}
+          setActivePage={setActivePage}
+        />
       );
     case "view-iep":
-      return <IEPGenerationPage mode="view" setActivePage={setActivePage} />;
+      return (
+        <IEPGenerationPage
+          mode="view"
+          initialStudentId={selectedStudentId}
+          setActivePage={setActivePage}
+        />
+      );
     case "manage-lesson-plans":
       return <ManageLessonPlans setActivePage={setActivePage} />;
     case "manage-visual-aids":

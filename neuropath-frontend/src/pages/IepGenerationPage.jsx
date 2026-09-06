@@ -1090,6 +1090,7 @@ function ViewIEPPanel({
 
 export default function IEPGenerationPage({
   mode = "generate",
+  initialStudentId = null,
   setActivePage,
 }) {
   const activeView = mode;
@@ -1172,6 +1173,20 @@ export default function IEPGenerationPage({
     });
   }, [activeView]);
 
+  // Auto-select student if initialStudentId is provided
+  useEffect(() => {
+    if (!initialStudentId || !students.length) return;
+    const found = students.find(
+      (s) => String(getStudentId(s)) === String(initialStudentId),
+    );
+    if (found) {
+      queueMicrotask(() => {
+        setSelectedStudent(found);
+        setSearchTerm(getStudentName(found));
+      });
+    }
+  }, [initialStudentId, students]);
+
   // Load students
   useEffect(() => {
     let mounted = true;
@@ -1186,7 +1201,18 @@ export default function IEPGenerationPage({
         const list = Array.isArray(data)
           ? data
           : data.results || data.data || [];
-        if (mounted) setStudents(list);
+        if (mounted) {
+          setStudents(list);
+          if (initialStudentId) {
+            const found = list.find(
+              (s) => String(getStudentId(s)) === String(initialStudentId),
+            );
+            if (found) {
+              setSelectedStudent(found);
+              setSearchTerm(getStudentName(found));
+            }
+          }
+        }
       } catch (err) {
         if (mounted) {
           setStudents([]);
@@ -1200,7 +1226,7 @@ export default function IEPGenerationPage({
     return () => {
       mounted = false;
     };
-  }, [currentUserId]);
+  }, [currentUserId, initialStudentId]);
 
   // Load IEPs when student changes
   useEffect(() => {
