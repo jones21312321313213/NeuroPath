@@ -34,11 +34,42 @@ function Loading({ text = "Loading…" }) {
   );
 }
 
-function EmptyState({ icon = "📭", message = "No records found." }) {
+function EmptyState({
+  icon = "📭",
+  message = "No records found.",
+  description,
+  actionLabel,
+  onAction,
+  actionIcon,
+}) {
   return (
     <div className="va-empty-state">
       <span className="va-empty-icon">{icon}</span>
       <p className="va-empty-text">{message}</p>
+      {description && (
+        <p
+          style={{
+            fontSize: 13,
+            color: "#5a7491",
+            maxWidth: 480,
+            margin: "6px auto 0",
+            lineHeight: 1.5,
+          }}
+        >
+          {description}
+        </p>
+      )}
+      {actionLabel && onAction && (
+        <button
+          type="button"
+          className="va-btn va-btn-primary"
+          style={{ marginTop: 16 }}
+          onClick={onAction}
+        >
+          {actionIcon && <span>{actionIcon}</span>}
+          {actionLabel}
+        </button>
+      )}
     </div>
   );
 }
@@ -133,7 +164,7 @@ function AidRowList({
 }
 
 // ── Generate Tab ──────────────────────────────────────────────────────────────
-function GenerateTab() {
+function GenerateTab({ setActivePage }) {
   const { user } = useAuth();
 
   // Step 1
@@ -232,7 +263,11 @@ function GenerateTab() {
         ) : students.length === 0 ? (
           <EmptyState
             icon="🏫"
-            message="No students found. Add a student profile first."
+            message="No students found."
+            description="You need at least one registered student profile before generating a visual aid."
+            actionLabel="Create Student Profile"
+            actionIcon="👤"
+            onAction={() => setActivePage && setActivePage("create-student-profile")}
           />
         ) : (
           <StudentSelector
@@ -263,7 +298,11 @@ function GenerateTab() {
           ) : goals.length === 0 ? (
             <EmptyState
               icon="📋"
-              message="No IEP goals found for this student. Generate an IEP first."
+              message="No IEP goals found for this student."
+              description="Visual aids are generated directly from saved IEP goals. Generate and save an IEP with goals for this student first."
+              actionLabel="Generate IEP"
+              actionIcon="✦"
+              onAction={() => setActivePage && setActivePage("iep-generation")}
             />
           ) : (
             <div className="va-form-group">
@@ -424,7 +463,7 @@ function GenerateTab() {
 }
 
 // ── View Tab ──────────────────────────────────────────────────────────────────
-function ViewTab() {
+function ViewTab({ setActivePage, onGoToGenerate }) {
   const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -487,7 +526,11 @@ function ViewTab() {
       ) : students.length === 0 ? (
         <EmptyState
           icon="🏫"
-          message="No students found. Add a student profile first."
+          message="No students found."
+          description="Register a student profile first to view and manage visual aids."
+          actionLabel="Create Student Profile"
+          actionIcon="👤"
+          onAction={() => setActivePage && setActivePage("create-student-profile")}
         />
       ) : (
         <StudentSelector
@@ -509,7 +552,11 @@ function ViewTab() {
           ) : aids.length === 0 ? (
             <EmptyState
               icon="🖼️"
-              message="No visual aids saved for this student yet. Generate one first."
+              message="No visual aids saved for this student yet."
+              description="Create an AI-generated visual aid based on this student's IEP goals."
+              actionLabel="Generate Visual Aid"
+              actionIcon="✦"
+              onAction={onGoToGenerate}
             />
           ) : (
             <AidRowList
@@ -527,7 +574,7 @@ function ViewTab() {
 }
 
 // ── Delete Tab ────────────────────────────────────────────────────────────────
-function DeleteTab() {
+function DeleteTab({ setActivePage, onGoToGenerate }) {
   const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -608,7 +655,11 @@ function DeleteTab() {
       ) : students.length === 0 ? (
         <EmptyState
           icon="🏫"
-          message="No students found. Add a student profile first."
+          message="No students found."
+          description="Register a student profile first to manage visual aids."
+          actionLabel="Create Student Profile"
+          actionIcon="👤"
+          onAction={() => setActivePage && setActivePage("create-student-profile")}
         />
       ) : (
         <StudentSelector
@@ -631,6 +682,10 @@ function DeleteTab() {
             <EmptyState
               icon="📭"
               message="No visual aids saved for this student."
+              description="There are currently no visual aids to delete for this student."
+              actionLabel="Generate Visual Aid"
+              actionIcon="✦"
+              onAction={onGoToGenerate}
             />
           ) : (
             <AidRowList
@@ -676,7 +731,7 @@ function DeleteTab() {
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
-export default function ManageVisualAids() {
+export default function ManageVisualAids({ setActivePage }) {
   const [activeTab, setActiveTab] = useState("generate");
 
   return (
@@ -713,9 +768,21 @@ export default function ManageVisualAids() {
 
       {/* Body */}
       <div className="va-body">
-        {activeTab === "generate" && <GenerateTab />}
-        {activeTab === "view" && <ViewTab />}
-        {activeTab === "delete" && <DeleteTab />}
+        {activeTab === "generate" && (
+          <GenerateTab setActivePage={setActivePage} />
+        )}
+        {activeTab === "view" && (
+          <ViewTab
+            setActivePage={setActivePage}
+            onGoToGenerate={() => setActiveTab("generate")}
+          />
+        )}
+        {activeTab === "delete" && (
+          <DeleteTab
+            setActivePage={setActivePage}
+            onGoToGenerate={() => setActiveTab("generate")}
+          />
+        )}
       </div>
     </div>
   );

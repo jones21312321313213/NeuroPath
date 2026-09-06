@@ -52,7 +52,13 @@ function renderPage(
     case "my-profile":
       return <UserProfile />; // Wired up the switch statement destination
     case "create-student-profile":
-      return <CreateStudentProfile onBack={() => setActivePage("overview")} />;
+      return (
+        <CreateStudentProfile
+          onBack={() => setActivePage("overview")}
+          setActivePage={setActivePage}
+          setSelectedStudentId={setSelectedStudentId}
+        />
+      );
     case "view-student-profile":
       return (
         <ViewStudentProfile
@@ -76,19 +82,31 @@ function renderPage(
       );
     case "iep-generation":
     case "generate-iep":
-      return <IEPGenerationPage mode="generate" />;
+      return (
+        <IEPGenerationPage
+          mode="generate"
+          initialStudentId={selectedStudentId}
+          setActivePage={setActivePage}
+        />
+      );
     case "view-iep":
-      return <IEPGenerationPage mode="view" />;
+      return (
+        <IEPGenerationPage
+          mode="view"
+          initialStudentId={selectedStudentId}
+          setActivePage={setActivePage}
+        />
+      );
     case "manage-lesson-plans":
-      return <ManageLessonPlans />;
+      return <ManageLessonPlans setActivePage={setActivePage} />;
     case "manage-visual-aids":
-      return <ManageVisualAids />;
+      return <ManageVisualAids setActivePage={setActivePage} />;
     case "manage-teaching-strategies":
-      return <ManageTeachingStrategies />;
+      return <ManageTeachingStrategies setActivePage={setActivePage} />;
     case "view-student-records":
-      return <ViewStudentRecords />;
+      return <ViewStudentRecords setActivePage={setActivePage} />;
     case "view-progress-dashboard":
-      return <ViewProgressDashboard />;
+      return <ViewProgressDashboard setActivePage={setActivePage} />;
 
     default:
       return <Overview setActivePage={setActivePage} />;
