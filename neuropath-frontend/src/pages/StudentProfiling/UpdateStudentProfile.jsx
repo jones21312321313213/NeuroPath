@@ -67,10 +67,18 @@ function SelectField({ label, options, value, onChange }) {
   );
 }
 
-function TextAreaField({ label, placeholder, value, onChange, rows = 3 }) {
+function TextAreaField({
+  label,
+  placeholder,
+  value,
+  onChange,
+  rows = 3,
+  helpText,
+}) {
   return (
     <div className="form-group">
       <label className="form-label">{label}</label>
+      {helpText && <span className="iep-field-help">{helpText}</span>}
       <textarea
         rows={rows}
         placeholder={placeholder}
@@ -198,6 +206,14 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
         return false;
       }
     }
+
+    if (!form.difficultyMarkers || form.difficultyMarkers.length === 0) {
+      setError(
+        "Please select at least one difficulty marker (needed before Generate IEP).",
+      );
+      return false;
+    }
+
     setError("");
     return true;
   };
@@ -329,6 +345,13 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
           </div>
         </div>
 
+        <div className="iep-form-intro">
+          <span className="iep-form-intro-icon">💡</span>
+          <div>
+            <strong>Tip:</strong> NeuroPath uses this form for AI IEP drafts; fuller answers usually mean better drafts.
+          </div>
+        </div>
+
         <div className="form-actions">
           <button type="button" className="btn btn-back" onClick={onBack}>
             ←
@@ -419,6 +442,9 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
             <div>
               <h3 className="iep-small-title">
                 Difficulties — mark the appropriate box based on assessment
+                <span className="iep-small-title-help">
+                  (Needed before Generate IEP)
+                </span>
               </h3>
               <div className="iep-check-grid">
                 {difficultyOptions.map((option) => (
@@ -439,6 +465,7 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
             <SectionHeader title="Present Levels of Academic Achievement and/or Functional Performance" />
             <TextAreaField
               label="Results of initial or most recent evaluation and results of school assessments"
+              helpText="Used by AI when drafting goals"
               placeholder="Example: The student fails to finish tasks most of the time, has difficulty in concentrating and paying attention, and may be unable to get what he wants."
               value={form.presentEvaluation}
               onChange={setField("presentEvaluation")}
@@ -446,6 +473,7 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
             />
             <TextAreaField
               label="Description of academic, developmental, and/or functional strengths"
+              helpText="Used by AI when drafting goals"
               placeholder="Example: The student can spell random words using alphabet blocks and arranges alphabet sequentially."
               value={form.academicStrengths}
               onChange={setField("academicStrengths")}
@@ -453,6 +481,7 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
             />
             <TextAreaField
               label="Description of academic, developmental, and/or functional needs"
+              helpText="Used by AI when drafting goals"
               placeholder="Example: Needs structured routines, visual task supports, shortened activities, sensory breaks, and positive reinforcement."
               value={form.academicNeeds}
               onChange={setField("academicNeeds")}
@@ -460,6 +489,7 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
             />
             <TextAreaField
               label="Parental concerns regarding the child's education"
+              helpText="Used by AI when drafting goals"
               placeholder="Write concerns shared by the parent or guardian."
               value={form.parentalConcerns}
               onChange={setField("parentalConcerns")}
@@ -467,6 +497,7 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
             />
             <TextAreaField
               label="Impact of the disability on involvement and progress in the general education curriculum"
+              helpText="Used by AI when drafting goals"
               placeholder="Example: The student has difficulty concentrating and needs support to listen well."
               value={form.curriculumImpact}
               onChange={setField("curriculumImpact")}
