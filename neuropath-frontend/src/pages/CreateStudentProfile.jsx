@@ -25,10 +25,16 @@ function FormField({
   min,
   max,
 }) {
+  const inputId = label
+    ? `field-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    : undefined;
   return (
     <div className="form-group">
-      <label className="form-label">{label}:</label>
+      <label htmlFor={inputId} className="form-label">
+        {label}:
+      </label>
       <input
+        id={inputId}
         type={type}
         placeholder={placeholder}
         value={value}
@@ -42,10 +48,20 @@ function FormField({
 }
 
 function SelectField({ label, options, value, onChange }) {
+  const selectId = label
+    ? `select-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    : undefined;
   return (
     <div className="form-group">
-      <label className="form-label">{label}:</label>
-      <select value={value} onChange={onChange} className="form-select">
+      <label htmlFor={selectId} className="form-label">
+        {label}:
+      </label>
+      <select
+        id={selectId}
+        value={value}
+        onChange={onChange}
+        className="form-select"
+      >
         <option value="">Choose</option>
         {options.map((option) => (
           <option key={option} value={option}>
@@ -65,11 +81,17 @@ function TextAreaField({
   rows = 3,
   helpText,
 }) {
+  const areaId = label
+    ? `area-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    : undefined;
   return (
     <div className="form-group">
-      <label className="form-label">{label}</label>
+      <label htmlFor={areaId} className="form-label">
+        {label}
+      </label>
       {helpText && <span className="iep-field-help">{helpText}</span>}
       <textarea
+        id={areaId}
         rows={rows}
         placeholder={placeholder}
         value={value}
@@ -97,17 +119,40 @@ function CheckOption({ label, checked, onChange }) {
     </label>
   );
 }
-function SuccessModal({ studentName, onClose }) {
+const initialFormState = {
+  school: "",
+  schoolYear: "",
+  learnerName: "",
+  age: "",
+  gradeLevel: "",
+  gender: "",
+  birthdate: "",
+  disabilityCategory: "Autism Spectrum Disorder",
+  diagnosisDetails: "",
+  difficultyMarkers: [],
+  presentEvaluation: "",
+  academicStrengths: "",
+  academicNeeds: "",
+  parentalConcerns: "",
+  curriculumImpact: "",
+};
+
+function SuccessModal({
+  studentName,
+  onGenerateIEP,
+  onViewProfile,
+  onAddAnother,
+}) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{
-        background: "rgba(26, 58, 74, 0.4)",
+        background: "rgba(26, 58, 74, 0.45)",
         backdropFilter: "blur(4px)",
       }}
     >
       <div
-        className="relative w-full max-w-sm rounded-2xl p-8 flex flex-col items-center text-center shadow-2xl"
+        className="relative w-full max-w-md rounded-2xl p-6 md:p-8 flex flex-col items-center text-center shadow-2xl"
         style={{
           background: "#fff",
           border: "1px solid rgba(130,199,255,0.3)",
@@ -116,7 +161,7 @@ function SuccessModal({ studentName, onClose }) {
       >
         {/* Icon */}
         <div
-          className="w-16 h-16 rounded-full flex items-center justify-center mb-5 text-3xl"
+          className="w-16 h-16 rounded-full flex items-center justify-center mb-4 text-3xl"
           style={{ background: "#e6f7ec", border: "2px solid #b7e4c7" }}
         >
           ✅
@@ -138,52 +183,86 @@ function SuccessModal({ studentName, onClose }) {
           's student profile has been successfully added to NeuroPath.
         </p>
 
-        <button
-          onClick={onClose}
-          className="w-full py-3 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98]"
-          style={{
-            background: "linear-gradient(135deg, #2589c7 0%, #82C7FF 100%)",
-            boxShadow: "0 4px 14px rgba(130,199,255,0.4)",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.boxShadow =
-              "0 6px 20px rgba(130,199,255,0.55)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.boxShadow =
-              "0 4px 14px rgba(130,199,255,0.4)")
-          }
-        >
-          Done
-        </button>
+        {/* Next Step Action CTAs */}
+        <div className="w-full flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={onGenerateIEP}
+            className="w-full py-3 px-4 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+            style={{
+              background: "linear-gradient(135deg, #2589c7 0%, #82C7FF 100%)",
+              boxShadow: "0 4px 14px rgba(130,199,255,0.4)",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.boxShadow =
+                "0 6px 20px rgba(130,199,255,0.55)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.boxShadow =
+                "0 4px 14px rgba(130,199,255,0.4)")
+            }
+          >
+            <span>Generate IEP for this student</span>
+            <span aria-hidden="true">→</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onViewProfile}
+            className="w-full py-3 px-4 rounded-xl font-bold text-sm transition-all active:scale-[0.98] cursor-pointer"
+            style={{
+              background: "#f0f7fc",
+              color: "#1a6fa8",
+              border: "1px solid rgba(130,199,255,0.4)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#e3f1fb";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "#f0f7fc";
+            }}
+          >
+            View student profile
+          </button>
+
+          <button
+            type="button"
+            onClick={onAddAnother}
+            className="w-full py-2.5 px-4 rounded-xl font-medium text-sm transition-all cursor-pointer"
+            style={{
+              background: "transparent",
+              color: "#5b7a8c",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = "#1a3a4a";
+              e.currentTarget.style.textDecoration = "underline";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = "#5b7a8c";
+              e.currentTarget.style.textDecoration = "none";
+            }}
+          >
+            Add another student
+          </button>
+        </div>
       </div>
     </div>
   );
 }
-export default function CreateStudentProfile({ onBack }) {
+
+export default function CreateStudentProfile({
+  onBack,
+  setActivePage,
+  setSelectedStudentId,
+}) {
   const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdStudent, setCreatedStudent] = useState(null);
 
-  const [form, setForm] = useState({
-    school: "",
-    schoolYear: "",
-    learnerName: "",
-    age: "",
-    gradeLevel: "",
-    gender: "",
-    birthdate: "",
-    disabilityCategory: "Autism Spectrum Disorder",
-    diagnosisDetails: "",
-    difficultyMarkers: [],
-    presentEvaluation: "",
-    academicStrengths: "",
-    academicNeeds: "",
-    parentalConcerns: "",
-    curriculumImpact: "",
-  });
+  const [form, setForm] = useState(initialFormState);
 
   const setField = (field) => (e) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
@@ -361,13 +440,47 @@ export default function CreateStudentProfile({ onBack }) {
     };
 
     try {
-      await studentsAPI.create(payload);
+      const created = await studentsAPI.create(payload);
+      const createdId =
+        created?.studentID ??
+        created?.id ??
+        created?.pk ??
+        created?.data?.studentID ??
+        created?.data?.id ??
+        null;
+      setCreatedStudent({ id: createdId, name: form.learnerName });
       setShowSuccessModal(true);
     } catch (err) {
       setError(err.message || "Unable to save student profile.");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleGenerateIEP = () => {
+    if (createdStudent?.id && setSelectedStudentId) {
+      setSelectedStudentId(createdStudent.id);
+    }
+    if (setActivePage) {
+      setActivePage("generate-iep");
+    }
+  };
+
+  const handleViewProfile = () => {
+    if (createdStudent?.id && setSelectedStudentId) {
+      setSelectedStudentId(createdStudent.id);
+    }
+    if (setActivePage) {
+      setActivePage("view-student-detail");
+    }
+  };
+
+  const handleAddAnother = () => {
+    setShowSuccessModal(false);
+    setStep(1);
+    setError("");
+    setCreatedStudent(null);
+    setForm(initialFormState);
   };
 
   return (
@@ -567,29 +680,10 @@ export default function CreateStudentProfile({ onBack }) {
       </div>
       {showSuccessModal && (
         <SuccessModal
-          studentName={form.learnerName}
-          onClose={() => {
-            setShowSuccessModal(false);
-            setStep(1);
-            setError("");
-            setForm({
-              school: "",
-              schoolYear: "",
-              learnerName: "",
-              age: "",
-              gradeLevel: "",
-              gender: "",
-              birthdate: "",
-              disabilityCategory: "Autism Spectrum Disorder",
-              diagnosisDetails: "",
-              difficultyMarkers: [],
-              presentEvaluation: "",
-              academicStrengths: "",
-              academicNeeds: "",
-              parentalConcerns: "",
-              curriculumImpact: "",
-            });
-          }}
+          studentName={createdStudent?.name || form.learnerName}
+          onGenerateIEP={handleGenerateIEP}
+          onViewProfile={handleViewProfile}
+          onAddAnother={handleAddAnother}
         />
       )}
     </div>

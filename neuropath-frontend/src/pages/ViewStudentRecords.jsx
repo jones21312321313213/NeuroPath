@@ -34,13 +34,37 @@ const PLACEHOLDER = {
   iepDate: "",
 };
 
-function EmptyState({ message }) {
+function EmptyState({ message, description, actionLabel, onAction }) {
   return (
     <div className="om-empty">
       <span style={{ fontSize: 32, display: "block", marginBottom: 8 }}>
         📭
       </span>
-      {message}
+      <p style={{ fontWeight: 600, color: "#2d3748", margin: "0 0 6px 0" }}>{message}</p>
+      {description && (
+        <p style={{ fontSize: 13, color: "#718096", maxWidth: 360, margin: "0 auto 12px auto" }}>
+          {description}
+        </p>
+      )}
+      {actionLabel && onAction && (
+        <button
+          className="btn btn-primary"
+          style={{
+            marginTop: 6,
+            padding: "8px 18px",
+            fontSize: "13px",
+            fontWeight: 600,
+            cursor: "pointer",
+            borderRadius: "6px",
+            border: "none",
+            backgroundColor: "#2b6cb0",
+            color: "#ffffff",
+          }}
+          onClick={onAction}
+        >
+          {actionLabel}
+        </button>
+      )}
     </div>
   );
 }
@@ -253,7 +277,7 @@ function PagePresentLevels({ d, onNext, onBack }) {
 }
 
 // ── PAGE 3: Section B + AI + Section C ────────────────────────────────────
-function PageSectionBC({ d, onBack }) {
+function PageSectionBC({ d, onBack, setActivePage }) {
   const handleExport = () => {
     const goalHtml = (d.learnerGoals || [])
       .map(
@@ -378,8 +402,26 @@ function PageSectionBC({ d, onBack }) {
           </div>
         ))
       ) : (
-        <div className="vsr-goals-box">
-          <p className="vsr-goals-empty">No learner goals available.</p>
+        <div className="vsr-goals-box" style={{ textAlign: "center", padding: "24px 16px" }}>
+          <p className="vsr-goals-empty" style={{ marginBottom: 12 }}>No learner goals available for this student.</p>
+          {setActivePage && (
+            <button
+              className="btn btn-primary"
+              style={{
+                fontSize: 13,
+                padding: "8px 16px",
+                fontWeight: 600,
+                borderRadius: "6px",
+                border: "none",
+                backgroundColor: "#2b6cb0",
+                color: "#ffffff",
+                cursor: "pointer",
+              }}
+              onClick={() => setActivePage("iep-generation")}
+            >
+              Generate IEP Goals
+            </button>
+          )}
         </div>
       )}
 
@@ -396,7 +438,7 @@ function PageSectionBC({ d, onBack }) {
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
-export default function ViewStudentRecords() {
+export default function ViewStudentRecords({ setActivePage }) {
   const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -417,7 +459,7 @@ export default function ViewStudentRecords() {
       .then(setStudents)
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [user?.id]);
 
   const handleSelect = (s) => {
     setSelected(s);
@@ -540,6 +582,7 @@ export default function ViewStudentRecords() {
                   <PageSectionBC
                     d={recordData}
                     onBack={() => setRecordStep(2)}
+                    setActivePage={setActivePage}
                   />
                 )}
               </>
@@ -604,7 +647,25 @@ export default function ViewStudentRecords() {
             {loading ? (
               <StudentShimmer />
             ) : filtered.length === 0 ? (
-              <EmptyState message="No students found." />
+              students.length === 0 ? (
+                <EmptyState
+                  message="No students registered yet"
+                  description="Get started by creating a student profile to view records and track IEPs."
+                  actionLabel="+ Create Student"
+                  onAction={() => setActivePage && setActivePage("create-student-profile")}
+                />
+              ) : (
+                <EmptyState
+                  message="No students found matching your search"
+                  description="Try adjusting your search criteria or clear your filters."
+                  actionLabel="Clear Filters"
+                  onAction={() => {
+                    setSearch("");
+                    setFilterGrade("");
+                    setFilterAge("");
+                  }}
+                />
+              )
             ) : (
               filtered.map((s) => (
                 <div key={s.studentID} className="om-student-row">

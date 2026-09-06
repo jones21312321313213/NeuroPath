@@ -120,9 +120,28 @@ export default function ViewStudentProfile({
             </p>
             <p className="vsp-empty-sub">
               {search
-                ? "Try a different name."
-                : "Create a student profile to get started."}
+                ? "Try a different name or clear the search filter."
+                : "Create a student profile to get started with NeuroPath."}
             </p>
+            {search ? (
+              <button
+                type="button"
+                className="vsp-empty-btn vsp-empty-btn-secondary"
+                onClick={() => setSearch("")}
+              >
+                <i className="ti ti-x" aria-hidden="true" />
+                Clear Search
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="vsp-empty-btn"
+                onClick={() => setActivePage("create-student-profile")}
+              >
+                <i className="ti ti-user-plus" aria-hidden="true" />
+                Create Student
+              </button>
+            )}
           </div>
         ) : (
           <div className="vsp-grid">
