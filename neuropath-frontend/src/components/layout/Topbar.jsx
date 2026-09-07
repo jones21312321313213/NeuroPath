@@ -9,14 +9,16 @@ export default function Topbar({ breadcrumb, setActivePage }) {
 
   return (
     <header className="topbar">
-      <span className="topbar-breadcrumb">{breadcrumb}</span>
+      <div className="topbar-left">
+        <span className="topbar-breadcrumb">{breadcrumb}</span>
+      </div>
       <div className="topbar-user">
         <div
           className="topbar-pill"
           onClick={() => setActivePage("my-profile")}
           style={{ cursor: "pointer" }}
         >
-          <div className="topbar-pill-avatar">{initials}</div>
+          <div className="topbar-pill-avatar">{initials || "👤"}</div>
           <span className="topbar-pill-name">{teacherName}</span>
         </div>
       </div>

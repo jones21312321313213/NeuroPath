@@ -1,28 +1,26 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
-import { studentsAPI, iepAPI } from "../api/client";
+import { studentsAPI, iepAPI, lessonPlansAPI, visualAidsAPI } from "../api/client";
 import CountUp from "../components/ui/CountUp";
-import GlareHover from "../components/ui/GlareHover";
 
 const stats = [
   {
     label: "Total Students",
     key: "students",
     icon: "ti-users",
-    color: "#378ADD",
-  },
-  { label: "Active IEPs", key: "ieps", icon: "ti-file-text", color: "#1D9E75" },
-  {
-    label: "AI Insights Generated",
-    key: "insights",
-    icon: "ti-brain",
-    color: "#7F77DD",
+    color: "#0284c7",
   },
   {
-    label: "Upcoming Reviews",
-    key: "reviews",
-    icon: "ti-calendar-event",
-    color: "#BA7517",
+    label: "Active IEPs",
+    key: "ieps",
+    icon: "ti-file-text",
+    color: "#16a34a",
+  },
+  {
+    label: "Classroom Resources",
+    key: "resources",
+    icon: "ti-books",
+    color: "#d97706",
   },
 ];
 
@@ -30,23 +28,23 @@ const quickActions = [
   {
     label: "Create Student Profile",
     page: "create-student-profile",
-    desc: "Add a new student with ASD background and learning preferences.",
+    desc: "Add a new student profile and set up individual learning preferences.",
     icon: "ti-user-plus",
-    color: "#378ADD",
+    color: "#0284c7",
   },
   {
     label: "View All Students",
     page: "view-student-profile",
     desc: "Browse and manage existing student records.",
     icon: "ti-users",
-    color: "#1D9E75",
+    color: "#059669",
   },
   {
     label: "Generate IEP",
     page: "iep-generation",
     desc: "Use AI to generate a personalized education plan.",
     icon: "ti-sparkles",
-    color: "#7F77DD",
+    color: "#7c3aed",
   },
 ];
 
@@ -58,11 +56,38 @@ export default function Overview({ setActivePage }) {
     if (h < 17) return "Good afternoon";
     return "Good evening";
   });
+  const todayFormatted = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date());
+
+  const [currentTime, setCurrentTime] = useState(() => {
+    return new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(new Date());
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(
+        new Intl.DateTimeFormat("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        }).format(new Date()),
+      );
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const [counts, setCounts] = useState({
     students: 0,
     ieps: 0,
-    insights: 0,
-    reviews: 0,
+    resources: 0,
   });
 
   // Fetch total students
@@ -71,13 +96,13 @@ export default function Overview({ setActivePage }) {
     studentsAPI
       .list(user.id)
       .then((data) => {
-        const students = Array.isArray(data) ? data : [];
+        const students = Array.isArray(data) ? data : (data?.results || []);
         setCounts((prev) => ({ ...prev, students: students.length }));
       })
       .catch(() => {});
   }, [user]);
 
-  // Fetch active IEPs and AI insights counts from the dashboard-stats endpoint
+  // Fetch active IEPs count from the dashboard-stats endpoint
   useEffect(() => {
     if (!user?.id) return;
     iepAPI
@@ -85,11 +110,47 @@ export default function Overview({ setActivePage }) {
       .then((data) => {
         setCounts((prev) => ({
           ...prev,
-          ieps: data.active_ieps ?? 0,
-          insights: data.ai_insights ?? 0,
+          ieps: data?.active_ieps ?? 0,
         }));
       })
       .catch(() => {});
+  }, [user]);
+
+  // Fetch classroom resources count (lesson plans + visual aids)
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+
+    const fetchLessons = lessonPlansAPI?.list
+      ? lessonPlansAPI.list().catch(() => [])
+      : Promise.resolve([]);
+    const fetchVisualAids = visualAidsAPI?.list
+      ? visualAidsAPI.list().catch(() => [])
+      : Promise.resolve([]);
+
+    Promise.all([fetchLessons, fetchVisualAids])
+      .then(([lessonsData, aidsData]) => {
+        if (cancelled) return;
+        const lessonCount = Array.isArray(lessonsData)
+          ? lessonsData.length
+          : Array.isArray(lessonsData?.results)
+            ? lessonsData.results.length
+            : 0;
+        const aidCount = Array.isArray(aidsData)
+          ? aidsData.length
+          : Array.isArray(aidsData?.results)
+            ? aidsData.results.length
+            : 0;
+        setCounts((prev) => ({
+          ...prev,
+          resources: lessonCount + aidCount,
+        }));
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   const hasStudents = counts.students > 0;
@@ -101,7 +162,7 @@ export default function Overview({ setActivePage }) {
       title: "1. Add a student",
       desc: "Create a student profile to start personalizing learning plans.",
       icon: "ti-user-plus",
-      color: "#378ADD",
+      color: "#0284c7",
       page: "create-student-profile",
       actionLabel: "Add Student",
       isUnlocked: true,
@@ -113,7 +174,7 @@ export default function Overview({ setActivePage }) {
       title: "2. Generate an IEP",
       desc: "Use AI to create an individualized education plan with target goals.",
       icon: "ti-sparkles",
-      color: "#7F77DD",
+      color: "#7c3aed",
       page: "iep-generation",
       actionLabel: "Generate IEP",
       isUnlocked: hasStudents,
@@ -125,7 +186,7 @@ export default function Overview({ setActivePage }) {
       title: "3. Use classroom tools",
       desc: "Generate tailored lesson plans, visual aids, and teaching strategies.",
       icon: "ti-books",
-      color: "#1D9E75",
+      color: "#059669",
       page: "manage-lesson-plans",
       actionLabel: "Open Tools",
       isUnlocked: hasIeps,
@@ -137,188 +198,210 @@ export default function Overview({ setActivePage }) {
   return (
     <div className="page-content">
       <div className="overview-wrapper">
-        {/* Welcome */}
+        {/* Colorful Greeting Hero Banner */}
         <div className="overview-welcome">
-          <h1 className="overview-title">{greeting}, Teacher!</h1>
-          <p className="overview-subtitle">
-            Here's a summary of your NeuroPath dashboard. Follow the getting
-            started path below to set up students, generate IEPs, and use
-            classroom tools.
-          </p>
+          <div className="hero-content-left">
+            <h1 className="overview-title">
+              {greeting}, Teacher{user?.first_name ? ` ${user.first_name}` : ""}!
+            </h1>
+            <p className="overview-subtitle">
+              Ready to support your learners today? Check on your students' individual learning goals,
+              review recent IEP progress, or prepare your instructional materials below.
+            </p>
+          </div>
+          <div className="hero-datetime-block">
+            <span className="hero-time-text">{currentTime}</span>
+            <span className="hero-date-text">{todayFormatted}</span>
+          </div>
         </div>
 
-        {/* Getting Started Path */}
+        {/* Section: Stats Grid */}
+        <div className="overview-glance-strip">
+          {stats.map((s) => (
+            <div key={s.label} className="glance-stat-col">
+              <div className="glance-stat-header">
+                <span className="glance-stat-dot" style={{ background: s.color }} />
+                <span className="glance-stat-label">{s.label}</span>
+              </div>
+              <div className="glance-stat-body">
+                <span className="glance-stat-value">
+                  <CountUp
+                    from={0}
+                    to={counts[s.key]}
+                    duration={1.5}
+                    delay={0}
+                    direction="up"
+                  />
+                </span>
+                <i
+                  className={`ti ${s.icon} glance-stat-icon`}
+                  aria-hidden="true"
+                  style={{ color: s.color }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Section: Quick Actions */}
+        <div>
+          <p className="overview-section-label">Quick actions</p>
+          <div className="quick-actions">
+            {quickActions.map((a) => (
+              <button
+                key={a.page}
+                className="quick-action-card"
+                onClick={() => setActivePage(a.page)}
+              >
+                <div
+                  className="quick-action-icon-wrap"
+                  style={{ background: `${a.color}15`, color: a.color }}
+                >
+                  <i
+                    className={`ti ${a.icon} quick-action-icon`}
+                    aria-hidden="true"
+                  />
+                </div>
+                <div className="quick-action-content">
+                  <div className="quick-action-header">
+                    <span className="quick-action-label">{a.label}</span>
+                    <i
+                      className="ti ti-arrow-right quick-action-arrow"
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <span className="quick-action-desc">{a.desc}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Section: Classroom Setup Workflow */}
         <div
           className="overview-getting-started-section"
           data-testid="getting-started-section"
         >
           <div className="overview-getting-started-header">
-            <p className="overview-section-label" style={{ marginBottom: 0 }}>
-              Getting started
-            </p>
-            <span className="overview-getting-started-hint">
-              Follow these 3 steps to set up your classroom workflow
-            </span>
+            <div>
+              <p className="overview-section-label" style={{ marginBottom: 0 }}>
+                Classroom setup workflow
+              </p>
+              <span className="overview-getting-started-hint">
+                3-step path to personalize, plan, and support your learners
+              </span>
+            </div>
           </div>
-          <div className="getting-started-steps">
-            {gettingStartedSteps.map((step) => {
-              const isLocked = !step.isUnlocked;
-              return (
-                <div
-                  key={step.stepNumber}
-                  data-testid={`getting-started-step-${step.stepNumber}`}
-                  className={`getting-started-card ${isLocked ? "locked" : "active"} ${step.isCompleted ? "completed" : ""}`}
-                >
-                  <div className="getting-started-card-top">
-                    <div className="getting-started-card-icon-wrap">
-                      <i
-                        className={`ti ${step.icon} getting-started-card-icon`}
-                        style={{ color: isLocked ? "#94a3b8" : step.color }}
-                        aria-hidden="true"
-                      />
+
+          {/* Connected Timeline Workflow Container */}
+          <div className="workflow-timeline-card">
+            <div className="workflow-timeline-connector-line" aria-hidden="true" />
+            <div className="getting-started-steps">
+              {gettingStartedSteps.map((step) => {
+                const isLocked = !step.isUnlocked;
+                return (
+                  <div
+                    key={step.stepNumber}
+                    data-testid={`getting-started-step-${step.stepNumber}`}
+                    className={`getting-started-step-node ${isLocked ? "locked" : "active"} ${step.isCompleted ? "completed" : ""}`}
+                  >
+                    {/* Circular status indicator */}
+                    <div className="workflow-step-circle-wrap">
+                      {step.isCompleted ? (
+                        <div className="workflow-circle completed" title="Completed">
+                          <i className="ti ti-check" aria-hidden="true" />
+                        </div>
+                      ) : isLocked ? (
+                        <div className="workflow-circle locked" title="Locked">
+                          <i className="ti ti-lock" aria-hidden="true" />
+                        </div>
+                      ) : (
+                        <div className="workflow-circle active" title="Active">
+                          <i className="ti ti-point-filled" aria-hidden="true" />
+                        </div>
+                      )}
                     </div>
-                    {step.isCompleted ? (
-                      <span className="step-badge completed">
-                        <i className="ti ti-check" aria-hidden="true" /> Done
-                      </span>
-                    ) : isLocked ? (
-                      <span className="step-badge locked">
-                        <i className="ti ti-lock" aria-hidden="true" /> Locked
-                      </span>
-                    ) : (
-                      <span className="step-badge active">Active</span>
-                    )}
-                  </div>
 
-                  <div className="getting-started-card-content">
-                    <h3 className="getting-started-card-title">{step.title}</h3>
-                    <p className="getting-started-card-desc">{step.desc}</p>
-                  </div>
-
-                  <div className="getting-started-card-footer">
-                    {isLocked ? (
-                      <div className="getting-started-lock-info">
-                        <span className="getting-started-lock-text">
-                          {step.lockReason}
+                    {/* Status badge pill */}
+                    <div className="workflow-step-badge-wrap">
+                      {step.isCompleted ? (
+                        <span className="step-badge completed">
+                          <i className="ti ti-check" aria-hidden="true" /> Completed
                         </span>
+                      ) : isLocked ? (
+                        <span className="step-badge locked">Locked</span>
+                      ) : (
+                        <span className="step-badge pending">Pending</span>
+                      )}
+                    </div>
+
+                    {/* Step Title and Description */}
+                    <div className="getting-started-card-content">
+                      <h3 className="getting-started-card-title">{step.title}</h3>
+                      <p className="getting-started-card-desc">{step.desc}</p>
+                    </div>
+
+                    {/* Step Action Button */}
+                    <div className="getting-started-card-footer">
+                      {step.isCompleted ? (
                         <button
                           type="button"
-                          className="getting-started-btn disabled"
+                          className="getting-started-btn done-btn"
                           disabled
                           aria-disabled="true"
                         >
-                          <i className="ti ti-lock" aria-hidden="true" />{" "}
-                          {step.actionLabel}
+                          <i className="ti ti-check" aria-hidden="true" /> Done
                         </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        className="getting-started-btn"
-                        onClick={() => setActivePage(step.page)}
-                      >
-                        {step.actionLabel}
-                        <i
-                          className="ti ti-arrow-right getting-started-btn-arrow"
-                          aria-hidden="true"
-                        />
-                      </button>
-                    )}
+                      ) : isLocked ? (
+                        <div className="getting-started-lock-info">
+                          <button
+                            type="button"
+                            className="getting-started-btn disabled"
+                            disabled
+                            aria-disabled="true"
+                          >
+                            {step.actionLabel}
+                          </button>
+                          <span className="getting-started-lock-text">
+                            {step.lockReason}
+                          </span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="getting-started-btn primary-action-btn"
+                          onClick={() => setActivePage(step.page)}
+                        >
+                          <span>{step.actionLabel}</span>
+                          <i
+                            className="ti ti-arrow-right getting-started-btn-arrow"
+                            aria-hidden="true"
+                          />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        {/* Stats */}
-        <p className="overview-section-label">At a glance</p>
-        <div className="overview-stats">
-          {stats.map((s) => (
-            <div
-              key={s.label}
-              className="stat-card"
-              style={{ borderLeft: `3px solid ${s.color}` }}
-            >
-              <i
-                className={`ti ${s.icon} stat-icon`}
-                aria-hidden="true"
-                style={{ color: s.color }}
-              />
-              <span className="stat-value">
-                <CountUp
-                  from={0}
-                  to={counts[s.key]}
-                  duration={1.5}
-                  delay={0}
-                  direction="up"
-                />
-              </span>
-              <span className="stat-label">{s.label}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Quick Actions */}
-        <p className="overview-section-label">Quick actions</p>
-        <div className="quick-actions">
-          {quickActions.map((a) => (
-            <button
-              key={a.page}
-              className="quick-action-card"
-              onClick={() => setActivePage(a.page)}
-            >
-              <i
-                className={`ti ${a.icon} quick-action-icon`}
-                aria-hidden="true"
-                style={{ color: a.color }}
-              />
-              <div className="quick-action-header">
-                <span className="quick-action-label">{a.label}</span>
-                <i
-                  className="ti ti-arrow-right quick-action-arrow"
-                  aria-hidden="true"
-                />
-              </div>
-              <span className="quick-action-desc">{a.desc}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* About */}
-        <p className="overview-section-label">About NeuroPath</p>
-        <GlareHover
-          width="100%"
-          height="auto"
-          background="#f0f8ff"
-          borderRadius="12px"
-          borderColor="rgba(130, 199, 255, 0.25)"
-          glareColor="#82C7FF"
-          glareOpacity={0.25}
-          glareAngle={-30}
-          glareSize={300}
-          transitionDuration={800}
-          playOnce={false}
-          style={{ display: "block" }}
-        >
-          <div
-            style={{
-              padding: "1.25rem 1.5rem",
-              textAlign: "left",
-              width: "100%",
-              boxSizing: "border-box",
-            }}
-          >
+        {/* Section: About NeuroPath */}
+        <div className="overview-about-strip">
+          <div className="overview-about-icon">
+            <i className="ti ti-bulb" aria-hidden="true" />
+          </div>
+          <div className="overview-about-content">
+            <h4 className="overview-about-title">Built for Special Education</h4>
             <p className="overview-body">
-              NeuroPath is a specialized platform designed to support educators
-              and specialists working with students diagnosed with Autism
-              Spectrum Disorder. It streamlines the creation and management of
-              student profiles, tracks behavioral and academic progress, and
-              leverages AI to generate individualized education plans — helping
-              every student reach their full potential.
+              NeuroPath is an adaptive instructional platform for special education teachers
+              handling elementary students with diverse needs. It streamlines
+              student profile management, tracks IEP progress, and generates functional,
+              curriculum-aligned lesson plans and visual aids for classroom instruction.
             </p>
           </div>
-        </GlareHover>
+        </div>
       </div>
     </div>
   );
