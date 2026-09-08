@@ -24,20 +24,22 @@ import "./App.css";
 
 
 const breadcrumbMap = {
-  overview: "DASHBOARD/Overview",
-  "my-profile": "DASHBOARD/My Profile", // Added profile breadcrumb config
-  "create-student-profile": "DASHBOARD/Student Profiling",
-  "view-student-profile": "DASHBOARD/Student Profiling",
-  "update-student-profile": "DASHBOARD/Student Profiling",
-  "iep-generation": "DASHBOARD/AI-Based IEP Generation",
-  "generate-iep": "DASHBOARD/AI-Based IEP Generation/ Generate IEP",
-  "view-iep": "DASHBOARD/AI-Based IEP Generation/ View IEP",
-  "manage-lesson-plans": "DASHBOARD/Instructional Support",
-  "manage-visual-aids": "DASHBOARD/Instructional Support",
-  "manage-teaching-strategies": "DASHBOARD/Instructional Support",
-  "view-student-records": "DASHBOARD/Outcome Monitoring/ View Student Record",
+  home: "DASHBOARD / Home",
+  overview: "DASHBOARD / Home",
+  "my-profile": "DASHBOARD / My Profile",
+  "create-student-profile": "DASHBOARD / Student Profiling / Create Profile",
+  "view-student-profile": "DASHBOARD / Student Profiling / View Profiles",
+  "update-student-profile": "DASHBOARD / Student Profiling / Edit Profile",
+  "iep-generation": "DASHBOARD / AI-Based IEP Generation",
+  "generate-iep": "DASHBOARD / AI-Based IEP Generation / Generate IEP",
+  "view-iep": "DASHBOARD / AI-Based IEP Generation / View IEP",
+  "manage-lesson-plans": "DASHBOARD / Instructional Support / Lesson Plans",
+  "manage-visual-aids": "DASHBOARD / Instructional Support / Visual Aids",
+  "manage-teaching-strategies":
+    "DASHBOARD / Instructional Support / Teaching Strategies",
+  "view-student-records": "DASHBOARD / Outcome Monitoring / Student Records",
   "view-progress-dashboard":
-    "DASHBOARD/Outcome Monitoring/ View Progress Dashboard",
+    "DASHBOARD / Outcome Monitoring / Progress Dashboard",
 };
 
 function renderPage(
@@ -47,6 +49,7 @@ function renderPage(
   setSelectedStudentId,
 ) {
   switch (activePage) {
+    case "home":
     case "overview":
       return <Overview setActivePage={setActivePage} />;
     case "my-profile":
@@ -54,7 +57,7 @@ function renderPage(
     case "create-student-profile":
       return (
         <CreateStudentProfile
-          onBack={() => setActivePage("overview")}
+          onBack={() => setActivePage("home")}
           setActivePage={setActivePage}
           setSelectedStudentId={setSelectedStudentId}
         />
@@ -114,16 +117,34 @@ function renderPage(
 }
 
 function Dashboard() {
-  const [activePage, setActivePage] = useState("overview");
+  const [activePage, setActivePage] = useState("home");
   const [selectedStudentId, setSelectedStudentId] = useState(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    return localStorage.getItem("neuropath_sidebar_collapsed") === "true";
+  });
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("neuropath_sidebar_collapsed", String(next));
+      return next;
+    });
+  };
 
   return (
-    <div className="app-layout">
-      <Sidebar activePage={activePage} setActivePage={setActivePage} />
+    <div className={`app-layout ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+      <Sidebar
+        activePage={activePage}
+        setActivePage={setActivePage}
+        collapsed={isSidebarCollapsed}
+        onToggleCollapse={toggleSidebar}
+      />
       <div className="main-area">
         <Topbar
-          breadcrumb={breadcrumbMap[activePage] || "DASHBOARD"}
+          breadcrumb={breadcrumbMap[activePage] || "DASHBOARD / Home"}
           setActivePage={setActivePage}
+          collapsed={isSidebarCollapsed}
+          onToggleCollapse={toggleSidebar}
         />
         {renderPage(
           activePage,
