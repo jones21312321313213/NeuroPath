@@ -239,10 +239,13 @@ function GenerateTab({ onSave, setActivePage }) {
     setSaved(false);
 
     try {
-      const savedGoals = await iepAPI.listLatestGoalsByStudent(student.studentID);
+      const savedGoals = await iepAPI
+        .listLatestGoalsByStudent(student.studentID)
+        .catch(() => iepAPI.listGoalsByStudent(student.studentID));
+      const goalList = Array.isArray(savedGoals) ? savedGoals : savedGoals?.results || savedGoals?.data || [];
       setSelectedStudent({
         ...baseStudent,
-        availableGoals: (savedGoals || []).map(formatSavedIepGoal),
+        availableGoals: goalList.map(formatSavedIepGoal),
       });
     } catch (err) {
       setError(err.message || "Failed to load saved IEP goals for this student.");
