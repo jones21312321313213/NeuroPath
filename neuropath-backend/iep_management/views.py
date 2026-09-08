@@ -255,7 +255,7 @@ class StandaloneIEPGoalViewSet(viewsets.ModelViewSet):
         if student_id:
             try:
                 student = StudentProfile.objects.get(pk=student_id, teacher=teacher)
-            except StudentProfile.DoesNotExist:
+            except (StudentProfile.DoesNotExist, ValueError):
                 return IEPGoal.objects.none()
 
             from resources.views import _latest_saved_iep_for_student, _sync_goals_from_generated_details

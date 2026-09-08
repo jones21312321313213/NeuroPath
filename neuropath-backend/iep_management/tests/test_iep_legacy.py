@@ -8,8 +8,8 @@ from rest_framework.test import APIClient, APIRequestFactory, APITestCase, force
 
 from common_test_utils import create_teacher_with_login, create_student
 from users.models import StudentProfile, Teacher
-from .models import IEPModel, IEPGoal, GeneratedAIInsight
-from .views import IEPGenerationAPIView
+from iep_management.models import IEPModel, IEPGoal, GeneratedAIInsight
+from iep_management.views import IEPGenerationAPIView
 
 
 class IEPVersionRaceConditionTestCase(TestCase):
