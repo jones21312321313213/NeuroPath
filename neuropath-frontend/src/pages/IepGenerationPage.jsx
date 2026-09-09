@@ -748,8 +748,11 @@ function ViewIEPPanel({
           </div>
 
           {/* Post-IEP Next Steps / Classroom Tools */}
-          <div className="iep-next-steps-card">
-            <div className="iep-next-steps-header">
+          <section
+            className="iep-next-steps-card"
+            aria-label="Instructional Support Next Steps"
+          >
+            <header className="iep-next-steps-header">
               <span className="iep-next-steps-icon" aria-hidden="true">💡</span>
               <div>
                 <h4>Instructional Support: Use this IEP in the Classroom</h4>
@@ -757,8 +760,11 @@ function ViewIEPPanel({
                   This IEP is ready. Generate tailored lesson plans, visual aids, and teaching strategies based on this student's goals.
                 </p>
               </div>
-            </div>
-            <div className="iep-next-steps-grid">
+            </header>
+            <nav
+              className="iep-next-steps-grid"
+              aria-label="Classroom tool actions"
+            >
               <button
                 type="button"
                 className="iep-next-step-btn"
@@ -787,8 +793,8 @@ function ViewIEPPanel({
               >
                 <span>🏠</span> Back to Overview
               </button>
-            </div>
-          </div>
+            </nav>
+          </section>
 
           {/* Inline edit panel */}
           {isEditing && (
@@ -2040,8 +2046,11 @@ export default function IEPGenerationPage({
                       </div>
 
                       {/* --- POST-IEP NEXT STEPS TO CLASSROOM TOOLS --- */}
-                      <div className="iep-next-steps-card">
-                        <div className="iep-next-steps-header">
+                      <section
+                        className="iep-next-steps-card"
+                        aria-label="Post-IEP Next Steps"
+                      >
+                        <header className="iep-next-steps-header">
                           <span className="iep-next-steps-icon" aria-hidden="true">🚀</span>
                           <div>
                             <h4>Next Steps: Classroom Tools & Instructional Support</h4>
@@ -2049,8 +2058,11 @@ export default function IEPGenerationPage({
                               Your IEP is saved and ready! Put this IEP into action by creating aligned classroom materials or returning to your dashboard.
                             </p>
                           </div>
-                        </div>
-                        <div className="iep-next-steps-grid">
+                        </header>
+                        <nav
+                          className="iep-next-steps-grid"
+                          aria-label="Post-IEP tool actions"
+                        >
                           <button
                             type="button"
                             className="iep-next-step-btn"
@@ -2079,8 +2091,8 @@ export default function IEPGenerationPage({
                           >
                             <span>🏠</span> Back to Overview
                           </button>
-                        </div>
-                      </div>
+                        </nav>
+                      </section>
 
                       {goalSaveStatus === "saving" && (
                         <p className="iep-muted" style={{ marginBottom: 12 }}>
