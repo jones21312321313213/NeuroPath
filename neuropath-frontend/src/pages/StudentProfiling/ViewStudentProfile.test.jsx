@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import ViewStudentProfile from "./ViewStudentProfile";
 import { studentsAPI } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
+import { renderWithQueryClient } from "../../test/query-test-utils";
 
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
@@ -37,7 +38,7 @@ describe("ViewStudentProfile", () => {
       { studentID: 20, name: "Bob Marley", grade: 4, gender: "Male", age: 9, diagnosis: "ADHD" },
     ]);
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter>
         <ViewStudentProfile />
       </MemoryRouter>
@@ -48,6 +49,23 @@ describe("ViewStudentProfile", () => {
     expect(screen.getByText("2 students")).toBeInTheDocument();
   });
 
+  it("handles paginated results response structure", async () => {
+    studentsAPI.list.mockResolvedValueOnce({
+      results: [
+        { studentID: 30, name: "Charlie Brown", grade: 3, gender: "Male", age: 8 },
+      ],
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <ViewStudentProfile />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("Charlie Brown")).toBeInTheDocument();
+    expect(screen.getByText("1 student")).toBeInTheDocument();
+  });
+
   it("navigates to /dashboard/students/:id when View profile button is clicked", async () => {
     studentsAPI.list.mockResolvedValueOnce([
       { studentID: 10, name: "Alice Cooper", grade: 2, gender: "Female", age: 7 },
@@ -56,7 +74,7 @@ describe("ViewStudentProfile", () => {
     const setActivePage = vi.fn();
     const user = userEvent.setup();
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter>
         <ViewStudentProfile
           setSelectedStudentId={setSelectedStudentId}
@@ -78,7 +96,7 @@ describe("ViewStudentProfile", () => {
     const setActivePage = vi.fn();
     const user = userEvent.setup();
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter>
         <ViewStudentProfile setActivePage={setActivePage} />
       </MemoryRouter>
@@ -98,7 +116,7 @@ describe("ViewStudentProfile", () => {
     ]);
     const user = userEvent.setup();
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter>
         <ViewStudentProfile />
       </MemoryRouter>
@@ -116,7 +134,7 @@ describe("ViewStudentProfile", () => {
   it("displays error message when studentsAPI fails", async () => {
     studentsAPI.list.mockRejectedValueOnce(new Error("Failed to fetch"));
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter>
         <ViewStudentProfile />
       </MemoryRouter>

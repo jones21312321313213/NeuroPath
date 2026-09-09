@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import ViewSelectedStudentProfile from "./ViewSelectedStudentProfile";
 import { studentsAPI } from "../../api/client";
+import { renderWithQueryClient } from "../../test/query-test-utils";
 
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
@@ -43,7 +44,7 @@ describe("ViewSelectedStudentProfile useParams and routing", () => {
       preferences: JSON.stringify({ preferredLearningStyle: "Visual" }),
     });
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter initialEntries={["/dashboard/students/42"]}>
         <Routes>
           <Route
@@ -67,7 +68,7 @@ describe("ViewSelectedStudentProfile useParams and routing", () => {
     });
     const user = userEvent.setup();
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter initialEntries={["/dashboard/students/42"]}>
         <Routes>
           <Route
@@ -95,7 +96,7 @@ describe("ViewSelectedStudentProfile useParams and routing", () => {
     });
     const user = userEvent.setup();
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter initialEntries={["/dashboard/students/42"]}>
         <Routes>
           <Route
@@ -124,7 +125,7 @@ describe("ViewSelectedStudentProfile useParams and routing", () => {
     const setActivePage = vi.fn();
     const user = userEvent.setup();
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter>
         <ViewSelectedStudentProfile
           studentId={99}
@@ -150,7 +151,7 @@ describe("ViewSelectedStudentProfile useParams and routing", () => {
   it("displays error message when student fetch fails", async () => {
     studentsAPI.get.mockRejectedValue(new Error("Student not found"));
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter initialEntries={["/dashboard/students/404"]}>
         <Routes>
           <Route
