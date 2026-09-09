@@ -266,6 +266,7 @@ class TeacherLoginController(APIView):
         if user is not None:
             # 🎯 Generate or fetch the Token
             token, created = Token.objects.get_or_create(user=user)
+            teacher = get_teacher_for_user(user)
             
             return Response({
                 "message": "Login successful",
@@ -274,7 +275,8 @@ class TeacherLoginController(APIView):
                     "id": user.id,
                     "email": user.email,
                     "first_name": user.first_name,
-                    "last_name": user.last_name
+                    "last_name": user.last_name,
+                    "has_completed_tutorial": teacher.has_completed_tutorial if teacher else False,
                 }
             }, status=status.HTTP_200_OK)
         else:
@@ -344,12 +346,15 @@ class TeacherProfileUpdateController(APIView):
                 email=email,
             )
 
+        teacher = get_teacher_for_user(user)
+
         return Response(
             {
-                "id":         user.id,
-                "first_name": user.first_name,
-                "last_name":  user.last_name,
-                "email":      user.email,
+                "id":                     user.id,
+                "first_name":             user.first_name,
+                "last_name":              user.last_name,
+                "email":                  user.email,
+                "has_completed_tutorial": teacher.has_completed_tutorial if teacher else False,
             },
             status=status.HTTP_200_OK,
         )
@@ -370,4 +375,37 @@ class TeacherLogoutController(APIView):
             {"message": "Logout successful."},
             status=status.HTTP_200_OK,
         )
+
+
+# =====================================================================
+# TEACHER TUTORIAL COMPLETE
+# POST /api/users/tutorial-complete/
+# Marks has_completed_tutorial = True for the authenticated teacher.
+# =====================================================================
+class TeacherTutorialCompleteController(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        teacher = get_teacher_for_user(request.user)
+        if not teacher:
+            teacher, _ = Teacher.objects.get_or_create(
+                email=request.user.email.strip().lower(),
+                defaults={
+                    "name": f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username,
+                    "passwordHash": request.user.password,
+                    "has_completed_tutorial": True,
+                },
+            )
+
+        teacher.has_completed_tutorial = True
+        teacher.save(update_fields=["has_completed_tutorial"])
+
+        return Response(
+            {
+                "message": "Tutorial marked as completed.",
+                "has_completed_tutorial": True,
+            },
+            status=status.HTTP_200_OK,
+        )
+
 
