@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "../../styles/StudentInsight.css";
 import { iepAPI } from "../../api/client";
 
 const USE_MOCK_INSIGHTS = import.meta.env.VITE_USE_MOCK_INSIGHTS === "true";
 
 export default function StudentInsightsTab({ studentId, setActivePage }) {
+  const navigate = useNavigate();
   const [insights, setInsights] = useState(USE_MOCK_INSIGHTS ? mockInsights : []);
   const [generating, setGenerating] = useState(false);
   const [openIndex, setOpenIndex] = useState(null);
@@ -88,15 +90,20 @@ export default function StudentInsightsTab({ studentId, setActivePage }) {
               </p>
             </div>
           </div>
-          {setActivePage && (
-            <button
-              type="button"
-              className="btn-go-iep"
-              onClick={() => setActivePage("iep-generation")}
-            >
-              Go to Generate IEP →
-            </button>
-          )}
+          <button
+            type="button"
+            className="btn-go-iep"
+            onClick={() => {
+              if (studentId) {
+                navigate(`/dashboard/students/${studentId}/iep`);
+              } else {
+                navigate("/dashboard/iep/generate");
+              }
+              if (setActivePage) setActivePage("iep-generation");
+            }}
+          >
+            Go to Generate IEP →
+          </button>
         </div>
 
         {error && (
