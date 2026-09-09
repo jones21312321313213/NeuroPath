@@ -121,42 +121,44 @@ describe("CreateStudentProfile next-step actions", () => {
 
   async function fillAndSubmitValidForm(user) {
     // Step 1 fields
-    await user.type(
-      screen.getByPlaceholderText("Enter student name"),
-      "Alex Smith",
-    );
-    await user.type(screen.getByPlaceholderText("Enter age"), "8");
-    await user.type(screen.getByPlaceholderText("Enter grade level"), "3");
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: /^gender:/i }),
-      "Male",
-    );
-    await user.click(screen.getByLabelText(/Difficulty in Seeing/i));
-    await user.click(screen.getByRole("button", { name: /next/i }));
+    fireEvent.change(screen.getByPlaceholderText("Enter student name"), {
+      target: { value: "Alex Smith" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter age"), {
+      target: { value: "8" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter grade level"), {
+      target: { value: "3" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: /^gender:/i }), {
+      target: { value: "Male" },
+    });
+    fireEvent.click(screen.getByLabelText(/Difficulty in Seeing/i));
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
     // Step 2 fields
-    await user.type(
+    fireEvent.change(
       screen.getByPlaceholderText(/the learner fails to finish tasks/i),
-      "Recent evaluation details...",
+      { target: { value: "Recent evaluation details..." } },
     );
-    await user.type(
+    fireEvent.change(
       screen.getByPlaceholderText(/the learner can spell random words/i),
-      "Strong academic strengths...",
+      { target: { value: "Strong academic strengths..." } },
     );
-    await user.type(
+    fireEvent.change(
       screen.getByPlaceholderText(/needs structured routines/i),
-      "Specific learner needs...",
+      { target: { value: "Specific learner needs..." } },
     );
-    await user.type(
+    fireEvent.change(
       screen.getByPlaceholderText(/write concerns shared by the parent/i),
-      "Parental concerns notes...",
+      { target: { value: "Parental concerns notes..." } },
     );
-    await user.type(
+    fireEvent.change(
       screen.getByPlaceholderText(/the learner has difficulty concentrating/i),
-      "Curriculum impact notes...",
+      { target: { value: "Curriculum impact notes..." } },
     );
 
-    await user.click(screen.getByRole("button", { name: /submit/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit/i }));
   }
 
   it("shows success modal with primary, secondary, and tertiary next-step CTAs upon successful creation", async () => {
