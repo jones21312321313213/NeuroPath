@@ -117,7 +117,7 @@ export default function ViewSelectedStudentProfile({ studentId, setActivePage })
             className={`tab-btn ${activeTab === "insights" ? "active" : ""}`}
             onClick={() => setActiveTab("insights")}
           >
-            Generate AI Insights
+            Quick Student Summary
           </button>
         </div>
 
@@ -181,7 +181,10 @@ export default function ViewSelectedStudentProfile({ studentId, setActivePage })
         )}
 
         {activeTab === "insights" && (
-          <StudentInsightsTab studentId={studentId} />
+          <StudentInsightsTab
+            studentId={studentId}
+            setActivePage={setActivePage}
+          />
         )}
       </div>
     </div>
