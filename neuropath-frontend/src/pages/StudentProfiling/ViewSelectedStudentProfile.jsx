@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import "../../styles/ViewSelectedStudentProfile.css";
 import StudentInsightsTab from "./StudentInsightsTab";
 import { studentsAPI } from "../../api/client";
@@ -40,7 +41,10 @@ function ReadOnlyTextArea({ label, value, rows = 4 }) {
   );
 }
 
-export default function ViewSelectedStudentProfile({ studentId, setActivePage }) {
+export default function ViewSelectedStudentProfile({ studentId: propStudentId, setActivePage }) {
+  const params = useParams();
+  const navigate = useNavigate();
+  const studentId = propStudentId || params?.id;
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -75,8 +79,14 @@ export default function ViewSelectedStudentProfile({ studentId, setActivePage })
   }, [studentId]);
 
   const details = useMemo(() => getProfileDetails(selected), [selected]);
-  const handleBack = () => setActivePage("view-student-profile");
-  const handleUpdate = () => setActivePage("update-student-profile");
+  const handleBack = () => {
+    if (setActivePage) setActivePage("view-student-profile");
+    navigate("/dashboard/students");
+  };
+  const handleUpdate = () => {
+    if (setActivePage) setActivePage("update-student-profile");
+    navigate(`/dashboard/students/${studentId}/edit`);
+  };
 
   if (loading) {
     return (

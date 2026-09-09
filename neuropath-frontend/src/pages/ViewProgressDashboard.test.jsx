@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import ViewProgressDashboard from "./ViewProgressDashboard";
 import { studentsAPI, trackingAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -31,7 +32,11 @@ describe("ViewProgressDashboard", () => {
 
   it("loads and displays the student list", async () => {
     studentsAPI.list.mockResolvedValueOnce(mockStudents);
-    render(<ViewProgressDashboard />);
+    render(
+      <MemoryRouter>
+        <ViewProgressDashboard />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByText("Alice Wonderland")).toBeInTheDocument();
     expect(screen.getByText("Bob Builder")).toBeInTheDocument();
@@ -40,7 +45,11 @@ describe("ViewProgressDashboard", () => {
   it("filters students based on search input", async () => {
     studentsAPI.list.mockResolvedValueOnce(mockStudents);
     const user = userEvent.setup();
-    render(<ViewProgressDashboard />);
+    render(
+      <MemoryRouter>
+        <ViewProgressDashboard />
+      </MemoryRouter>,
+    );
 
     await screen.findByText("Alice Wonderland");
     const searchInput = screen.getByPlaceholderText(/search student records/i);
@@ -54,7 +63,11 @@ describe("ViewProgressDashboard", () => {
     studentsAPI.list.mockResolvedValueOnce(mockStudents);
     trackingAPI.getProgressDashboard.mockResolvedValueOnce([]);
     const user = userEvent.setup();
-    render(<ViewProgressDashboard />);
+    render(
+      <MemoryRouter>
+        <ViewProgressDashboard />
+      </MemoryRouter>,
+    );
 
     await screen.findByText("Alice Wonderland");
     const selectButtons = screen.getAllByRole("button", { name: /select/i });
@@ -85,7 +98,11 @@ describe("ViewProgressDashboard", () => {
     ];
     trackingAPI.getProgressDashboard.mockResolvedValueOnce(mockSubjects);
     const user = userEvent.setup();
-    render(<ViewProgressDashboard />);
+    render(
+      <MemoryRouter>
+        <ViewProgressDashboard />
+      </MemoryRouter>,
+    );
 
     await screen.findByText("Alice Wonderland");
     const selectButtons = screen.getAllByRole("button", { name: /select/i });
@@ -131,7 +148,11 @@ describe("ViewProgressDashboard", () => {
     ];
     trackingAPI.getProgressDashboard.mockResolvedValueOnce(singleDataSubject);
     const user = userEvent.setup();
-    render(<ViewProgressDashboard />);
+    render(
+      <MemoryRouter>
+        <ViewProgressDashboard />
+      </MemoryRouter>,
+    );
 
     await screen.findByText("Alice Wonderland");
     await user.click(screen.getByRole("button", { name: /select/i }));

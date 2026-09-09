@@ -6,13 +6,41 @@ import App from "./App";
 import { useAuth } from "./context/AuthContext";
 
 vi.mock("./context/AuthContext", () => ({
-  AuthProvider: ({ children }) => <div>{children}</div>,
   useAuth: vi.fn(),
+  AuthProvider: ({ children }) => <div>{children}</div>,
 }));
 
-// Mock heavy subcomponents
-vi.mock("./pages/Overview", () => ({
-  default: () => <div>Overview Page Content</div>,
+vi.mock("./api/client", () => ({
+  studentsAPI: {
+    list: vi.fn().mockResolvedValue([]),
+    get: vi.fn().mockResolvedValue({ id: 4, name: "Alex Johnson" }),
+  },
+  iepAPI: {
+    dashboardStats: vi.fn().mockResolvedValue({ active_ieps: 0, ai_insights: 0 }),
+    listByStudent: vi.fn().mockResolvedValue([]),
+    listGoalsByStudent: vi.fn().mockResolvedValue([]),
+  },
+  lessonPlansAPI: {
+    getDirectory: vi.fn().mockResolvedValue([]),
+    list: vi.fn().mockResolvedValue([]),
+  },
+  visualAidsAPI: {
+    list: vi.fn().mockResolvedValue([]),
+  },
+  teachingStrategiesAPI: {
+    getDirectory: vi.fn().mockResolvedValue([]),
+  },
+  trackingAPI: {
+    getProgressDashboard: vi.fn().mockResolvedValue({}),
+  },
+}));
+
+vi.mock("./components/ui/CountUp", () => ({
+  default: ({ to }) => <span>{to}</span>,
+}));
+
+vi.mock("./components/ui/GlareHover", () => ({
+  default: ({ children }) => <div>{children}</div>,
 }));
 
 describe("App First-Login Tutorial Modal Integration", () => {
@@ -61,7 +89,7 @@ describe("App First-Login Tutorial Modal Integration", () => {
     );
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByText(/overview page content/i)).toBeInTheDocument();
+    expect(screen.getByText(/good morning|good afternoon|good evening/i)).toBeInTheDocument();
   });
 
   it("calls markTutorialComplete when Skip Walkthrough is clicked", async () => {
@@ -84,5 +112,56 @@ describe("App First-Login Tutorial Modal Integration", () => {
 
     await user.click(screen.getByRole("button", { name: /skip walkthrough/i }));
     expect(mockMarkTutorialComplete).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("App Router Nested Navigation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAuth.mockReturnValue({
+      user: { id: 1, first_name: "Jane", last_name: "Doe", has_completed_tutorial: true },
+    });
+  });
+
+  it("renders Overview when navigating to /dashboard", async () => {
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText(/good morning|good afternoon|good evening/i)).toBeInTheDocument();
+    expect(screen.getByTestId("getting-started-section")).toBeInTheDocument();
+  });
+
+  it("renders Student Profiles list when navigating to /dashboard/students", async () => {
+    render(
+      <MemoryRouter initialEntries={["/dashboard/students"]}>
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("Student Profiles")).toBeInTheDocument();
+  });
+
+  it("renders Create Student Profile when navigating to /dashboard/students/create", async () => {
+    render(
+      <MemoryRouter initialEntries={["/dashboard/students/create"]}>
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("button", { name: /create student profile/i })).toBeInTheDocument();
+    expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
+  });
+
+  it("renders Lesson Plans when navigating to /dashboard/lessons", async () => {
+    render(
+      <MemoryRouter initialEntries={["/dashboard/lessons"]}>
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("heading", { name: /manage lesson plans/i })).toBeInTheDocument();
   });
 });
