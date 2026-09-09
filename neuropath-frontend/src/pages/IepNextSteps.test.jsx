@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import IEPGenerationPage from "./IepGenerationPage";
 import Overview from "./Overview";
-import { iepAPI, studentsAPI, lessonPlansAPI, visualAidsAPI } from "../api/client";
+import { iepAPI, studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
 vi.mock("../api/client", () => ({
