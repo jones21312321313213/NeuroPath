@@ -747,6 +747,49 @@ function ViewIEPPanel({
             </p>
           </div>
 
+          {/* Post-IEP Next Steps / Classroom Tools */}
+          <div className="iep-next-steps-card">
+            <div className="iep-next-steps-header">
+              <span className="iep-next-steps-icon" aria-hidden="true">💡</span>
+              <div>
+                <h4>Instructional Support: Use this IEP in the Classroom</h4>
+                <p>
+                  This IEP is ready. Generate tailored lesson plans, visual aids, and teaching strategies based on this student's goals.
+                </p>
+              </div>
+            </div>
+            <div className="iep-next-steps-grid">
+              <button
+                type="button"
+                className="iep-next-step-btn"
+                onClick={() => setActivePage && setActivePage("manage-lesson-plans")}
+              >
+                <span>📚</span> Create Lesson Plan
+              </button>
+              <button
+                type="button"
+                className="iep-next-step-btn"
+                onClick={() => setActivePage && setActivePage("manage-visual-aids")}
+              >
+                <span>🖼️</span> Create Visual Aid
+              </button>
+              <button
+                type="button"
+                className="iep-next-step-btn iep-next-step-btn-secondary"
+                onClick={() => setActivePage && setActivePage("manage-teaching-strategies")}
+              >
+                <span>🎯</span> Teaching Strategies
+              </button>
+              <button
+                type="button"
+                className="iep-next-step-btn iep-next-step-btn-ghost"
+                onClick={() => setActivePage && setActivePage("overview")}
+              >
+                <span>🏠</span> Back to Overview
+              </button>
+            </div>
+          </div>
+
           {/* Inline edit panel */}
           {isEditing && (
             <div className="iep-edit-panel">
@@ -1993,6 +2036,49 @@ export default function IEPGenerationPage({
                             displayed below. You can view or edit the full
                             record on the View IEP page.
                           </p>
+                        </div>
+                      </div>
+
+                      {/* --- POST-IEP NEXT STEPS TO CLASSROOM TOOLS --- */}
+                      <div className="iep-next-steps-card">
+                        <div className="iep-next-steps-header">
+                          <span className="iep-next-steps-icon" aria-hidden="true">🚀</span>
+                          <div>
+                            <h4>Next Steps: Classroom Tools & Instructional Support</h4>
+                            <p>
+                              Your IEP is saved and ready! Put this IEP into action by creating aligned classroom materials or returning to your dashboard.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="iep-next-steps-grid">
+                          <button
+                            type="button"
+                            className="iep-next-step-btn"
+                            onClick={() => setActivePage && setActivePage("manage-lesson-plans")}
+                          >
+                            <span>📚</span> Create Lesson Plan
+                          </button>
+                          <button
+                            type="button"
+                            className="iep-next-step-btn"
+                            onClick={() => setActivePage && setActivePage("manage-visual-aids")}
+                          >
+                            <span>🖼️</span> Create Visual Aid
+                          </button>
+                          <button
+                            type="button"
+                            className="iep-next-step-btn iep-next-step-btn-secondary"
+                            onClick={() => setActivePage && setActivePage("manage-teaching-strategies")}
+                          >
+                            <span>🎯</span> Teaching Strategies
+                          </button>
+                          <button
+                            type="button"
+                            className="iep-next-step-btn iep-next-step-btn-ghost"
+                            onClick={() => setActivePage && setActivePage("overview")}
+                          >
+                            <span>🏠</span> Back to Overview
+                          </button>
                         </div>
                       </div>
 
