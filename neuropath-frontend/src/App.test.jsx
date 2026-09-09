@@ -79,7 +79,7 @@ describe("App Router Nested Navigation", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText("Create Student Profile")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /create student profile/i })).toBeInTheDocument();
     expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
   });
 
@@ -90,6 +90,6 @@ describe("App Router Nested Navigation", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText("Manage Lesson Plans")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /manage lesson plans/i })).toBeInTheDocument();
   });
 });
