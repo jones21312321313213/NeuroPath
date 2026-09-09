@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import StudentInsightsTab from "./StudentInsightsTab";
 import { iepAPI } from "../../api/client";
 
@@ -25,7 +26,11 @@ describe("StudentInsightsTab", () => {
       },
     ]);
 
-    render(<StudentInsightsTab studentId={4} />);
+    render(
+      <MemoryRouter>
+        <StudentInsightsTab studentId={4} />
+      </MemoryRouter>
+    );
 
     expect(iepAPI.getInsights).toHaveBeenCalledWith(4);
 
@@ -37,7 +42,11 @@ describe("StudentInsightsTab", () => {
   it("displays placeholder text when student has no insights", async () => {
     iepAPI.getInsights.mockResolvedValueOnce([]);
 
-    render(<StudentInsightsTab studentId={4} />);
+    render(
+      <MemoryRouter>
+        <StudentInsightsTab studentId={4} />
+      </MemoryRouter>
+    );
 
     expect(iepAPI.getInsights).toHaveBeenCalledWith(4);
     expect(
@@ -48,7 +57,11 @@ describe("StudentInsightsTab", () => {
   it("displays error banner when fetching insights fails", async () => {
     iepAPI.getInsights.mockRejectedValueOnce(new Error("Network error loading insights"));
 
-    render(<StudentInsightsTab studentId={4} />);
+    render(
+      <MemoryRouter>
+        <StudentInsightsTab studentId={4} />
+      </MemoryRouter>
+    );
 
     expect(
       await screen.findByText(/Network error loading insights/i),
@@ -60,7 +73,11 @@ describe("StudentInsightsTab", () => {
     const setActivePage = vi.fn();
 
     const user = userEvent.setup();
-    render(<StudentInsightsTab studentId={4} setActivePage={setActivePage} />);
+    render(
+      <MemoryRouter>
+        <StudentInsightsTab studentId={4} setActivePage={setActivePage} />
+      </MemoryRouter>
+    );
 
     expect(
       screen.getByText(/Note: This is not a full Individualized Education Program \(IEP\)/i),
@@ -84,7 +101,11 @@ describe("StudentInsightsTab", () => {
     });
 
     const user = userEvent.setup();
-    render(<StudentInsightsTab studentId={4} />);
+    render(
+      <MemoryRouter>
+        <StudentInsightsTab studentId={4} />
+      </MemoryRouter>
+    );
 
     await waitFor(() => expect(iepAPI.getInsights).toHaveBeenCalledWith(4));
 
@@ -113,7 +134,11 @@ describe("StudentInsightsTab", () => {
     ]);
 
     const user = userEvent.setup();
-    render(<StudentInsightsTab studentId={4} />);
+    render(
+      <MemoryRouter>
+        <StudentInsightsTab studentId={4} />
+      </MemoryRouter>
+    );
 
     const header = await screen.findByRole("button", {
       name: /Summary 1 — 2026-08-28 10:00/i,

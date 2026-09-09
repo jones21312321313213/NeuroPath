@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { studentsAPI } from "../../api/client";
 import "../../styles/UpdateStudentProfile.css";
 
@@ -126,13 +127,26 @@ function SuccessModal({ studentName, onClose }) {
   );
 }
 
-export default function UpdateStudentProfile({ studentId, onBack }) {
+export default function UpdateStudentProfile({ studentId: propStudentId, onBack }) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const studentId = propStudentId || id;
+
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const handleBack = () => {
+    if (onBack) onBack();
+    if (studentId) {
+      navigate(`/dashboard/students/${studentId}`);
+    } else {
+      navigate("/dashboard/students");
+    }
+  };
 
   useEffect(() => {
     if (!studentId) return;
@@ -311,7 +325,7 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
 
   const handleModalClose = () => {
     setShowSuccessModal(false);
-    if (onBack) onBack();
+    handleBack();
   };
 
   if (loading || !form) {
@@ -353,7 +367,7 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
         </div>
 
         <div className="form-actions">
-          <button type="button" className="btn btn-back" onClick={onBack}>
+          <button type="button" className="btn btn-back" onClick={handleBack}>
             ←
           </button>
           {step === 2 ? (

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "../styles/OutcomeMonitoring.css";
 import "../styles/ViewStudentRecords.css";
 import { iepAPI, studentsAPI } from "../api/client";
@@ -278,6 +279,7 @@ function PagePresentLevels({ d, onNext, onBack }) {
 
 // ── PAGE 3: Section B + AI + Section C ────────────────────────────────────
 function PageSectionBC({ d, onBack, setActivePage }) {
+  const navigate = useNavigate();
   const handleExport = () => {
     const goalHtml = (d.learnerGoals || [])
       .map(
@@ -404,24 +406,25 @@ function PageSectionBC({ d, onBack, setActivePage }) {
       ) : (
         <div className="vsr-goals-box" style={{ textAlign: "center", padding: "24px 16px" }}>
           <p className="vsr-goals-empty" style={{ marginBottom: 12 }}>No learner goals available for this student.</p>
-          {setActivePage && (
-            <button
-              className="btn btn-primary"
-              style={{
-                fontSize: 13,
-                padding: "8px 16px",
-                fontWeight: 600,
-                borderRadius: "6px",
-                border: "none",
-                backgroundColor: "#2b6cb0",
-                color: "#ffffff",
-                cursor: "pointer",
-              }}
-              onClick={() => setActivePage("iep-generation")}
-            >
-              Generate IEP Goals
-            </button>
-          )}
+          <button
+            className="btn btn-primary"
+            style={{
+              fontSize: 13,
+              padding: "8px 16px",
+              fontWeight: 600,
+              borderRadius: "6px",
+              border: "none",
+              backgroundColor: "#2b6cb0",
+              color: "#ffffff",
+              cursor: "pointer",
+            }}
+            onClick={() => {
+              navigate("/dashboard/iep/generate");
+              if (setActivePage) setActivePage("iep-generation");
+            }}
+          >
+            Generate IEP Goals
+          </button>
         </div>
       )}
 
@@ -439,6 +442,7 @@ function PageSectionBC({ d, onBack, setActivePage }) {
 
 // ── Main component ─────────────────────────────────────────────────────────
 export default function ViewStudentRecords({ setActivePage }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -652,7 +656,10 @@ export default function ViewStudentRecords({ setActivePage }) {
                   message="No students registered yet"
                   description="Get started by creating a student profile to view records and track IEPs."
                   actionLabel="+ Create Student"
-                  onAction={() => setActivePage && setActivePage("create-student-profile")}
+                  onAction={() => {
+                    navigate("/dashboard/students/create");
+                    if (setActivePage) setActivePage("create-student-profile");
+                  }}
                 />
               ) : (
                 <EmptyState

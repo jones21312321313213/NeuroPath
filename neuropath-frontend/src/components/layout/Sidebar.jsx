@@ -1,31 +1,34 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import LogoutModal from "./LogoutModal";
 
 const navItems = [
   {
     label: "Home",
-    key: "home",
-    altKey: "overview",
+    path: "/dashboard",
     icon: "ti-home-2",
+    exact: true,
     children: [],
   },
   {
     label: "Student Profiling",
     key: "student-profiling",
+    pathPrefix: "/dashboard/students",
     icon: "ti-users",
     children: [
-      { label: "Create Student Profile", key: "create-student-profile" },
-      { label: "View Student Profile", key: "view-student-profile" },
+      { label: "Create Student Profile", path: "/dashboard/students/create" },
+      { label: "View Student Profile", path: "/dashboard/students", exact: true },
     ],
   },
   {
     label: "AI-Based IEP Generation",
     key: "iep-generation",
+    pathPrefix: "/dashboard/iep",
     icon: "ti-sparkles",
     children: [
-      { label: "Generate IEP", key: "generate-iep" },
-      { label: "View IEP", key: "view-iep" },
+      { label: "Generate IEP", path: "/dashboard/iep/generate" },
+      { label: "View IEP", path: "/dashboard/iep/view" },
     ],
   },
   {
@@ -33,12 +36,9 @@ const navItems = [
     key: "instructional-support",
     icon: "ti-books",
     children: [
-      { label: "Manage Lesson Plans", key: "manage-lesson-plans" },
-      { label: "Manage Visual Aids", key: "manage-visual-aids" },
-      {
-        label: "Manage Teaching Strategies",
-        key: "manage-teaching-strategies",
-      },
+      { label: "Manage Lesson Plans", path: "/dashboard/lessons" },
+      { label: "Manage Visual Aids", path: "/dashboard/visual-aids" },
+      { label: "Manage Teaching Strategies", path: "/dashboard/strategies" },
     ],
   },
   {
@@ -46,8 +46,8 @@ const navItems = [
     key: "outcome-monitoring",
     icon: "ti-chart-bar",
     children: [
-      { label: "View Student Records", key: "view-student-records" },
-      { label: "View Progress Dashboard", key: "view-progress-dashboard" },
+      { label: "View Student Records", path: "/dashboard/records" },
+      { label: "View Progress Dashboard", path: "/dashboard/monitoring" },
     ],
   },
 ];
@@ -59,11 +59,32 @@ export default function Sidebar({
   onToggleCollapse,
 }) {
   const { logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const currentPath = location?.pathname || "/dashboard";
+
   const [expanded, setExpanded] = useState({
     "student-profiling": false,
     "iep-generation": false,
+    "instructional-support": false,
+    "outcome-monitoring": false,
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Auto-expand group if current path is under that group
+  useEffect(() => {
+    navItems.forEach((item) => {
+      if (item.children && item.children.length > 0) {
+        const hasMatchingChild = item.children.some(
+          (child) => child.path === currentPath || (child.path !== "/dashboard/students" && currentPath.startsWith(child.path))
+        );
+        if (hasMatchingChild || (item.pathPrefix && currentPath.startsWith(item.pathPrefix))) {
+          setExpanded((prev) => ({ ...prev, [item.key]: true }));
+        }
+      }
+    });
+  }, [currentPath]);
 
   const toggleExpand = (key) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -73,13 +94,15 @@ export default function Sidebar({
     await logout();
     sessionStorage.clear();
     setIsModalOpen(false);
-    window.location.href = "/login";
+    navigate("/login");
   };
 
   const isItemActive = (item) => {
-    if (activePage === item.key) return true;
-    if (item.altKey && activePage === item.altKey) return true;
-    if (item.children?.some((child) => child.key === activePage)) return true;
+    if (item.exact) return currentPath === item.path;
+    if (item.path && currentPath === item.path) return true;
+    if (item.pathPrefix && currentPath.startsWith(item.pathPrefix)) return true;
+    if (item.children?.some((child) => child.exact ? currentPath === child.path : currentPath.startsWith(child.path))) return true;
+    if (activePage && (item.key === activePage || item.path === activePage)) return true;
     return false;
   };
 
@@ -89,16 +112,18 @@ export default function Sidebar({
       if (onToggleCollapse) onToggleCollapse();
       if (item.children.length > 0) {
         setExpanded((prev) => ({ ...prev, [item.key]: true }));
-      } else {
-        setActivePage(item.key);
+      } else if (item.path) {
+        navigate(item.path);
+        if (setActivePage) setActivePage(item.key || item.path);
       }
       return;
     }
 
     if (item.children.length > 0) {
       toggleExpand(item.key);
-    } else {
-      setActivePage(item.key);
+    } else if (item.path) {
+      navigate(item.path);
+      if (setActivePage) setActivePage(item.key || item.path);
     }
   };
 
@@ -112,13 +137,11 @@ export default function Sidebar({
       <aside
         className={`sidebar ${collapsed ? "collapsed" : ""}`}
         onClick={(e) => {
-          // If the click did not originate from an interactive button or subnav link, toggle collapse
           if (!e.target.closest("button")) {
             onToggleCollapse?.();
           }
         }}
       >
-        {/* Header with Clean Typographic Brand (Clickable to Toggle Collapse) */}
         <div
           className="sidebar-header"
           onClick={handleToggleCollapse}
@@ -140,14 +163,13 @@ export default function Sidebar({
 
         <hr className="sidebar-divider" />
 
-        {/* Navigation */}
         <nav className="sidebar-nav">
           {navItems.map((item) => {
             const active = isItemActive(item);
             const isCategoryExpanded = expanded[item.key];
 
             return (
-              <div key={item.key} className="sidebar-nav-group">
+              <div key={item.key || item.path} className="sidebar-nav-group">
                 <button
                   type="button"
                   className={`sidebar-nav-item ${active ? "active" : ""}`}
@@ -173,20 +195,27 @@ export default function Sidebar({
 
                 {!collapsed && item.children.length > 0 && isCategoryExpanded && (
                   <div className="sidebar-subnav">
-                    {item.children.map((child) => (
-                      <button
-                        key={child.key}
-                        type="button"
-                        className={`sidebar-subnav-item ${activePage === child.key ? "active" : ""}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActivePage(child.key);
-                        }}
-                      >
-                        <span className="subnav-bullet" />
-                        <span className="subnav-label">{child.label}</span>
-                      </button>
-                    ))}
+                    {item.children.map((child) => {
+                      const isChildActive = child.exact
+                        ? currentPath === child.path
+                        : currentPath.startsWith(child.path);
+
+                      return (
+                        <button
+                          key={child.path}
+                          type="button"
+                          className={`sidebar-subnav-item ${isChildActive ? "active" : ""}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(child.path);
+                            if (setActivePage) setActivePage(child.key || child.path);
+                          }}
+                        >
+                          <span className="subnav-bullet" />
+                          <span className="subnav-label">{child.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -194,7 +223,6 @@ export default function Sidebar({
           })}
         </nav>
 
-        {/* Empty space below navigation buttons: clicking toggles collapse/expand (no hover highlight) */}
         <div
           className="sidebar-empty-space"
           data-testid="sidebar-empty-space"
@@ -209,7 +237,6 @@ export default function Sidebar({
           }}
         />
 
-        {/* Footer with Logout */}
         <div className="sidebar-footer">
           <button
             type="button"

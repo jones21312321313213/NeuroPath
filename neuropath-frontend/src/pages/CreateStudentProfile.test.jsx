@@ -1,9 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import CreateStudentProfile from "./CreateStudentProfile";
 import { studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
 
 vi.mock("../api/client", () => ({
   studentsAPI: {
@@ -22,7 +32,11 @@ describe("CreateStudentProfile Help Text & Difficulty Validation", () => {
   });
 
   function renderComponent() {
-    return render(<CreateStudentProfile onBack={vi.fn()} />);
+    return render(
+      <MemoryRouter>
+        <CreateStudentProfile onBack={vi.fn()} />
+      </MemoryRouter>
+    );
   }
 
   it("renders the intro banner and difficulty help text on Step 1", () => {
@@ -105,44 +119,46 @@ describe("CreateStudentProfile next-step actions", () => {
     useAuth.mockReturnValue({ user: { id: 1, name: "Test Teacher" } });
   });
 
-  async function fillAndSubmitValidForm(user) {
+  function fillAndSubmitValidForm() {
     // Step 1 fields
-    await user.type(
-      screen.getByPlaceholderText("Enter student name"),
-      "Alex Smith",
-    );
-    await user.type(screen.getByPlaceholderText("Enter age"), "8");
-    await user.type(screen.getByPlaceholderText("Enter grade level"), "3");
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: /^gender:/i }),
-      "Male",
-    );
-    await user.click(screen.getByLabelText(/Difficulty in Seeing/i));
-    await user.click(screen.getByRole("button", { name: /next/i }));
+    fireEvent.change(screen.getByPlaceholderText("Enter student name"), {
+      target: { value: "Alex Smith" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter age"), {
+      target: { value: "8" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter grade level"), {
+      target: { value: "3" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: /^gender:/i }), {
+      target: { value: "Male" },
+    });
+    fireEvent.click(screen.getByLabelText(/Difficulty in Seeing/i));
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
     // Step 2 fields
-    await user.type(
+    fireEvent.change(
       screen.getByPlaceholderText(/the learner fails to finish tasks/i),
-      "Recent evaluation details...",
+      { target: { value: "Recent evaluation details..." } },
     );
-    await user.type(
+    fireEvent.change(
       screen.getByPlaceholderText(/the learner can spell random words/i),
-      "Strong academic strengths...",
+      { target: { value: "Strong academic strengths..." } },
     );
-    await user.type(
+    fireEvent.change(
       screen.getByPlaceholderText(/needs structured routines/i),
-      "Specific learner needs...",
+      { target: { value: "Specific learner needs..." } },
     );
-    await user.type(
+    fireEvent.change(
       screen.getByPlaceholderText(/write concerns shared by the parent/i),
-      "Parental concerns notes...",
+      { target: { value: "Parental concerns notes..." } },
     );
-    await user.type(
+    fireEvent.change(
       screen.getByPlaceholderText(/the learner has difficulty concentrating/i),
-      "Curriculum impact notes...",
+      { target: { value: "Curriculum impact notes..." } },
     );
 
-    await user.click(screen.getByRole("button", { name: /submit/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit/i }));
   }
 
   it("shows success modal with primary, secondary, and tertiary next-step CTAs upon successful creation", async () => {
@@ -153,11 +169,13 @@ describe("CreateStudentProfile next-step actions", () => {
     const user = userEvent.setup();
 
     render(
-      <CreateStudentProfile
-        onBack={onBack}
-        setActivePage={setActivePage}
-        setSelectedStudentId={setSelectedStudentId}
-      />,
+      <MemoryRouter>
+        <CreateStudentProfile
+          onBack={onBack}
+          setActivePage={setActivePage}
+          setSelectedStudentId={setSelectedStudentId}
+        />
+      </MemoryRouter>,
     );
 
     await fillAndSubmitValidForm(user);
@@ -183,11 +201,13 @@ describe("CreateStudentProfile next-step actions", () => {
     const user = userEvent.setup();
 
     render(
-      <CreateStudentProfile
-        onBack={onBack}
-        setActivePage={setActivePage}
-        setSelectedStudentId={setSelectedStudentId}
-      />,
+      <MemoryRouter>
+        <CreateStudentProfile
+          onBack={onBack}
+          setActivePage={setActivePage}
+          setSelectedStudentId={setSelectedStudentId}
+        />
+      </MemoryRouter>,
     );
 
     await fillAndSubmitValidForm(user);
@@ -199,6 +219,7 @@ describe("CreateStudentProfile next-step actions", () => {
 
     expect(setSelectedStudentId).toHaveBeenCalledWith(101);
     expect(setActivePage).toHaveBeenCalledWith("generate-iep");
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/students/101/iep");
   });
 
   it("navigates to View Profile with student context when secondary CTA is clicked", async () => {
@@ -209,11 +230,13 @@ describe("CreateStudentProfile next-step actions", () => {
     const user = userEvent.setup();
 
     render(
-      <CreateStudentProfile
-        onBack={onBack}
-        setActivePage={setActivePage}
-        setSelectedStudentId={setSelectedStudentId}
-      />,
+      <MemoryRouter>
+        <CreateStudentProfile
+          onBack={onBack}
+          setActivePage={setActivePage}
+          setSelectedStudentId={setSelectedStudentId}
+        />
+      </MemoryRouter>,
     );
 
     await fillAndSubmitValidForm(user);
@@ -225,6 +248,7 @@ describe("CreateStudentProfile next-step actions", () => {
 
     expect(setSelectedStudentId).toHaveBeenCalledWith(101);
     expect(setActivePage).toHaveBeenCalledWith("view-student-detail");
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/students/101");
   });
 
   it("resets the form and returns to step 1 for batch entry when 'Add another student' is clicked", async () => {
@@ -235,11 +259,13 @@ describe("CreateStudentProfile next-step actions", () => {
     const user = userEvent.setup();
 
     render(
-      <CreateStudentProfile
-        onBack={onBack}
-        setActivePage={setActivePage}
-        setSelectedStudentId={setSelectedStudentId}
-      />,
+      <MemoryRouter>
+        <CreateStudentProfile
+          onBack={onBack}
+          setActivePage={setActivePage}
+          setSelectedStudentId={setSelectedStudentId}
+        />
+      </MemoryRouter>,
     );
 
     await fillAndSubmitValidForm(user);
@@ -252,5 +278,25 @@ describe("CreateStudentProfile next-step actions", () => {
     expect(screen.queryByText(/Profile Created!/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Enter student name")).toHaveValue("");
+  });
+
+  it("navigates back to /dashboard/students when top/step 1 back button is clicked", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter>
+        <CreateStudentProfile
+          onBack={onBack}
+          setActivePage={setActivePage}
+          setSelectedStudentId={setSelectedStudentId}
+        />
+      </MemoryRouter>,
+    );
+
+    const backBtn = screen.getByRole("button", { name: "BACK" });
+    await user.click(backBtn);
+
+    expect(onBack).toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/students");
   });
 });
