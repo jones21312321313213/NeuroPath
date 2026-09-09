@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
@@ -255,12 +256,18 @@ export default function CreateStudentProfile({
   setActivePage,
   setSelectedStudentId,
 }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdStudent, setCreatedStudent] = useState(null);
+
+  const handleBack = () => {
+    if (onBack) onBack();
+    navigate("/dashboard/students");
+  };
 
   const [form, setForm] = useState(initialFormState);
 
@@ -464,6 +471,11 @@ export default function CreateStudentProfile({
     if (setActivePage) {
       setActivePage("generate-iep");
     }
+    if (createdStudent?.id) {
+      navigate(`/dashboard/students/${createdStudent.id}/iep`);
+    } else {
+      navigate("/dashboard/iep");
+    }
   };
 
   const handleViewProfile = () => {
@@ -472,6 +484,11 @@ export default function CreateStudentProfile({
     }
     if (setActivePage) {
       setActivePage("view-student-detail");
+    }
+    if (createdStudent?.id) {
+      navigate(`/dashboard/students/${createdStudent.id}`);
+    } else {
+      navigate("/dashboard/students");
     }
   };
 
@@ -654,7 +671,7 @@ export default function CreateStudentProfile({
                 BACK
               </button>
             ) : (
-              <button type="button" className="btn btn-back" onClick={onBack}>
+              <button type="button" className="btn btn-back" onClick={handleBack}>
                 BACK
               </button>
             )}

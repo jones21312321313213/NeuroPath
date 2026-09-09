@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "../../styles/ViewStudentProfile.css";
 import { useAuth } from "../../context/AuthContext";
 import StudentShimmer from "../../components/StudentShimmer";
@@ -8,6 +9,7 @@ export default function ViewStudentProfile({
   setActivePage,
   setSelectedStudentId,
 }) {
+  const navigate = useNavigate();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -44,8 +46,9 @@ export default function ViewStudentProfile({
   }, [user]);
 
   const handleView = (id) => {
-    setSelectedStudentId(id);
-    setActivePage("view-student-detail");
+    if (setSelectedStudentId) setSelectedStudentId(id);
+    if (setActivePage) setActivePage("view-student-detail");
+    navigate(`/dashboard/students/${id}`);
   };
 
   const getInitials = (name = "") =>
@@ -136,7 +139,10 @@ export default function ViewStudentProfile({
               <button
                 type="button"
                 className="vsp-empty-btn"
-                onClick={() => setActivePage("create-student-profile")}
+                onClick={() => {
+                  if (setActivePage) setActivePage("create-student-profile");
+                  navigate("/dashboard/students/create");
+                }}
               >
                 <i className="ti ti-user-plus" aria-hidden="true" />
                 Create Student
@@ -145,42 +151,45 @@ export default function ViewStudentProfile({
           </div>
         ) : (
           <div className="vsp-grid">
-            {filtered.map((student) => (
-              <div key={student.studentID} className="vsp-card">
-                {/* Top row */}
-                <div className="vsp-card-top">
-                  <div className="vsp-avatar">{getInitials(student.name)}</div>
-                  <div className="vsp-card-info">
-                    <p className="vsp-card-name">{student.name}</p>
-                    <span className="vsp-card-meta">
-                      {student.diagnosis || "No diagnosis on record"}
-                    </span>
+            {filtered.map((student) => {
+              const studentId = student.studentID ?? student.id;
+              return (
+                <div key={studentId} className="vsp-card">
+                  {/* Top row */}
+                  <div className="vsp-card-top">
+                    <div className="vsp-avatar">{getInitials(student.name)}</div>
+                    <div className="vsp-card-info">
+                      <p className="vsp-card-name">{student.name}</p>
+                      <span className="vsp-card-meta">
+                        {student.diagnosis || "No diagnosis on record"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Pills */}
+                  <div className="vsp-card-pills">
+                    <span className="vsp-pill grade">Grade {student.grade}</span>
+                    {student.gender && (
+                      <span className="vsp-pill">{student.gender}</span>
+                    )}
+                    {student.age && (
+                      <span className="vsp-pill">{student.age} yrs</span>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="vsp-card-footer">
+                    <button
+                      className="vsp-view-btn"
+                      onClick={() => handleView(studentId)}
+                    >
+                      View profile
+                      <i className="ti ti-arrow-right" aria-hidden="true" />
+                    </button>
                   </div>
                 </div>
-
-                {/* Pills */}
-                <div className="vsp-card-pills">
-                  <span className="vsp-pill grade">Grade {student.grade}</span>
-                  {student.gender && (
-                    <span className="vsp-pill">{student.gender}</span>
-                  )}
-                  {student.age && (
-                    <span className="vsp-pill">{student.age} yrs</span>
-                  )}
-                </div>
-
-                {/* Footer */}
-                <div className="vsp-card-footer">
-                  <button
-                    className="vsp-view-btn"
-                    onClick={() => handleView(student.studentID)}
-                  >
-                    View profile
-                    <i className="ti ti-arrow-right" aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
