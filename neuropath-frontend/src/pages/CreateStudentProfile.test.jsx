@@ -119,7 +119,7 @@ describe("CreateStudentProfile next-step actions", () => {
     useAuth.mockReturnValue({ user: { id: 1, name: "Test Teacher" } });
   });
 
-  async function fillAndSubmitValidForm(user) {
+  function fillAndSubmitValidForm() {
     // Step 1 fields
     fireEvent.change(screen.getByPlaceholderText("Enter student name"), {
       target: { value: "Alex Smith" },
