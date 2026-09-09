@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import StudentInsightsTab from "./StudentInsightsTab";
 import { iepAPI } from "../../api/client";
+import { renderWithQueryClient } from "../../test/query-test-utils";
 
 vi.mock("../../api/client", () => ({
   iepAPI: {
@@ -17,54 +18,56 @@ describe("StudentInsightsTab", () => {
     vi.clearAllMocks();
   });
 
-  it("calls iepAPI.getInsights for studentId=4 and displays fetched insights", async () => {
+  it("calls iepAPI.getInsights for real student and displays fetched insights", async () => {
     iepAPI.getInsights.mockResolvedValueOnce([
       {
         id: 1,
         created_at: "2026-08-28 10:00",
-        summary_text: "Real insight from database for student 4.",
+        summary_text: "Real insight from database for student 1.",
       },
     ]);
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter>
-        <StudentInsightsTab studentId={4} />
+        <StudentInsightsTab studentId={1} />
       </MemoryRouter>
     );
 
-    expect(iepAPI.getInsights).toHaveBeenCalledWith(4);
+    expect(iepAPI.getInsights).toHaveBeenCalledWith(1);
 
     expect(
-      await screen.findByText(/Summary 1 — 2026-08-28 10:00/i),
+      await screen.findByText(/Summary 1 — 2026-08-28 10:00/i)
     ).toBeInTheDocument();
   });
 
   it("displays placeholder text when student has no insights", async () => {
     iepAPI.getInsights.mockResolvedValueOnce([]);
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter>
-        <StudentInsightsTab studentId={4} />
+        <StudentInsightsTab studentId={1} />
       </MemoryRouter>
     );
 
-    expect(iepAPI.getInsights).toHaveBeenCalledWith(4);
+    expect(iepAPI.getInsights).toHaveBeenCalledWith(1);
     expect(
-      await screen.findByText(/No quick summary generated yet/i),
+      await screen.findByText(/No quick summary generated yet/i)
     ).toBeInTheDocument();
   });
 
   it("displays error banner when fetching insights fails", async () => {
-    iepAPI.getInsights.mockRejectedValueOnce(new Error("Network error loading insights"));
+    iepAPI.getInsights.mockRejectedValueOnce(
+      new Error("Network error loading insights")
+    );
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter>
-        <StudentInsightsTab studentId={4} />
+        <StudentInsightsTab studentId={1} />
       </MemoryRouter>
     );
 
     expect(
-      await screen.findByText(/Network error loading insights/i),
+      await screen.findByText(/Network error loading insights/i)
     ).toBeInTheDocument();
   });
 
@@ -73,14 +76,16 @@ describe("StudentInsightsTab", () => {
     const setActivePage = vi.fn();
 
     const user = userEvent.setup();
-    render(
+    renderWithQueryClient(
       <MemoryRouter>
-        <StudentInsightsTab studentId={4} setActivePage={setActivePage} />
+        <StudentInsightsTab studentId={1} setActivePage={setActivePage} />
       </MemoryRouter>
     );
 
     expect(
-      screen.getByText(/Note: This is not a full Individualized Education Program \(IEP\)/i),
+      screen.getByText(
+        /Note: This is not a full Individualized Education Program \(IEP\)/i
+      )
     ).toBeInTheDocument();
 
     const goIepBtn = screen.getByRole("button", {
@@ -92,8 +97,16 @@ describe("StudentInsightsTab", () => {
     expect(setActivePage).toHaveBeenCalledWith("iep-generation");
   });
 
-  it("calls iepAPI.generateInsight when Generate button is clicked for studentId=4", async () => {
-    iepAPI.getInsights.mockResolvedValueOnce([]);
+  it("calls iepAPI.generateInsight when Generate button is clicked for real student and reflects updated insights", async () => {
+    iepAPI.getInsights
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: 99,
+          created_at: "2026-08-28 12:00",
+          summary_text: "Newly generated AI insight for Ethan.",
+        },
+      ]);
     iepAPI.generateInsight.mockResolvedValueOnce({
       id: 99,
       created_at: "2026-08-28 12:00",
@@ -101,27 +114,48 @@ describe("StudentInsightsTab", () => {
     });
 
     const user = userEvent.setup();
-    render(
+    renderWithQueryClient(
       <MemoryRouter>
-        <StudentInsightsTab studentId={4} />
+        <StudentInsightsTab studentId={1} />
       </MemoryRouter>
     );
 
-    await waitFor(() => expect(iepAPI.getInsights).toHaveBeenCalledWith(4));
+    await waitFor(() => expect(iepAPI.getInsights).toHaveBeenCalledWith(1));
 
     const generateBtn = screen.getByRole("button", {
       name: /generate quick summary/i,
     });
     await user.click(generateBtn);
 
-    expect(iepAPI.generateInsight).toHaveBeenCalledWith(4);
+    expect(iepAPI.generateInsight).toHaveBeenCalledWith(1);
 
     expect(
-      await screen.findByText(/Summary 1 — 2026-08-28 12:00/i),
+      await screen.findByText(/Summary 1 — 2026-08-28 12:00/i)
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Newly generated AI insight for Ethan./i),
+      screen.getByText(/Newly generated AI insight for Ethan./i)
     ).toBeInTheDocument();
+  });
+
+  it("displays error banner when generating insight fails", async () => {
+    iepAPI.getInsights.mockResolvedValueOnce([]);
+    iepAPI.generateInsight.mockRejectedValueOnce(new Error("Generation failed"));
+
+    const user = userEvent.setup();
+    renderWithQueryClient(
+      <MemoryRouter>
+        <StudentInsightsTab studentId={1} />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(iepAPI.getInsights).toHaveBeenCalledWith(1));
+
+    const generateBtn = screen.getByRole("button", {
+      name: /generate quick summary/i,
+    });
+    await user.click(generateBtn);
+
+    expect(await screen.findByText(/Generation failed/i)).toBeInTheDocument();
   });
 
   it("toggles accordion open and closed", async () => {
@@ -134,9 +168,9 @@ describe("StudentInsightsTab", () => {
     ]);
 
     const user = userEvent.setup();
-    render(
+    renderWithQueryClient(
       <MemoryRouter>
-        <StudentInsightsTab studentId={4} />
+        <StudentInsightsTab studentId={1} />
       </MemoryRouter>
     );
 
@@ -145,14 +179,70 @@ describe("StudentInsightsTab", () => {
     });
 
     // Initially collapsed
-    expect(screen.queryByText(/Accordion test insight text./i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Accordion test insight text./i)
+    ).not.toBeInTheDocument();
 
     // Click to open
     await user.click(header);
-    expect(screen.getByText(/Accordion test insight text./i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Accordion test insight text./i)
+    ).toBeInTheDocument();
 
     // Click again to close
     await user.click(header);
-    expect(screen.queryByText(/Accordion test insight text./i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Accordion test insight text./i)
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders mock fallback insights for demo studentId=4 without calling API", async () => {
+    renderWithQueryClient(
+      <MemoryRouter>
+        <StudentInsightsTab studentId={4} />
+      </MemoryRouter>
+    );
+
+    expect(iepAPI.getInsights).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(/Summary 2 — 2026-05-24 21:00/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Summary 1 — 2026-05-20 14:30/i)
+    ).toBeInTheDocument();
+  });
+
+  it("renders mock fallback insights for demo studentId='4' (string) without calling API", async () => {
+    renderWithQueryClient(
+      <MemoryRouter>
+        <StudentInsightsTab studentId="4" />
+      </MemoryRouter>
+    );
+
+    expect(iepAPI.getInsights).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(/Summary 2 — 2026-05-24 21:00/i)
+    ).toBeInTheDocument();
+  });
+
+  it("generates mock insight when Generate button is clicked for demo studentId=4 without calling API", async () => {
+    const user = userEvent.setup();
+    renderWithQueryClient(
+      <MemoryRouter>
+        <StudentInsightsTab studentId={4} />
+      </MemoryRouter>
+    );
+
+    expect(iepAPI.getInsights).not.toHaveBeenCalled();
+    const generateBtn = screen.getByRole("button", {
+      name: /generate quick summary/i,
+    });
+    await user.click(generateBtn);
+
+    expect(iepAPI.generateInsight).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText(/Ethan Carter demonstrates high affinity/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Summary 3 —/i)).toBeInTheDocument();
   });
 });
