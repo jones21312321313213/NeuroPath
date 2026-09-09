@@ -564,3 +564,62 @@ class TeacherRegistrationSecurityTests(APITestCase):
         self.assertFalse(User.objects.filter(email='atomic.fail@example.com').exists())
         self.assertFalse(Teacher.objects.filter(email='atomic.fail@example.com').exists())
 
+
+class TeacherTutorialEndpointTests(APITestCase):
+    """Tests for has_completed_tutorial in login payload and POST /api/users/tutorial-complete/."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="newteacher@example.com",
+            email="newteacher@example.com",
+            password="securepassword123",
+            first_name="Jane",
+            last_name="Doe",
+        )
+        self.teacher = Teacher.objects.create(
+            email="newteacher@example.com",
+            name="Jane Doe",
+            passwordHash=self.user.password,
+            has_completed_tutorial=False,
+        )
+        self.token = Token.objects.create(user=self.user)
+        self.login_url = reverse("teacher-login")
+        self.tutorial_url = reverse("teacher-tutorial-complete")
+
+    def test_login_returns_has_completed_tutorial_false_for_new_teacher(self):
+        response = self.client.post(
+            self.login_url,
+            {"email": "newteacher@example.com", "password": "securepassword123"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("teacher", response.data)
+        self.assertIn("has_completed_tutorial", response.data["teacher"])
+        self.assertFalse(response.data["teacher"]["has_completed_tutorial"])
+
+    def test_tutorial_complete_requires_authentication(self):
+        response = self.client.post(self.tutorial_url, {}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_tutorial_complete_updates_teacher_record(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
+        response = self.client.post(self.tutorial_url, {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data.get("has_completed_tutorial"))
+        self.teacher.refresh_from_db()
+        self.assertTrue(self.teacher.has_completed_tutorial)
+
+    def test_login_returns_has_completed_tutorial_true_after_completion(self):
+        self.teacher.has_completed_tutorial = True
+        self.teacher.save()
+
+        response = self.client.post(
+            self.login_url,
+            {"email": "newteacher@example.com", "password": "securepassword123"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["teacher"]["has_completed_tutorial"])
+
+

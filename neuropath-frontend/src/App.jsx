@@ -19,6 +19,7 @@ import ViewStudentProfile from "./pages/StudentProfiling/ViewStudentProfile";
 import ViewSelectedStudentProfile from "./pages/StudentProfiling/ViewSelectedStudentProfile";
 import UpdateStudentProfile from "./pages/StudentProfiling/UpdateStudentProfile";
 import LoginSplash from "./components/LoginSplash";
+import TeacherTutorialModal from "./components/TeacherTutorialModal";
 import NotFoundPage from "./pages/NotFoundPage";
 import "./App.css";
 
@@ -117,6 +118,7 @@ function renderPage(
 }
 
 function Dashboard() {
+  const { user, markTutorialComplete } = useAuth();
   const [activePage, setActivePage] = useState("home");
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
@@ -131,8 +133,13 @@ function Dashboard() {
     });
   };
 
+  const showTutorial = user && user.has_completed_tutorial === false;
+
   return (
     <div className={`app-layout ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+      {showTutorial && (
+        <TeacherTutorialModal onComplete={markTutorialComplete} />
+      )}
       <Sidebar
         activePage={activePage}
         setActivePage={setActivePage}
