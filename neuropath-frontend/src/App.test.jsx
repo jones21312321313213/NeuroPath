@@ -3,7 +3,6 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import App from "./App";
 import { useAuth } from "./context/AuthContext";
-import { studentsAPI, iepAPI } from "./api/client";
 
 vi.mock("./context/AuthContext", () => ({
   useAuth: vi.fn(),

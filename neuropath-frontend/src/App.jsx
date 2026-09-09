@@ -22,7 +22,7 @@ import LoginSplash from "./components/LoginSplash";
 import NotFoundPage from "./pages/NotFoundPage";
 import "./App.css";
 
-export function getBreadcrumb(pathname) {
+function getBreadcrumb(pathname) {
   if (pathname === "/dashboard" || pathname === "/dashboard/") return "DASHBOARD / Home";
   if (pathname === "/dashboard/profile") return "DASHBOARD / My Profile";
   if (pathname === "/dashboard/students") return "DASHBOARD / Student Profiling / View Profiles";
