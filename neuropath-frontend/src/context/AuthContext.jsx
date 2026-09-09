@@ -86,6 +86,27 @@ export function AuthProvider({ children }) {
     [user],
   );
 
+  // ── Mark tutorial complete ──────────────────────────────
+  const markTutorialComplete = useCallback(async () => {
+    try {
+      await usersAPI.completeTutorial();
+    } catch (err) {
+      console.error("Failed to persist tutorial completion to server:", err);
+    } finally {
+      // Optimistically update local React state and localStorage so the user is never re-prompted
+      const updated = {
+        ...user,
+        has_completed_tutorial: true,
+      };
+      try {
+        localStorage.setItem("neuropath_user", JSON.stringify(updated));
+      } catch (e) {
+        console.warn("Failed to persist updated user to localStorage:", e);
+      }
+      setUser(updated);
+    }
+  }, [user]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -94,6 +115,7 @@ export function AuthProvider({ children }) {
         register,
         logout,
         updateUser,
+        markTutorialComplete,
         isAuthenticated: !!user,
       }}
     >

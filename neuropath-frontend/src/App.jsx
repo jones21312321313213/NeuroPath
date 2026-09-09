@@ -19,6 +19,7 @@ import ViewStudentProfile from "./pages/StudentProfiling/ViewStudentProfile";
 import ViewSelectedStudentProfile from "./pages/StudentProfiling/ViewSelectedStudentProfile";
 import UpdateStudentProfile from "./pages/StudentProfiling/UpdateStudentProfile";
 import LoginSplash from "./components/LoginSplash";
+import TeacherTutorialModal from "./components/TeacherTutorialModal";
 import NotFoundPage from "./pages/NotFoundPage";
 import "./App.css";
 
@@ -41,6 +42,7 @@ function getBreadcrumb(pathname) {
 }
 
 function DashboardLayout() {
+  const { user, markTutorialComplete } = useAuth();
   const location = useLocation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     return localStorage.getItem("neuropath_sidebar_collapsed") === "true";
@@ -55,9 +57,13 @@ function DashboardLayout() {
   };
 
   const breadcrumb = useMemo(() => getBreadcrumb(location.pathname), [location.pathname]);
+  const showTutorial = user && user.has_completed_tutorial === false;
 
   return (
     <div className={`app-layout ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+      {showTutorial && (
+        <TeacherTutorialModal onComplete={markTutorialComplete} />
+      )}
       <Sidebar
         collapsed={isSidebarCollapsed}
         onToggleCollapse={toggleSidebar}

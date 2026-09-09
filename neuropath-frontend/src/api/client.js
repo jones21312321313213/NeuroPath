@@ -253,6 +253,12 @@ export const usersAPI = {
       body: isFormData ? payload : JSON.stringify(payload),
     });
   },
+  // POST /api/users/tutorial-complete/
+  completeTutorial: () =>
+    request("/users/tutorial-complete/", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
 };
 
 // ── Tracking & Outcome Monitoring ──────────────────────────────────────────────

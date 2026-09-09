@@ -7,6 +7,7 @@ class Teacher(models.Model):
     email = models.EmailField(unique=True)
     passwordHash = models.CharField(max_length=255)
     createdDate = models.DateTimeField(auto_now_add=True)
+    has_completed_tutorial = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name

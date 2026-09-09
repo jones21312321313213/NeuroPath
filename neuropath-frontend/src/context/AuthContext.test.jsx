@@ -253,6 +253,57 @@ describe("AuthContext", () => {
     setItemSpy.mockRestore();
   });
 
+  it("marks tutorial as complete, calls API, and updates local state/storage", async () => {
+    localStorage.setItem(
+      "neuropath_user",
+      JSON.stringify({ email: "jane@example.com", has_completed_tutorial: false }),
+    );
+    localStorage.setItem("neuropath_access_token", "abc123");
+    fetch.mockResolvedValueOnce(
+      jsonResponse({
+        message: "Tutorial marked as completed.",
+        has_completed_tutorial: true,
+      }),
+    );
+
+    const { result } = renderAuthHook();
+
+    await act(async () => {
+      await result.current.markTutorialComplete();
+    });
+
+    expect(result.current.user.has_completed_tutorial).toBe(true);
+    expect(
+      JSON.parse(localStorage.getItem("neuropath_user")).has_completed_tutorial,
+    ).toBe(true);
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:8000/api/users/tutorial-complete/",
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
+  });
+
+  it("optimistically updates local state/storage even if completeTutorial API fails", async () => {
+    localStorage.setItem(
+      "neuropath_user",
+      JSON.stringify({ email: "jane@example.com", has_completed_tutorial: false }),
+    );
+    localStorage.setItem("neuropath_access_token", "abc123");
+    fetch.mockRejectedValueOnce(new Error("Network Error"));
+
+    const { result } = renderAuthHook();
+
+    await act(async () => {
+      await result.current.markTutorialComplete();
+    });
+
+    expect(result.current.user.has_completed_tutorial).toBe(true);
+    expect(
+      JSON.parse(localStorage.getItem("neuropath_user")).has_completed_tutorial,
+    ).toBe(true);
+  });
+
   it("throws when useAuth is used outside of an AuthProvider", () => {
     expect(() => renderHook(() => useAuth())).toThrow(
       "useAuth must be used inside AuthProvider",
