@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "../styles/OutcomeMonitoring.css";
 import { studentsAPI, trackingAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -91,7 +92,8 @@ function LineChart({ data = [], months = [] }) {
   );
 }
 
-export default function ViewProgressDashboard() {
+export default function ViewProgressDashboard({ setActivePage }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
