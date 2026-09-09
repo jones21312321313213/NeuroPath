@@ -774,28 +774,40 @@ function ViewIEPPanel({
               <button
                 type="button"
                 className="iep-next-step-btn"
-                onClick={() => setActivePage && setActivePage("manage-lesson-plans")}
+                onClick={() => {
+                  navigate("/dashboard/lessons");
+                  if (setActivePage) setActivePage("manage-lesson-plans");
+                }}
               >
                 <span>📚</span> Create Lesson Plan
               </button>
               <button
                 type="button"
                 className="iep-next-step-btn"
-                onClick={() => setActivePage && setActivePage("manage-visual-aids")}
+                onClick={() => {
+                  navigate("/dashboard/visual-aids");
+                  if (setActivePage) setActivePage("manage-visual-aids");
+                }}
               >
                 <span>🖼️</span> Create Visual Aid
               </button>
               <button
                 type="button"
                 className="iep-next-step-btn iep-next-step-btn-secondary"
-                onClick={() => setActivePage && setActivePage("manage-teaching-strategies")}
+                onClick={() => {
+                  navigate("/dashboard/strategies");
+                  if (setActivePage) setActivePage("manage-teaching-strategies");
+                }}
               >
                 <span>🎯</span> Teaching Strategies
               </button>
               <button
                 type="button"
                 className="iep-next-step-btn iep-next-step-btn-ghost"
-                onClick={() => setActivePage && setActivePage("overview")}
+                onClick={() => {
+                  navigate("/dashboard/overview");
+                  if (setActivePage) setActivePage("overview");
+                }}
               >
                 <span>🏠</span> Back to Overview
               </button>
@@ -2105,28 +2117,40 @@ export default function IEPGenerationPage({
                           <button
                             type="button"
                             className="iep-next-step-btn"
-                            onClick={() => setActivePage && setActivePage("manage-lesson-plans")}
+                            onClick={() => {
+                              navigate("/dashboard/lessons");
+                              if (setActivePage) setActivePage("manage-lesson-plans");
+                            }}
                           >
                             <span>📚</span> Create Lesson Plan
                           </button>
                           <button
                             type="button"
                             className="iep-next-step-btn"
-                            onClick={() => setActivePage && setActivePage("manage-visual-aids")}
+                            onClick={() => {
+                              navigate("/dashboard/visual-aids");
+                              if (setActivePage) setActivePage("manage-visual-aids");
+                            }}
                           >
                             <span>🖼️</span> Create Visual Aid
                           </button>
                           <button
                             type="button"
                             className="iep-next-step-btn iep-next-step-btn-secondary"
-                            onClick={() => setActivePage && setActivePage("manage-teaching-strategies")}
+                            onClick={() => {
+                              navigate("/dashboard/strategies");
+                              if (setActivePage) setActivePage("manage-teaching-strategies");
+                            }}
                           >
                             <span>🎯</span> Teaching Strategies
                           </button>
                           <button
                             type="button"
                             className="iep-next-step-btn iep-next-step-btn-ghost"
-                            onClick={() => setActivePage && setActivePage("overview")}
+                            onClick={() => {
+                              navigate("/dashboard/overview");
+                              if (setActivePage) setActivePage("overview");
+                            }}
                           >
                             <span>🏠</span> Back to Overview
                           </button>

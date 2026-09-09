@@ -1,10 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import IEPGenerationPage from "./IepGenerationPage";
 import Overview from "./Overview";
 import { iepAPI, studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+    useParams: () => ({}),
+  };
+});
 
 vi.mock("../api/client", () => ({
   iepAPI: {
@@ -79,7 +90,11 @@ describe("Post-IEP Next Steps to Classroom Tools (#94)", () => {
     const setActivePage = vi.fn();
     const user = userEvent.setup();
 
-    render(<IEPGenerationPage mode="view" setActivePage={setActivePage} />);
+    render(
+      <MemoryRouter>
+        <IEPGenerationPage mode="view" setActivePage={setActivePage} />
+      </MemoryRouter>,
+    );
 
     // Type into student search input
     const searchInput = screen.getByPlaceholderText(/type student name/i);
@@ -102,6 +117,7 @@ describe("Post-IEP Next Steps to Classroom Tools (#94)", () => {
     });
     await user.click(lessonPlanBtn);
     expect(setActivePage).toHaveBeenCalledWith("manage-lesson-plans");
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/lessons");
 
     // Verify Visual Aid button navigates
     const visualAidBtn = screen.getByRole("button", {
@@ -109,6 +125,7 @@ describe("Post-IEP Next Steps to Classroom Tools (#94)", () => {
     });
     await user.click(visualAidBtn);
     expect(setActivePage).toHaveBeenCalledWith("manage-visual-aids");
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/visual-aids");
 
     // Verify Teaching Strategies button navigates
     const strategyBtn = screen.getByRole("button", {
@@ -116,6 +133,7 @@ describe("Post-IEP Next Steps to Classroom Tools (#94)", () => {
     });
     await user.click(strategyBtn);
     expect(setActivePage).toHaveBeenCalledWith("manage-teaching-strategies");
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/strategies");
 
     // Verify Back to Overview button navigates
     const overviewBtn = screen.getByRole("button", {
@@ -123,6 +141,7 @@ describe("Post-IEP Next Steps to Classroom Tools (#94)", () => {
     });
     await user.click(overviewBtn);
     expect(setActivePage).toHaveBeenCalledWith("overview");
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/overview");
   });
 
   it("reflects readiness in Overview step 3 when active IEPs exist", async () => {
@@ -135,7 +154,11 @@ describe("Post-IEP Next Steps to Classroom Tools (#94)", () => {
     const setActivePage = vi.fn();
     const user = userEvent.setup();
 
-    render(<Overview setActivePage={setActivePage} />);
+    render(
+      <MemoryRouter>
+        <Overview setActivePage={setActivePage} />
+      </MemoryRouter>,
+    );
 
     await waitFor(() => {
       expect(iepAPI.dashboardStats).toHaveBeenCalled();
@@ -148,6 +171,7 @@ describe("Post-IEP Next Steps to Classroom Tools (#94)", () => {
     expect(step3Btn).toBeEnabled();
 
     await user.click(step3Btn);
-    expect(setActivePage).toHaveBeenCalledWith("manage-lesson-plans");
+    expect(setActivePage).toHaveBeenCalledWith("/dashboard/lessons");
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/lessons");
   });
 });
