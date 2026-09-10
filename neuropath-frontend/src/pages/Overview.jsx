@@ -7,7 +7,7 @@ import {
   useLessonPlans,
   useVisualAids,
 } from "../hooks/queries";
-import CountUp from "../components/ui/CountUp";
+import { Card, CountUp } from "../components/ui";
 
 const stats = [
   {
@@ -160,7 +160,7 @@ export default function Overview({ setActivePage }) {
     <div className="page-content">
       <div className="overview-wrapper">
         {/* Colorful Greeting Hero Banner */}
-        <div className="overview-welcome">
+        <header className="overview-welcome">
           <div className="hero-content-left">
             <h1 className="overview-title">
               {greeting}, Teacher{user?.first_name ? ` ${user.first_name}` : ""}!
@@ -174,18 +174,22 @@ export default function Overview({ setActivePage }) {
             <span className="hero-time-text">{currentTime}</span>
             <span className="hero-date-text">{todayFormatted}</span>
           </div>
-        </div>
+        </header>
 
         {/* Section: Stats Grid */}
         <div className="overview-glance-strip">
           {stats.map((s) => (
-            <div key={s.label} className="glance-stat-col">
+            <Card
+              as="article"
+              key={s.label}
+              className="stat-card glance-stat-col"
+            >
               <div className="glance-stat-header">
                 <span className="glance-stat-dot" style={{ background: s.color }} />
-                <span className="glance-stat-label">{s.label}</span>
+                <span className="glance-stat-label stat-label">{s.label}</span>
               </div>
               <div className="glance-stat-body">
-                <span className="glance-stat-value">
+                <span className="glance-stat-value stat-value">
                   <CountUp
                     from={0}
                     to={counts[s.key]}
@@ -195,12 +199,12 @@ export default function Overview({ setActivePage }) {
                   />
                 </span>
                 <i
-                  className={`ti ${s.icon} glance-stat-icon`}
+                  className={`ti ${s.icon} glance-stat-icon stat-icon`}
                   aria-hidden="true"
                   style={{ color: s.color }}
                 />
               </div>
-            </div>
+            </Card>
           ))}
         </div>
 

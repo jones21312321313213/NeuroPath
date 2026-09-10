@@ -1,21 +1,26 @@
-export default function LogoutModal({ isOpen, onClose, onConfirm }) {
-  if (!isOpen) return null;
+import { Modal, Button } from "../ui";
 
+export default function LogoutModal({ isOpen, onClose, onConfirm }) {
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <h3>Confirm Logout</h3>
-        <p>Are you sure you want to log out of your session?</p>
-        <div className="modal-actions">
-          {/* Reusing your existing .btn styles from App.css */}
-          <button className="btn btn-back" onClick={onClose}>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Confirm Logout"
+      size="sm"
+      footer={
+        <>
+          <Button variant="outline" size="sm" onClick={onClose} className="btn-back">
             Cancel
-          </button>
-          <button className="btn btn-submit logout-confirm" onClick={onConfirm}>
+          </Button>
+          <Button variant="danger" size="sm" onClick={onConfirm} className="logout-confirm">
             Log Out
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </>
+      }
+    >
+      <p className="text-slate-600 m-0">
+        Are you sure you want to log out of your session?
+      </p>
+    </Modal>
   );
 }

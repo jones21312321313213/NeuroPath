@@ -5,6 +5,7 @@ import {
   useStudentInsights,
   useGenerateStudentInsight,
 } from "../../hooks/queries";
+import { Callout, Button, EmptyState } from "../../components/ui";
 
 const USE_MOCK_INSIGHTS = import.meta.env.VITE_USE_MOCK_INSIGHTS === "true";
 
@@ -122,29 +123,19 @@ export default function StudentInsightsTab({ studentId, setActivePage }) {
         </div>
 
         {errorMessage && (
-          <div
-            className="error-banner"
-            style={{
-              color: "#721c24",
-              backgroundColor: "#f8d7da",
-              padding: "12px",
-              borderRadius: "6px",
-              marginBottom: "15px",
-              border: "1px solid #f5c6cb",
-            }}
-          >
-            ⚠️ {errorMessage}
-          </div>
+          <Callout variant="error" className="error-banner mb-4">
+            {errorMessage}
+          </Callout>
         )}
 
         {/* --- INSIGHT DISPLAY LIST --- */}
         {isLoading && !isDemo ? (
           <p className="placeholder-page">Loading summary history...</p>
         ) : insights.length === 0 ? (
-          <p className="placeholder-page">
-            No quick summary generated yet. Click the button below to generate
-            an immediate student summary.
-          </p>
+          <EmptyState
+            title="No AI insights yet"
+            description="No quick summary generated yet. Generate an AI-powered summary to analyze student learning patterns."
+          />
         ) : (
           <div className="insight-history">
             {insights.map((entry, idx) => (
@@ -195,14 +186,14 @@ export default function StudentInsightsTab({ studentId, setActivePage }) {
           className="form-actions"
           style={{ justifyContent: "flex-end", marginTop: "20px" }}
         >
-          <button
-            className="btn btn-submit"
+          <Button
+            variant="primary"
             onClick={handleGenerate}
             disabled={isGenerating}
-            type="button"
+            className="btn-submit"
           >
-            {isGenerating ? "Generating Summary..." : "Generate Quick Summary"}
-          </button>
+            {isGenerating ? "Analyzing Profile..." : "Generate Quick Summary"}
+          </Button>
         </div>
       </section>
     </div>
