@@ -1441,6 +1441,45 @@ button.sidebar-header {
   font-size: 12.5px;
   padding: 6px 14px;
 }
+.iep-difficulty-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.iep-difficulty-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 12px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #1e293b;
+  line-height: 1.4;
+  box-sizing: border-box;
+}
+.iep-difficulty-bullet {
+  color: #0284c7;
+  font-size: 16px;
+  line-height: 1;
+}
+.iep-difficulty-td {
+  vertical-align: middle;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.iep-difficulty-cell-text {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.4;
+  word-break: break-word;
+}
 .iep-info-block {
   background: #f7fafd;
   border: 1px solid #e4e9ef;
