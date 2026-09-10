@@ -135,6 +135,8 @@ export default function MyProfile() {
           <Card as="section" className="up-card" onClick={(e) => e.stopPropagation()}>
             <input
               type="file"
+              id="profile-picture-upload"
+              aria-label="Upload profile picture"
               ref={fileInputRef}
               onChange={handleFileChange}
               accept="image/*"
@@ -228,8 +230,9 @@ export default function MyProfile() {
                 <form className="up-form" onSubmit={handleSubmit}>
                   <div className="up-form-row">
                     <div className="form-group">
-                      <label className="form-label">First Name</label>
+                      <label htmlFor="user-first-name" className="form-label">First Name</label>
                       <input
+                        id="user-first-name"
                         name="firstName"
                         type="text"
                         value={form.firstName}
@@ -241,8 +244,9 @@ export default function MyProfile() {
                       )}
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Last Name</label>
+                      <label htmlFor="user-last-name" className="form-label">Last Name</label>
                       <input
+                        id="user-last-name"
                         name="lastName"
                         type="text"
                         value={form.lastName}
@@ -256,8 +260,9 @@ export default function MyProfile() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Email Address</label>
+                    <label htmlFor="user-email" className="form-label">Email Address</label>
                     <input
+                      id="user-email"
                       name="email"
                       type="email"
                       value={form.email}
@@ -277,9 +282,10 @@ export default function MyProfile() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">New Password</label>
+                    <label htmlFor="user-new-password" className="form-label">New Password</label>
                     <div className="up-pass-wrap">
                       <input
+                        id="user-new-password"
                         name="password"
                         type={showPass ? "text" : "password"}
                         placeholder="••••••••"
@@ -291,6 +297,7 @@ export default function MyProfile() {
                         type="button"
                         className="up-pass-toggle"
                         onClick={() => setShowPass(!showPass)}
+                        aria-label={showPass ? "Hide password" : "Show password"}
                       >
                         {showPass ? "🙈" : "👁️"}
                       </button>
@@ -301,8 +308,9 @@ export default function MyProfile() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Confirm New Password</label>
+                    <label htmlFor="user-confirm-password" className="form-label">Confirm New Password</label>
                     <input
+                      id="user-confirm-password"
                       name="confirmPassword"
                       type={showPass ? "text" : "password"}
                       placeholder="••••••••"

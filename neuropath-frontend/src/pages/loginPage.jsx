@@ -247,7 +247,7 @@ export default function LoginPage({
                   className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-sm transition-all"
                   style={{ color: "#82C7FF" }}
                   onClick={() => setShowPass(!showPass)}
-                  aria-label="Toggle password visibility"
+                  aria-label={showPass ? "Hide password" : "Show password"}
                 >
                   {showPass ? "🙈" : "👁️"}
                 </button>

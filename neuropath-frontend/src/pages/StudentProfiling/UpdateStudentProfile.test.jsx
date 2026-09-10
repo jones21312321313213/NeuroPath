@@ -199,4 +199,46 @@ describe("UpdateStudentProfile Help Text & Difficulty Validation", () => {
     await user.keyboard("{Escape}");
     expect(mockNavigate).toHaveBeenCalledWith("/dashboard/students/student-123");
   });
+
+  it("associates explicit labels and IDs for all form inputs across Step 1 and Step 2", async () => {
+    studentsAPI.get.mockResolvedValueOnce({ data: mockStudent });
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter>
+        <UpdateStudentProfile studentId="student-123" onBack={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    // Step 1 field label associations
+    expect(await screen.findByLabelText(/^student name:/i)).toHaveValue("Maria Clara");
+    expect(screen.getByLabelText(/^school:/i)).toHaveValue("Central School");
+    expect(screen.getByLabelText(/^school year:/i)).toHaveValue("2025 - 2026");
+    expect(screen.getByLabelText(/^age:/i)).toHaveValue(9);
+    expect(screen.getByLabelText(/^grade level:/i)).toHaveValue(3);
+    expect(screen.getByLabelText(/^gender:/i)).toHaveValue("Female");
+    expect(screen.getByLabelText(/^birthdate:/i)).toHaveValue("05-12-2017");
+    expect(screen.getByLabelText(/^diagnosis:/i)).toHaveValue("Autism Spectrum Disorder");
+    expect(screen.getByLabelText(/assessment \/ diagnosis details/i)).toHaveValue("ASD Level 1");
+
+    // Advance to Step 2
+    await user.click(screen.getByRole("button", { name: /NEXT/i }));
+
+    // Step 2 textarea label associations
+    expect(
+      await screen.findByLabelText(/results of initial or most recent evaluation/i)
+    ).toHaveValue("Good auditory comprehension");
+    expect(
+      screen.getByLabelText(/description of academic, developmental, and\/or functional strengths/i)
+    ).toHaveValue("Math calculation");
+    expect(
+      screen.getByLabelText(/description of academic, developmental, and\/or functional needs/i)
+    ).toHaveValue("Reading comprehension");
+    expect(
+      screen.getByLabelText(/parental concerns regarding the child's education/i)
+    ).toHaveValue("Social interaction");
+    expect(
+      screen.getByLabelText(/impact of the disability on involvement and progress/i)
+    ).toHaveValue("Requires visual aids");
+  });
 });
