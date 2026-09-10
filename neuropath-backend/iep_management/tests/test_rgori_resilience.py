@@ -1,5 +1,5 @@
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from django.test import TestCase
 from rest_framework.test import APIClient
 from django.contrib.auth.models import User
@@ -7,7 +7,6 @@ from users.models import Teacher, StudentProfile
 from iep_management.models import IEPModel
 from iep_management.rgori_service import RGORICheckerService
 from iep_management.views import GenerateIEPGoalsFromIEPView
-from iep_management.ai_engine import AIEngineService
 
 
 class RGORIResilienceTestCase(TestCase):
