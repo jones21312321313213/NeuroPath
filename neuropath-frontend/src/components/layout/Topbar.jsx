@@ -15,19 +15,22 @@ export default function Topbar({ breadcrumb, setActivePage }) {
   };
 
   return (
-    <header className="topbar">
+    <header className="topbar" role="banner">
       <div className="topbar-left">
         <span className="topbar-breadcrumb">{breadcrumb}</span>
       </div>
       <div className="topbar-user">
-        <div
+        <button
+          type="button"
           className="topbar-pill"
           onClick={handleProfileClick}
-          style={{ cursor: "pointer" }}
+          aria-label={`View user profile for ${teacherName}`}
         >
-          <div className="topbar-pill-avatar">{initials || "👤"}</div>
+          <div className="topbar-pill-avatar" aria-hidden="true">
+            {initials || "👤"}
+          </div>
           <span className="topbar-pill-name">{teacherName}</span>
-        </div>
+        </button>
       </div>
     </header>
   );

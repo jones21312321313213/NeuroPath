@@ -1,3 +1,19 @@
+/* ── Accessible Focus Rings (WCAG 2.1 AA) ───────────── */
+:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+}
+
 /* ── Layout ───────────────────────────────────────────── */
 .app-layout {
   display: flex;
@@ -42,8 +58,22 @@
   user-select: none;
 }
 
+.sidebar-header-btn,
+button.sidebar-header {
+  border: none;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+
 .sidebar-header:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-header:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: -2px;
 }
 
 .sidebar.collapsed .sidebar-header {
@@ -431,6 +461,13 @@
   background: #f9f7f7;
 }
 
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 /* ── Topbar ───────────────────────────────────────────── */
 .topbar {
   display: flex;
@@ -561,6 +598,12 @@
 .form-textarea:focus {
   border-color: #5aabf0;
   background: #fff;
+}
+.form-input:focus-visible,
+.form-select:focus-visible,
+.form-textarea:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
 }
 .form-input::placeholder {
   color: #aaa;
@@ -1333,6 +1376,10 @@
   outline: none;
   border-color: #5aabf0;
   background: #fff;
+}
+.iep-table-textarea:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
 }
 .iep-small-textarea {
   min-height: 74px;
