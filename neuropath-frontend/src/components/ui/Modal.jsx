@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 
 const sizeClasses = {
   sm: "max-w-sm",
@@ -19,24 +20,14 @@ export function Modal({
   className = "",
   ...props
 }) {
-  const modalRef = useRef(null);
+  const modalContainerRef = useRef(null);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    if (modalRef.current) {
-      modalRef.current.focus();
-    }
-
-    const handleKeyDown = (e) => {
-      if (closeOnEsc && e.key === "Escape" && onClose) {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, closeOnEsc, onClose]);
+  useFocusTrap({
+    isActive: isOpen,
+    containerRef: modalContainerRef,
+    onEscape: closeOnEsc ? onClose : undefined,
+    returnFocus: true,
+  });
 
   if (!isOpen) return null;
 
@@ -58,7 +49,7 @@ export function Modal({
       {...props}
     >
       <div
-        ref={modalRef}
+        ref={modalContainerRef}
         tabIndex={-1}
         className={`bg-white rounded-2xl shadow-xl border border-slate-100 w-full ${maxWidthClass} overflow-hidden flex flex-col max-h-[90vh] transition-all transform animate-scaleUp outline-none ${className}`.trim()}
       >

@@ -166,4 +166,37 @@ describe("UpdateStudentProfile Help Text & Difficulty Validation", () => {
 
     expect(mockNavigate).toHaveBeenCalledWith("/dashboard/students/student-123");
   });
+
+  it("renders accessible success modal and navigates on Escape key", async () => {
+    studentsAPI.get.mockResolvedValueOnce({ data: mockStudent });
+    studentsAPI.update.mockResolvedValueOnce({ success: true });
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard/students/student-123/edit"]}>
+        <Routes>
+          <Route
+            path="/dashboard/students/:id/edit"
+            element={<UpdateStudentProfile />}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue("Maria Clara");
+
+    // Advance to step 2 and save
+    await user.click(screen.getByRole("button", { name: /NEXT/i }));
+    const saveBtn = await screen.findByRole("button", { name: /SAVE/i });
+    await user.click(saveBtn);
+
+    // Modal dialog is present with accessible attributes
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(screen.getByText("Profile Updated!")).toBeInTheDocument();
+
+    // Close via Escape key
+    await user.keyboard("{Escape}");
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/students/student-123");
+  });
 });

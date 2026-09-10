@@ -70,4 +70,47 @@ describe("TeacherTutorialModal", () => {
     await user.click(screen.getByRole("button", { name: /skip walkthrough/i }));
     expect(handleComplete).toHaveBeenCalledTimes(1);
   });
+
+  it("sets proper dialog accessibility attributes", () => {
+    render(<TeacherTutorialModal onComplete={vi.fn()} />);
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog).toHaveAttribute("aria-labelledby", "tutorial-modal-title");
+
+    const title = screen.getByRole("heading", { level: 2 });
+    expect(title).toHaveAttribute("id", "tutorial-modal-title");
+  });
+
+  it("calls onComplete when Escape key is pressed", async () => {
+    const user = userEvent.setup();
+    const handleComplete = vi.fn();
+
+    render(<TeacherTutorialModal onComplete={handleComplete} />);
+
+    await user.keyboard("{Escape}");
+    expect(handleComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it("traps focus within the modal during keyboard navigation", async () => {
+    const user = userEvent.setup();
+    render(<TeacherTutorialModal onComplete={vi.fn()} />);
+
+    const skipBtn = screen.getByRole("button", { name: /skip walkthrough/i });
+    const nextBtn = screen.getByRole("button", { name: /next/i });
+
+    // On initial step, 'Previous' button is disabled, so focusable elements are: skipBtn, nextBtn
+    expect(document.activeElement).toBe(skipBtn);
+
+    await user.tab();
+    expect(document.activeElement).toBe(nextBtn);
+
+    // Tab wraps back to skipBtn
+    await user.tab();
+    expect(document.activeElement).toBe(skipBtn);
+
+    // Shift+Tab wraps to nextBtn
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(nextBtn);
+  });
 });

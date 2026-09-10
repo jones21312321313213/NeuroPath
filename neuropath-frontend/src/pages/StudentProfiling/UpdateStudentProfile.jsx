@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { studentsAPI } from "../../api/client";
+import { Modal, Button } from "../../components/ui";
 import "../../styles/UpdateStudentProfile.css";
 
 const difficultyOptions = [
@@ -112,18 +113,24 @@ function CheckOption({ label, checked, onChange }) {
 /* ── Success Modal ─────────────────────────────────────── */
 function SuccessModal({ studentName, onClose }) {
   return (
-    <div className="usp-modal-overlay" onClick={onClose}>
-      <div className="usp-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="usp-modal-icon">✓</div>
-        <h3 className="usp-modal-title">Profile Updated!</h3>
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title="Profile Updated!"
+      size="sm"
+      footer={
+        <Button variant="primary" onClick={onClose} className="w-full">
+          Done
+        </Button>
+      }
+    >
+      <div className="text-center py-2">
+        <div className="usp-modal-icon" aria-hidden="true">✓</div>
         <p className="usp-modal-body">
           <strong>{studentName}</strong>'s profile has been saved successfully.
         </p>
-        <button className="btn btn-submit usp-modal-btn" onClick={onClose}>
-          Done
-        </button>
       </div>
-    </div>
+    </Modal>
   );
 }
 
