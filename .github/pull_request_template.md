@@ -2,7 +2,7 @@
 Closes #
 
 ## Summary
-<!-- Replace this text with a summary of the feature you're adding -->
+<!-- Replace this text with a summary of the changes you're adding -->
 
 ## Type of Change
 - [ ] Bug fix (non-breaking change which fixes an issue)
