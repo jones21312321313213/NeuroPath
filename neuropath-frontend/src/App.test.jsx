@@ -46,6 +46,10 @@ vi.mock("./components/ui/GlareHover", () => ({
   default: ({ children }) => <div>{children}</div>,
 }));
 
+vi.mock("./components/ui/ClickSpark", () => ({
+  default: ({ children }) => <div>{children}</div>,
+}));
+
 describe("App First-Login Tutorial Modal Integration", () => {
   const mockMarkTutorialComplete = vi.fn();
 
@@ -347,3 +351,62 @@ describe("App Query Request Deduplication for Concurrent Mounts", () => {
     expect(iepAPI.dashboardStats).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("App Semantic Layout Landmarks and Accessibility", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAuth.mockReturnValue({
+      user: { id: 1, first_name: "Jane", last_name: "Doe", has_completed_tutorial: true },
+      isAuthenticated: true,
+    });
+  });
+
+  it("renders all core semantic landmarks (skip link, header, nav, aside, main)", async () => {
+    const { container } = renderWithQueryClient(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <App />
+      </MemoryRouter>
+    );
+
+    // Skip Link
+    const skipLink = screen.getByRole("link", { name: /skip to main content/i });
+    expect(skipLink).toBeInTheDocument();
+    expect(skipLink).toHaveAttribute("href", "#main-content");
+
+    // Header landmark (banner)
+    const header = container.querySelector("header.topbar");
+    expect(header).toBeInTheDocument();
+    expect(header).toHaveAttribute("role", "banner");
+
+    // Nav landmark (Main Navigation)
+    const nav = screen.getByRole("navigation", { name: /main navigation/i });
+    expect(nav).toBeInTheDocument();
+
+    // Aside landmark (Sidebar)
+    const aside = screen.getByRole("complementary", { name: /sidebar/i });
+    expect(aside).toBeInTheDocument();
+
+    // Main landmark (Main content)
+    const main = screen.getByRole("main", { name: /main content/i });
+    expect(main).toBeInTheDocument();
+    expect(main).toHaveAttribute("id", "main-content");
+    expect(main).toHaveAttribute("tabIndex", "-1");
+  });
+
+  it("renders accessible Topbar user profile button and navigates to profile", async () => {
+    const user = userEvent.setup();
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <App />
+      </MemoryRouter>
+    );
+
+    const profileBtn = screen.getByRole("button", { name: /view user profile for teacher jane/i });
+    expect(profileBtn).toBeInTheDocument();
+
+    await user.click(profileBtn);
+
+    expect(await screen.findByRole("button", { name: /edit info/i })).toBeInTheDocument();
+  });
+});
+

@@ -99,4 +99,98 @@ describe("Modal component", () => {
     await user.click(bodyContent);
     expect(handleClose).not.toHaveBeenCalled();
   });
+
+  it("sets proper dialog accessibility attributes", () => {
+    render(
+      <Modal isOpen={true} onClose={vi.fn()} title="Accessible Title">
+        <p>Dialog Body</p>
+      </Modal>
+    );
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog).toHaveAttribute("aria-labelledby", "modal-dialog-title");
+
+    const titleElement = screen.getByText("Accessible Title");
+    expect(titleElement).toHaveAttribute("id", "modal-dialog-title");
+
+    const closeBtn = screen.getByRole("button", { name: "Close dialog" });
+    expect(closeBtn).toBeInTheDocument();
+  });
+
+  it("does not call onClose when Escape is pressed if closeOnEsc is false", async () => {
+    const user = userEvent.setup();
+    const handleClose = vi.fn();
+    render(
+      <Modal isOpen={true} onClose={handleClose} closeOnEsc={false} title="Title">
+        Content
+      </Modal>
+    );
+
+    await user.keyboard("{Escape}");
+    expect(handleClose).not.toHaveBeenCalled();
+  });
+
+  it("focuses the first focusable element upon opening and traps focus with Tab and Shift+Tab", async () => {
+    const user = userEvent.setup();
+    render(
+      <div>
+        <button data-testid="outside-trigger">Open</button>
+        <Modal
+          isOpen={true}
+          onClose={vi.fn()}
+          title="Trap Test"
+          footer={<button data-testid="modal-save">Save</button>}
+        >
+          <input data-testid="modal-input" placeholder="Type here" />
+        </Modal>
+      </div>
+    );
+
+    const closeBtn = screen.getByRole("button", { name: "Close dialog" });
+    const input = screen.getByTestId("modal-input");
+    const saveBtn = screen.getByTestId("modal-save");
+
+    // Close button is the first focusable element inside modal
+    expect(document.activeElement).toBe(closeBtn);
+
+    // Tab -> input
+    await user.tab();
+    expect(document.activeElement).toBe(input);
+
+    // Tab -> saveBtn
+    await user.tab();
+    expect(document.activeElement).toBe(saveBtn);
+
+    // Tab on last element wraps back to first element (closeBtn)
+    await user.tab();
+    expect(document.activeElement).toBe(closeBtn);
+
+    // Shift+Tab wraps back to last element (saveBtn)
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(saveBtn);
+  });
+
+  it("restores focus to previous active element upon deactivation", () => {
+    const trigger = document.createElement("button");
+    trigger.setAttribute("id", "test-trigger");
+    document.body.appendChild(trigger);
+    trigger.focus();
+    expect(document.activeElement).toBe(trigger);
+
+    const { rerender } = render(
+      <Modal isOpen={true} onClose={vi.fn()} title="Focus Restore Test">
+        <button data-testid="inside-btn">Inside</button>
+      </Modal>
+    );
+
+    rerender(
+      <Modal isOpen={false} onClose={vi.fn()} title="Focus Restore Test">
+        <button data-testid="inside-btn">Inside</button>
+      </Modal>
+    );
+
+    expect(document.activeElement).toBe(trigger);
+    document.body.removeChild(trigger);
+  });
 });

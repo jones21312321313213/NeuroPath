@@ -40,6 +40,25 @@ describe("LoginPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("toggles password visibility and updates aria-label dynamically", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const passwordInput = screen.getByLabelText(/^password$/i);
+    expect(passwordInput).toHaveAttribute("type", "password");
+
+    const toggleButton = screen.getByRole("button", { name: /show password/i });
+    expect(toggleButton).toBeInTheDocument();
+
+    await user.click(toggleButton);
+    expect(passwordInput).toHaveAttribute("type", "text");
+    expect(screen.getByRole("button", { name: /hide password/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /hide password/i }));
+    expect(passwordInput).toHaveAttribute("type", "password");
+    expect(screen.getByRole("button", { name: /show password/i })).toBeInTheDocument();
+  });
+
   it("logs in with the trimmed, lowercased email and calls onLoginSuccess", async () => {
     login.mockResolvedValueOnce({ token: "abc" });
     const user = userEvent.setup();

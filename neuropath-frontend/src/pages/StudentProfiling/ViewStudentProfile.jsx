@@ -84,11 +84,13 @@ export default function ViewStudentProfile({
         <div className="vsp-search-wrap">
           <i className="ti ti-search vsp-search-icon" aria-hidden="true" />
           <input
+            id="search-students-input"
             type="text"
             className="vsp-search"
             placeholder="Search by student name…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search students by name"
           />
         </div>
 

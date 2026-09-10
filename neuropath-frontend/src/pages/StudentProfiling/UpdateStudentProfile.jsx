@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useId } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { studentsAPI } from "../../api/client";
+import { Modal, Button } from "../../components/ui";
 import "../../styles/UpdateStudentProfile.css";
 
 const difficultyOptions = [
@@ -34,9 +35,10 @@ function getProfileDetails(student) {
 }
 
 function FormField({ label, placeholder, value, onChange, type = "text", min, max }) {
+  const generatedId = useId();
   const inputId = label
-    ? `update-field-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
-    : undefined;
+    ? `usp-field-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    : generatedId;
   return (
     <div className="form-group">
       <label htmlFor={inputId} className="form-label">{label}:</label>
@@ -55,9 +57,10 @@ function FormField({ label, placeholder, value, onChange, type = "text", min, ma
 }
 
 function SelectField({ label, options, value, onChange }) {
+  const generatedId = useId();
   const selectId = label
-    ? `update-select-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
-    : undefined;
+    ? `usp-select-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    : generatedId;
   return (
     <div className="form-group">
       <label htmlFor={selectId} className="form-label">{label}:</label>
@@ -86,9 +89,10 @@ function TextAreaField({
   rows = 3,
   helpText,
 }) {
+  const generatedId = useId();
   const areaId = label
-    ? `update-area-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
-    : undefined;
+    ? `usp-area-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    : generatedId;
   return (
     <div className="form-group">
       <label htmlFor={areaId} className="form-label">{label}</label>
@@ -126,18 +130,24 @@ function CheckOption({ label, checked, onChange }) {
 /* ── Success Modal ─────────────────────────────────────── */
 function SuccessModal({ studentName, onClose }) {
   return (
-    <div className="usp-modal-overlay" onClick={onClose}>
-      <div className="usp-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="usp-modal-icon">✓</div>
-        <h3 className="usp-modal-title">Profile Updated!</h3>
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title="Profile Updated!"
+      size="sm"
+      footer={
+        <Button variant="primary" onClick={onClose} className="w-full">
+          Done
+        </Button>
+      }
+    >
+      <div className="text-center py-2">
+        <div className="usp-modal-icon" aria-hidden="true">✓</div>
         <p className="usp-modal-body">
           <strong>{studentName}</strong>'s profile has been saved successfully.
         </p>
-        <button className="btn btn-submit usp-modal-btn" onClick={onClose}>
-          Done
-        </button>
       </div>
-    </div>
+    </Modal>
   );
 }
 

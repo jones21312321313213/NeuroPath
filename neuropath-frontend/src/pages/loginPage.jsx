@@ -137,7 +137,7 @@ export default function LoginPage({
             >
               Welcome back
             </h1>
-            <p className="text-sm font-medium" style={{ color: "#5a9dbf" }}>
+            <p className="text-sm font-medium" style={{ color: "#1e78a6" }}>
               Sign in to your NeuroPath account
             </p>
           </div>
@@ -247,7 +247,7 @@ export default function LoginPage({
                   className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-sm transition-all"
                   style={{ color: "#82C7FF" }}
                   onClick={() => setShowPass(!showPass)}
-                  aria-label="Toggle password visibility"
+                  aria-label={showPass ? "Hide password" : "Show password"}
                 >
                   {showPass ? "🙈" : "👁️"}
                 </button>
@@ -296,7 +296,7 @@ export default function LoginPage({
 
           <p
             className="text-sm font-medium text-center"
-            style={{ color: "#5a9dbf" }}
+            style={{ color: "#1e78a6" }}
           >
             Don't have an account?{" "}
             <button
