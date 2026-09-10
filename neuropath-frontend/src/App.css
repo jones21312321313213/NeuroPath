@@ -1435,11 +1435,89 @@ button.sidebar-header {
 .iep-input-row-item .form-input {
   flex: 1;
 }
+.iep-assistive-tech-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.iep-assistive-tech-header .iep-small-title {
+  margin-bottom: 0;
+}
+.iep-preset-chips-container {
+  margin-bottom: 12px;
+}
+.iep-preset-chips-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+.iep-preset-chips-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.iep-preset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #0284c7;
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.3;
+}
+.iep-preset-chip:hover:not(:disabled) {
+  background-color: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0369a1;
+  transform: translateY(-1px);
+}
+.iep-preset-chip:active:not(:disabled) {
+  transform: translateY(0);
+}
+.iep-preset-chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background-color: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+}
+.iep-add-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.iep-limit-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #b45309;
+  background-color: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 9999px;
+  line-height: 1.2;
+}
 .iep-add-row-inline {
   align-self: flex-start;
   margin-top: 4px;
   font-size: 12.5px;
   padding: 6px 14px;
+}
+.iep-add-row-inline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .iep-difficulty-list {
   display: flex;

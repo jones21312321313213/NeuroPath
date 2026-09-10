@@ -254,10 +254,12 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
     });
 
     // Verify difficulty items render within the difficulty list container
-    const diffList = screen.getByTestId("iep-difficulty-list");
-    expect(diffList).toBeInTheDocument();
-    expect(diffList.querySelector(".iep-difficulty-item")).toBeInTheDocument();
-    expect(diffList).toHaveTextContent("Sensory Processing");
+    await waitFor(() => {
+      const diffList = screen.getByTestId("iep-difficulty-list");
+      expect(diffList).toBeInTheDocument();
+      expect(diffList.querySelector(".iep-difficulty-item")).toBeInTheDocument();
+      expect(diffList).toHaveTextContent("Sensory Processing");
+    });
 
     // Ensure no read-only input exists for difficulty markers
     expect(screen.queryByPlaceholderText(/Difficulty 1/i)).not.toBeInTheDocument();
@@ -268,5 +270,114 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
     expect(cellText).toBeInTheDocument();
     expect(cellText.tagName.toLowerCase()).toBe("p");
     expect(cellText).toHaveTextContent("Sensory Processing");
+  });
+
+  describe("Assistive Technology Row Limit & Preset Chips (#127)", () => {
+    it("renders all 6 preset suggestion chips for assistive technology", async () => {
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Assistive Technologies Needed")).toBeInTheDocument();
+      });
+
+      expect(screen.getByRole("button", { name: /\+ AAC Communication Board/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ Speech-to-Text \/ Audio Dictation/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ Visual Schedule & Choice Cards/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ Screen Magnifier \/ Reader/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ FM Listening System/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ Pencil Grip \/ Adaptive Utensils/i })).toBeInTheDocument();
+    });
+
+    it("clicking a preset chip automatically appends it to the assistive technologies list", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Assistive Technologies Needed")).toBeInTheDocument();
+      });
+
+      const aacChip = screen.getByRole("button", { name: /\+ AAC Communication Board/i });
+      await user.click(aacChip);
+
+      expect(screen.getByDisplayValue("AAC Communication Board")).toBeInTheDocument();
+
+      const fmChip = screen.getByRole("button", { name: /\+ FM Listening System/i });
+      await user.click(fmChip);
+
+      expect(screen.getByDisplayValue("FM Listening System")).toBeInTheDocument();
+    });
+
+    it("enforces maximum limit of 5 items, disables Add Row button, and shows (Maximum 5 reached) badge", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Assistive Technologies Needed")).toBeInTheDocument();
+      });
+
+      const addRowBtn = screen.getByRole("button", { name: /\+ Add Row/i });
+      expect(addRowBtn).not.toBeDisabled();
+      expect(screen.queryByText(/Maximum 5 reached/i)).not.toBeInTheDocument();
+
+      // Add 5 items
+      await user.click(addRowBtn);
+      await user.click(addRowBtn);
+      await user.click(addRowBtn);
+      await user.click(addRowBtn);
+      await user.click(addRowBtn);
+
+      expect(addRowBtn).toBeDisabled();
+      expect(screen.getAllByText(/Maximum 5 reached/i).length).toBeGreaterThanOrEqual(1);
+
+      // Verify preset chips are also disabled
+      const aacChip = screen.getByRole("button", { name: /\+ AAC Communication Board/i });
+      expect(aacChip).toBeDisabled();
+    });
+
+    it("re-enables Add Row button and removes badge when a row is deleted", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Assistive Technologies Needed")).toBeInTheDocument();
+      });
+
+      const addRowBtn = screen.getByRole("button", { name: /\+ Add Row/i });
+
+      // Add 5 items
+      for (let i = 0; i < 5; i++) {
+        await user.click(addRowBtn);
+      }
+
+      expect(addRowBtn).toBeDisabled();
+      expect(screen.getAllByText(/Maximum 5 reached/i).length).toBeGreaterThanOrEqual(1);
+
+      // Remove the first item
+      const removeButtons = screen.getAllByRole("button", { name: /✕|Remove technology/i });
+      await user.click(removeButtons[0]);
+
+      // Verify re-enabled state
+      expect(addRowBtn).not.toBeDisabled();
+      expect(screen.queryByText(/Maximum 5 reached/i)).not.toBeInTheDocument();
+
+      const aacChip = screen.getByRole("button", { name: /\+ AAC Communication Board/i });
+      expect(aacChip).not.toBeDisabled();
+    });
   });
 });
