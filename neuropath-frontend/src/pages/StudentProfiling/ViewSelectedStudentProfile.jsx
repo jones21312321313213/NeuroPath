@@ -25,19 +25,25 @@ function getProfileDetails(student) {
 }
 
 function ReadOnlyInput({ label, value }) {
+  const inputId = label
+    ? `view-field-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    : undefined;
   return (
     <div className="form-group">
-      <label className="form-label">{label}:</label>
-      <input className="form-input" value={value || "—"} readOnly />
+      <label htmlFor={inputId} className="form-label">{label}:</label>
+      <input id={inputId} className="form-input" value={value || "—"} readOnly />
     </div>
   );
 }
 
 function ReadOnlyTextArea({ label, value, rows = 4 }) {
+  const areaId = label
+    ? `view-area-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    : undefined;
   return (
     <div className="form-group">
-      <label className="form-label">{label}</label>
-      <textarea className="form-textarea" rows={rows} value={value || "—"} readOnly />
+      <label htmlFor={areaId} className="form-label">{label}</label>
+      <textarea id={areaId} className="form-textarea" rows={rows} value={value || "—"} readOnly />
     </div>
   );
 }

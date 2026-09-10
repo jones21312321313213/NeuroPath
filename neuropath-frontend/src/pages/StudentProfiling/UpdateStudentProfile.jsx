@@ -34,7 +34,7 @@ function getProfileDetails(student) {
   return typeof student.preferences === "object" ? student.preferences : {};
 }
 
-function FormField({ label, placeholder, value, onChange, type = "text" }) {
+function FormField({ label, placeholder, value, onChange, type = "text", min, max }) {
   const generatedId = useId();
   const inputId = label
     ? `usp-field-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
@@ -49,6 +49,8 @@ function FormField({ label, placeholder, value, onChange, type = "text" }) {
         value={value}
         onChange={onChange}
         className="form-input gray-input"
+        min={min}
+        max={max}
       />
     </div>
   );
