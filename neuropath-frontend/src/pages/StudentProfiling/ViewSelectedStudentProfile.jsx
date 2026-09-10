@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import "../../styles/ViewSelectedStudentProfile.css";
 import StudentInsightsTab from "./StudentInsightsTab";
 import { useStudent } from "../../hooks/queries";
+import { Badge } from "../../components/ui";
 
 function getProfileDetails(student) {
   const record = student?.data || student;
@@ -113,7 +114,18 @@ export default function ViewSelectedStudentProfile({ studentId: propStudentId, s
         {activeTab === "info" && (
           <div className="tab-content">
             <section className="form-section">
-              <h2 className="form-section-title">Section A: Personal Information</h2>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                <h2 className="form-section-title" style={{ margin: 0 }}>Section A: Personal Information</h2>
+                {student?.parental_consent_obtained ? (
+                  <Badge variant="success">
+                    ✅ RA 10173 Consent Verified (Guardian: {student.guardian_name || "Parent/Guardian"})
+                  </Badge>
+                ) : (
+                  <Badge variant="warning">
+                    ⚠️ RA 10173 Consent Pending — AI Processing Restricted
+                  </Badge>
+                )}
+              </div>
               <div className="form-grid-2">
                 <ReadOnlyInput label="Student Name" value={details.studentName || details.learnerName || student.name} />
                 <ReadOnlyInput label="Age" value={student.age} />
@@ -173,6 +185,7 @@ export default function ViewSelectedStudentProfile({ studentId: propStudentId, s
           <StudentInsightsTab
             studentId={studentId}
             setActivePage={setActivePage}
+            student={student}
           />
         )}
       </div>

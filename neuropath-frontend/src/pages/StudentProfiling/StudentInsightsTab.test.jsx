@@ -261,4 +261,58 @@ describe("StudentInsightsTab", () => {
 
     vi.unstubAllEnvs();
   });
+
+  it("disables generate button and displays RA 10173 warning callout when parental consent is not obtained", async () => {
+    iepAPI.getInsights.mockResolvedValueOnce([]);
+
+    const studentWithoutConsent = {
+      id: 5,
+      name: "Sammy Lee",
+      parental_consent_obtained: false,
+    };
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <StudentInsightsTab studentId={5} student={studentWithoutConsent} />
+      </MemoryRouter>
+    );
+
+    expect(
+      await screen.findByText(/RA 10173 Consent Required: Parental\/guardian consent has not been recorded/i)
+    ).toBeInTheDocument();
+
+    const generateBtn = screen.getByRole("button", {
+      name: /generate quick summary/i,
+    });
+    expect(generateBtn).toBeDisabled();
+    expect(iepAPI.generateInsight).not.toHaveBeenCalled();
+  });
+
+  it("enables generate button and hides RA 10173 warning callout when parental consent is verified", async () => {
+    iepAPI.getInsights.mockResolvedValueOnce([]);
+
+    const studentWithConsent = {
+      id: 6,
+      name: "Hannah Lee",
+      parental_consent_obtained: true,
+      guardian_name: "Mrs. Lee",
+    };
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <StudentInsightsTab studentId={6} student={studentWithConsent} />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(iepAPI.getInsights).toHaveBeenCalledWith(6));
+
+    expect(
+      screen.queryByText(/RA 10173 Consent Required/i)
+    ).not.toBeInTheDocument();
+
+    const generateBtn = screen.getByRole("button", {
+      name: /generate quick summary/i,
+    });
+    expect(generateBtn).not.toBeDisabled();
+  });
 });

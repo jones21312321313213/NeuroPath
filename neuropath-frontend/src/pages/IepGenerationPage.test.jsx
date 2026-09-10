@@ -41,6 +41,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
     age: "8",
     diagnosis: "Autism Spectrum Disorder",
     difficulty: "Sensory Processing",
+    parental_consent_obtained: true,
   };
 
   const mockIep = {
@@ -239,5 +240,41 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
     expect(callArgs.special_factor_notes).toBe(
       "Needs quiet space during loud assemblies.",
     );
+  });
+
+  it("disables GENERATE FINAL IEP button and renders warning callout when student has parental_consent_obtained=false in Section C", async () => {
+    const unconsentedStudent = {
+      id: 2,
+      studentID: 2,
+      name: "Jamie Doe",
+      grade: "2",
+      age: "7",
+      diagnosis: "Autism Spectrum Disorder",
+      difficulty: "Communication",
+      parental_consent_obtained: false,
+    };
+    studentsAPI.list.mockResolvedValue([unconsentedStudent]);
+
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <IEPGenerationPage mode="generate" initialStudentId={2} />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+    });
+
+    // Advance to Step 2
+    await user.click(screen.getByText("NEXT"));
+
+    expect(
+      screen.getByText(/RA 10173 Parental Consent Pending: Generating AI goals requires verified parental consent/i),
+    ).toBeInTheDocument();
+
+    const generateBtn = screen.getByText("GENERATE FINAL IEP");
+    expect(generateBtn).toBeDisabled();
+    expect(screen.getByText("+ Add Goal Manually")).toBeInTheDocument();
   });
 });

@@ -7,7 +7,14 @@ from resources.services import TeachingStrategyGenerationService, LessonPlanGene
 class InstructionalAIServiceTestCase(TestCase):
     def setUp(self):
         self.teacher = Teacher.objects.create(name='Teacher Bob', email='bob@test.com', passwordHash='hash')
-        self.student = StudentProfile.objects.create(name='Maya Lin', age=8, teacher=self.teacher)
+        self.student = StudentProfile.objects.create(
+            name='Maya Lin',
+            age=8,
+            teacher=self.teacher,
+            parental_consent_obtained=True,
+            guardian_name='Guardian Lin',
+            consent_date='2026-09-01'
+        )
         self.iep = IEPModel.objects.create(
             studentID=self.student,
             version=1,

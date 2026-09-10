@@ -23,6 +23,29 @@ class StudentProfile(models.Model):
     grade = models.IntegerField(default=0)
     gender = models.CharField(max_length=50, blank=True, default='')
 
+    # RA 10173 (Data Privacy Act of 2012) Minor Consent Fields
+    parental_consent_obtained = models.BooleanField(
+        default=False,
+        help_text="Explicit parental or legal guardian consent obtained under RA 10173"
+    )
+    consent_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date when parental/guardian consent was verified"
+    )
+    guardian_name = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Full legal name of consenting parent or legal guardian"
+    )
+    guardian_relationship = models.CharField(
+        max_length=100,
+        blank=True,
+        default='Parent',
+        help_text="Relationship of consenting guardian to minor (e.g. Mother, Father, Legal Guardian)"
+    )
+
     # Existing fields from the original backend. These are now optional so the
     # new 2-step profile form will not fail with "This field may not be blank."
     asdBackground = models.TextField(blank=True, default='')

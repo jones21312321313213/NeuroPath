@@ -299,4 +299,108 @@ describe("CreateStudentProfile next-step actions", () => {
     expect(onBack).toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledWith("/dashboard/students");
   });
+
+  it("captures RA 10173 consent and includes consent fields in creation payload", async () => {
+    studentsAPI.create.mockResolvedValueOnce({
+      studentID: 105,
+      name: "Juan Dela Cruz",
+    });
+
+    render(
+      <MemoryRouter>
+        <CreateStudentProfile onBack={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    // Step 1
+    fireEvent.change(screen.getByPlaceholderText("Enter student name"), {
+      target: { value: "Juan Dela Cruz" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter age"), {
+      target: { value: "8" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter grade level"), {
+      target: { value: "2" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: /^gender:/i }), {
+      target: { value: "Male" },
+    });
+    fireEvent.click(screen.getByLabelText(/Difficulty in Seeing/i));
+
+    // Check RA 10173 consent checkbox
+    const consentCheckbox = screen.getByLabelText(/Parental\/Guardian Consent has been verified and obtained/i);
+    expect(consentCheckbox).toBeInTheDocument();
+    fireEvent.click(consentCheckbox);
+
+    // Conditional inputs should now appear
+    const guardianInput = screen.getByPlaceholderText(/Enter parent or guardian name/i);
+    expect(guardianInput).toBeInTheDocument();
+    fireEvent.change(guardianInput, { target: { value: "Maria Dela Cruz" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    // Step 2
+    fireEvent.change(
+      screen.getByPlaceholderText(/the learner fails to finish tasks/i),
+      { target: { value: "Evaluation notes..." } },
+    );
+    fireEvent.change(
+      screen.getByPlaceholderText(/the learner can spell random words/i),
+      { target: { value: "Strengths notes..." } },
+    );
+    fireEvent.change(
+      screen.getByPlaceholderText(/needs structured routines/i),
+      { target: { value: "Needs notes..." } },
+    );
+    fireEvent.change(
+      screen.getByPlaceholderText(/write concerns shared by the parent/i),
+      { target: { value: "Parent concerns..." } },
+    );
+    fireEvent.change(
+      screen.getByPlaceholderText(/the learner has difficulty concentrating/i),
+      { target: { value: "Curriculum impact..." } },
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /submit/i }));
+
+    expect(studentsAPI.create).toHaveBeenCalledTimes(1);
+    const sentPayload = studentsAPI.create.mock.calls[0][0];
+    expect(sentPayload.parental_consent_obtained).toBe(true);
+    expect(sentPayload.guardian_name).toBe("Maria Dela Cruz");
+    expect(sentPayload.guardian_relationship).toBe("Parent");
+    expect(sentPayload.consent_date).toBeTruthy();
+  });
+
+  it("blocks advancing from Step 1 if consent is checked but guardian name is empty", async () => {
+    render(
+      <MemoryRouter>
+        <CreateStudentProfile onBack={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Enter student name"), {
+      target: { value: "Juan Dela Cruz" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter age"), {
+      target: { value: "8" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter grade level"), {
+      target: { value: "2" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: /^gender:/i }), {
+      target: { value: "Male" },
+    });
+    fireEvent.click(screen.getByLabelText(/Difficulty in Seeing/i));
+
+    // Check consent checkbox without filling guardian name
+    const consentCheckbox = screen.getByLabelText(/Parental\/Guardian Consent has been verified and obtained/i);
+    fireEvent.click(consentCheckbox);
+
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    expect(
+      await screen.findByText(/Guardian name is required when parental consent is obtained/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
+  });
 });

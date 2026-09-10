@@ -3,6 +3,11 @@ import json
 from .models import TeachingStrategy, LessonPlan
 from iep_management.models import IEPGoal
 from iep_management.ai_engine import AIEngineService
+from iep_management.privacy_utils import (
+    anonymize_student_context,
+    scrub_pii_from_text,
+    verify_ra10173_consent,
+)
 
 
 class TeachingStrategyGenerationService:
@@ -16,6 +21,15 @@ class TeachingStrategyGenerationService:
         iep = getattr(goal_instance, 'iep', None) or getattr(goal_instance, 'parent_iep', None)
         student = getattr(iep, 'studentID', None) if iep else None
         
+        # Enforce RA 10173 Consent Check
+        verify_ra10173_consent(student)
+
+        student_desc = anonymize_student_context(student)
+        pii_tokens = [
+            getattr(student, 'name', ''),
+            getattr(student, 'guardian_name', '')
+        ]
+
         # Extract specialFactorNotes from generatedDetails if present
         details = getattr(iep, 'generatedDetails', None) or {}
         if isinstance(details, str):
@@ -24,6 +38,7 @@ class TeachingStrategyGenerationService:
             except Exception:
                 details = {}
         special_notes = details.get('specialFactorNotes', '') if isinstance(details, dict) else ''
+        special_notes = scrub_pii_from_text(special_notes, pii_tokens)
         special_notes_line = f"- Special Factors / Behavioral & Sensory: {special_notes}\n" if special_notes else ""
 
         # 2. Extract and format the nested enroute objectives (Section C rows)
@@ -38,7 +53,7 @@ class TeachingStrategyGenerationService:
         prompt = f"""☁️system☁️Act as an elite Special Education Instructional Designer. You provide concise, highly actionable teaching methods. No fluff.☁️/system☁️
 ☁️user☁️
 STUDENT CONTEXT (SECTION B):
-- Name: {getattr(student, 'name', 'The student')}
+- Learner: {student_desc}
 - Difficulties/Barriers: {getattr(iep, 'difficulties', 'None')} | {getattr(iep, 'learning_barriers', 'None')}
 - Accommodations/Facilitators: {getattr(iep, 'accommodations', 'None')} | {getattr(iep, 'learning_facilitators', 'None')}
 {special_notes_line}
@@ -101,6 +116,11 @@ class LessonPlanGenerationService:
             iep = goal_instance.iep if hasattr(goal_instance, 'iep') else goal_instance.parent_iep
             student = iep.studentID
             
+            # Enforce RA 10173 Consent Check
+            verify_ra10173_consent(student)
+
+            student_desc = anonymize_student_context(student)
+            
             # 2. Extract all Enroute Objectives for this specific goal
             rows = goal_instance.objective_rows.all()
             objectives_text = ""
@@ -117,7 +137,7 @@ class LessonPlanGenerationService:
 You MUST output ONLY a valid JSON object containing an array of lesson plans. Do not include markdown formatting or conversational filler.☁️/system☁️
 ☁️user☁️
 STUDENT CONTEXT (SECTION A & B):
-- Name: {getattr(student, 'name', 'The student')}
+- Learner: {student_desc}
 - Baseline/Barriers: {getattr(iep, 'baselineData', 'None specified')}
 - Accommodations: {getattr(iep, 'accommodations', 'None specified')}
 

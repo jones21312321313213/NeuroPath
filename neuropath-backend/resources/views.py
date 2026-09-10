@@ -20,6 +20,7 @@ from iep_management.models import IEPModel, IEPGoal, IEPObjectiveRow
 from .models import LessonPlan,VisualAid,TeachingStrategy
 from .services import TeachingStrategyGenerationService,LessonPlanGenerationService
 from .permissions import UserAuthPermissions
+from iep_management.privacy_utils import verify_ra10173_consent, ConsentRequiredException
 
 
 def _goal_owned_by_teacher(iep_goal, teacher):
@@ -349,11 +350,24 @@ class GenerateLessonPlanAPIView(APIView):
             goal_id = serializer.validated_data['goalID']
             teacher = get_teacher_for_user(request.user)
 
-            if not teacher or not IEPGoal.objects.filter(pk=goal_id, iep__studentID__teacher=teacher).exists():
+            try:
+                target_goal = IEPGoal.objects.select_related('iep__studentID').get(pk=goal_id)
+            except IEPGoal.DoesNotExist:
                 return Response(
                     {"error": "Targeted IEP Goal could not be located."},
                     status=status.HTTP_404_NOT_FOUND
                 )
+
+            if not teacher or not _goal_owned_by_teacher(target_goal, teacher):
+                return Response(
+                    {"error": "Targeted IEP Goal could not be located."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            try:
+                verify_ra10173_consent(target_goal.iep.studentID)
+            except ConsentRequiredException as e:
+                return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
             try:
                 # 2. Trigger the new Service to generate the JSON Array
@@ -715,9 +729,9 @@ class VisualAidGeneratorService:
     POLLINATIONS_BASE = "https://image.pollinations.ai/prompt"
 
     @staticmethod
-    def build_prompt(goal_text, extra_prompt, category, student_name):
+    def build_prompt(goal_text, extra_prompt, category, student_name=None):
         parts = [
-            f"Educational visual aid for a student named {student_name}",
+            "Educational visual aid for an elementary learner",
             f"IEP Goal: {goal_text}",
         ]
         if extra_prompt:
@@ -769,11 +783,17 @@ class GenerateVisualAidAPIView(APIView):
         if not _goal_owned_by_teacher(target_goal, teacher):
             return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
 
+        # Enforce RA 10173 Consent Check
+        try:
+            verify_ra10173_consent(student)
+        except ConsentRequiredException as e:
+            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
+
         # Build the image prompt
         try:
             goal_text = target_goal.annual_goal or "learning and development"
             full_prompt = VisualAidGeneratorService.build_prompt(
-                goal_text, extra_prompt, category, student.name
+                goal_text, extra_prompt, category, None
             )
         except Exception as e:
             return Response({"error": f"Prompt build failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -983,6 +1003,8 @@ class TeachingStrategyGenerationController(APIView):
                     "data": res_serializer.data
                 }, status=status.HTTP_201_CREATED)
                 
+            except ConsentRequiredException as e:
+                return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
             except Exception as e:
                 return Response(
                     {"error": f"AI Generation Pipeline Failed: {str(e)}"}, 

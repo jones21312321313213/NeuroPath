@@ -14,6 +14,12 @@ from .services import AIGenerationService
 from .ai_engine import AIEngineService
 from .huggingface_service import CustomLlamaService
 from .rgori_service import RGORICheckerService
+from .privacy_utils import (
+    anonymize_student_context,
+    scrub_pii_from_text,
+    verify_ra10173_consent,
+    ConsentRequiredException,
+)
 import time
 import json
 
@@ -294,7 +300,12 @@ class StandaloneIEPGoalViewSet(viewsets.ModelViewSet):
 @permission_classes([IsAuthenticated]) # Forces the user to be logged in
 def generate_ai_insight(request, student_id):
     student = get_object_or_404(StudentProfile, studentID=student_id)
-    teacher = request.user # <-- Django automatically knows who called the API based on their token!
+    teacher = get_teacher_for_user(request.user)
+    if not teacher or student.teacher != teacher:
+        return Response(
+            {"detail": "Not found."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
     
     try:
         # Pass both the student and the logged-in teacher to the service
@@ -306,6 +317,8 @@ def generate_ai_insight(request, student_id):
             "created_at": insight.created_at
         }, status=status.HTTP_201_CREATED)
         
+    except ConsentRequiredException as e:
+        return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -391,7 +404,9 @@ class GenerateIEPGoalAPIView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         data = serializer.validated_data
-        student_context = f"{data['student_name']}, Diagnosis: {data['diagnosis']}, Barriers: {data['baseline_barriers']}"
+        pii_tokens = [data.get('student_name', '')]
+        scrubbed_barriers = scrub_pii_from_text(data.get('baseline_barriers', ''), pii_tokens)
+        student_context = f"Learner, Diagnosis: {data['diagnosis']}, Barriers: {scrubbed_barriers}"
         generation_prompt = f"Write a specific, measurable IEP goal targeting {data['target_domain']} for {student_context}."
         
         # 2. Setup the Generation & R-GORI Loop variables
@@ -477,16 +492,29 @@ class GenerateIEPGoalsFromIEPView(APIView):
  
         # --- 1. Validate required fields ---
         iep_id = data.get('iep_id')
-        student_name = data.get('student_name', 'The student')
         if not iep_id:
             return Response(
                 {"error": "iep_id is required."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        try:
+            iep = IEPModel.objects.select_related('studentID__teacher').get(pk=iep_id)
+        except IEPModel.DoesNotExist:
+            return Response({"error": "IEP not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        teacher = get_teacher_for_user(request.user)
+        if not teacher or iep.studentID.teacher != teacher:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Enforce RA 10173 Parental/Guardian Consent
+        try:
+            verify_ra10173_consent(iep.studentID)
+        except ConsentRequiredException as e:
+            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
  
         # --- 2. Extract IEP context fields ---
         goal_area           = data.get('goal_area', '')          # e.g. "Mathematical Skills"
-        teacher_prompt      = data.get('teacher_prompt', '')     # free-text teacher instructions
         accommodations      = data.get('accommodations', '')
         difficulties        = data.get('difficulties', '')
         learning_barriers   = data.get('learning_barriers', '')
@@ -495,7 +523,19 @@ class GenerateIEPGoalsFromIEPView(APIView):
         fac_qualifiers      = data.get('facilitator_qualifiers', '')
         generated_details   = data.get('generatedDetails', {})
         special_factors     = generated_details.get('special_factors_considerations', [])
-        special_factor_notes = data.get('special_factor_notes') or generated_details.get('specialFactorNotes', '')
+        
+        # Anonymize student descriptor and scrub PII from free-text notes
+        student_desc = anonymize_student_context(iep.studentID)
+        pii_tokens = [
+            getattr(iep.studentID, 'name', ''),
+            getattr(iep.studentID, 'guardian_name', ''),
+            data.get('student_name', '')
+        ]
+        special_factor_notes = scrub_pii_from_text(
+            data.get('special_factor_notes') or generated_details.get('specialFactorNotes', ''),
+            pii_tokens
+        )
+        teacher_prompt = scrub_pii_from_text(data.get('teacher_prompt', ''), pii_tokens)
  
         if not special_factors:
             return Response(
@@ -505,7 +545,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
  
         # Build a shared student context string for R-GORI evaluation
         student_context = (
-            f"Student: {student_name}. "
+            f"Student: {student_desc}. "
             f"Goal Area: {goal_area}. "
             f"Difficulties: {difficulties}. "
             f"Learning Barriers: {learning_barriers} ({barrier_qualifiers}). "
@@ -516,8 +556,6 @@ class GenerateIEPGoalsFromIEPView(APIView):
         )
  
         # --- 3. Consolidate ALL difficulties into one single goal + table ---
-        # Combine every difficulty row into one joined string so the AI sees
-        # the full picture and produces a single consolidated annual goal.
         all_difficulties = " | ".join(
             f.get('difficulty', '') for f in special_factors if f.get('difficulty', '').strip()
         )
@@ -527,7 +565,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
 
         goal_payload, error = self._generate_validated_goal(
             iep_id=iep_id,
-            student_name=student_name,
+            student_name=student_desc,
             difficulty=all_difficulties,
             assistive_tech=all_assistive_tech,
             accommodations=accommodations,
@@ -710,7 +748,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
             f"that leads toward the annual goal above (e.g. 'Student will recognize numbers 0–5 with 80% accuracy')."
             f"☁️/user☁️"
         )
-        raw = CustomLlamaService.generate_text(prompt, max_new_tokens=600)
+        raw, _ = AIEngineService.generate_text(prompt, max_tokens=600, json_mode=True)
  
         try:
             # Strip markdown fences if model adds them
