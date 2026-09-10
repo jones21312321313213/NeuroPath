@@ -380,4 +380,123 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       expect(aacChip).not.toBeDisabled();
     });
   });
+
+  describe("Other Special Factor Notes UX Enhancements (#128)", () => {
+    it("renders all 6 preset suggestion chips, helper text, and character counter in Step 1", async () => {
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+      });
+
+      // Verify preset chips
+      expect(screen.getByRole("button", { name: /\+ Positive Behavior Support Plan/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ Sensory sensitivity: frequent quiet breaks/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ Non-verbal communication: requires AAC/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ Visual schedules & explicit verbal cues/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ Fine motor fatigue: allow speech-to-text/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ Transition warnings & structured routine/i })).toBeInTheDocument();
+
+      // Verify character counter initial state
+      expect(screen.getByText(/0 \/ 500 characters/i)).toBeInTheDocument();
+      expect(screen.getByText(/Notes guide AI goal synthesis/i)).toBeInTheDocument();
+    });
+
+    it("clicking preset chips appends text with clean formatting and updates character count", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+      });
+
+      const pbspChip = screen.getByRole("button", { name: /\+ Positive Behavior Support Plan/i });
+      await user.click(pbspChip);
+
+      const textarea = screen.getByPlaceholderText(/Add notes about behavior, communication, sensory/i);
+      expect(textarea).toHaveValue("Positive Behavior Support Plan (PBSP) active");
+      expect(screen.getByText(/44 \/ 500 characters/i)).toBeInTheDocument();
+
+      const sensoryChip = screen.getByRole("button", { name: /\+ Sensory sensitivity: frequent quiet breaks/i });
+      await user.click(sensoryChip);
+
+      expect(textarea.value).toContain("Positive Behavior Support Plan (PBSP) active; Sensory sensitivity: frequent quiet breaks");
+    });
+
+    it("provides a Clear Notes button when text is present", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+      });
+
+      const pbspChip = screen.getByRole("button", { name: /\+ Positive Behavior Support Plan/i });
+      await user.click(pbspChip);
+
+      const clearBtn = screen.getByRole("button", { name: /Clear notes/i });
+      expect(clearBtn).toBeInTheDocument();
+
+      await user.click(clearBtn);
+
+      const textarea = screen.getByPlaceholderText(/Add notes about behavior, communication, sensory/i);
+      expect(textarea).toHaveValue("");
+      expect(screen.getByText(/0 \/ 500 characters/i)).toBeInTheDocument();
+    });
+
+    it("enforces 500 character maximum limit and disables preset chips when capacity reached", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+      });
+
+      const textarea = screen.getByPlaceholderText(/Add notes about behavior, communication, sensory/i);
+      const longText = "A".repeat(500);
+      await user.type(textarea, longText);
+
+      expect(screen.getByText(/500 \/ 500 characters \(Maximum reached\)/i)).toBeInTheDocument();
+
+      const pbspChip = screen.getByRole("button", { name: /\+ Positive Behavior Support Plan/i });
+      expect(pbspChip).toBeDisabled();
+    });
+
+    it("renders preset chips, character counter, and edit support in Edit Mode", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /Edit IEP/i })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole("button", { name: /Edit IEP/i }));
+
+      expect(screen.getByText("Edit Considerations of Special Factors")).toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: /\+ Positive Behavior Support Plan/i }).length).toBeGreaterThanOrEqual(1);
+
+      const editTextarea = screen.getAllByPlaceholderText(/Add notes about behavior, communication, sensory/i)[0];
+      expect(editTextarea).toBeInTheDocument();
+    });
+  });
 });
