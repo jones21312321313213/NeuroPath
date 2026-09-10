@@ -1,4 +1,3 @@
-import React from "react";
 import { Modal, Button } from "../ui";
 
 export default function LogoutModal({ isOpen, onClose, onConfirm }) {

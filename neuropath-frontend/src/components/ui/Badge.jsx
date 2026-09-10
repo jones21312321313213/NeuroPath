@@ -1,4 +1,3 @@
-import React from "react";
 
 const variantClasses = {
   info: "bg-blue-50 text-blue-700 border-blue-200/60",
