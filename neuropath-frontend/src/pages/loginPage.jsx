@@ -137,7 +137,7 @@ export default function LoginPage({
             >
               Welcome back
             </h1>
-            <p className="text-sm font-medium" style={{ color: "#5a9dbf" }}>
+            <p className="text-sm font-medium" style={{ color: "#1e78a6" }}>
               Sign in to your NeuroPath account
             </p>
           </div>
@@ -296,7 +296,7 @@ export default function LoginPage({
 
           <p
             className="text-sm font-medium text-center"
-            style={{ color: "#5a9dbf" }}
+            style={{ color: "#1e78a6" }}
           >
             Don't have an account?{" "}
             <button

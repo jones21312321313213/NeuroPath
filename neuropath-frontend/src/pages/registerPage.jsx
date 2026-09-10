@@ -219,7 +219,7 @@ export default function RegisterPage({ onNavigateLogin }) {
             >
               Create your account
             </h1>
-            <p className="text-sm font-medium" style={{ color: "#5a9dbf" }}>
+            <p className="text-sm font-medium" style={{ color: "#1e78a6" }}>
               Join NeuroPath and start building better IEPs
             </p>
           </div>
@@ -443,7 +443,7 @@ export default function RegisterPage({ onNavigateLogin }) {
 
           <p
             className="text-sm font-medium text-center"
-            style={{ color: "#5a9dbf" }}
+            style={{ color: "#1e78a6" }}
           >
             Already have an account?{" "}
             <button

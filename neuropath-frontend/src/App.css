@@ -1,3 +1,19 @@
+/* ── Accessible Focus Rings (WCAG 2.1 AA) ───────────── */
+:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+}
+
 /* ── Layout ───────────────────────────────────────────── */
 .app-layout {
   display: flex;
@@ -582,6 +598,12 @@ button.sidebar-header {
 .form-textarea:focus {
   border-color: #5aabf0;
   background: #fff;
+}
+.form-input:focus-visible,
+.form-select:focus-visible,
+.form-textarea:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
 }
 .form-input::placeholder {
   color: #aaa;
@@ -1354,6 +1376,10 @@ button.sidebar-header {
   outline: none;
   border-color: #5aabf0;
   background: #fff;
+}
+.iep-table-textarea:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
 }
 .iep-small-textarea {
   min-height: 74px;
