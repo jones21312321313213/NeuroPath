@@ -219,30 +219,45 @@ describe("useStudentInsights", () => {
     ]);
   });
 
-  it("is disabled when studentId is 4 (mock student)", () => {
+  it("fetches insights when studentId is 4 or string '4'", async () => {
+    iepAPI.getInsights.mockResolvedValueOnce([
+      {
+        id: 4,
+        created_at: "2026-09-02T10:00:00Z",
+        summary_text: "Student 4 insight from backend.",
+      },
+    ]);
+
     const queryClient = createTestQueryClient();
-    const { result: resultNum } = renderHook(() => useStudentInsights(4), {
+    const { result } = renderHook(() => useStudentInsights(4), {
       wrapper: createWrapper(queryClient),
     });
 
-    expect(resultNum.current.fetchStatus).toBe("idle");
-    expect(iepAPI.getInsights).not.toHaveBeenCalled();
-
-    const { result: resultStr } = renderHook(() => useStudentInsights("4"), {
-      wrapper: createWrapper(queryClient),
-    });
-
-    expect(resultStr.current.fetchStatus).toBe("idle");
-    expect(iepAPI.getInsights).not.toHaveBeenCalled();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(iepAPI.getInsights).toHaveBeenCalledWith(4);
+    expect(result.current.data).toEqual([
+      {
+        id: 4,
+        timestamp: "2026-09-02T10:00:00Z",
+        summary_text: "Student 4 insight from backend.",
+      },
+    ]);
   });
 
-  it("is disabled when studentId is falsy", () => {
+  it("is disabled when studentId is falsy or options.enabled is false", () => {
     const queryClient = createTestQueryClient();
     const { result } = renderHook(() => useStudentInsights(null), {
       wrapper: createWrapper(queryClient),
     });
 
     expect(result.current.fetchStatus).toBe("idle");
+    expect(iepAPI.getInsights).not.toHaveBeenCalled();
+
+    const { result: resultDisabled } = renderHook(
+      () => useStudentInsights(5, { enabled: false }),
+      { wrapper: createWrapper(queryClient) }
+    );
+    expect(resultDisabled.current.fetchStatus).toBe("idle");
     expect(iepAPI.getInsights).not.toHaveBeenCalled();
   });
 

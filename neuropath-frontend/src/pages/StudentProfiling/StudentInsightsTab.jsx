@@ -11,7 +11,7 @@ const USE_MOCK_INSIGHTS = import.meta.env.VITE_USE_MOCK_INSIGHTS === "true";
 export default function StudentInsightsTab({ studentId, setActivePage }) {
   const navigate = useNavigate();
   const isDemo = Boolean(
-    USE_MOCK_INSIGHTS || studentId === 4 || studentId === "4"
+    import.meta.env.VITE_USE_MOCK_INSIGHTS === "true" || USE_MOCK_INSIGHTS
   );
 
   const [demoInsights, setDemoInsights] = useState(mockInsights);
@@ -24,7 +24,9 @@ export default function StudentInsightsTab({ studentId, setActivePage }) {
     isLoading,
     isError: isQueryError,
     error: queryError,
-  } = useStudentInsights(studentId);
+  } = useStudentInsights(studentId, {
+    enabled: !isDemo && Boolean(studentId),
+  });
 
   const generateMutation = useGenerateStudentInsight(studentId, {
     onSuccess: () => {

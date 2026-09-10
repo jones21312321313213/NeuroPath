@@ -196,7 +196,30 @@ describe("StudentInsightsTab", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders mock fallback insights for demo studentId=4 without calling API", async () => {
+  it("calls iepAPI.getInsights for studentId=4 when not in mock mode", async () => {
+    iepAPI.getInsights.mockResolvedValueOnce([
+      {
+        id: 4,
+        created_at: "2026-08-28 10:00",
+        summary_text: "Insight for student 4 from database.",
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <StudentInsightsTab studentId={4} />
+      </MemoryRouter>
+    );
+
+    expect(iepAPI.getInsights).toHaveBeenCalledWith(4);
+    expect(
+      await screen.findByText(/Summary 1 — 2026-08-28 10:00/i)
+    ).toBeInTheDocument();
+  });
+
+  it("renders mock fallback insights when VITE_USE_MOCK_INSIGHTS is 'true' without calling API", async () => {
+    vi.stubEnv("VITE_USE_MOCK_INSIGHTS", "true");
+
     renderWithQueryClient(
       <MemoryRouter>
         <StudentInsightsTab studentId={4} />
@@ -210,22 +233,13 @@ describe("StudentInsightsTab", () => {
     expect(
       screen.getByText(/Summary 1 — 2026-05-20 14:30/i)
     ).toBeInTheDocument();
+
+    vi.unstubAllEnvs();
   });
 
-  it("renders mock fallback insights for demo studentId='4' (string) without calling API", async () => {
-    renderWithQueryClient(
-      <MemoryRouter>
-        <StudentInsightsTab studentId="4" />
-      </MemoryRouter>
-    );
+  it("generates mock insight when Generate button is clicked in mock mode without calling API", async () => {
+    vi.stubEnv("VITE_USE_MOCK_INSIGHTS", "true");
 
-    expect(iepAPI.getInsights).not.toHaveBeenCalled();
-    expect(
-      screen.getByText(/Summary 2 — 2026-05-24 21:00/i)
-    ).toBeInTheDocument();
-  });
-
-  it("generates mock insight when Generate button is clicked for demo studentId=4 without calling API", async () => {
     const user = userEvent.setup();
     renderWithQueryClient(
       <MemoryRouter>
@@ -244,5 +258,7 @@ describe("StudentInsightsTab", () => {
       await screen.findByText(/Ethan Carter demonstrates high affinity/i)
     ).toBeInTheDocument();
     expect(screen.getByText(/Summary 3 —/i)).toBeInTheDocument();
+
+    vi.unstubAllEnvs();
   });
 });

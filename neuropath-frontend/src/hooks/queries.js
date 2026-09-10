@@ -48,7 +48,7 @@ export function useStudentInsights(studentId, options = {}) {
   const isEnabled =
     enabled !== undefined
       ? enabled
-      : Boolean(studentId && studentId !== 4 && studentId !== "4");
+      : Boolean(studentId);
 
   return useQuery({
     queryKey: queryKeys.studentInsights(studentId),
