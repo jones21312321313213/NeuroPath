@@ -2029,18 +2029,13 @@ export default function IEPGenerationPage({
                         Loaded from the saved student profile. Update the
                         student profile if these difficulties need to change.
                       </p>
-                      <div className="iep-input-row-list">
+                      <div className="iep-difficulty-list" data-testid="iep-difficulty-list">
                         {form.difficultyMarkers.length ? (
                           form.difficultyMarkers.map((item, i) => (
-                            <div key={i} className="iep-input-row-item">
-                              <input
-                                className="form-input"
-                                value={item}
-                                placeholder={`Difficulty ${i + 1}`}
-                                readOnly
-                                aria-readonly="true"
-                              />
-                            </div>
+                            <p key={i} className="iep-difficulty-item">
+                              <span className="iep-difficulty-bullet" aria-hidden="true">•</span>
+                              <span>{item}</span>
+                            </p>
                           ))
                         ) : (
                           <p className="iep-muted">
@@ -2116,14 +2111,10 @@ export default function IEPGenerationPage({
                         )}
                         {form.barrierRows.map((row, i) => (
                           <tr key={i}>
-                            <td>
-                              <input
-                                value={row.difficulty}
-                                className="form-input"
-                                placeholder="Difficulty from profile"
-                                readOnly
-                                aria-readonly="true"
-                              />
+                            <td className="iep-difficulty-td">
+                              <p className="iep-difficulty-cell-text">
+                                {row.difficulty || "—"}
+                              </p>
                             </td>
                             <td>
                               <select

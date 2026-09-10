@@ -240,4 +240,33 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       "Needs quiet space during loud assemblies.",
     );
   });
+
+  it("renders difficulty markers as static paragraph text instead of read-only inputs in Step 1", async () => {
+    render(
+      <MemoryRouter>
+        <IEPGenerationPage mode="generate" initialStudentId={1} />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+      expect(screen.getByText("Alex Doe")).toBeInTheDocument();
+    });
+
+    // Verify difficulty items render within the difficulty list container
+    const diffList = screen.getByTestId("iep-difficulty-list");
+    expect(diffList).toBeInTheDocument();
+    expect(diffList.querySelector(".iep-difficulty-item")).toBeInTheDocument();
+    expect(diffList).toHaveTextContent("Sensory Processing");
+
+    // Ensure no read-only input exists for difficulty markers
+    expect(screen.queryByPlaceholderText(/Difficulty 1/i)).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Difficulty from profile/i)).not.toBeInTheDocument();
+
+    // Section B Table difficulty column renders as paragraph text
+    const cellText = document.querySelector(".iep-difficulty-cell-text");
+    expect(cellText).toBeInTheDocument();
+    expect(cellText.tagName.toLowerCase()).toBe("p");
+    expect(cellText).toHaveTextContent("Sensory Processing");
+  });
 });
