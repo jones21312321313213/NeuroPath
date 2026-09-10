@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import { renderWithQueryClient } from "../test/query-test-utils";
 import IEPGenerationPage from "./IepGenerationPage";
 import Overview from "./Overview";
 import { iepAPI, studentsAPI } from "../api/client";
@@ -141,7 +142,7 @@ describe("Post-IEP Next Steps to Classroom Tools (#94)", () => {
     });
     await user.click(overviewBtn);
     expect(setActivePage).toHaveBeenCalledWith("overview");
-    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/overview");
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard");
   });
 
   it("reflects readiness in Overview step 3 when active IEPs exist", async () => {
@@ -154,7 +155,7 @@ describe("Post-IEP Next Steps to Classroom Tools (#94)", () => {
     const setActivePage = vi.fn();
     const user = userEvent.setup();
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter>
         <Overview setActivePage={setActivePage} />
       </MemoryRouter>,
@@ -165,11 +166,16 @@ describe("Post-IEP Next Steps to Classroom Tools (#94)", () => {
     });
 
     const step3 = screen.getByTestId("getting-started-step-3");
+    await waitFor(() => {
+      const step3Btn = within(step3).getByRole("button", {
+        name: /open tools|use tools/i,
+      });
+      expect(step3Btn).toBeEnabled();
+    });
+
     const step3Btn = within(step3).getByRole("button", {
       name: /open tools|use tools/i,
     });
-    expect(step3Btn).toBeEnabled();
-
     await user.click(step3Btn);
     expect(setActivePage).toHaveBeenCalledWith("/dashboard/lessons");
     expect(mockNavigate).toHaveBeenCalledWith("/dashboard/lessons");

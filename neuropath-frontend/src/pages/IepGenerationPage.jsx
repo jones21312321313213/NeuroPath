@@ -805,7 +805,7 @@ function ViewIEPPanel({
                 type="button"
                 className="iep-next-step-btn iep-next-step-btn-ghost"
                 onClick={() => {
-                  navigate("/dashboard/overview");
+                  navigate("/dashboard");
                   if (setActivePage) setActivePage("overview");
                 }}
               >
@@ -2148,7 +2148,7 @@ export default function IEPGenerationPage({
                             type="button"
                             className="iep-next-step-btn iep-next-step-btn-ghost"
                             onClick={() => {
-                              navigate("/dashboard/overview");
+                              navigate("/dashboard");
                               if (setActivePage) setActivePage("overview");
                             }}
                           >
