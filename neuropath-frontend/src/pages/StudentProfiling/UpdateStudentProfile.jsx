@@ -33,26 +33,36 @@ function getProfileDetails(student) {
   return typeof student.preferences === "object" ? student.preferences : {};
 }
 
-function FormField({ label, placeholder, value, onChange, type = "text" }) {
+function FormField({ label, placeholder, value, onChange, type = "text", min, max }) {
+  const inputId = label
+    ? `update-field-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    : undefined;
   return (
     <div className="form-group">
-      <label className="form-label">{label}:</label>
+      <label htmlFor={inputId} className="form-label">{label}:</label>
       <input
+        id={inputId}
         type={type}
         placeholder={placeholder}
         value={value}
         onChange={onChange}
         className="form-input gray-input"
+        min={min}
+        max={max}
       />
     </div>
   );
 }
 
 function SelectField({ label, options, value, onChange }) {
+  const selectId = label
+    ? `update-select-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    : undefined;
   return (
     <div className="form-group">
-      <label className="form-label">{label}:</label>
+      <label htmlFor={selectId} className="form-label">{label}:</label>
       <select
+        id={selectId}
         value={value}
         onChange={onChange}
         className="form-select gray-input"
@@ -76,11 +86,15 @@ function TextAreaField({
   rows = 3,
   helpText,
 }) {
+  const areaId = label
+    ? `update-area-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    : undefined;
   return (
     <div className="form-group">
-      <label className="form-label">{label}</label>
+      <label htmlFor={areaId} className="form-label">{label}</label>
       {helpText && <span className="iep-field-help">{helpText}</span>}
       <textarea
+        id={areaId}
         rows={rows}
         placeholder={placeholder}
         value={value}
