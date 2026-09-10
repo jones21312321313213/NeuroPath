@@ -4,7 +4,7 @@ import { iepAPI, studentsAPI } from "../api/client";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-export const ASSISTIVE_TECH_PRESETS = [
+const ASSISTIVE_TECH_PRESETS = [
   "AAC Communication Board",
   "Speech-to-Text / Audio Dictation",
   "Visual Schedule & Choice Cards",
@@ -13,7 +13,7 @@ export const ASSISTIVE_TECH_PRESETS = [
   "Pencil Grip / Adaptive Utensils",
 ];
 
-export const MAX_ASSISTIVE_TECH_ITEMS = 5;
+const MAX_ASSISTIVE_TECH_ITEMS = 5;
 
 const barrierQualifierOptions = [
   "No barrier",
@@ -441,18 +441,18 @@ function ViewIEPPanel({
   }, [selectedIep?.iepID]);
 
   useEffect(() => {
+    const specialNotes =
+      details?.specialFactorNotes || details?.special_factor_notes || "";
     queueMicrotask(() => {
       setIsEditing(false);
       setEditBarrierRows([]);
-      setEditSpecialFactorNotes(
-        details?.specialFactorNotes || details?.special_factor_notes || "",
-      );
+      setEditSpecialFactorNotes(specialNotes);
       setEditGoals([]);
       setGoalsToDelete([]);
       setIepGoals([]);
       setDeleteTarget(null);
     });
-  }, [selectedIep]);
+  }, [selectedIep, details?.specialFactorNotes, details?.special_factor_notes]);
 
   const barrierRowsToRender =
     (details?.barrierRows?.length ? details.barrierRows : null) ||
@@ -1411,7 +1411,7 @@ export default function IEPGenerationPage({
     return () => {
       mounted = false;
     };
-  }, [selectedStudent, currentUserId]);
+  }, [selectedStudent, currentUserId, activeView]);
 
   // Pre-fill form from student profile
   useEffect(() => {
