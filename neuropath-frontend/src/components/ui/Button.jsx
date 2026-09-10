@@ -23,7 +23,7 @@ export function Button({
   children,
   ...props
 }) {
-  const baseClasses = "inline-flex items-center justify-center font-medium transition-colors cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none";
+  const baseClasses = "inline-flex items-center justify-center font-medium transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
   const variantStyle = variantClasses[variant] || variantClasses.primary;
   const sizeStyle = sizeClasses[size] || sizeClasses.md;
 

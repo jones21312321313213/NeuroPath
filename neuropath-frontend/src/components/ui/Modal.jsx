@@ -24,6 +24,10 @@ export function Modal({
   useEffect(() => {
     if (!isOpen) return;
 
+    if (modalRef.current) {
+      modalRef.current.focus();
+    }
+
     const handleKeyDown = (e) => {
       if (closeOnEsc && e.key === "Escape" && onClose) {
         onClose();
@@ -55,7 +59,8 @@ export function Modal({
     >
       <div
         ref={modalRef}
-        className={`bg-white rounded-2xl shadow-xl border border-slate-100 w-full ${maxWidthClass} overflow-hidden flex flex-col max-h-[90vh] transition-all transform animate-scaleUp ${className}`.trim()}
+        tabIndex={-1}
+        className={`bg-white rounded-2xl shadow-xl border border-slate-100 w-full ${maxWidthClass} overflow-hidden flex flex-col max-h-[90vh] transition-all transform animate-scaleUp outline-none ${className}`.trim()}
       >
         {/* Header */}
         {(title || onClose) && (
