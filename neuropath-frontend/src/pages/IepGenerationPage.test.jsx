@@ -1,0 +1,243 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
+import IEPGenerationPage from "./IepGenerationPage";
+import { studentsAPI, iepAPI } from "../api/client";
+
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+    useParams: () => ({}),
+  };
+});
+
+vi.mock("../api/client", () => ({
+  studentsAPI: {
+    list: vi.fn(),
+  },
+  iepAPI: {
+    listByStudent: vi.fn(),
+    listGoalsByIep: vi.fn(),
+    save: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    generateGoalsFromIep: vi.fn(),
+    saveGoal: vi.fn(),
+    updateGoal: vi.fn(),
+    deleteGoal: vi.fn(),
+  },
+}));
+
+describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
+  const mockStudent = {
+    id: 1,
+    studentID: 1,
+    name: "Alex Doe",
+    grade: "3",
+    age: "8",
+    diagnosis: "Autism Spectrum Disorder",
+    difficulty: "Sensory Processing",
+  };
+
+  const mockIep = {
+    iepID: 101,
+    studentID: 1,
+    studentName: "Alex Doe",
+    version: 1,
+    formattedDate: "September 8, 2026",
+    baselineData: "Some baseline",
+    accommodations: "Visual schedule",
+    generatedDetails: JSON.stringify({
+      specialFactorNotes: "Sensitive to sudden auditory alarms and loud bells.",
+      barrierRows: [
+        {
+          difficulty: "Sensory Processing",
+          barrierQualifier: "Moderate barrier",
+          facilitator: "Headphones",
+          accommodation: "Quiet room",
+        },
+      ],
+    }),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.setItem(
+      "neuropath_user",
+      JSON.stringify({ id: 10, teacherID: 10 }),
+    );
+    studentsAPI.list.mockResolvedValue([mockStudent]);
+    iepAPI.listByStudent.mockResolvedValue([mockIep]);
+    iepAPI.listGoalsByIep.mockResolvedValue([]);
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+  });
+
+  it("renders 'Other Special Factor Notes' under Considerations of Special Factors in View mode", async () => {
+    render(
+      <MemoryRouter>
+        <IEPGenerationPage mode="view" initialStudentId={1} />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("Other Special Factor Notes")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Sensitive to sudden auditory alarms and loud bells/i),
+    ).toBeInTheDocument();
+  });
+
+  it("allows editing Other Special Factor Notes in Edit mode", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <IEPGenerationPage mode="view" initialStudentId={1} />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText("EDIT IEP"));
+
+    expect(screen.getByText("Edit Considerations of Special Factors")).toBeInTheDocument();
+    const notesInput = screen.getByDisplayValue(
+      "Sensitive to sudden auditory alarms and loud bells.",
+    );
+    expect(notesInput).toBeInTheDocument();
+
+    await user.clear(notesInput);
+    await user.type(notesInput, "Updated sensory notes.");
+
+    iepAPI.update.mockResolvedValue({
+      iepID: 101,
+      generatedDetails: {
+        specialFactorNotes: "Updated sensory notes.",
+      },
+    });
+
+    await user.click(screen.getByText("SAVE CHANGES"));
+
+    await waitFor(() => {
+      expect(iepAPI.update).toHaveBeenCalledWith(
+        101,
+        expect.objectContaining({
+          generatedDetails: expect.objectContaining({
+            specialFactorNotes: "Updated sensory notes.",
+          }),
+        }),
+      );
+    });
+  });
+
+  it("allows adding a goal manually in Step 2 without AI", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <IEPGenerationPage mode="generate" initialStudentId={1} />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+    });
+
+    // Advance to step 2
+    await user.click(screen.getByText("NEXT"));
+
+    expect(screen.getByText("+ Add Goal Manually")).toBeInTheDocument();
+
+    // Click to expand manual goal section
+    await user.click(screen.getByText("+ Add Goal Manually"));
+
+    expect(screen.getByText("Custom Goals")).toBeInTheDocument();
+    expect(screen.getByText("SAVE GOAL MANUALLY")).toBeInTheDocument();
+
+    // Type goal details
+    const goalAreaInput = screen.getByPlaceholderText(/Communication Skills/i);
+    await user.type(goalAreaInput, "Social Skills");
+
+    const annualGoalInput = screen.getByPlaceholderText(
+      "Write the annual learner goal.",
+    );
+    await user.type(annualGoalInput, "Will greet peers independently 4 out of 5 times.");
+
+    iepAPI.save.mockResolvedValue({ iepID: 202, studentID: 1 });
+    iepAPI.saveGoal.mockResolvedValue({
+      goalID: 55,
+      goalName: "Social Skills",
+      annual_goal: "Will greet peers independently 4 out of 5 times.",
+    });
+
+    await user.click(screen.getByText("SAVE GOAL MANUALLY"));
+
+    await waitFor(() => {
+      expect(iepAPI.saveGoal).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subject_category: "Social Skills",
+          annual_goal: "Will greet peers independently 4 out of 5 times.",
+        }),
+      );
+    });
+  });
+
+  it("passes special_factor_notes to iepAPI.generateGoalsFromIep in handleGenerateFinalIep", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <IEPGenerationPage mode="generate" initialStudentId={1} />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Alex Doe")).toBeInTheDocument();
+    });
+
+    // Enter special factor notes in Step 1
+    const notesInput = screen.getByPlaceholderText(
+      /Add notes about behavior, communication, sensory/i,
+    );
+    await user.clear(notesInput);
+    await user.type(notesInput, "Needs quiet space during loud assemblies.");
+
+    // Advance to Step 2
+    await user.click(screen.getByText("NEXT"));
+
+    // Select a goal area
+    const goalSelect = screen.getByRole("combobox");
+    await user.selectOptions(goalSelect, "Functional Academic Skills");
+
+    iepAPI.save.mockResolvedValue({ iepID: 303, studentID: 1 });
+    iepAPI.generateGoalsFromIep.mockResolvedValue({
+      goals: [
+        {
+          subject_category: "Functional Academic Skills",
+          annual_goal: "Learner will complete daily tasks.",
+          _rgori_score: 90,
+          _rgori_feedback: "Good",
+          objective_rows: [],
+        },
+      ],
+    });
+    iepAPI.saveGoal.mockResolvedValue({ goalID: 88 });
+
+    // Click generate
+    await user.click(screen.getByText("GENERATE FINAL IEP"));
+
+    await waitFor(() => {
+      expect(iepAPI.generateGoalsFromIep).toHaveBeenCalled();
+    });
+    const callArgs = iepAPI.generateGoalsFromIep.mock.calls[0][0];
+    expect(callArgs.special_factor_notes).toBe(
+      "Needs quiet space during loud assemblies.",
+    );
+  });
+});

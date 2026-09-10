@@ -344,8 +344,10 @@ function GenerateTab({ onSave, setActivePage }) {
     setSaved(false);
 
     try {
-      const savedGoals = await iepAPI.listLatestGoalsByStudent(student.studentID);
-      const parsedGoals = (Array.isArray(savedGoals) ? savedGoals : [])
+      const savedGoals = await iepAPI
+        .listLatestGoalsByStudent(student.studentID)
+        .catch(() => iepAPI.listGoalsByStudent(student.studentID));
+      const parsedGoals = (Array.isArray(savedGoals) ? savedGoals : savedGoals?.results || savedGoals?.data || [])
         .map(formatSavedIepGoal)
         .filter((g) => g.goalArea || g.label);
 

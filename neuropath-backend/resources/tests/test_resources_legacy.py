@@ -7,7 +7,7 @@ from rest_framework import status
 from common_test_utils import create_teacher_with_login, create_student
 from iep_management.models import IEPModel, IEPGoal
 from resources.urls import urlpatterns
-from .models import LessonPlan, VisualAid, TeachingStrategy
+from resources.models import LessonPlan, VisualAid, TeachingStrategy
 
 
 class ResourceUrlRoutingTestCase(TestCase):

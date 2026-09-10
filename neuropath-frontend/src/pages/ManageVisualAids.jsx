@@ -203,8 +203,9 @@ function GenerateTab({ setActivePage }) {
       setSelectedGoal(null);
     });
     iepAPI
-      .listGoalsByStudent(selectedStudent.studentID)
-      .then(setGoals)
+      .listLatestGoalsByStudent(selectedStudent.studentID)
+      .catch(() => iepAPI.listGoalsByStudent(selectedStudent.studentID))
+      .then((data) => setGoals(Array.isArray(data) ? data : data?.results || data?.data || []))
       .catch(() => setError("Failed to load IEP goals for this student."))
       .finally(() => setLoadingGoals(false));
   }, [selectedStudent]);
@@ -332,10 +333,10 @@ function GenerateTab({ setActivePage }) {
                       </div>
                       <div className="va-goal-text">
                         <span className="va-goal-category">
-                          {g.subject_category || "General"}
+                          {g.subject_category || g.goalName || "General"}
                         </span>
                         <span className="va-goal-annual">
-                          {g.annual_goal || "No goal text"}
+                          {g.annual_goal || g.goalName || "No goal text"}
                         </span>
                       </div>
                     </div>
