@@ -753,6 +753,67 @@ function ViewIEPPanel({
             </p>
           </div>
 
+          {/* Post-IEP Next Steps / Classroom Tools */}
+          <section
+            className="iep-next-steps-card"
+            aria-label="Instructional Support Next Steps"
+          >
+            <header className="iep-next-steps-header">
+              <span className="iep-next-steps-icon" aria-hidden="true">💡</span>
+              <div>
+                <h4>Instructional Support: Use this IEP in the Classroom</h4>
+                <p>
+                  This IEP is ready. Generate tailored lesson plans, visual aids, and teaching strategies based on this student's goals.
+                </p>
+              </div>
+            </header>
+            <nav
+              className="iep-next-steps-grid"
+              aria-label="Classroom tool actions"
+            >
+              <button
+                type="button"
+                className="iep-next-step-btn"
+                onClick={() => {
+                  navigate("/dashboard/lessons");
+                  if (setActivePage) setActivePage("manage-lesson-plans");
+                }}
+              >
+                <span>📚</span> Create Lesson Plan
+              </button>
+              <button
+                type="button"
+                className="iep-next-step-btn"
+                onClick={() => {
+                  navigate("/dashboard/visual-aids");
+                  if (setActivePage) setActivePage("manage-visual-aids");
+                }}
+              >
+                <span>🖼️</span> Create Visual Aid
+              </button>
+              <button
+                type="button"
+                className="iep-next-step-btn iep-next-step-btn-secondary"
+                onClick={() => {
+                  navigate("/dashboard/strategies");
+                  if (setActivePage) setActivePage("manage-teaching-strategies");
+                }}
+              >
+                <span>🎯</span> Teaching Strategies
+              </button>
+              <button
+                type="button"
+                className="iep-next-step-btn iep-next-step-btn-ghost"
+                onClick={() => {
+                  navigate("/dashboard");
+                  if (setActivePage) setActivePage("overview");
+                }}
+              >
+                <span>🏠</span> Back to Overview
+              </button>
+            </nav>
+          </section>
+
           {/* Inline edit panel */}
           {isEditing && (
             <div className="iep-edit-panel">
@@ -2034,6 +2095,67 @@ export default function IEPGenerationPage({
                           </div>
                         </div>
                       </div>
+
+                      {/* --- POST-IEP NEXT STEPS TO CLASSROOM TOOLS --- */}
+                      <section
+                        className="iep-next-steps-card"
+                        aria-label="Post-IEP Next Steps"
+                      >
+                        <header className="iep-next-steps-header">
+                          <span className="iep-next-steps-icon" aria-hidden="true">🚀</span>
+                          <div>
+                            <h4>Next Steps: Classroom Tools & Instructional Support</h4>
+                            <p>
+                              Your IEP is saved and ready! Put this IEP into action by creating aligned classroom materials or returning to your dashboard.
+                            </p>
+                          </div>
+                        </header>
+                        <nav
+                          className="iep-next-steps-grid"
+                          aria-label="Post-IEP tool actions"
+                        >
+                          <button
+                            type="button"
+                            className="iep-next-step-btn"
+                            onClick={() => {
+                              navigate("/dashboard/lessons");
+                              if (setActivePage) setActivePage("manage-lesson-plans");
+                            }}
+                          >
+                            <span>📚</span> Create Lesson Plan
+                          </button>
+                          <button
+                            type="button"
+                            className="iep-next-step-btn"
+                            onClick={() => {
+                              navigate("/dashboard/visual-aids");
+                              if (setActivePage) setActivePage("manage-visual-aids");
+                            }}
+                          >
+                            <span>🖼️</span> Create Visual Aid
+                          </button>
+                          <button
+                            type="button"
+                            className="iep-next-step-btn iep-next-step-btn-secondary"
+                            onClick={() => {
+                              navigate("/dashboard/strategies");
+                              if (setActivePage) setActivePage("manage-teaching-strategies");
+                            }}
+                          >
+                            <span>🎯</span> Teaching Strategies
+                          </button>
+                          <button
+                            type="button"
+                            className="iep-next-step-btn iep-next-step-btn-ghost"
+                            onClick={() => {
+                              navigate("/dashboard");
+                              if (setActivePage) setActivePage("overview");
+                            }}
+                          >
+                            <span>🏠</span> Back to Overview
+                          </button>
+                        </nav>
+                      </section>
 
                       {goalSaveStatus === "saving" && (
                         <p className="iep-muted" style={{ marginBottom: 12 }}>
