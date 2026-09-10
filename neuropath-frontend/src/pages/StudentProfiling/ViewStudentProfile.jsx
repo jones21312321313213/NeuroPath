@@ -1,49 +1,27 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../../styles/ViewStudentProfile.css";
 import { useAuth } from "../../context/AuthContext";
 import StudentShimmer from "../../components/StudentShimmer";
-import { studentsAPI } from "../../api/client";
+import { useStudents } from "../../hooks/queries";
 
 export default function ViewStudentProfile({
   setActivePage,
   setSelectedStudentId,
 }) {
   const navigate = useNavigate();
-  const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const { user } = useAuth();
+  const {
+    data: rawStudents = [],
+    isLoading,
+    isError,
+    error,
+  } = useStudents(user?.id);
 
-  useEffect(() => {
-    const teacherId = user?.id;
-    if (!teacherId) {
-      queueMicrotask(() => setLoading(false));
-      return;
-    }
-
-    let cancelled = false;
-    queueMicrotask(() => setError(""));
-
-    studentsAPI
-      .list(teacherId)
-      .then((data) => {
-        if (cancelled) return;
-        setStudents(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.error(err);
-        setError(err.message || "Failed to load student profiles.");
-        setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
+  const students = Array.isArray(rawStudents)
+    ? rawStudents
+    : (rawStudents?.results || []);
 
   const handleView = (id) => {
     if (setSelectedStudentId) setSelectedStudentId(id);
@@ -64,7 +42,7 @@ export default function ViewStudentProfile({
     s.name?.toLowerCase().includes(search.toLowerCase()),
   );
 
-  if (loading) {
+  if (isLoading && students.length === 0) {
     return (
       <div className="page-content">
         <div className="form-card">
@@ -75,12 +53,14 @@ export default function ViewStudentProfile({
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
       <div className="page-content">
         <div className="form-card">
           <h2 className="form-section-title">View Student Profiles</h2>
-          <div className="placeholder-page">{error}</div>
+          <div className="placeholder-page">
+            {error?.message || "Failed to load student profiles."}
+          </div>
         </div>
       </div>
     );
