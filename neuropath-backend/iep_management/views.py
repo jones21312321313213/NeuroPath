@@ -11,6 +11,7 @@ from .models import Assessment, IEPGoal, IEPModel,GeneratedAIInsight
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError, transaction
 from .services import AIGenerationService
+from .ai_engine import AIEngineService
 from .huggingface_service import CustomLlamaService
 from .rgori_service import RGORICheckerService
 import time
@@ -243,25 +244,36 @@ class StandaloneIEPGoalViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """
-        Supports filtering by either:
-          ?student_id=5  -> all goals for a student across all their IEPs
-          ?iep=3         -> all goals belonging to a specific IEP document
-
-        Always scoped to the requesting teacher's own students.
-        """
         teacher = get_teacher_for_user(self.request.user)
         if not teacher:
             return IEPGoal.objects.none()
 
-        queryset = IEPGoal.objects.filter(iep__studentID__teacher=teacher).select_related('iep__studentID')
         student_id = self.request.query_params.get('student_id')
         iep_id = self.request.query_params.get('iep')
+        latest = self.request.query_params.get('latest') == 'true'
+
         if student_id:
-            return queryset.filter(iep__studentID__pk=student_id)
+            try:
+                student = StudentProfile.objects.get(pk=student_id, teacher=teacher)
+            except (StudentProfile.DoesNotExist, ValueError):
+                return IEPGoal.objects.none()
+
+            from resources.views import _latest_saved_iep_for_student, _sync_goals_from_generated_details
+            latest_iep = _latest_saved_iep_for_student(student)
+            if latest_iep:
+                _sync_goals_from_generated_details(latest_iep)
+
+            if latest:
+                if not latest_iep:
+                    return IEPGoal.objects.none()
+                return IEPGoal.objects.filter(iep=latest_iep).select_related('iep__studentID').prefetch_related('objective_rows').order_by('goalID')
+
+            return IEPGoal.objects.filter(iep__studentID=student).select_related('iep__studentID').prefetch_related('objective_rows').order_by('goalID')
+
         if iep_id:
-            return queryset.filter(iep__iepID=iep_id)
-        return queryset
+            return IEPGoal.objects.filter(iep__iepID=iep_id, iep__studentID__teacher=teacher).prefetch_related('objective_rows')
+
+        return IEPGoal.objects.filter(iep__studentID__teacher=teacher).select_related('iep__studentID').prefetch_related('objective_rows')
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -483,6 +495,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
         fac_qualifiers      = data.get('facilitator_qualifiers', '')
         generated_details   = data.get('generatedDetails', {})
         special_factors     = generated_details.get('special_factors_considerations', [])
+        special_factor_notes = data.get('special_factor_notes') or generated_details.get('specialFactorNotes', '')
  
         if not special_factors:
             return Response(
@@ -498,6 +511,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
             f"Learning Barriers: {learning_barriers} ({barrier_qualifiers}). "
             f"Facilitators: {facilitators} ({fac_qualifiers}). "
             f"Accommodations: {accommodations}."
+            + (f" Special Factors: {special_factor_notes}." if special_factor_notes else "")
             + (f" Teacher Instructions: {teacher_prompt}." if teacher_prompt else "")
         )
  
@@ -521,6 +535,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
             student_context=student_context,
             goal_area=goal_area,
             teacher_prompt=teacher_prompt,
+            special_factor_notes=special_factor_notes,
         )
 
         if error:
@@ -540,7 +555,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
     def _generate_validated_goal(
         self, iep_id, student_name, difficulty, assistive_tech,
         accommodations, facilitators, student_context,
-        goal_area='', teacher_prompt=''
+        goal_area='', teacher_prompt='', special_factor_notes=''
     ):
         """
         Runs the R-GORI generation loop for a single difficulty area.
@@ -555,7 +570,8 @@ class GenerateIEPGoalsFromIEPView(APIView):
                 # --- Step A: Generate annual goal ---
                 annual_goal = self._generate_annual_goal(
                     student_name, difficulty, assistive_tech, accommodations,
-                    facilitators, goal_area, teacher_prompt
+                    facilitators, goal_area, teacher_prompt,
+                    special_factor_notes=special_factor_notes
                 )
  
                 # --- Step B: Validate with R-GORI ---
@@ -567,7 +583,8 @@ class GenerateIEPGoalsFromIEPView(APIView):
                 # --- Step C: Generate objective rows for this goal ---
                 objective_rows = self._generate_objective_rows(
                     student_name, difficulty, assistive_tech,
-                    annual_goal, facilitators, goal_area
+                    annual_goal, facilitators, goal_area,
+                    special_factor_notes=special_factor_notes
                 )
  
                 # Use the teacher-selected goal_area as the authoritative subject category;
@@ -618,11 +635,15 @@ class GenerateIEPGoalsFromIEPView(APIView):
  
     def _generate_annual_goal(
         self, student_name, difficulty, assistive_tech, accommodations,
-        facilitators, goal_area='', teacher_prompt=''
+        facilitators, goal_area='', teacher_prompt='', special_factor_notes=''
     ):
         teacher_instructions = (
             f"Additional teacher instructions: {teacher_prompt}\n"
             if teacher_prompt else ""
+        )
+        special_factors_line = (
+            f"Special Factors / Behavioral and Sensory Notes: {special_factor_notes}\n"
+            if special_factor_notes else ""
         )
         goal_area_line = (
             f"PRIMARY Goal Area (this MUST be the focus of the goal): {goal_area}\n"
@@ -643,16 +664,22 @@ class GenerateIEPGoalsFromIEPView(APIView):
             f"Assistive Technology Available: {assistive_tech}\n"
             f"Accommodations: {accommodations}\n"
             f"Support Personnel: {facilitators}\n"
+            f"{special_factors_line}"
             f"{teacher_instructions}\n"
             f"Write the annual IEP goal for this student. It MUST target the PRIMARY Goal Area above."
             f"☁️/user☁️"
         )
-        return CustomLlamaService.generate_text(prompt, max_new_tokens=200)
+        goal_text, _ = AIEngineService.generate_text(prompt, max_tokens=200)
+        return goal_text.strip()
  
  
     def _generate_objective_rows(
-        self, student_name, difficulty, assistive_tech, annual_goal, facilitators, goal_area=''
+        self, student_name, difficulty, assistive_tech, annual_goal, facilitators, goal_area='', special_factor_notes=''
     ):
+        special_factors_line = (
+            f"Special Factors / Behavioral and Sensory Notes: {special_factor_notes}\n"
+            if special_factor_notes else ""
+        )
         goal_area_instruction = (
             f"ALL objectives MUST be stepping-stone skills toward the PRIMARY Goal Area: {goal_area}. "
             f"Do NOT write objectives about communication, social behavior, or any other domain. "
@@ -676,7 +703,8 @@ class GenerateIEPGoalsFromIEPView(APIView):
             f"Areas of Difficulty (all Section B rows, consolidated): {difficulty}\n"
             f"Assistive Technology: {assistive_tech}\n"
             f"Annual Goal: {annual_goal}\n"
-            f"Support Personnel: {facilitators}\n\n"
+            f"Support Personnel: {facilitators}\n"
+            f"{special_factors_line}\n"
             f"Generate 2-3 enroute objective rows as a JSON array. "
             f"Each enroute_objectives entry must be a distinct, measurable sub-skill "
             f"that leads toward the annual goal above (e.g. 'Student will recognize numbers 0–5 with 80% accuracy')."
