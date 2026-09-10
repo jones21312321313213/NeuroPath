@@ -15,6 +15,17 @@ const ASSISTIVE_TECH_PRESETS = [
 
 const MAX_ASSISTIVE_TECH_ITEMS = 5;
 
+const MAX_SPECIAL_FACTOR_NOTES_LENGTH = 500;
+
+const SPECIAL_FACTOR_NOTES_PRESETS = [
+  "Positive Behavior Support Plan (PBSP) active",
+  "Sensory sensitivity: frequent quiet breaks",
+  "Non-verbal communication: requires AAC",
+  "Visual schedules & explicit verbal cues",
+  "Fine motor fatigue: allow speech-to-text",
+  "Transition warnings & structured routine",
+];
+
 const barrierQualifierOptions = [
   "No barrier",
   "Mild barrier",
@@ -92,6 +103,112 @@ function TextAreaField({ label, placeholder, value, onChange, rows = 3 }) {
         onChange={onChange}
         className="form-textarea"
       />
+    </div>
+  );
+}
+
+function SpecialFactorNotesField({
+  value = "",
+  onChange,
+  label = "Other special factor notes",
+  placeholder = "Add notes about behavior, communication, sensory, or other special factors.",
+  id = "special-factor-notes-input",
+}) {
+  const currentLength = value?.length || 0;
+  const isLimitReached = currentLength >= MAX_SPECIAL_FACTOR_NOTES_LENGTH;
+  const isNearLimit = currentLength >= MAX_SPECIAL_FACTOR_NOTES_LENGTH * 0.9;
+
+  const handleAddPreset = (preset) => {
+    if (isLimitReached) return;
+    const trimmed = (value || "").trim();
+    if (!trimmed) {
+      onChange(preset.slice(0, MAX_SPECIAL_FACTOR_NOTES_LENGTH));
+      return;
+    }
+    if (trimmed.toLowerCase().includes(preset.toLowerCase())) return;
+    const appended = `${trimmed}; ${preset}`;
+    onChange(appended.slice(0, MAX_SPECIAL_FACTOR_NOTES_LENGTH));
+  };
+
+  const handleClear = () => {
+    onChange("");
+  };
+
+  return (
+    <div className="form-group iep-special-notes-field">
+      <div className="iep-special-notes-header">
+        <label htmlFor={id} className="form-label">
+          {label}
+        </label>
+        {currentLength > 0 && (
+          <button
+            type="button"
+            className="iep-notes-clear-btn"
+            onClick={handleClear}
+            aria-label="Clear notes"
+          >
+            ✕ Clear notes
+          </button>
+        )}
+      </div>
+
+      <div className="iep-preset-chips-container">
+        <span className="iep-preset-chips-label">Quick Suggestions:</span>
+        <div className="iep-preset-chips-list">
+          {SPECIAL_FACTOR_NOTES_PRESETS.map((preset) => {
+            const wouldExceed =
+              currentLength + (currentLength > 0 ? 2 : 0) + preset.length >
+              MAX_SPECIAL_FACTOR_NOTES_LENGTH;
+            const isDisabled = isLimitReached || wouldExceed;
+            return (
+              <button
+                key={preset}
+                type="button"
+                className="iep-preset-chip"
+                onClick={() => handleAddPreset(preset)}
+                disabled={isDisabled}
+                title={
+                  isDisabled
+                    ? "Note character limit reached"
+                    : `Add note: ${preset}`
+                }
+              >
+                + {preset}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <textarea
+        id={id}
+        rows={3}
+        maxLength={MAX_SPECIAL_FACTOR_NOTES_LENGTH}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="form-textarea iep-special-notes-textarea"
+        aria-describedby={`${id}-helper ${id}-counter`}
+      />
+
+      <div className="iep-textarea-footer">
+        <span id={`${id}-helper`} className="iep-notes-helper">
+          Notes guide AI goal synthesis and classroom accommodations.
+        </span>
+        <span
+          id={`${id}-counter`}
+          className={`iep-char-counter ${
+            isLimitReached
+              ? "iep-char-limit-reached"
+              : isNearLimit
+              ? "iep-char-limit-warning"
+              : ""
+          }`}
+        >
+          {currentLength} / {MAX_SPECIAL_FACTOR_NOTES_LENGTH} characters
+          {isLimitReached ? " (Maximum reached)" : ""}
+        </span>
+      </div>
     </div>
   );
 }
@@ -843,12 +960,12 @@ function ViewIEPPanel({
           {isEditing && (
             <div className="iep-edit-panel">
               <h3>Edit Considerations of Special Factors</h3>
-              <TextAreaField
+              <SpecialFactorNotesField
+                id="edit-special-factor-notes"
                 label="Other special factor notes"
                 placeholder="Add notes about behavior, communication, sensory, or other special factors."
                 value={editSpecialFactorNotes}
-                onChange={(e) => setEditSpecialFactorNotes(e.target.value)}
-                rows={3}
+                onChange={(val) => setEditSpecialFactorNotes(val)}
               />
               <h3 style={{ marginTop: 22 }}>
                 Edit Section B: Difficulties, Barriers, and Enabling Supports
@@ -1485,9 +1602,6 @@ export default function IEPGenerationPage({
   }, [students, searchTerm]);
 
   // ── Form helpers ──────────────────────────────────────────────────────────
-
-  const setField = (field) => (e) =>
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
   const addAssistiveTechRow = (value = "") =>
     setForm((prev) => {
@@ -2159,12 +2273,14 @@ export default function IEPGenerationPage({
                     </div>
                   </div>
 
-                  <TextAreaField
+                  <SpecialFactorNotesField
+                    id="step1-special-factor-notes"
                     label="Other special factor notes"
                     placeholder="Add notes about behavior, communication, sensory, or other special factors."
                     value={form.specialFactorNotes}
-                    onChange={setField("specialFactorNotes")}
-                    rows={3}
+                    onChange={(val) =>
+                      setForm((prev) => ({ ...prev, specialFactorNotes: val }))
+                    }
                   />
 
                   <SectionHeader

@@ -1536,6 +1536,81 @@ button.sidebar-header {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ── Special Factor Notes UX Enhancements ───────────────────────────────── */
+.iep-special-notes-field {
+  margin-top: 18px;
+  margin-bottom: 22px;
+}
+
+.iep-special-notes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.iep-special-notes-header .form-label {
+  margin-bottom: 0;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.iep-notes-clear-btn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.iep-notes-clear-btn:hover {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.iep-special-notes-textarea {
+  resize: vertical;
+  min-height: 80px;
+  width: 100%;
+}
+
+.iep-textarea-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 12px;
+  gap: 12px;
+}
+
+.iep-notes-helper {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.iep-char-counter {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.iep-char-limit-warning {
+  color: #d97706;
+  font-weight: 600;
+}
+
+.iep-char-limit-reached {
+  color: #dc2626;
+  font-weight: 700;
+}
 .iep-difficulty-list {
   display: flex;
   flex-direction: column;
