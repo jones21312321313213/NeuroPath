@@ -1,8 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import IEPGenerationPage from "./IepGenerationPage";
 import { studentsAPI, iepAPI } from "../api/client";
+
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+    useParams: () => ({}),
+  };
+});
 
 vi.mock("../api/client", () => ({
   studentsAPI: {
@@ -66,7 +77,11 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
   });
 
   it("renders 'Other Special Factor Notes' under Considerations of Special Factors in View mode", async () => {
-    render(<IEPGenerationPage mode="view" initialStudentId={1} />);
+    render(
+      <MemoryRouter>
+        <IEPGenerationPage mode="view" initialStudentId={1} />
+      </MemoryRouter>,
+    );
 
     await waitFor(() => {
       expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
@@ -80,7 +95,11 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
 
   it("allows editing Other Special Factor Notes in Edit mode", async () => {
     const user = userEvent.setup();
-    render(<IEPGenerationPage mode="view" initialStudentId={1} />);
+    render(
+      <MemoryRouter>
+        <IEPGenerationPage mode="view" initialStudentId={1} />
+      </MemoryRouter>,
+    );
 
     await waitFor(() => {
       expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
@@ -120,7 +139,11 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
 
   it("allows adding a goal manually in Step 2 without AI", async () => {
     const user = userEvent.setup();
-    render(<IEPGenerationPage mode="generate" initialStudentId={1} />);
+    render(
+      <MemoryRouter>
+        <IEPGenerationPage mode="generate" initialStudentId={1} />
+      </MemoryRouter>,
+    );
 
     await waitFor(() => {
       expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
@@ -167,7 +190,11 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
 
   it("passes special_factor_notes to iepAPI.generateGoalsFromIep in handleGenerateFinalIep", async () => {
     const user = userEvent.setup();
-    render(<IEPGenerationPage mode="generate" initialStudentId={1} />);
+    render(
+      <MemoryRouter>
+        <IEPGenerationPage mode="generate" initialStudentId={1} />
+      </MemoryRouter>,
+    );
 
     await waitFor(() => {
       expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
