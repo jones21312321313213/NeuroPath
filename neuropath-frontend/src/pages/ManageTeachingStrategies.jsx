@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "../styles/ManageTeachingStrategies.css";
 import { iepAPI, teachingStrategiesAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -212,6 +213,7 @@ function StrategyRowList({
 
 // ── Generate Tab ──────────────────────────────────────────────────────────────
 function GenerateTab({ onSave, setActivePage }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
@@ -296,7 +298,10 @@ function GenerateTab({ onSave, setActivePage }) {
             description="You need at least one registered student profile before generating a teaching strategy."
             actionLabel="Create Student Profile"
             actionIcon="👤"
-            onAction={() => setActivePage && setActivePage("create-student-profile")}
+            onAction={() => {
+              navigate("/dashboard/students/create");
+              if (setActivePage) setActivePage("create-student-profile");
+            }}
           />
         ) : (
           <div className="ts-student-grid">
@@ -343,7 +348,10 @@ function GenerateTab({ onSave, setActivePage }) {
               description="Teaching strategies are generated directly from saved IEP goals. Generate and save an IEP with goals for this student first."
               actionLabel="Generate IEP"
               actionIcon="✦"
-              onAction={() => setActivePage && setActivePage("iep-generation")}
+              onAction={() => {
+                navigate("/dashboard/iep/generate");
+                if (setActivePage) setActivePage("iep-generation");
+              }}
             />
           ) : (
             <div className="ts-goal-grid">
@@ -510,6 +518,7 @@ function StrategyDetails({ strategy, onBack }) {
 
 // ── View Tab ──────────────────────────────────────────────────────────────────
 function ViewTab({ setActivePage, onGoToGenerate }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
@@ -611,7 +620,10 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
           description="Register a student profile first to view and manage teaching strategies."
           actionLabel="Create Student Profile"
           actionIcon="👤"
-          onAction={() => setActivePage && setActivePage("create-student-profile")}
+          onAction={() => {
+            navigate("/dashboard/students/create");
+            if (setActivePage) setActivePage("create-student-profile");
+          }}
         />
       ) : (
         <div className="ts-student-grid">
@@ -637,6 +649,7 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
 
 // ── Edit Tab ──────────────────────────────────────────────────────────────────
 function EditTab({ setActivePage, onGoToGenerate }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
@@ -843,7 +856,10 @@ function EditTab({ setActivePage, onGoToGenerate }) {
           description="Register a student profile first to manage teaching strategies."
           actionLabel="Create Student Profile"
           actionIcon="👤"
-          onAction={() => setActivePage && setActivePage("create-student-profile")}
+          onAction={() => {
+            navigate("/dashboard/students/create");
+            if (setActivePage) setActivePage("create-student-profile");
+          }}
         />
       ) : (
         <div className="ts-student-grid">
@@ -869,6 +885,7 @@ function EditTab({ setActivePage, onGoToGenerate }) {
 
 // ── Delete Tab ────────────────────────────────────────────────────────────────
 function DeleteTab({ setActivePage, onGoToGenerate }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
@@ -1011,7 +1028,10 @@ function DeleteTab({ setActivePage, onGoToGenerate }) {
           description="Register a student profile first to manage teaching strategies."
           actionLabel="Create Student Profile"
           actionIcon="👤"
-          onAction={() => setActivePage && setActivePage("create-student-profile")}
+          onAction={() => {
+            navigate("/dashboard/students/create");
+            if (setActivePage) setActivePage("create-student-profile");
+          }}
         />
       ) : (
         <div className="ts-student-grid">

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import "../styles/ManageLessonPlans.css";
 import { iepAPI, lessonPlansAPI, studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -315,6 +316,7 @@ function StudentGrid({ students, selectedID, onSelect }) {
 
 // ── Generate Tab ──────────────────────────────────────────────────────────────
 function GenerateTab({ onSave, setActivePage }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
@@ -426,7 +428,10 @@ function GenerateTab({ onSave, setActivePage }) {
             description="You need at least one registered student profile before generating a lesson plan."
             actionLabel="Create Student Profile"
             actionIcon="👤"
-            onAction={() => setActivePage && setActivePage("create-student-profile")}
+            onAction={() => {
+              navigate("/dashboard/students/create");
+              if (setActivePage) setActivePage("create-student-profile");
+            }}
           />
         ) : (
           <StudentGrid
@@ -456,7 +461,10 @@ function GenerateTab({ onSave, setActivePage }) {
               description="Lesson plans are generated directly from saved IEP goals. Generate and save an IEP with goals for this student first."
               actionLabel="Generate IEP"
               actionIcon="✦"
-              onAction={() => setActivePage && setActivePage("iep-generation")}
+              onAction={() => {
+                navigate("/dashboard/iep/generate");
+                if (setActivePage) setActivePage("iep-generation");
+              }}
             />
           ) : (
             <>
@@ -611,6 +619,7 @@ function GenerateTab({ onSave, setActivePage }) {
 
 // ── View Tab ──────────────────────────────────────────────────────────────────
 function ViewTab({ setActivePage, onGoToGenerate }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
@@ -873,8 +882,9 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
               setSearch("");
               setFilterGrade("");
               setFilterAge("");
-            } else if (setActivePage) {
-              setActivePage("create-student-profile");
+            } else {
+              navigate("/dashboard/students/create");
+              if (setActivePage) setActivePage("create-student-profile");
             }
           }}
         />

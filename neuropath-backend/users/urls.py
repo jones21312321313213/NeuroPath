@@ -6,13 +6,14 @@ from .views import( StudentProfileListCreateView,
                    TeacherCreateController,
                    TeacherLoginController,
                    TeacherLogoutController,
-                   TeacherProfileUpdateController)
+                   TeacherProfileUpdateController,
+                   TeacherTutorialCompleteController)
 
 urlpatterns = [
     path('register/', TeacherCreateController.as_view(), name='teacher-register'),
     path('login/', TeacherLoginController.as_view(), name='teacher-login'),
     path('logout/', TeacherLogoutController.as_view(), name='teacher-logout'),
-    
+    path('tutorial-complete/', TeacherTutorialCompleteController.as_view(), name='teacher-tutorial-complete'),
     
     path('teachers/', TeacherCreateController.as_view(), name='teacher-create'),
     

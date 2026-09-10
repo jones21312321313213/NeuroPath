@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { iepAPI, studentsAPI } from "../api/client";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -374,6 +375,7 @@ function ViewIEPPanel({
   totalStudents = 0,
   setActivePage,
 }) {
+  const navigate = useNavigate();
   const selectedStudentId = getStudentId(selectedStudent);
   const studentIeps = selectedStudentId
     ? ieps.filter(
@@ -680,12 +682,15 @@ function ViewIEPPanel({
               ? "You don't have any students registered yet. Create a student profile first to view or generate IEPs."
               : "The IEP preview will appear here after selecting a student from the search above."}
           </span>
-          {totalStudents === 0 && setActivePage && (
+          {totalStudents === 0 && (
             <button
               type="button"
               className="btn btn-submit"
               style={{ marginTop: 12 }}
-              onClick={() => setActivePage("create-student-profile")}
+              onClick={() => {
+                navigate("/dashboard/students/create");
+                if (setActivePage) setActivePage("create-student-profile");
+              }}
             >
               + CREATE STUDENT
             </button>
@@ -705,16 +710,17 @@ function ViewIEPPanel({
             No saved IEP records were found for this student. Use Generate IEP to
             create one.
           </span>
-          {setActivePage && (
-            <button
-              type="button"
-              className="btn btn-submit"
-              style={{ marginTop: 12 }}
-              onClick={() => setActivePage("generate-iep")}
-            >
-              ✦ GENERATE IEP
-            </button>
-          )}
+          <button
+            type="button"
+            className="btn btn-submit"
+            style={{ marginTop: 12 }}
+            onClick={() => {
+              navigate("/dashboard/iep/generate");
+              if (setActivePage) setActivePage("generate-iep");
+            }}
+          >
+            ✦ GENERATE IEP
+          </button>
         </div>
       ) : !selectedIep ? (
         <div className="iep-empty-state">
@@ -760,6 +766,67 @@ function ViewIEPPanel({
               {selectedIep.formattedDate || "Date unavailable"}
             </p>
           </div>
+
+          {/* Post-IEP Next Steps / Classroom Tools */}
+          <section
+            className="iep-next-steps-card"
+            aria-label="Instructional Support Next Steps"
+          >
+            <header className="iep-next-steps-header">
+              <span className="iep-next-steps-icon" aria-hidden="true">💡</span>
+              <div>
+                <h4>Instructional Support: Use this IEP in the Classroom</h4>
+                <p>
+                  This IEP is ready. Generate tailored lesson plans, visual aids, and teaching strategies based on this student's goals.
+                </p>
+              </div>
+            </header>
+            <nav
+              className="iep-next-steps-grid"
+              aria-label="Classroom tool actions"
+            >
+              <button
+                type="button"
+                className="iep-next-step-btn"
+                onClick={() => {
+                  navigate("/dashboard/lessons");
+                  if (setActivePage) setActivePage("manage-lesson-plans");
+                }}
+              >
+                <span>📚</span> Create Lesson Plan
+              </button>
+              <button
+                type="button"
+                className="iep-next-step-btn"
+                onClick={() => {
+                  navigate("/dashboard/visual-aids");
+                  if (setActivePage) setActivePage("manage-visual-aids");
+                }}
+              >
+                <span>🖼️</span> Create Visual Aid
+              </button>
+              <button
+                type="button"
+                className="iep-next-step-btn iep-next-step-btn-secondary"
+                onClick={() => {
+                  navigate("/dashboard/strategies");
+                  if (setActivePage) setActivePage("manage-teaching-strategies");
+                }}
+              >
+                <span>🎯</span> Teaching Strategies
+              </button>
+              <button
+                type="button"
+                className="iep-next-step-btn iep-next-step-btn-ghost"
+                onClick={() => {
+                  navigate("/dashboard");
+                  if (setActivePage) setActivePage("overview");
+                }}
+              >
+                <span>🏠</span> Back to Overview
+              </button>
+            </nav>
+          </section>
 
           {/* Inline edit panel */}
           {isEditing && (
@@ -1126,7 +1193,11 @@ export default function IEPGenerationPage({
   mode = "generate",
   initialStudentId = null,
   setActivePage,
+  setSelectedStudentId,
 }) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const effectiveStudentId = id || initialStudentId;
   const activeView = mode;
 
   const currentUser = useMemo(() => {
@@ -1226,19 +1297,20 @@ export default function IEPGenerationPage({
     });
   }, [activeView]);
 
-  // Auto-select student if initialStudentId is provided
+  // Auto-select student if effectiveStudentId is provided
   useEffect(() => {
-    if (!initialStudentId || !students.length) return;
+    if (!effectiveStudentId || !students.length) return;
     const found = students.find(
-      (s) => String(getStudentId(s)) === String(initialStudentId),
+      (s) => String(getStudentId(s)) === String(effectiveStudentId),
     );
     if (found) {
       queueMicrotask(() => {
         setSelectedStudent(found);
         setSearchTerm(getStudentName(found));
+        if (setSelectedStudentId) setSelectedStudentId(getStudentId(found));
       });
     }
-  }, [initialStudentId, students]);
+  }, [effectiveStudentId, students, setSelectedStudentId]);
 
   // Load students
   useEffect(() => {
@@ -1256,13 +1328,14 @@ export default function IEPGenerationPage({
           : data.results || data.data || [];
         if (mounted) {
           setStudents(list);
-          if (initialStudentId) {
+          if (effectiveStudentId) {
             const found = list.find(
-              (s) => String(getStudentId(s)) === String(initialStudentId),
+              (s) => String(getStudentId(s)) === String(effectiveStudentId),
             );
             if (found) {
               setSelectedStudent(found);
               setSearchTerm(getStudentName(found));
+              if (setSelectedStudentId) setSelectedStudentId(getStudentId(found));
             }
           }
         }
@@ -1279,7 +1352,7 @@ export default function IEPGenerationPage({
     return () => {
       mounted = false;
     };
-  }, [currentUserId, initialStudentId]);
+  }, [currentUserId, effectiveStudentId, setSelectedStudentId]);
 
   // Load IEPs when student changes
   useEffect(() => {
@@ -1926,12 +1999,15 @@ export default function IEPGenerationPage({
                   ? "You need at least one registered student profile before generating an Individualized Education Plan (IEP)."
                   : "Search a student above to load their profile and begin filling out the IEP form."}
               </span>
-              {students.length === 0 && setActivePage && (
+              {students.length === 0 && (
                 <button
                   type="button"
                   className="btn btn-submit"
                   style={{ marginTop: 12 }}
-                  onClick={() => setActivePage("create-student-profile")}
+                  onClick={() => {
+                    navigate("/dashboard/students/create");
+                    if (setActivePage) setActivePage("create-student-profile");
+                  }}
                 >
                   + CREATE STUDENT
                 </button>
@@ -2336,10 +2412,95 @@ export default function IEPGenerationPage({
                           <p>
                             The IEP has been saved and the AI goals are
                             displayed below. You can view or edit the full
-                            record on the View IEP page.
+                            record on the View IEP page, or proceed to Classroom Tools.
                           </p>
+                          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <button
+                              type="button"
+                              className="btn btn-submit"
+                              style={{ padding: "6px 14px", fontSize: 12 }}
+                              onClick={() => {
+                                navigate("/dashboard/lessons");
+                                if (setActivePage) setActivePage("manage-lesson-plans");
+                              }}
+                            >
+                              📚 Open Classroom Tools
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-back"
+                              style={{ padding: "6px 14px", fontSize: 12 }}
+                              onClick={() => {
+                                navigate("/dashboard/iep/view");
+                                if (setActivePage) setActivePage("view-iep");
+                              }}
+                            >
+                              View Saved IEP
+                            </button>
+                          </div>
                         </div>
                       </div>
+
+                      {/* --- POST-IEP NEXT STEPS TO CLASSROOM TOOLS --- */}
+                      <section
+                        className="iep-next-steps-card"
+                        aria-label="Post-IEP Next Steps"
+                      >
+                        <header className="iep-next-steps-header">
+                          <span className="iep-next-steps-icon" aria-hidden="true">🚀</span>
+                          <div>
+                            <h4>Next Steps: Classroom Tools & Instructional Support</h4>
+                            <p>
+                              Your IEP is saved and ready! Put this IEP into action by creating aligned classroom materials or returning to your dashboard.
+                            </p>
+                          </div>
+                        </header>
+                        <nav
+                          className="iep-next-steps-grid"
+                          aria-label="Post-IEP tool actions"
+                        >
+                          <button
+                            type="button"
+                            className="iep-next-step-btn"
+                            onClick={() => {
+                              navigate("/dashboard/lessons");
+                              if (setActivePage) setActivePage("manage-lesson-plans");
+                            }}
+                          >
+                            <span>📚</span> Create Lesson Plan
+                          </button>
+                          <button
+                            type="button"
+                            className="iep-next-step-btn"
+                            onClick={() => {
+                              navigate("/dashboard/visual-aids");
+                              if (setActivePage) setActivePage("manage-visual-aids");
+                            }}
+                          >
+                            <span>🖼️</span> Create Visual Aid
+                          </button>
+                          <button
+                            type="button"
+                            className="iep-next-step-btn iep-next-step-btn-secondary"
+                            onClick={() => {
+                              navigate("/dashboard/strategies");
+                              if (setActivePage) setActivePage("manage-teaching-strategies");
+                            }}
+                          >
+                            <span>🎯</span> Teaching Strategies
+                          </button>
+                          <button
+                            type="button"
+                            className="iep-next-step-btn iep-next-step-btn-ghost"
+                            onClick={() => {
+                              navigate("/dashboard");
+                              if (setActivePage) setActivePage("overview");
+                            }}
+                          >
+                            <span>🏠</span> Back to Overview
+                          </button>
+                        </nav>
+                      </section>
 
                       {goalSaveStatus === "saving" && (
                         <p className="iep-muted" style={{ marginBottom: 12 }}>

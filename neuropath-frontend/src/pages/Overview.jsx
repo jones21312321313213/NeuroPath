@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { studentsAPI, iepAPI, lessonPlansAPI, visualAidsAPI } from "../api/client";
+import {
+  useStudents,
+  useIepDashboardStats,
+  useLessonPlans,
+  useVisualAids,
+} from "../hooks/queries";
 import CountUp from "../components/ui/CountUp";
 
 const stats = [
@@ -27,21 +33,21 @@ const stats = [
 const quickActions = [
   {
     label: "Create Student Profile",
-    page: "create-student-profile",
+    path: "/dashboard/students/create",
     desc: "Add a new student profile and set up individual learning preferences.",
     icon: "ti-user-plus",
     color: "#0284c7",
   },
   {
     label: "View All Students",
-    page: "view-student-profile",
+    path: "/dashboard/students",
     desc: "Browse and manage existing student records.",
     icon: "ti-users",
     color: "#059669",
   },
   {
     label: "Generate IEP",
-    page: "iep-generation",
+    path: "/dashboard/iep/generate",
     desc: "Use AI to generate a personalized education plan.",
     icon: "ti-sparkles",
     color: "#7c3aed",
@@ -49,6 +55,7 @@ const quickActions = [
 ];
 
 export default function Overview({ setActivePage }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [greeting] = useState(() => {
     const h = new Date().getHours();
@@ -84,74 +91,20 @@ export default function Overview({ setActivePage }) {
     return () => clearInterval(timer);
   }, []);
 
-  const [counts, setCounts] = useState({
-    students: 0,
-    ieps: 0,
-    resources: 0,
-  });
+  const { data: students = [] } = useStudents(user?.id);
+  const { data: iepStats } = useIepDashboardStats();
+  const { data: lessons = [] } = useLessonPlans(user?.id);
+  const { data: visualAids = [] } = useVisualAids();
 
-  // Fetch total students
-  useEffect(() => {
-    if (!user?.id) return;
-    studentsAPI
-      .list(user.id)
-      .then((data) => {
-        const students = Array.isArray(data) ? data : (data?.results || []);
-        setCounts((prev) => ({ ...prev, students: students.length }));
-      })
-      .catch(() => {});
-  }, [user]);
+  const studentList = Array.isArray(students) ? students : (students?.results || []);
+  const lessonList = Array.isArray(lessons) ? lessons : (lessons?.results || []);
+  const visualAidList = Array.isArray(visualAids) ? visualAids : (visualAids?.results || []);
 
-  // Fetch active IEPs count from the dashboard-stats endpoint
-  useEffect(() => {
-    if (!user?.id) return;
-    iepAPI
-      .dashboardStats()
-      .then((data) => {
-        setCounts((prev) => ({
-          ...prev,
-          ieps: data?.active_ieps ?? 0,
-        }));
-      })
-      .catch(() => {});
-  }, [user]);
-
-  // Fetch classroom resources count (lesson plans + visual aids)
-  useEffect(() => {
-    if (!user?.id) return;
-    let cancelled = false;
-
-    const fetchLessons = lessonPlansAPI?.list
-      ? lessonPlansAPI.list().catch(() => [])
-      : Promise.resolve([]);
-    const fetchVisualAids = visualAidsAPI?.list
-      ? visualAidsAPI.list().catch(() => [])
-      : Promise.resolve([]);
-
-    Promise.all([fetchLessons, fetchVisualAids])
-      .then(([lessonsData, aidsData]) => {
-        if (cancelled) return;
-        const lessonCount = Array.isArray(lessonsData)
-          ? lessonsData.length
-          : Array.isArray(lessonsData?.results)
-            ? lessonsData.results.length
-            : 0;
-        const aidCount = Array.isArray(aidsData)
-          ? aidsData.length
-          : Array.isArray(aidsData?.results)
-            ? aidsData.results.length
-            : 0;
-        setCounts((prev) => ({
-          ...prev,
-          resources: lessonCount + aidCount,
-        }));
-      })
-      .catch(() => {});
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
+  const counts = {
+    students: studentList.length,
+    ieps: iepStats?.active_ieps ?? 0,
+    resources: lessonList.length + visualAidList.length,
+  };
 
   const hasStudents = counts.students > 0;
   const hasIeps = counts.ieps > 0;
@@ -163,6 +116,7 @@ export default function Overview({ setActivePage }) {
       desc: "Create a student profile to start personalizing learning plans.",
       icon: "ti-user-plus",
       color: "#0284c7",
+      path: "/dashboard/students/create",
       page: "create-student-profile",
       actionLabel: "Add Student",
       isUnlocked: true,
@@ -175,6 +129,7 @@ export default function Overview({ setActivePage }) {
       desc: "Use AI to create an individualized education plan with target goals.",
       icon: "ti-sparkles",
       color: "#7c3aed",
+      path: "/dashboard/iep/generate",
       page: "iep-generation",
       actionLabel: "Generate IEP",
       isUnlocked: hasStudents,
@@ -187,6 +142,7 @@ export default function Overview({ setActivePage }) {
       desc: "Generate tailored lesson plans, visual aids, and teaching strategies.",
       icon: "ti-books",
       color: "#059669",
+      path: "/dashboard/lessons",
       page: "manage-lesson-plans",
       actionLabel: "Open Tools",
       isUnlocked: hasIeps,
@@ -194,6 +150,11 @@ export default function Overview({ setActivePage }) {
       lockReason: "Requires a saved IEP",
     },
   ];
+
+  const handleNavigate = (path, page) => {
+    if (path) navigate(path);
+    if (setActivePage) setActivePage(path || page);
+  };
 
   return (
     <div className="page-content">
@@ -249,9 +210,9 @@ export default function Overview({ setActivePage }) {
           <div className="quick-actions">
             {quickActions.map((a) => (
               <button
-                key={a.page}
+                key={a.path || a.label}
                 className="quick-action-card"
-                onClick={() => setActivePage(a.page)}
+                onClick={() => handleNavigate(a.path, a.page)}
               >
                 <div
                   className="quick-action-icon-wrap"
@@ -370,7 +331,7 @@ export default function Overview({ setActivePage }) {
                         <button
                           type="button"
                           className="getting-started-btn primary-action-btn"
-                          onClick={() => setActivePage(step.page)}
+                          onClick={() => handleNavigate(step.path, step.page)}
                         >
                           <span>{step.actionLabel}</span>
                           <i

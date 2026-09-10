@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import "../styles/ManageVisualAids.css";
 import { visualAidsAPI, studentsAPI, iepAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -165,6 +166,7 @@ function AidRowList({
 
 // ── Generate Tab ──────────────────────────────────────────────────────────────
 function GenerateTab({ setActivePage }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
 
   // Step 1
@@ -268,7 +270,10 @@ function GenerateTab({ setActivePage }) {
             description="You need at least one registered student profile before generating a visual aid."
             actionLabel="Create Student Profile"
             actionIcon="👤"
-            onAction={() => setActivePage && setActivePage("create-student-profile")}
+            onAction={() => {
+              navigate("/dashboard/students/create");
+              if (setActivePage) setActivePage("create-student-profile");
+            }}
           />
         ) : (
           <StudentSelector
@@ -303,7 +308,10 @@ function GenerateTab({ setActivePage }) {
               description="Visual aids are generated directly from saved IEP goals. Generate and save an IEP with goals for this student first."
               actionLabel="Generate IEP"
               actionIcon="✦"
-              onAction={() => setActivePage && setActivePage("iep-generation")}
+              onAction={() => {
+                navigate("/dashboard/iep/generate");
+                if (setActivePage) setActivePage("iep-generation");
+              }}
             />
           ) : (
             <div className="va-form-group">
@@ -465,6 +473,7 @@ function GenerateTab({ setActivePage }) {
 
 // ── View Tab ──────────────────────────────────────────────────────────────────
 function ViewTab({ setActivePage, onGoToGenerate }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -531,7 +540,10 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
           description="Register a student profile first to view and manage visual aids."
           actionLabel="Create Student Profile"
           actionIcon="👤"
-          onAction={() => setActivePage && setActivePage("create-student-profile")}
+          onAction={() => {
+            navigate("/dashboard/students/create");
+            if (setActivePage) setActivePage("create-student-profile");
+          }}
         />
       ) : (
         <StudentSelector
@@ -576,6 +588,7 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
 
 // ── Delete Tab ────────────────────────────────────────────────────────────────
 function DeleteTab({ setActivePage, onGoToGenerate }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -660,7 +673,10 @@ function DeleteTab({ setActivePage, onGoToGenerate }) {
           description="Register a student profile first to manage visual aids."
           actionLabel="Create Student Profile"
           actionIcon="👤"
-          onAction={() => setActivePage && setActivePage("create-student-profile")}
+          onAction={() => {
+            navigate("/dashboard/students/create");
+            if (setActivePage) setActivePage("create-student-profile");
+          }}
         />
       ) : (
         <StudentSelector

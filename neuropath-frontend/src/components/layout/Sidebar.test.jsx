@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import { useAuth } from "../../context/AuthContext";
 
@@ -22,12 +23,12 @@ describe("Sidebar component", () => {
 
   it("renders Home and all major navigation categories", () => {
     render(
-      <Sidebar
-        activePage="home"
-        setActivePage={mockSetActivePage}
-        collapsed={false}
-        onToggleCollapse={mockOnToggleCollapse}
-      />,
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <Sidebar
+          collapsed={false}
+          onToggleCollapse={mockOnToggleCollapse}
+        />
+      </MemoryRouter>
     );
 
     expect(screen.getByText("Home")).toBeInTheDocument();
@@ -37,31 +38,15 @@ describe("Sidebar component", () => {
     expect(screen.getByText("Outcome Monitoring")).toBeInTheDocument();
   });
 
-  it("navigates to Home when Home button is clicked", async () => {
-    const user = userEvent.setup();
-    render(
-      <Sidebar
-        activePage="student-profiling"
-        setActivePage={mockSetActivePage}
-        collapsed={false}
-        onToggleCollapse={mockOnToggleCollapse}
-      />,
-    );
-
-    const homeBtn = screen.getByRole("button", { name: /home/i });
-    await user.click(homeBtn);
-    expect(mockSetActivePage).toHaveBeenCalledWith("home");
-  });
-
   it("calls onToggleCollapse when sidebar header or empty space is clicked", async () => {
     const user = userEvent.setup();
     render(
-      <Sidebar
-        activePage="home"
-        setActivePage={mockSetActivePage}
-        collapsed={false}
-        onToggleCollapse={mockOnToggleCollapse}
-      />,
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <Sidebar
+          collapsed={false}
+          onToggleCollapse={mockOnToggleCollapse}
+        />
+      </MemoryRouter>
     );
 
     const header = screen.getByTitle(/click to collapse sidebar/i);
@@ -75,12 +60,12 @@ describe("Sidebar component", () => {
 
   it("renders in collapsed mode with collapsed class", () => {
     const { container } = render(
-      <Sidebar
-        activePage="home"
-        setActivePage={mockSetActivePage}
-        collapsed={true}
-        onToggleCollapse={mockOnToggleCollapse}
-      />,
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <Sidebar
+          collapsed={true}
+          onToggleCollapse={mockOnToggleCollapse}
+        />
+      </MemoryRouter>
     );
 
     const aside = container.querySelector("aside.sidebar");
@@ -91,12 +76,12 @@ describe("Sidebar component", () => {
   it("expands child links when clicking on a category in expanded mode", async () => {
     const user = userEvent.setup();
     render(
-      <Sidebar
-        activePage="home"
-        setActivePage={mockSetActivePage}
-        collapsed={false}
-        onToggleCollapse={mockOnToggleCollapse}
-      />,
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <Sidebar
+          collapsed={false}
+          onToggleCollapse={mockOnToggleCollapse}
+        />
+      </MemoryRouter>
     );
 
     expect(screen.queryByText("Create Student Profile")).not.toBeInTheDocument();
@@ -105,5 +90,40 @@ describe("Sidebar component", () => {
 
     expect(screen.getByText("Create Student Profile")).toBeInTheDocument();
     expect(screen.getByText("View Student Profile")).toBeInTheDocument();
+  });
+
+  it("auto-expands matching categories based on current path", () => {
+    render(
+      <MemoryRouter initialEntries={["/dashboard/students/create"]}>
+        <Sidebar
+          collapsed={false}
+          onToggleCollapse={mockOnToggleCollapse}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText("Create Student Profile")).toBeInTheDocument();
+    expect(screen.getByText("View Student Profile")).toBeInTheDocument();
+  });
+
+  it("calls setActivePage callback when child link is clicked if setActivePage is provided", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <Sidebar
+          setActivePage={mockSetActivePage}
+          collapsed={false}
+          onToggleCollapse={mockOnToggleCollapse}
+        />
+      </MemoryRouter>
+    );
+
+    const profilingBtn = screen.getByRole("button", { name: /student profiling/i });
+    await user.click(profilingBtn);
+
+    const createBtn = screen.getByRole("button", { name: /create student profile/i });
+    await user.click(createBtn);
+
+    expect(mockSetActivePage).toHaveBeenCalledWith("/dashboard/students/create");
   });
 });
