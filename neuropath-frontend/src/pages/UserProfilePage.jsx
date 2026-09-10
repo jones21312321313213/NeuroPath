@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import ClickSpark from "../components/ui/ClickSpark";
+import { Card, CardHeader, CardBody, Button, Callout } from "../components/ui";
 import "../styles/UserProfilePage.css";
 import { useAuth } from "../context/AuthContext";
 
@@ -131,7 +132,7 @@ export default function MyProfile() {
         duration={500}
       >
         <div className="up-centering">
-          <div className="up-card" onClick={(e) => e.stopPropagation()}>
+          <Card as="section" className="up-card" onClick={(e) => e.stopPropagation()}>
             <input
               type="file"
               ref={fileInputRef}
@@ -141,12 +142,14 @@ export default function MyProfile() {
             />
 
             {/* Card header */}
-            <div className="up-card-header">
+            <CardHeader as="header" className="up-card-header">
               <span className="up-card-title">
                 {isEditing ? "⚙️ Edit Profile" : "👤 My Profile"}
               </span>
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 className="up-edit-btn"
                 onClick={() => {
                   setIsEditing(!isEditing);
@@ -155,187 +158,191 @@ export default function MyProfile() {
                 }}
               >
                 {isEditing ? "Cancel" : "Edit Info"}
-              </button>
-            </div>
+              </Button>
+            </CardHeader>
 
-            {/* Success banner */}
-            {saveSuccess && (
-              <div className="up-banner up-banner-success">
-                ✅ Profile updated successfully.
-              </div>
-            )}
-
-            {/* Error banner */}
-            {errors.general && (
-              <div className="up-banner up-banner-error">
-                ⚠️ {errors.general}
-              </div>
-            )}
-
-            {/* Avatar */}
-            <div className="up-avatar-block">
-              <div
-                className={`up-avatar ${isEditing ? "up-avatar-editable" : ""}`}
-                onClick={handleAvatarClick}
-              >
-                {avatarPreview ? (
-                  <img
-                    src={avatarPreview}
-                    alt="Profile"
-                    className="up-avatar-img"
-                  />
-                ) : (
-                  <span className="up-avatar-initials">{initials}</span>
-                )}
-                {isEditing && (
-                  <div className="up-avatar-overlay">
-                    <span>📸</span>
-                    <span>Change</span>
-                  </div>
-                )}
-              </div>
-              {!isEditing && (
-                <div className="up-avatar-info">
-                  <p className="up-name">
-                    {user?.first_name} {user?.last_name}
-                  </p>
-                  <p className="up-role">Special Education Teacher</p>
-                </div>
+            <CardBody className="p-0">
+              {/* Success banner */}
+              {saveSuccess && (
+                <Callout variant="success" className="mb-4">
+                  Profile updated successfully.
+                </Callout>
               )}
-            </div>
 
-            {/* ── VIEW MODE ── */}
-            {!isEditing ? (
-              <div className="up-fields">
-                {[
-                  { label: "First Name", value: user?.first_name },
-                  { label: "Last Name", value: user?.last_name },
-                  { label: "Email Address", value: user?.email },
-                  { label: "Role", value: "Special Education Teacher" },
-                ].map(({ label, value }) => (
-                  <div key={label} className="up-field-row">
-                    <span className="up-field-label">{label}</span>
-                    <span className="up-field-value">{value || "—"}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              /* ── EDIT MODE ── */
-              <form className="up-form" onSubmit={handleSubmit}>
-                <div className="up-form-row">
-                  <div className="form-group">
-                    <label className="form-label">First Name</label>
-                    <input
-                      name="firstName"
-                      type="text"
-                      value={form.firstName}
-                      onChange={handleChange}
-                      className={`form-input ${errors.firstName ? "up-input-error" : ""}`}
-                    />
-                    {errors.firstName && (
-                      <span className="up-field-error">{errors.firstName}</span>
-                    )}
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Last Name</label>
-                    <input
-                      name="lastName"
-                      type="text"
-                      value={form.lastName}
-                      onChange={handleChange}
-                      className={`form-input ${errors.lastName ? "up-input-error" : ""}`}
-                    />
-                    {errors.lastName && (
-                      <span className="up-field-error">{errors.lastName}</span>
-                    )}
-                  </div>
-                </div>
+              {/* Error banner */}
+              {errors.general && (
+                <Callout variant="error" className="mb-4">
+                  {errors.general}
+                </Callout>
+              )}
 
-                <div className="form-group">
-                  <label className="form-label">Email Address</label>
-                  <input
-                    name="email"
-                    type="email"
-                    value={form.email}
-                    onChange={handleChange}
-                    className={`form-input ${errors.email ? "up-input-error" : ""}`}
-                  />
-                  {errors.email && (
-                    <span className="up-field-error">{errors.email}</span>
+              {/* Avatar */}
+              <div className="up-avatar-block">
+                <div
+                  className={`up-avatar ${isEditing ? "up-avatar-editable" : ""}`}
+                  onClick={handleAvatarClick}
+                >
+                  {avatarPreview ? (
+                    <img
+                      src={avatarPreview}
+                      alt="Profile"
+                      className="up-avatar-img"
+                    />
+                  ) : (
+                    <span className="up-avatar-initials">{initials}</span>
+                  )}
+                  {isEditing && (
+                    <div className="up-avatar-overlay">
+                      <span>📸</span>
+                      <span>Change</span>
+                    </div>
                   )}
                 </div>
+                {!isEditing && (
+                  <div className="up-avatar-info">
+                    <p className="up-name">
+                      {user?.first_name} {user?.last_name}
+                    </p>
+                    <p className="up-role">Special Education Teacher</p>
+                  </div>
+                )}
+              </div>
 
-                <div className="up-divider">
-                  <span>Password</span>
-                  <p className="up-divider-hint">
-                    Leave blank to keep current password.
-                  </p>
+              {/* ── VIEW MODE ── */}
+              {!isEditing ? (
+                <div className="up-fields">
+                  {[
+                    { label: "First Name", value: user?.first_name },
+                    { label: "Last Name", value: user?.last_name },
+                    { label: "Email Address", value: user?.email },
+                    { label: "Role", value: "Special Education Teacher" },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="up-field-row">
+                      <span className="up-field-label">{label}</span>
+                      <span className="up-field-value">{value || "—"}</span>
+                    </div>
+                  ))}
                 </div>
+              ) : (
+                /* ── EDIT MODE ── */
+                <form className="up-form" onSubmit={handleSubmit}>
+                  <div className="up-form-row">
+                    <div className="form-group">
+                      <label className="form-label">First Name</label>
+                      <input
+                        name="firstName"
+                        type="text"
+                        value={form.firstName}
+                        onChange={handleChange}
+                        className={`form-input ${errors.firstName ? "up-input-error" : ""}`}
+                      />
+                      {errors.firstName && (
+                        <span className="up-field-error">{errors.firstName}</span>
+                      )}
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Last Name</label>
+                      <input
+                        name="lastName"
+                        type="text"
+                        value={form.lastName}
+                        onChange={handleChange}
+                        className={`form-input ${errors.lastName ? "up-input-error" : ""}`}
+                      />
+                      {errors.lastName && (
+                        <span className="up-field-error">{errors.lastName}</span>
+                      )}
+                    </div>
+                  </div>
 
-                <div className="form-group">
-                  <label className="form-label">New Password</label>
-                  <div className="up-pass-wrap">
+                  <div className="form-group">
+                    <label className="form-label">Email Address</label>
                     <input
-                      name="password"
+                      name="email"
+                      type="email"
+                      value={form.email}
+                      onChange={handleChange}
+                      className={`form-input ${errors.email ? "up-input-error" : ""}`}
+                    />
+                    {errors.email && (
+                      <span className="up-field-error">{errors.email}</span>
+                    )}
+                  </div>
+
+                  <div className="up-divider">
+                    <span>Password</span>
+                    <p className="up-divider-hint">
+                      Leave blank to keep current password.
+                    </p>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">New Password</label>
+                    <div className="up-pass-wrap">
+                      <input
+                        name="password"
+                        type={showPass ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={form.password}
+                        onChange={handleChange}
+                        className={`form-input up-pass-input ${errors.password ? "up-input-error" : ""}`}
+                      />
+                      <button
+                        type="button"
+                        className="up-pass-toggle"
+                        onClick={() => setShowPass(!showPass)}
+                      >
+                        {showPass ? "🙈" : "👁️"}
+                      </button>
+                    </div>
+                    {errors.password && (
+                      <span className="up-field-error">{errors.password}</span>
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Confirm New Password</label>
+                    <input
+                      name="confirmPassword"
                       type={showPass ? "text" : "password"}
                       placeholder="••••••••"
-                      value={form.password}
+                      value={form.confirmPassword}
                       onChange={handleChange}
-                      className={`form-input up-pass-input ${errors.password ? "up-input-error" : ""}`}
+                      className={`form-input ${errors.confirmPassword ? "up-input-error" : ""}`}
                     />
-                    <button
-                      type="button"
-                      className="up-pass-toggle"
-                      onClick={() => setShowPass(!showPass)}
-                    >
-                      {showPass ? "🙈" : "👁️"}
-                    </button>
+                    {errors.confirmPassword && (
+                      <span className="up-field-error">
+                        {errors.confirmPassword}
+                      </span>
+                    )}
                   </div>
-                  {errors.password && (
-                    <span className="up-field-error">{errors.password}</span>
-                  )}
-                </div>
 
-                <div className="form-group">
-                  <label className="form-label">Confirm New Password</label>
-                  <input
-                    name="confirmPassword"
-                    type={showPass ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={form.confirmPassword}
-                    onChange={handleChange}
-                    className={`form-input ${errors.confirmPassword ? "up-input-error" : ""}`}
-                  />
-                  {errors.confirmPassword && (
-                    <span className="up-field-error">
-                      {errors.confirmPassword}
-                    </span>
-                  )}
-                </div>
-
-                <div className="up-form-actions">
-                  <button
-                    type="button"
-                    className="btn btn-back"
-                    onClick={() => {
-                      setIsEditing(false);
-                      setErrors({});
-                      setSelectedFile(null);
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn btn-submit"
-                    disabled={loading}
-                  >
-                    {loading ? <span className="up-spinner" /> : "Save Changes"}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
+                  <div className="up-form-actions">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="btn-back"
+                      onClick={() => {
+                        setIsEditing(false);
+                        setErrors({});
+                        setSelectedFile(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      className="btn-submit"
+                      disabled={loading}
+                    >
+                      {loading ? <span className="up-spinner" /> : "Save Changes"}
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </CardBody>
+          </Card>
         </div>
       </ClickSpark>
     </div>
