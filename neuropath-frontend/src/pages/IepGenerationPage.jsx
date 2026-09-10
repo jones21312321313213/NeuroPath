@@ -4,6 +4,17 @@ import { iepAPI, studentsAPI } from "../api/client";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+const ASSISTIVE_TECH_PRESETS = [
+  "AAC Communication Board",
+  "Speech-to-Text / Audio Dictation",
+  "Visual Schedule & Choice Cards",
+  "Screen Magnifier / Reader",
+  "FM Listening System",
+  "Pencil Grip / Adaptive Utensils",
+];
+
+const MAX_ASSISTIVE_TECH_ITEMS = 5;
+
 const barrierQualifierOptions = [
   "No barrier",
   "Mild barrier",
@@ -430,18 +441,18 @@ function ViewIEPPanel({
   }, [selectedIep?.iepID]);
 
   useEffect(() => {
+    const specialNotes =
+      details?.specialFactorNotes || details?.special_factor_notes || "";
     queueMicrotask(() => {
       setIsEditing(false);
       setEditBarrierRows([]);
-      setEditSpecialFactorNotes(
-        details?.specialFactorNotes || details?.special_factor_notes || "",
-      );
+      setEditSpecialFactorNotes(specialNotes);
       setEditGoals([]);
       setGoalsToDelete([]);
       setIepGoals([]);
       setDeleteTarget(null);
     });
-  }, [selectedIep]);
+  }, [selectedIep, details?.specialFactorNotes, details?.special_factor_notes]);
 
   const barrierRowsToRender =
     (details?.barrierRows?.length ? details.barrierRows : null) ||
@@ -1400,7 +1411,7 @@ export default function IEPGenerationPage({
     return () => {
       mounted = false;
     };
-  }, [selectedStudent, currentUserId]);
+  }, [selectedStudent, currentUserId, activeView]);
 
   // Pre-fill form from student profile
   useEffect(() => {
@@ -1478,11 +1489,29 @@ export default function IEPGenerationPage({
   const setField = (field) => (e) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
-  const addAssistiveTechRow = () =>
-    setForm((prev) => ({
-      ...prev,
-      assistiveTechnologies: [...prev.assistiveTechnologies, ""],
-    }));
+  const addAssistiveTechRow = (value = "") =>
+    setForm((prev) => {
+      if (prev.assistiveTechnologies.length >= MAX_ASSISTIVE_TECH_ITEMS) {
+        return prev;
+      }
+      return {
+        ...prev,
+        assistiveTechnologies: [
+          ...prev.assistiveTechnologies,
+          typeof value === "string" ? value : "",
+        ],
+      };
+    });
+  const handleAddAssistiveTechPreset = (preset) =>
+    setForm((prev) => {
+      if (prev.assistiveTechnologies.length >= MAX_ASSISTIVE_TECH_ITEMS) {
+        return prev;
+      }
+      return {
+        ...prev,
+        assistiveTechnologies: [...prev.assistiveTechnologies, preset],
+      };
+    });
   const updateAssistiveTechRow = (i, v) =>
     setForm((prev) => ({
       ...prev,
@@ -2045,9 +2074,44 @@ export default function IEPGenerationPage({
                       </div>
                     </div>
                     <div>
-                      <h3 className="iep-small-title">
-                        Assistive Technologies Needed
-                      </h3>
+                      <div className="iep-assistive-tech-header">
+                        <h3 className="iep-small-title">
+                          Assistive Technologies Needed
+                        </h3>
+                        {form.assistiveTechnologies.length >=
+                          MAX_ASSISTIVE_TECH_ITEMS && (
+                          <span
+                            className="iep-limit-badge"
+                            data-testid="max-limit-badge"
+                          >
+                            (Maximum 5 reached)
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="iep-preset-chips-container">
+                        <span className="iep-preset-chips-label">
+                          Preset Suggestions:
+                        </span>
+                        <div className="iep-preset-chips-list">
+                          {ASSISTIVE_TECH_PRESETS.map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              className="iep-preset-chip"
+                              onClick={() => handleAddAssistiveTechPreset(preset)}
+                              disabled={
+                                form.assistiveTechnologies.length >=
+                                MAX_ASSISTIVE_TECH_ITEMS
+                              }
+                              title={`Add ${preset}`}
+                            >
+                              + {preset}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
                       <div className="iep-input-row-list">
                         {form.assistiveTechnologies.map((item, i) => (
                           <div key={i} className="iep-input-row-item">
@@ -2063,18 +2127,34 @@ export default function IEPGenerationPage({
                               type="button"
                               className="iep-link-danger"
                               onClick={() => removeAssistiveTechRow(i)}
+                              aria-label={`Remove technology ${i + 1}`}
                             >
                               ✕
                             </button>
                           </div>
                         ))}
-                        <button
-                          type="button"
-                          className="btn btn-back iep-add-row-inline"
-                          onClick={addAssistiveTechRow}
-                        >
-                          + Add Row
-                        </button>
+                        <div className="iep-add-row-actions">
+                          <button
+                            type="button"
+                            className="btn btn-back iep-add-row-inline"
+                            onClick={() => addAssistiveTechRow()}
+                            disabled={
+                              form.assistiveTechnologies.length >=
+                              MAX_ASSISTIVE_TECH_ITEMS
+                            }
+                          >
+                            + Add Row
+                          </button>
+                          {form.assistiveTechnologies.length >=
+                            MAX_ASSISTIVE_TECH_ITEMS && (
+                            <span
+                              className="iep-limit-badge"
+                              data-testid="max-limit-badge-inline"
+                            >
+                              (Maximum 5 reached)
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
