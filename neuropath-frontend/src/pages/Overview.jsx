@@ -1,7 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { studentsAPI, iepAPI, lessonPlansAPI, visualAidsAPI } from "../api/client";
+import {
+  useStudents,
+  useIepDashboardStats,
+  useLessonPlans,
+  useVisualAids,
+} from "../hooks/queries";
 import CountUp from "../components/ui/CountUp";
 
 const stats = [
@@ -86,74 +91,20 @@ export default function Overview({ setActivePage }) {
     return () => clearInterval(timer);
   }, []);
 
-  const [counts, setCounts] = useState({
-    students: 0,
-    ieps: 0,
-    resources: 0,
-  });
+  const { data: students = [] } = useStudents(user?.id);
+  const { data: iepStats } = useIepDashboardStats();
+  const { data: lessons = [] } = useLessonPlans(user?.id);
+  const { data: visualAids = [] } = useVisualAids();
 
-  // Fetch total students
-  useEffect(() => {
-    if (!user?.id) return;
-    studentsAPI
-      .list(user.id)
-      .then((data) => {
-        const students = Array.isArray(data) ? data : (data?.results || []);
-        setCounts((prev) => ({ ...prev, students: students.length }));
-      })
-      .catch(() => {});
-  }, [user]);
+  const studentList = Array.isArray(students) ? students : (students?.results || []);
+  const lessonList = Array.isArray(lessons) ? lessons : (lessons?.results || []);
+  const visualAidList = Array.isArray(visualAids) ? visualAids : (visualAids?.results || []);
 
-  // Fetch active IEPs count from the dashboard-stats endpoint
-  useEffect(() => {
-    if (!user?.id) return;
-    iepAPI
-      .dashboardStats()
-      .then((data) => {
-        setCounts((prev) => ({
-          ...prev,
-          ieps: data?.active_ieps ?? 0,
-        }));
-      })
-      .catch(() => {});
-  }, [user]);
-
-  // Fetch classroom resources count (lesson plans + visual aids)
-  useEffect(() => {
-    if (!user?.id) return;
-    let cancelled = false;
-
-    const fetchLessons = lessonPlansAPI?.list
-      ? lessonPlansAPI.list().catch(() => [])
-      : Promise.resolve([]);
-    const fetchVisualAids = visualAidsAPI?.list
-      ? visualAidsAPI.list().catch(() => [])
-      : Promise.resolve([]);
-
-    Promise.all([fetchLessons, fetchVisualAids])
-      .then(([lessonsData, aidsData]) => {
-        if (cancelled) return;
-        const lessonCount = Array.isArray(lessonsData)
-          ? lessonsData.length
-          : Array.isArray(lessonsData?.results)
-            ? lessonsData.results.length
-            : 0;
-        const aidCount = Array.isArray(aidsData)
-          ? aidsData.length
-          : Array.isArray(aidsData?.results)
-            ? aidsData.results.length
-            : 0;
-        setCounts((prev) => ({
-          ...prev,
-          resources: lessonCount + aidCount,
-        }));
-      })
-      .catch(() => {});
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
+  const counts = {
+    students: studentList.length,
+    ieps: iepStats?.active_ieps ?? 0,
+    resources: lessonList.length + visualAidList.length,
+  };
 
   const hasStudents = counts.students > 0;
   const hasIeps = counts.ieps > 0;
