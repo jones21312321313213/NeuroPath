@@ -78,6 +78,17 @@ export function useFocusTrap({
       const firstElement = currentFocusables[0];
       const lastElement = currentFocusables[currentFocusables.length - 1];
 
+      // If focus is outside the container, pull it back in
+      if (!container.contains(document.activeElement)) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          lastElement.focus();
+        } else {
+          firstElement.focus();
+        }
+        return;
+      }
+
       if (e.shiftKey) {
         // Shift + Tab: if on first element or container, cycle back to last
         if (

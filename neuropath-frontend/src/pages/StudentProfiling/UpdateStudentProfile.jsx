@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useId } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { studentsAPI } from "../../api/client";
 import { Modal, Button } from "../../components/ui";
@@ -35,9 +35,10 @@ function getProfileDetails(student) {
 }
 
 function FormField({ label, placeholder, value, onChange, type = "text" }) {
+  const generatedId = useId();
   const inputId = label
     ? `usp-field-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
-    : undefined;
+    : generatedId;
   return (
     <div className="form-group">
       <label htmlFor={inputId} className="form-label">{label}:</label>
@@ -54,9 +55,10 @@ function FormField({ label, placeholder, value, onChange, type = "text" }) {
 }
 
 function SelectField({ label, options, value, onChange }) {
+  const generatedId = useId();
   const selectId = label
     ? `usp-select-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
-    : undefined;
+    : generatedId;
   return (
     <div className="form-group">
       <label htmlFor={selectId} className="form-label">{label}:</label>
@@ -85,9 +87,10 @@ function TextAreaField({
   rows = 3,
   helpText,
 }) {
+  const generatedId = useId();
   const areaId = label
     ? `usp-area-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
-    : undefined;
+    : generatedId;
   return (
     <div className="form-group">
       <label htmlFor={areaId} className="form-label">{label}</label>
