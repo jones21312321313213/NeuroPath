@@ -71,7 +71,7 @@ class IEPDifficultySyncTests(APITestCase):
         markers = self.student.profileDetails.get('difficultyMarkers', [])
         # 'Difficulty in Seeing' was already there, 'Difficulty in Hearing' added once
         self.assertEqual(len(markers), 2)
-        self.assertEqual(markers[0], 'Difficulty in Seeing')
+        self.assertEqual(markers[0], 'difficulty in seeing')
         self.assertEqual(markers[1], 'Difficulty in Hearing')
 
     def test_rename_difficulty_in_section_b_replaces_old_difficulty(self):
