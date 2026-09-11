@@ -105,7 +105,7 @@ class PrivacyUtilsTestCase(TestCase):
 class AIPipelinePrivacyTestCase(TestCase):
     def setUp(self):
         from rest_framework.test import APIClient
-        from iep_management.models import IEPModel, IEPGoal
+        from iep_management.models import IEPModel
         self.client = APIClient()
         self.user = User.objects.create_user(username='alice', email='alice@school.edu', password='pw')
         self.teacher = Teacher.objects.create(name='Alice Teacher', email='alice@school.edu', passwordHash='pw')
