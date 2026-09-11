@@ -38,19 +38,7 @@ function EmptyState({
     <div className="ts-empty">
       <span className="ts-empty-icon">{icon}</span>
       <p className="ts-empty-text">{message}</p>
-      {description && (
-        <p
-          style={{
-            fontSize: 13,
-            color: "#5a7491",
-            maxWidth: 480,
-            margin: "6px auto 0",
-            lineHeight: 1.5,
-          }}
-        >
-          {description}
-        </p>
-      )}
+      {description && <p className="ts-empty-desc">{description}</p>}
       {actionLabel && onAction && (
         <button
           type="button"
@@ -745,16 +733,22 @@ function EditTab({ setActivePage, onGoToGenerate }) {
         )}
 
         <div className="ts-form-group">
-          <label className="ts-form-label">Strategy Title</label>
+          <label htmlFor="ts-edit-title" className="ts-form-label">
+            Strategy Title
+          </label>
           <input
+            id="ts-edit-title"
             className="ts-form-input"
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
           />
         </div>
         <div className="ts-form-group">
-          <label className="ts-form-label">Strategy Content</label>
+          <label htmlFor="ts-edit-content" className="ts-form-label">
+            Strategy Content
+          </label>
           <textarea
+            id="ts-edit-content"
             className="ts-form-textarea"
             value={form.strategyContent}
             onChange={(e) =>

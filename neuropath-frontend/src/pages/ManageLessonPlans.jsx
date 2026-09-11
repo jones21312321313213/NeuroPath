@@ -38,19 +38,7 @@ function EmptyState({
     <div className="ts-empty">
       <span className="ts-empty-icon">{icon}</span>
       <p className="ts-empty-text">{message}</p>
-      {description && (
-        <p
-          style={{
-            fontSize: 13,
-            color: "#5a7491",
-            maxWidth: 480,
-            margin: "6px auto 0",
-            lineHeight: 1.5,
-          }}
-        >
-          {description}
-        </p>
-      )}
+      {description && <p className="ts-empty-desc">{description}</p>}
       {actionLabel && onAction && (
         <button
           type="button"
@@ -825,6 +813,7 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
 
       <div className="lp-search-bar" style={{ marginBottom: 16 }}>
         <input
+          aria-label="Search students"
           className="ts-form-input"
           style={{ flex: 1, minWidth: 180 }}
           placeholder="Search students…"
@@ -832,10 +821,11 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
           onChange={(e) => setSearch(e.target.value)}
         />
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#5a7491" }}>
-            Filter
+          <span className="lp-filter-label">
+            Filter:
           </span>
           <select
+            aria-label="Filter by Grade"
             className="ts-form-input"
             style={{ width: "auto", minWidth: 100, padding: "10px 12px" }}
             value={filterGrade}
@@ -849,6 +839,7 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
             ))}
           </select>
           <select
+            aria-label="Filter by Age"
             className="ts-form-input"
             style={{ width: "auto", minWidth: 80, padding: "10px 12px" }}
             value={filterAge}
@@ -969,8 +960,11 @@ function EditTab({ onGoToGenerate }) {
           </div>
         )}
         <div className="ts-form-group">
-          <label className="ts-form-label">Plan Title</label>
+          <label htmlFor="lp-edit-title" className="ts-form-label">
+            Plan Title
+          </label>
           <input
+            id="lp-edit-title"
             className="ts-form-input"
             value={formValue.title}
             onChange={(e) =>
@@ -979,8 +973,11 @@ function EditTab({ onGoToGenerate }) {
           />
         </div>
         <div className="ts-form-group">
-          <label className="ts-form-label">Status</label>
+          <label htmlFor="lp-edit-status" className="ts-form-label">
+            Status
+          </label>
           <select
+            id="lp-edit-status"
             className="ts-form-input"
             value={formValue.status}
             onChange={(e) =>
