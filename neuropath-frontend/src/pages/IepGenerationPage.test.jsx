@@ -499,4 +499,132 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       expect(editTextarea).toBeInTheDocument();
     });
   });
+
+  describe("Isolate Edit IEP Mode (#134)", () => {
+    it("hides all read-only sections and top action buttons and displays active Editing IEP indicator in edit mode", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      });
+
+      // Assert read-only elements and actions are present in read-only mode
+      expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      expect(screen.getByText("DELETE IEP")).toBeInTheDocument();
+      expect(
+        screen.getByRole("region", { name: "Instructional Support Next Steps" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+      expect(
+        screen.getByText("Section B: Difficulties, Barriers, and Enabling Supports"),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Section C: Learner's Goals")).toBeInTheDocument();
+      expect(screen.queryByText(/Editing IEP/i)).not.toBeInTheDocument();
+
+      // Enter Edit Mode
+      await user.click(screen.getByText("EDIT IEP"));
+
+      // Verify header indicator is displayed
+      expect(screen.getByText(/Editing IEP/i)).toBeInTheDocument();
+
+      // Verify uneditable/read-only sections and top actions are removed from the DOM
+      expect(screen.queryByRole("button", { name: /^EDIT IEP$/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^DELETE IEP$/i })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("region", { name: "Instructional Support Next Steps" }),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText("Considerations of Special Factors")).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("Section B: Difficulties, Barriers, and Enabling Supports"),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText("Section C: Learner's Goals")).not.toBeInTheDocument();
+
+      // Verify edit form controls and footer actions are present
+      expect(screen.getByText("Edit Considerations of Special Factors")).toBeInTheDocument();
+      expect(
+        screen.getByText("Edit Section B: Difficulties, Barriers, and Enabling Supports"),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Edit Section C: Learner's Goals")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^SAVE CHANGES$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^CANCEL$/i })).toBeInTheDocument();
+    });
+
+    it("restores read-only view cleanly upon clicking CANCEL without leaving edit artifacts", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("EDIT IEP"));
+      expect(screen.getByText(/Editing IEP/i)).toBeInTheDocument();
+      expect(screen.getByText("Edit Considerations of Special Factors")).toBeInTheDocument();
+
+      // Click CANCEL
+      await user.click(screen.getByRole("button", { name: /^CANCEL$/i }));
+
+      // Verify read-only view is restored
+      expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      expect(screen.getByText("DELETE IEP")).toBeInTheDocument();
+      expect(
+        screen.getByRole("region", { name: "Instructional Support Next Steps" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+      expect(
+        screen.getByText("Section B: Difficulties, Barriers, and Enabling Supports"),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Section C: Learner's Goals")).toBeInTheDocument();
+
+      // Verify edit panel is no longer in DOM
+      expect(
+        screen.queryByText("Edit Considerations of Special Factors"),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText(/Editing IEP/i)).not.toBeInTheDocument();
+    });
+
+    it("restores read-only view cleanly upon clicking SAVE CHANGES", async () => {
+      const user = userEvent.setup();
+      iepAPI.update.mockResolvedValue({
+        iepID: 101,
+        generatedDetails: {
+          specialFactorNotes: "Sensitive to sudden auditory alarms and loud bells.",
+        },
+      });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("EDIT IEP"));
+      expect(screen.getByText(/Editing IEP/i)).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /^SAVE CHANGES$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      });
+
+      expect(screen.getByText("DELETE IEP")).toBeInTheDocument();
+      expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+      expect(
+        screen.queryByText("Edit Considerations of Special Factors"),
+      ).not.toBeInTheDocument();
+    });
+  });
 });
