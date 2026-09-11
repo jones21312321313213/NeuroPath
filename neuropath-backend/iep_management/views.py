@@ -12,7 +12,6 @@ from django.shortcuts import get_object_or_404
 from django.db import IntegrityError, transaction
 from .services import AIGenerationService
 from .ai_engine import AIEngineService
-from .huggingface_service import CustomLlamaService
 from .rgori_service import RGORICheckerService
 from .privacy_utils import (
     anonymize_student_context,
@@ -22,6 +21,7 @@ from .privacy_utils import (
 )
 import time
 import json
+import re
 
 class IEPGeneratorService:
     @staticmethod
@@ -412,21 +412,21 @@ class GenerateIEPGoalAPIView(APIView):
         # 2. Setup the Generation & R-GORI Loop variables
         max_attempts = 3
         best_goal = ""
-        best_score = 0
+        best_score = -1
         final_feedback = ""
 
         # 3. The Validation Loop
         for attempt in range(max_attempts):
             try:
                 # Step A: Draft the goal
-                draft_goal = CustomLlamaService.generate_text(generation_prompt)
+                draft_goal, _ = AIEngineService.generate_text(generation_prompt, max_tokens=250)
                 
                 # Step B: Audit the goal using R-GORI
                 evaluation = RGORICheckerService.evaluate_goal(draft_goal, student_context)
                 current_score = evaluation.get('total_score', 0)
                 
                 # Track the best performing goal in case we never hit 65%
-                if current_score > best_score:
+                if not best_goal or current_score > best_score:
                     best_score = current_score
                     best_goal = draft_goal
                     final_feedback = evaluation.get('feedback', '')
@@ -435,15 +435,17 @@ class GenerateIEPGoalAPIView(APIView):
                 if evaluation.get('compliant') is True:
                     break
                     
-                time.sleep(1) # Prevent Hugging Face rate limits
+                time.sleep(0.5)
                 
             except Exception as e:
+                if best_goal:
+                    break
                 return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         # 4. Send the final, audited result back to React
         return Response({
             "generated_goal": best_goal,
-            "rgori_score": best_score,
+            "rgori_score": max(0, best_score),
             "feedback": final_feedback,
             "attempts_taken": attempt + 1
         }, status=status.HTTP_200_OK)
@@ -600,7 +602,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
         Returns (goal_payload_dict, None) on success or (None, error_string) on failure.
         """
         best_payload = None
-        best_score   = 0
+        best_score   = -1
         last_error   = None
  
         for attempt in range(self.MAX_ATTEMPTS):
@@ -646,8 +648,8 @@ class GenerateIEPGoalsFromIEPView(APIView):
                     "_attempts": attempt + 1,
                 }
  
-                # Track best so far in case we never hit 65
-                if score > best_score:
+                # Track best so far
+                if best_payload is None or score > best_score:
                     best_score   = score
                     best_payload = payload
  
@@ -662,10 +664,11 @@ class GenerateIEPGoalsFromIEPView(APIView):
  
         # Return best attempt even if never hit 65%
         if best_payload:
-            best_payload["_rgori_warning"] = (
-                f"Best score was {best_score}/100 (below 65 threshold). "
-                "Manual review recommended."
-            )
+            if not best_payload.get('_rgori_score', 0) >= 65:
+                best_payload["_rgori_warning"] = (
+                    f"Best score was {best_score}/100 (below 65 threshold). "
+                    "Manual review recommended."
+                )
             return best_payload, None
  
         return None, last_error or "Generation failed after max attempts."
@@ -723,19 +726,18 @@ class GenerateIEPGoalsFromIEPView(APIView):
             f"Do NOT write objectives about communication, social behavior, or any other domain. "
             if goal_area else ""
         )
-        prompt = (
-            f"☁️system☁️"
-            f"You are a Special Education teacher writing IEP objective rows. "
-            f"Output ONLY a valid JSON array of 2-3 objective row objects. "
-            f"Each object must have exactly these keys: "
-            f"enroute_objectives, interventions_procedures, timeline_mins_session, "
-            f"individuals_responsible, progress_instructional, remarks. "
-            f"The enroute_objectives must be concrete, sequential sub-skills that build toward the annual goal — "
-            f"NOT a restatement of the annual goal itself. "
+        system_prompt = (
+            "You are a Special Education teacher writing IEP objective rows. "
+            "Output ONLY a valid JSON array of 2-3 objective row objects. "
+            "Each object must have exactly these keys: "
+            "enroute_objectives, interventions_procedures, timeline_mins_session, "
+            "individuals_responsible, progress_instructional, remarks. "
+            "The enroute_objectives must be concrete, sequential sub-skills that build toward the annual goal — "
+            "NOT a restatement of the annual goal itself. "
             f"{goal_area_instruction}"
-            f"Do not include markdown, backticks, or any text outside the JSON array."
-            f"☁️/system☁️"
-            f"☁️user☁️"
+            "Do not include markdown, backticks, or any text outside the JSON array."
+        )
+        user_prompt = (
             f"Student: {student_name}\n"
             f"PRIMARY Goal Area: {goal_area}\n"
             f"Areas of Difficulty (all Section B rows, consolidated): {difficulty}\n"
@@ -746,30 +748,63 @@ class GenerateIEPGoalsFromIEPView(APIView):
             f"Generate 2-3 enroute objective rows as a JSON array. "
             f"Each enroute_objectives entry must be a distinct, measurable sub-skill "
             f"that leads toward the annual goal above (e.g. 'Student will recognize numbers 0–5 with 80% accuracy')."
-            f"☁️/user☁️"
         )
-        raw, _ = AIEngineService.generate_text(prompt, max_tokens=600, json_mode=True)
- 
+        raw, _ = AIEngineService.generate_text(
+            prompt=user_prompt,
+            system_prompt=system_prompt,
+            max_tokens=600,
+            json_mode=True,
+        )
+
+        fallback_rows = [{
+            "enroute_objectives": f"Student will demonstrate an initial sub-skill toward: {annual_goal[:120]}",
+            "interventions_procedures": f"Use {assistive_tech or 'visual supports'} and structured practice to support {goal_area or 'the goal area'}.",
+            "timeline_mins_session": "15-20 minutes every day",
+            "individuals_responsible": facilitators or "SNED Teacher",
+            "progress_instructional": "Monitor weekly progress through teacher observation and skill checklists.",
+            "remarks": "To be updated based on actual learning outcomes."
+        }]
+
+        if not raw or not isinstance(raw, str):
+            return fallback_rows
         try:
-            # Strip markdown fences if model adds them
-            clean = raw.strip().lstrip('`').rstrip('`')
-            if clean.startswith('json'):
-                clean = clean[4:].strip()
-            rows = json.loads(clean)
-            # Ensure it's a list
-            if isinstance(rows, dict):
-                rows = [rows]
-            return rows
-        except (json.JSONDecodeError, ValueError):
-            # Fallback: return one generic row so the payload is still usable
-            return [{
-                "enroute_objectives": f"Student will demonstrate an initial sub-skill toward: {annual_goal[:120]}",
-                "interventions_procedures": f"Use {assistive_tech} and structured practice to support {goal_area or 'the goal area'}.",
-                "timeline_mins_session": "15-20 minutes every day",
-                "individuals_responsible": facilitators or "SNED Teacher",
-                "progress_instructional": "Monitor weekly progress through teacher observation and skill checklists.",
-                "remarks": "To be updated based on actual learning outcomes."
-            }]
+            clean = raw.strip()
+            if "```" in clean:
+                clean = re.sub(r"^```(?:json)?\s*", "", clean, flags=re.IGNORECASE)
+                clean = re.sub(r"\s*```$", "", clean)
+                clean = clean.strip()
+
+            match = re.search(r"\[.*\]|\{.*\}", clean, re.DOTALL)
+            if match:
+                clean = match.group(0)
+
+            parsed = json.loads(clean)
+            if isinstance(parsed, dict):
+                for k in ["objective_rows", "objectives", "rows"]:
+                    if k in parsed and isinstance(parsed[k], list):
+                        parsed = parsed[k]
+                        break
+                else:
+                    parsed = [parsed]
+
+            if isinstance(parsed, list) and len(parsed) > 0:
+                validated_rows = []
+                for row in parsed:
+                    if isinstance(row, dict) and (row.get("enroute_objectives") or row.get("objective")):
+                        validated_rows.append({
+                            "enroute_objectives": str(row.get("enroute_objectives") or row.get("objective", "")).strip(),
+                            "interventions_procedures": str(row.get("interventions_procedures") or row.get("intervention", f"Use {assistive_tech or 'visual supports'}")).strip(),
+                            "timeline_mins_session": str(row.get("timeline_mins_session") or row.get("timeline", "15-20 minutes every day")).strip(),
+                            "individuals_responsible": str(row.get("individuals_responsible") or row.get("responsible", facilitators or "SNED Teacher")).strip(),
+                            "progress_instructional": str(row.get("progress_instructional") or row.get("progress", "Weekly skill mastery checklist.")).strip(),
+                            "remarks": str(row.get("remarks", "Targeted for ongoing observation.")).strip(),
+                        })
+                if validated_rows:
+                    return validated_rows
+
+            return fallback_rows
+        except Exception:
+            return fallback_rows
  
  
     def _map_difficulty_to_category(self, difficulty):

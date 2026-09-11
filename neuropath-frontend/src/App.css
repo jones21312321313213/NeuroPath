@@ -1,3 +1,19 @@
+/* ── Accessible Focus Rings (WCAG 2.1 AA) ───────────── */
+:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+}
+
 /* ── Layout ───────────────────────────────────────────── */
 .app-layout {
   display: flex;
@@ -42,8 +58,22 @@
   user-select: none;
 }
 
+.sidebar-header-btn,
+button.sidebar-header {
+  border: none;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+
 .sidebar-header:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-header:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: -2px;
 }
 
 .sidebar.collapsed .sidebar-header {
@@ -431,6 +461,13 @@
   background: #f9f7f7;
 }
 
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 /* ── Topbar ───────────────────────────────────────────── */
 .topbar {
   display: flex;
@@ -538,40 +575,62 @@
 }
 
 .form-label {
-  font-size: 13.5px;
-  font-weight: 500;
-  color: #333;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.4;
 }
 
 .form-input,
 .form-select,
 .form-textarea {
-  padding: 8px 12px;
-  border: 1px solid #d0d5dd;
-  border-radius: 5px;
-  font-size: 13.5px;
-  color: #444;
-  background: #f5f7fa;
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14.5px;
+  color: #1e293b;
+  background: #f8fafc;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
   font-family: inherit;
+  line-height: 1.5;
 }
 .form-input:focus,
 .form-select:focus,
 .form-textarea:focus {
-  border-color: #5aabf0;
+  border-color: #38bdf8;
   background: #fff;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+}
+.form-input[readonly],
+.form-textarea[readonly] {
+  background: #f8fafc;
+  color: #334155;
+  cursor: default;
+  border-color: #e2e8f0;
+}
+.form-input[readonly]:focus,
+.form-textarea[readonly]:focus {
+  border-color: #cbd5e1;
+  box-shadow: none;
+  background: #f8fafc;
+}
+.form-input:focus-visible,
+.form-select:focus-visible,
+.form-textarea:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
 }
 .form-input::placeholder {
-  color: #aaa;
+  color: #94a3b8;
 }
 
 .form-select {
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 10px center;
-  padding-right: 30px;
+  background-position: right 12px center;
+  padding-right: 34px;
 }
 
 .form-textarea {
@@ -1191,45 +1250,46 @@
 }
 .iep-step-header span {
   display: block;
-  font-size: 11.5px;
-  color: #888;
+  font-size: 12px;
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 4px;
 }
 .iep-step-header strong {
-  font-size: 13.5px;
-  color: #333;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
 }
 .iep-form-intro {
-  background: #f0f7ff;
-  border: 1px solid #cce3fd;
-  color: #1e4265;
-  border-radius: 10px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  color: #0369a1;
+  border-radius: 8px;
   padding: 12px 16px;
-  font-size: 0.88rem;
-  line-height: 1.45;
+  font-size: 14px;
+  line-height: 1.5;
   margin-bottom: 20px;
   display: flex;
   align-items: center;
   gap: 10px;
 }
 .iep-form-intro-icon {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   flex-shrink: 0;
 }
 .iep-field-help {
   display: block;
-  font-size: 0.78rem;
-  color: #4a7a94;
+  font-size: 13px;
+  color: #64748b;
   margin-top: -2px;
   margin-bottom: 6px;
   font-weight: 500;
 }
 .iep-small-title-help {
-  font-size: 0.8rem;
+  font-size: 13px;
   font-weight: 500;
-  color: #2589c7;
+  color: #0284c7;
   margin-left: 6px;
   text-transform: none;
   letter-spacing: normal;
@@ -1249,9 +1309,9 @@
   background: #5aabf0;
 }
 .iep-small-title {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 700;
-  color: #333;
+  color: #1e293b;
   margin: 0 0 10px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -1276,13 +1336,13 @@
   display: flex;
   align-items: flex-start;
   gap: 9px;
-  color: #555;
-  font-size: 12.5px;
+  color: #334155;
+  font-size: 14px;
   line-height: 1.45;
   cursor: pointer;
 }
 .iep-check-option input {
-  margin-top: 2px;
+  margin-top: 3px;
   accent-color: #5aabf0;
 }
 .iep-table-wrap {
@@ -1333,6 +1393,10 @@
   outline: none;
   border-color: #5aabf0;
   background: #fff;
+}
+.iep-table-textarea:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
 }
 .iep-small-textarea {
   min-height: 74px;
@@ -1388,11 +1452,203 @@
 .iep-input-row-item .form-input {
   flex: 1;
 }
+.iep-assistive-tech-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.iep-assistive-tech-header .iep-small-title {
+  margin-bottom: 0;
+}
+.iep-preset-chips-container {
+  margin-bottom: 12px;
+}
+.iep-preset-chips-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+.iep-preset-chips-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.iep-preset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #0284c7;
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.3;
+}
+.iep-preset-chip:hover:not(:disabled) {
+  background-color: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0369a1;
+  transform: translateY(-1px);
+}
+.iep-preset-chip:active:not(:disabled) {
+  transform: translateY(0);
+}
+.iep-preset-chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background-color: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+}
+.iep-add-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.iep-limit-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #b45309;
+  background-color: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 9999px;
+  line-height: 1.2;
+}
 .iep-add-row-inline {
   align-self: flex-start;
   margin-top: 4px;
   font-size: 12.5px;
   padding: 6px 14px;
+}
+.iep-add-row-inline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Special Factor Notes UX Enhancements ───────────────────────────────── */
+.iep-special-notes-field {
+  margin-top: 18px;
+  margin-bottom: 22px;
+}
+
+.iep-special-notes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.iep-special-notes-header .form-label {
+  margin-bottom: 0;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.iep-notes-clear-btn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.iep-notes-clear-btn:hover {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.iep-special-notes-textarea {
+  resize: vertical;
+  min-height: 80px;
+  width: 100%;
+}
+
+.iep-textarea-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 12px;
+  gap: 12px;
+}
+
+.iep-notes-helper {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.iep-char-counter {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.iep-char-limit-warning {
+  color: #d97706;
+  font-weight: 600;
+}
+
+.iep-char-limit-reached {
+  color: #dc2626;
+  font-weight: 700;
+}
+.iep-difficulty-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.iep-difficulty-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 12px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #1e293b;
+  line-height: 1.4;
+  box-sizing: border-box;
+}
+.iep-difficulty-bullet {
+  color: #0284c7;
+  font-size: 16px;
+  line-height: 1;
+}
+.iep-difficulty-td {
+  vertical-align: middle;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.iep-difficulty-cell-text {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.4;
+  word-break: break-word;
 }
 .iep-info-block {
   background: #f7fafd;
@@ -1559,6 +1815,25 @@
   gap: 18px;
   border-bottom: 1px solid #eef1f4;
   padding-bottom: 14px;
+}
+.iep-view-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.iep-editing-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  color: #4338ca;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  letter-spacing: 0.2px;
 }
 .iep-view-header span {
   font-size: 11.5px;

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 
 const TUTORIAL_STEPS = [
   {
@@ -75,6 +76,14 @@ const TUTORIAL_STEPS = [
 
 export default function TeacherTutorialModal({ onComplete }) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const containerRef = useRef(null);
+
+  useFocusTrap({
+    isActive: true,
+    containerRef,
+    onEscape: onComplete,
+    returnFocus: true,
+  });
 
   const currentStep = TUTORIAL_STEPS[currentStepIndex];
   const isFirstStep = currentStepIndex === 0;
@@ -101,7 +110,7 @@ export default function TeacherTutorialModal({ onComplete }) {
       aria-modal="true"
       aria-labelledby="tutorial-modal-title"
     >
-      <div className="tutorial-modal-container">
+      <div ref={containerRef} tabIndex={-1} className="tutorial-modal-container">
         {/* Header */}
         <div className="tutorial-modal-header">
           <div className="tutorial-badge">{currentStep.badge}</div>

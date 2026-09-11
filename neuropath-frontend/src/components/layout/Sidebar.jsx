@@ -136,15 +136,18 @@ export default function Sidebar({
     <>
       <aside
         className={`sidebar ${collapsed ? "collapsed" : ""}`}
+        aria-label="Sidebar"
         onClick={(e) => {
           if (!e.target.closest("button")) {
             onToggleCollapse?.();
           }
         }}
       >
-        <div
-          className="sidebar-header"
+        <button
+          type="button"
+          className="sidebar-header sidebar-header-btn"
           onClick={handleToggleCollapse}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={collapsed ? "Click to expand sidebar" : "Click to collapse sidebar"}
         >
           {!collapsed ? (
@@ -159,11 +162,11 @@ export default function Sidebar({
               <span className="sidebar-brand-abbr">NP</span>
             </div>
           )}
-        </div>
+        </button>
 
         <hr className="sidebar-divider" />
 
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" aria-label="Main Navigation">
           {navItems.map((item) => {
             const active = isItemActive(item);
             const isCategoryExpanded = expanded[item.key];
@@ -175,6 +178,8 @@ export default function Sidebar({
                   className={`sidebar-nav-item ${active ? "active" : ""}`}
                   onClick={(e) => handleNavClick(e, item)}
                   title={collapsed ? item.label : undefined}
+                  aria-expanded={item.children.length > 0 ? isCategoryExpanded : undefined}
+                  aria-controls={item.children.length > 0 ? `subnav-${item.key}` : undefined}
                 >
                   <i className={`ti ${item.icon} sidebar-icon`} aria-hidden="true" />
                   {!collapsed && (
@@ -194,7 +199,12 @@ export default function Sidebar({
                 </button>
 
                 {!collapsed && item.children.length > 0 && isCategoryExpanded && (
-                  <div className="sidebar-subnav">
+                  <div
+                    id={`subnav-${item.key}`}
+                    className="sidebar-subnav"
+                    role="region"
+                    aria-label={`${item.label} sub-navigation`}
+                  >
                     {item.children.map((child) => {
                       const isChildActive = child.exact
                         ? currentPath === child.path
@@ -211,7 +221,7 @@ export default function Sidebar({
                             if (setActivePage) setActivePage(child.key || child.path);
                           }}
                         >
-                          <span className="subnav-bullet" />
+                          <span className="subnav-bullet" aria-hidden="true" />
                           <span className="subnav-label">{child.label}</span>
                         </button>
                       );
@@ -245,11 +255,12 @@ export default function Sidebar({
               e.stopPropagation();
               setIsModalOpen(true);
             }}
+            aria-label="Log Out"
             title={collapsed ? "Log out" : undefined}
           >
             <i className="ti ti-logout-2" aria-hidden="true" />
             {!collapsed && <span>Log Out</span>}
-            {collapsed && <span className="sidebar-tooltip">Log Out</span>}
+            {collapsed && <span className="sidebar-tooltip" aria-hidden="true">Log Out</span>}
           </button>
         </div>
       </aside>

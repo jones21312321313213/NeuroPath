@@ -6,6 +6,7 @@ import LoginPage from "./pages/loginPage";
 import RegisterPage from "./pages/registerPage";
 import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
+import SkipLink from "./components/layout/SkipLink";
 import Overview from "./pages/Overview";
 import UserProfile from "./pages/UserProfilePage";
 import ManageLessonPlans from "./pages/ManageLessonPlans";
@@ -61,6 +62,7 @@ function DashboardLayout() {
 
   return (
     <div className={`app-layout ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+      <SkipLink targetId="main-content" />
       {showTutorial && (
         <TeacherTutorialModal onComplete={markTutorialComplete} />
       )}
@@ -74,7 +76,14 @@ function DashboardLayout() {
           collapsed={isSidebarCollapsed}
           onToggleCollapse={toggleSidebar}
         />
-        <Outlet />
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="main-content focus:outline-none"
+          aria-label="Main content"
+        >
+          <Outlet />
+        </main>
       </div>
     </div>
   );

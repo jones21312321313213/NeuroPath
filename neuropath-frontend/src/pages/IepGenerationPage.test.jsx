@@ -277,4 +277,391 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
     expect(generateBtn).toBeDisabled();
     expect(screen.getByText("+ Add Goal Manually")).toBeInTheDocument();
   });
+
+  it("renders difficulty markers as static paragraph text instead of read-only inputs in Step 1", async () => {
+    render(
+      <MemoryRouter>
+        <IEPGenerationPage mode="generate" initialStudentId={1} />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+      expect(screen.getByText("Alex Doe")).toBeInTheDocument();
+    });
+
+    // Verify difficulty items render within the difficulty list container
+    await waitFor(() => {
+      const diffList = screen.getByTestId("iep-difficulty-list");
+      expect(diffList).toBeInTheDocument();
+      expect(diffList.querySelector(".iep-difficulty-item")).toBeInTheDocument();
+      expect(diffList).toHaveTextContent("Sensory Processing");
+    });
+
+    // Ensure no read-only input exists for difficulty markers
+    expect(screen.queryByPlaceholderText(/Difficulty 1/i)).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Difficulty from profile/i)).not.toBeInTheDocument();
+
+    // Section B Table difficulty column renders as paragraph text
+    const cellText = document.querySelector(".iep-difficulty-cell-text");
+    expect(cellText).toBeInTheDocument();
+    expect(cellText.tagName.toLowerCase()).toBe("p");
+    expect(cellText).toHaveTextContent("Sensory Processing");
+  });
+
+  describe("Assistive Technology Row Limit & Preset Chips (#127)", () => {
+    it("renders all 6 preset suggestion chips for assistive technology", async () => {
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Assistive Technologies Needed")).toBeInTheDocument();
+      });
+
+      expect(screen.getByRole("button", { name: /\+ AAC Communication Board/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ Speech-to-Text \/ Audio Dictation/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ Visual Schedule & Choice Cards/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ Screen Magnifier \/ Reader/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ FM Listening System/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ Pencil Grip \/ Adaptive Utensils/i })).toBeInTheDocument();
+    });
+
+    it("clicking a preset chip automatically appends it to the assistive technologies list", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Assistive Technologies Needed")).toBeInTheDocument();
+      });
+
+      const aacChip = screen.getByRole("button", { name: /\+ AAC Communication Board/i });
+      await user.click(aacChip);
+
+      expect(screen.getByDisplayValue("AAC Communication Board")).toBeInTheDocument();
+
+      const fmChip = screen.getByRole("button", { name: /\+ FM Listening System/i });
+      await user.click(fmChip);
+
+      expect(screen.getByDisplayValue("FM Listening System")).toBeInTheDocument();
+    });
+
+    it("enforces maximum limit of 5 items, disables Add Row button, and shows (Maximum 5 reached) badge", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Assistive Technologies Needed")).toBeInTheDocument();
+      });
+
+      const addRowBtn = screen.getByRole("button", { name: /\+ Add Row/i });
+      expect(addRowBtn).not.toBeDisabled();
+      expect(screen.queryByText(/Maximum 5 reached/i)).not.toBeInTheDocument();
+
+      // Add 5 items
+      await user.click(addRowBtn);
+      await user.click(addRowBtn);
+      await user.click(addRowBtn);
+      await user.click(addRowBtn);
+      await user.click(addRowBtn);
+
+      expect(addRowBtn).toBeDisabled();
+      expect(screen.getAllByText(/Maximum 5 reached/i).length).toBeGreaterThanOrEqual(1);
+
+      // Verify preset chips are also disabled
+      const aacChip = screen.getByRole("button", { name: /\+ AAC Communication Board/i });
+      expect(aacChip).toBeDisabled();
+    });
+
+    it("re-enables Add Row button and removes badge when a row is deleted", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Assistive Technologies Needed")).toBeInTheDocument();
+      });
+
+      const addRowBtn = screen.getByRole("button", { name: /\+ Add Row/i });
+
+      // Add 5 items
+      for (let i = 0; i < 5; i++) {
+        await user.click(addRowBtn);
+      }
+
+      expect(addRowBtn).toBeDisabled();
+      expect(screen.getAllByText(/Maximum 5 reached/i).length).toBeGreaterThanOrEqual(1);
+
+      // Remove the first item
+      const removeButtons = screen.getAllByRole("button", { name: /✕|Remove technology/i });
+      await user.click(removeButtons[0]);
+
+      // Verify re-enabled state
+      expect(addRowBtn).not.toBeDisabled();
+      expect(screen.queryByText(/Maximum 5 reached/i)).not.toBeInTheDocument();
+
+      const aacChip = screen.getByRole("button", { name: /\+ AAC Communication Board/i });
+      expect(aacChip).not.toBeDisabled();
+    });
+  });
+
+  describe("Other Special Factor Notes UX Enhancements (#128)", () => {
+    it("renders all 6 preset suggestion chips, helper text, and character counter in Step 1", async () => {
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+      });
+
+      // Verify preset chips
+      expect(screen.getByRole("button", { name: /\+ Positive Behavior Support Plan/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ Sensory sensitivity: frequent quiet breaks/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ Non-verbal communication: requires AAC/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ Visual schedules & explicit verbal cues/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ Fine motor fatigue: allow speech-to-text/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /\+ Transition warnings & structured routine/i })).toBeInTheDocument();
+
+      // Verify character counter initial state
+      expect(screen.getByText(/0 \/ 500 characters/i)).toBeInTheDocument();
+      expect(screen.getByText(/Notes guide AI goal synthesis/i)).toBeInTheDocument();
+    });
+
+    it("clicking preset chips appends text with clean formatting and updates character count", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+      });
+
+      const pbspChip = screen.getByRole("button", { name: /\+ Positive Behavior Support Plan/i });
+      await user.click(pbspChip);
+
+      const textarea = screen.getByPlaceholderText(/Add notes about behavior, communication, sensory/i);
+      expect(textarea).toHaveValue("Positive Behavior Support Plan (PBSP) active");
+      expect(screen.getByText(/44 \/ 500 characters/i)).toBeInTheDocument();
+
+      const sensoryChip = screen.getByRole("button", { name: /\+ Sensory sensitivity: frequent quiet breaks/i });
+      await user.click(sensoryChip);
+
+      expect(textarea.value).toContain("Positive Behavior Support Plan (PBSP) active; Sensory sensitivity: frequent quiet breaks");
+    });
+
+    it("provides a Clear Notes button when text is present", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+      });
+
+      const pbspChip = screen.getByRole("button", { name: /\+ Positive Behavior Support Plan/i });
+      await user.click(pbspChip);
+
+      const clearBtn = screen.getByRole("button", { name: /Clear notes/i });
+      expect(clearBtn).toBeInTheDocument();
+
+      await user.click(clearBtn);
+
+      const textarea = screen.getByPlaceholderText(/Add notes about behavior, communication, sensory/i);
+      expect(textarea).toHaveValue("");
+      expect(screen.getByText(/0 \/ 500 characters/i)).toBeInTheDocument();
+    });
+
+    it("enforces 500 character maximum limit and disables preset chips when capacity reached", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+      });
+
+      const textarea = screen.getByPlaceholderText(/Add notes about behavior, communication, sensory/i);
+      const longText = "A".repeat(500);
+      await user.type(textarea, longText);
+
+      expect(screen.getByText(/500 \/ 500 characters \(Maximum reached\)/i)).toBeInTheDocument();
+
+      const pbspChip = screen.getByRole("button", { name: /\+ Positive Behavior Support Plan/i });
+      expect(pbspChip).toBeDisabled();
+    });
+
+    it("renders preset chips, character counter, and edit support in Edit Mode", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /Edit IEP/i })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole("button", { name: /Edit IEP/i }));
+
+      expect(screen.getByText("Edit Considerations of Special Factors")).toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: /\+ Positive Behavior Support Plan/i }).length).toBeGreaterThanOrEqual(1);
+
+      const editTextarea = screen.getAllByPlaceholderText(/Add notes about behavior, communication, sensory/i)[0];
+      expect(editTextarea).toBeInTheDocument();
+    });
+  });
+
+  describe("Isolate Edit IEP Mode (#134)", () => {
+    it("hides all read-only sections and top action buttons and displays active Editing IEP indicator in edit mode", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      });
+
+      // Assert read-only elements and actions are present in read-only mode
+      expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      expect(screen.getByText("DELETE IEP")).toBeInTheDocument();
+      expect(
+        screen.getByRole("region", { name: "Instructional Support Next Steps" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+      expect(
+        screen.getByText("Section B: Difficulties, Barriers, and Enabling Supports"),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Section C: Learner's Goals")).toBeInTheDocument();
+      expect(screen.queryByText(/Editing IEP/i)).not.toBeInTheDocument();
+
+      // Enter Edit Mode
+      await user.click(screen.getByText("EDIT IEP"));
+
+      // Verify header indicator is displayed
+      expect(screen.getByText(/Editing IEP/i)).toBeInTheDocument();
+
+      // Verify uneditable/read-only sections and top actions are removed from the DOM
+      expect(screen.queryByRole("button", { name: /^EDIT IEP$/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^DELETE IEP$/i })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("region", { name: "Instructional Support Next Steps" }),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText("Considerations of Special Factors")).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("Section B: Difficulties, Barriers, and Enabling Supports"),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText("Section C: Learner's Goals")).not.toBeInTheDocument();
+
+      // Verify edit form controls and footer actions are present
+      expect(screen.getByText("Edit Considerations of Special Factors")).toBeInTheDocument();
+      expect(
+        screen.getByText("Edit Section B: Difficulties, Barriers, and Enabling Supports"),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Edit Section C: Learner's Goals")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^SAVE CHANGES$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^CANCEL$/i })).toBeInTheDocument();
+    });
+
+    it("restores read-only view cleanly upon clicking CANCEL without leaving edit artifacts", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("EDIT IEP"));
+      expect(screen.getByText(/Editing IEP/i)).toBeInTheDocument();
+      expect(screen.getByText("Edit Considerations of Special Factors")).toBeInTheDocument();
+
+      // Click CANCEL
+      await user.click(screen.getByRole("button", { name: /^CANCEL$/i }));
+
+      // Verify read-only view is restored
+      expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      expect(screen.getByText("DELETE IEP")).toBeInTheDocument();
+      expect(
+        screen.getByRole("region", { name: "Instructional Support Next Steps" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+      expect(
+        screen.getByText("Section B: Difficulties, Barriers, and Enabling Supports"),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Section C: Learner's Goals")).toBeInTheDocument();
+
+      // Verify edit panel is no longer in DOM
+      expect(
+        screen.queryByText("Edit Considerations of Special Factors"),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText(/Editing IEP/i)).not.toBeInTheDocument();
+    });
+
+    it("restores read-only view cleanly upon clicking SAVE CHANGES", async () => {
+      const user = userEvent.setup();
+      iepAPI.update.mockResolvedValue({
+        iepID: 101,
+        generatedDetails: {
+          specialFactorNotes: "Sensitive to sudden auditory alarms and loud bells.",
+        },
+      });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("EDIT IEP"));
+      expect(screen.getByText(/Editing IEP/i)).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /^SAVE CHANGES$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      });
+
+      expect(screen.getByText("DELETE IEP")).toBeInTheDocument();
+      expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+      expect(
+        screen.queryByText("Edit Considerations of Special Factors"),
+      ).not.toBeInTheDocument();
+    });
+  });
 });

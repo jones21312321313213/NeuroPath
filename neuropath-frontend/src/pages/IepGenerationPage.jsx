@@ -5,6 +5,28 @@ import { Callout } from "../components/ui";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+const ASSISTIVE_TECH_PRESETS = [
+  "AAC Communication Board",
+  "Speech-to-Text / Audio Dictation",
+  "Visual Schedule & Choice Cards",
+  "Screen Magnifier / Reader",
+  "FM Listening System",
+  "Pencil Grip / Adaptive Utensils",
+];
+
+const MAX_ASSISTIVE_TECH_ITEMS = 5;
+
+const MAX_SPECIAL_FACTOR_NOTES_LENGTH = 500;
+
+const SPECIAL_FACTOR_NOTES_PRESETS = [
+  "Positive Behavior Support Plan (PBSP) active",
+  "Sensory sensitivity: frequent quiet breaks",
+  "Non-verbal communication: requires AAC",
+  "Visual schedules & explicit verbal cues",
+  "Fine motor fatigue: allow speech-to-text",
+  "Transition warnings & structured routine",
+];
+
 const barrierQualifierOptions = [
   "No barrier",
   "Mild barrier",
@@ -82,6 +104,112 @@ function TextAreaField({ label, placeholder, value, onChange, rows = 3 }) {
         onChange={onChange}
         className="form-textarea"
       />
+    </div>
+  );
+}
+
+function SpecialFactorNotesField({
+  value = "",
+  onChange,
+  label = "Other special factor notes",
+  placeholder = "Add notes about behavior, communication, sensory, or other special factors.",
+  id = "special-factor-notes-input",
+}) {
+  const currentLength = value?.length || 0;
+  const isLimitReached = currentLength >= MAX_SPECIAL_FACTOR_NOTES_LENGTH;
+  const isNearLimit = currentLength >= MAX_SPECIAL_FACTOR_NOTES_LENGTH * 0.9;
+
+  const handleAddPreset = (preset) => {
+    if (isLimitReached) return;
+    const trimmed = (value || "").trim();
+    if (!trimmed) {
+      onChange(preset.slice(0, MAX_SPECIAL_FACTOR_NOTES_LENGTH));
+      return;
+    }
+    if (trimmed.toLowerCase().includes(preset.toLowerCase())) return;
+    const appended = `${trimmed}; ${preset}`;
+    onChange(appended.slice(0, MAX_SPECIAL_FACTOR_NOTES_LENGTH));
+  };
+
+  const handleClear = () => {
+    onChange("");
+  };
+
+  return (
+    <div className="form-group iep-special-notes-field">
+      <div className="iep-special-notes-header">
+        <label htmlFor={id} className="form-label">
+          {label}
+        </label>
+        {currentLength > 0 && (
+          <button
+            type="button"
+            className="iep-notes-clear-btn"
+            onClick={handleClear}
+            aria-label="Clear notes"
+          >
+            ✕ Clear notes
+          </button>
+        )}
+      </div>
+
+      <div className="iep-preset-chips-container">
+        <span className="iep-preset-chips-label">Quick Suggestions:</span>
+        <div className="iep-preset-chips-list">
+          {SPECIAL_FACTOR_NOTES_PRESETS.map((preset) => {
+            const wouldExceed =
+              currentLength + (currentLength > 0 ? 2 : 0) + preset.length >
+              MAX_SPECIAL_FACTOR_NOTES_LENGTH;
+            const isDisabled = isLimitReached || wouldExceed;
+            return (
+              <button
+                key={preset}
+                type="button"
+                className="iep-preset-chip"
+                onClick={() => handleAddPreset(preset)}
+                disabled={isDisabled}
+                title={
+                  isDisabled
+                    ? "Note character limit reached"
+                    : `Add note: ${preset}`
+                }
+              >
+                + {preset}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <textarea
+        id={id}
+        rows={3}
+        maxLength={MAX_SPECIAL_FACTOR_NOTES_LENGTH}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="form-textarea iep-special-notes-textarea"
+        aria-describedby={`${id}-helper ${id}-counter`}
+      />
+
+      <div className="iep-textarea-footer">
+        <span id={`${id}-helper`} className="iep-notes-helper">
+          Notes guide AI goal synthesis and classroom accommodations.
+        </span>
+        <span
+          id={`${id}-counter`}
+          className={`iep-char-counter ${
+            isLimitReached
+              ? "iep-char-limit-reached"
+              : isNearLimit
+              ? "iep-char-limit-warning"
+              : ""
+          }`}
+        >
+          {currentLength} / {MAX_SPECIAL_FACTOR_NOTES_LENGTH} characters
+          {isLimitReached ? " (Maximum reached)" : ""}
+        </span>
+      </div>
     </div>
   );
 }
@@ -431,18 +559,18 @@ function ViewIEPPanel({
   }, [selectedIep?.iepID]);
 
   useEffect(() => {
+    const specialNotes =
+      details?.specialFactorNotes || details?.special_factor_notes || "";
     queueMicrotask(() => {
       setIsEditing(false);
       setEditBarrierRows([]);
-      setEditSpecialFactorNotes(
-        details?.specialFactorNotes || details?.special_factor_notes || "",
-      );
+      setEditSpecialFactorNotes(specialNotes);
       setEditGoals([]);
       setGoalsToDelete([]);
       setIepGoals([]);
       setDeleteTarget(null);
     });
-  }, [selectedIep]);
+  }, [selectedIep, details?.specialFactorNotes, details?.special_factor_notes]);
 
   const barrierRowsToRender =
     (details?.barrierRows?.length ? details.barrierRows : null) ||
@@ -628,6 +756,27 @@ function ViewIEPPanel({
     }
   };
 
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setGoalsToDelete([]);
+    setEditSpecialFactorNotes(
+      details?.specialFactorNotes || details?.special_factor_notes || "",
+    );
+    setEditBarrierRows(
+      barrierRowsToRender.length
+        ? barrierRowsToRender.map((r) => ({ ...r }))
+        : [],
+    );
+    setEditGoals(
+      goalsToRender.length
+        ? goalsToRender.map((goal) => ({
+            ...goal,
+            rows: (goal.rows || []).map((row) => ({ ...row })),
+          }))
+        : [],
+    );
+  };
+
   return (
     <div className="form-card iep-card">
       <SectionHeader
@@ -735,27 +884,40 @@ function ViewIEPPanel({
           <div className="iep-view-header">
             <div>
               <span>Student</span>
-              <h3>
-                {selectedIep.studentName ||
-                  getStudentName(selectedStudent) ||
-                  "—"}
-              </h3>
+              <div className="iep-view-title-row">
+                <h3>
+                  {selectedIep.studentName ||
+                    getStudentName(selectedStudent) ||
+                    "—"}
+                </h3>
+                {isEditing && (
+                  <span
+                    className="iep-editing-badge"
+                    role="status"
+                    aria-label="Editing IEP Mode"
+                  >
+                    ✏️ Editing IEP
+                  </span>
+                )}
+              </div>
               <p>
                 Grade {selectedStudent.grade || "—"} · Age{" "}
                 {selectedStudent.age || "—"}
               </p>
             </div>
-            <div className="iep-view-actions">
-              <button className="btn btn-back" onClick={openEdit}>
-                EDIT IEP
-              </button>
-              <button
-                className="btn iep-btn-danger"
-                onClick={() => setDeleteTarget(selectedIep)}
-              >
-                DELETE IEP
-              </button>
-            </div>
+            {!isEditing && (
+              <div className="iep-view-actions">
+                <button className="btn btn-back" onClick={openEdit}>
+                  EDIT IEP
+                </button>
+                <button
+                  className="btn iep-btn-danger"
+                  onClick={() => setDeleteTarget(selectedIep)}
+                >
+                  DELETE IEP
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="iep-view-meta">
@@ -769,76 +931,78 @@ function ViewIEPPanel({
           </div>
 
           {/* Post-IEP Next Steps / Classroom Tools */}
-          <section
-            className="iep-next-steps-card"
-            aria-label="Instructional Support Next Steps"
-          >
-            <header className="iep-next-steps-header">
-              <span className="iep-next-steps-icon" aria-hidden="true">💡</span>
-              <div>
-                <h4>Instructional Support: Use this IEP in the Classroom</h4>
-                <p>
-                  This IEP is ready. Generate tailored lesson plans, visual aids, and teaching strategies based on this student's goals.
-                </p>
-              </div>
-            </header>
-            <nav
-              className="iep-next-steps-grid"
-              aria-label="Classroom tool actions"
+          {!isEditing && (
+            <section
+              className="iep-next-steps-card"
+              aria-label="Instructional Support Next Steps"
             >
-              <button
-                type="button"
-                className="iep-next-step-btn"
-                onClick={() => {
-                  navigate("/dashboard/lessons");
-                  if (setActivePage) setActivePage("manage-lesson-plans");
-                }}
+              <header className="iep-next-steps-header">
+                <span className="iep-next-steps-icon" aria-hidden="true">💡</span>
+                <div>
+                  <h4>Instructional Support: Use this IEP in the Classroom</h4>
+                  <p>
+                    This IEP is ready. Generate tailored lesson plans, visual aids, and teaching strategies based on this student's goals.
+                  </p>
+                </div>
+              </header>
+              <nav
+                className="iep-next-steps-grid"
+                aria-label="Classroom tool actions"
               >
-                <span>📚</span> Create Lesson Plan
-              </button>
-              <button
-                type="button"
-                className="iep-next-step-btn"
-                onClick={() => {
-                  navigate("/dashboard/visual-aids");
-                  if (setActivePage) setActivePage("manage-visual-aids");
-                }}
-              >
-                <span>🖼️</span> Create Visual Aid
-              </button>
-              <button
-                type="button"
-                className="iep-next-step-btn iep-next-step-btn-secondary"
-                onClick={() => {
-                  navigate("/dashboard/strategies");
-                  if (setActivePage) setActivePage("manage-teaching-strategies");
-                }}
-              >
-                <span>🎯</span> Teaching Strategies
-              </button>
-              <button
-                type="button"
-                className="iep-next-step-btn iep-next-step-btn-ghost"
-                onClick={() => {
-                  navigate("/dashboard");
-                  if (setActivePage) setActivePage("overview");
-                }}
-              >
-                <span>🏠</span> Back to Overview
-              </button>
-            </nav>
-          </section>
+                <button
+                  type="button"
+                  className="iep-next-step-btn"
+                  onClick={() => {
+                    navigate("/dashboard/lessons");
+                    if (setActivePage) setActivePage("manage-lesson-plans");
+                  }}
+                >
+                  <span>📚</span> Create Lesson Plan
+                </button>
+                <button
+                  type="button"
+                  className="iep-next-step-btn"
+                  onClick={() => {
+                    navigate("/dashboard/visual-aids");
+                    if (setActivePage) setActivePage("manage-visual-aids");
+                  }}
+                >
+                  <span>🖼️</span> Create Visual Aid
+                </button>
+                <button
+                  type="button"
+                  className="iep-next-step-btn iep-next-step-btn-secondary"
+                  onClick={() => {
+                    navigate("/dashboard/strategies");
+                    if (setActivePage) setActivePage("manage-teaching-strategies");
+                  }}
+                >
+                  <span>🎯</span> Teaching Strategies
+                </button>
+                <button
+                  type="button"
+                  className="iep-next-step-btn iep-next-step-btn-ghost"
+                  onClick={() => {
+                    navigate("/dashboard");
+                    if (setActivePage) setActivePage("overview");
+                  }}
+                >
+                  <span>🏠</span> Back to Overview
+                </button>
+              </nav>
+            </section>
+          )}
 
           {/* Inline edit panel */}
           {isEditing && (
             <div className="iep-edit-panel">
               <h3>Edit Considerations of Special Factors</h3>
-              <TextAreaField
+              <SpecialFactorNotesField
+                id="edit-special-factor-notes"
                 label="Other special factor notes"
                 placeholder="Add notes about behavior, communication, sensory, or other special factors."
                 value={editSpecialFactorNotes}
-                onChange={(e) => setEditSpecialFactorNotes(e.target.value)}
-                rows={3}
+                onChange={(val) => setEditSpecialFactorNotes(val)}
               />
               <h3 style={{ marginTop: 22 }}>
                 Edit Section B: Difficulties, Barriers, and Enabling Supports
@@ -1042,7 +1206,7 @@ function ViewIEPPanel({
                 <button
                   type="button"
                   className="btn btn-back"
-                  onClick={() => setIsEditing(false)}
+                  onClick={handleCancelEdit}
                 >
                   CANCEL
                 </button>
@@ -1058,100 +1222,105 @@ function ViewIEPPanel({
             </div>
           )}
 
-          {/* Considerations of Special Factors */}
-          {(details?.specialFactorNotes || details?.special_factor_notes) && (
-            <div style={{ marginBottom: 20 }}>
-              <h3 className="iep-view-section-title">
-                Considerations of Special Factors
-              </h3>
-              <InfoBlock title="Other Special Factor Notes">
-                {details?.specialFactorNotes || details?.special_factor_notes}
-              </InfoBlock>
-            </div>
-          )}
-
-          {/* Section B read-only */}
-          <div>
-            <h3 className="iep-view-section-title">
-              Section B: Difficulties, Barriers, and Enabling Supports
-            </h3>
-            <div className="iep-table-wrap">
-              <table className="iep-table">
-                <thead>
-                  <tr>
-                    <th>Difficulty</th>
-                    <th>Learning Barriers</th>
-                    <th>Learning Facilitators</th>
-                    <th>Accommodation</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {barrierRowsToRender.length ? (
-                    barrierRowsToRender.map((row, i) => (
-                      <tr key={i}>
-                        <td className="iep-readonly-cell">
-                          {row.difficulty || "—"}
-                        </td>
-                        <td className="iep-readonly-cell">
-                          {row.barrierQualifier || "—"}
-                        </td>
-                        <td className="iep-readonly-cell">
-                          {row.facilitator || "—"}
-                        </td>
-                        <td className="iep-readonly-cell">
-                          {row.accommodation || "—"}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan="4"
-                        className="iep-readonly-cell"
-                        style={{ textAlign: "center", color: "#999" }}
-                      >
-                        No Section B details available.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            {(details?.generatedAccommodations ||
-              selectedIep.accommodations) && (
-              <InfoBlock title="AI-Generated Accommodations / Resources">
-                {details?.generatedAccommodations || selectedIep.accommodations}
-              </InfoBlock>
-            )}
-          </div>
-
-          {/* Section C: goals from DB */}
-          <div>
-            <h3 className="iep-view-section-title">
-              Section C: Learner's Goals
-            </h3>
-            {loadingGoals ? (
-              <p className="iep-muted">Loading learner goals…</p>
-            ) : goalsToRender.length ? (
-              goalsToRender.map((goal, idx) => (
-                <div key={goal.type || idx} className="iep-goal-preview">
-                  <InfoBlock title={`${goal.type} — Annual Goal / Long Term`}>
-                    {goal.annualGoal}
+          {/* Read-only sections only rendered when !isEditing */}
+          {!isEditing && (
+            <>
+              {/* Considerations of Special Factors */}
+              {(details?.specialFactorNotes || details?.special_factor_notes) && (
+                <div style={{ marginBottom: 20 }}>
+                  <h3 className="iep-view-section-title">
+                    Considerations of Special Factors
+                  </h3>
+                  <InfoBlock title="Other Special Factor Notes">
+                    {details?.specialFactorNotes || details?.special_factor_notes}
                   </InfoBlock>
-                  <ReadOnlyGoalTable rows={goal.rows} />
                 </div>
-              ))
-            ) : (
-              <div className="iep-empty-state compact">
-                <div>🎯</div>
-                <strong>No goals recorded yet</strong>
-                <span>
-                  Goals are generated by the AI when you create an IEP. They
-                  will appear here once saved.
-                </span>
+              )}
+
+              {/* Section B read-only */}
+              <div>
+                <h3 className="iep-view-section-title">
+                  Section B: Difficulties, Barriers, and Enabling Supports
+                </h3>
+                <div className="iep-table-wrap">
+                  <table className="iep-table">
+                    <thead>
+                      <tr>
+                        <th>Difficulty</th>
+                        <th>Learning Barriers</th>
+                        <th>Learning Facilitators</th>
+                        <th>Accommodation</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {barrierRowsToRender.length ? (
+                        barrierRowsToRender.map((row, i) => (
+                          <tr key={i}>
+                            <td className="iep-readonly-cell">
+                              {row.difficulty || "—"}
+                            </td>
+                            <td className="iep-readonly-cell">
+                              {row.barrierQualifier || "—"}
+                            </td>
+                            <td className="iep-readonly-cell">
+                              {row.facilitator || "—"}
+                            </td>
+                            <td className="iep-readonly-cell">
+                              {row.accommodation || "—"}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan="4"
+                            className="iep-readonly-cell"
+                            style={{ textAlign: "center", color: "#999" }}
+                          >
+                            No Section B details available.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {(details?.generatedAccommodations ||
+                  selectedIep.accommodations) && (
+                  <InfoBlock title="AI-Generated Accommodations / Resources">
+                    {details?.generatedAccommodations || selectedIep.accommodations}
+                  </InfoBlock>
+                )}
               </div>
-            )}
-          </div>
+
+              {/* Section C: goals from DB */}
+              <div>
+                <h3 className="iep-view-section-title">
+                  Section C: Learner's Goals
+                </h3>
+                {loadingGoals ? (
+                  <p className="iep-muted">Loading learner goals…</p>
+                ) : goalsToRender.length ? (
+                  goalsToRender.map((goal, idx) => (
+                    <div key={goal.type || idx} className="iep-goal-preview">
+                      <InfoBlock title={`${goal.type} — Annual Goal / Long Term`}>
+                        {goal.annualGoal}
+                      </InfoBlock>
+                      <ReadOnlyGoalTable rows={goal.rows} />
+                    </div>
+                  ))
+                ) : (
+                  <div className="iep-empty-state compact">
+                    <div>🎯</div>
+                    <strong>No goals recorded yet</strong>
+                    <span>
+                      Goals are generated by the AI when you create an IEP. They
+                      will appear here once saved.
+                    </span>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -1401,7 +1570,7 @@ export default function IEPGenerationPage({
     return () => {
       mounted = false;
     };
-  }, [selectedStudent, currentUserId]);
+  }, [selectedStudent, currentUserId, activeView]);
 
   // Pre-fill form from student profile
   useEffect(() => {
@@ -1476,14 +1645,29 @@ export default function IEPGenerationPage({
 
   // ── Form helpers ──────────────────────────────────────────────────────────
 
-  const setField = (field) => (e) =>
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
-
-  const addAssistiveTechRow = () =>
-    setForm((prev) => ({
-      ...prev,
-      assistiveTechnologies: [...prev.assistiveTechnologies, ""],
-    }));
+  const addAssistiveTechRow = (value = "") =>
+    setForm((prev) => {
+      if (prev.assistiveTechnologies.length >= MAX_ASSISTIVE_TECH_ITEMS) {
+        return prev;
+      }
+      return {
+        ...prev,
+        assistiveTechnologies: [
+          ...prev.assistiveTechnologies,
+          typeof value === "string" ? value : "",
+        ],
+      };
+    });
+  const handleAddAssistiveTechPreset = (preset) =>
+    setForm((prev) => {
+      if (prev.assistiveTechnologies.length >= MAX_ASSISTIVE_TECH_ITEMS) {
+        return prev;
+      }
+      return {
+        ...prev,
+        assistiveTechnologies: [...prev.assistiveTechnologies, preset],
+      };
+    });
   const updateAssistiveTechRow = (i, v) =>
     setForm((prev) => ({
       ...prev,
@@ -2034,18 +2218,13 @@ export default function IEPGenerationPage({
                         Loaded from the saved student profile. Update the
                         student profile if these difficulties need to change.
                       </p>
-                      <div className="iep-input-row-list">
+                      <div className="iep-difficulty-list" data-testid="iep-difficulty-list">
                         {form.difficultyMarkers.length ? (
                           form.difficultyMarkers.map((item, i) => (
-                            <div key={i} className="iep-input-row-item">
-                              <input
-                                className="form-input"
-                                value={item}
-                                placeholder={`Difficulty ${i + 1}`}
-                                readOnly
-                                aria-readonly="true"
-                              />
-                            </div>
+                            <p key={i} className="iep-difficulty-item">
+                              <span className="iep-difficulty-bullet" aria-hidden="true">•</span>
+                              <span>{item}</span>
+                            </p>
                           ))
                         ) : (
                           <p className="iep-muted">
@@ -2055,9 +2234,44 @@ export default function IEPGenerationPage({
                       </div>
                     </div>
                     <div>
-                      <h3 className="iep-small-title">
-                        Assistive Technologies Needed
-                      </h3>
+                      <div className="iep-assistive-tech-header">
+                        <h3 className="iep-small-title">
+                          Assistive Technologies Needed
+                        </h3>
+                        {form.assistiveTechnologies.length >=
+                          MAX_ASSISTIVE_TECH_ITEMS && (
+                          <span
+                            className="iep-limit-badge"
+                            data-testid="max-limit-badge"
+                          >
+                            (Maximum 5 reached)
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="iep-preset-chips-container">
+                        <span className="iep-preset-chips-label">
+                          Preset Suggestions:
+                        </span>
+                        <div className="iep-preset-chips-list">
+                          {ASSISTIVE_TECH_PRESETS.map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              className="iep-preset-chip"
+                              onClick={() => handleAddAssistiveTechPreset(preset)}
+                              disabled={
+                                form.assistiveTechnologies.length >=
+                                MAX_ASSISTIVE_TECH_ITEMS
+                              }
+                              title={`Add ${preset}`}
+                            >
+                              + {preset}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
                       <div className="iep-input-row-list">
                         {form.assistiveTechnologies.map((item, i) => (
                           <div key={i} className="iep-input-row-item">
@@ -2073,28 +2287,46 @@ export default function IEPGenerationPage({
                               type="button"
                               className="iep-link-danger"
                               onClick={() => removeAssistiveTechRow(i)}
+                              aria-label={`Remove technology ${i + 1}`}
                             >
                               ✕
                             </button>
                           </div>
                         ))}
-                        <button
-                          type="button"
-                          className="btn btn-back iep-add-row-inline"
-                          onClick={addAssistiveTechRow}
-                        >
-                          + Add Row
-                        </button>
+                        <div className="iep-add-row-actions">
+                          <button
+                            type="button"
+                            className="btn btn-back iep-add-row-inline"
+                            onClick={() => addAssistiveTechRow()}
+                            disabled={
+                              form.assistiveTechnologies.length >=
+                              MAX_ASSISTIVE_TECH_ITEMS
+                            }
+                          >
+                            + Add Row
+                          </button>
+                          {form.assistiveTechnologies.length >=
+                            MAX_ASSISTIVE_TECH_ITEMS && (
+                            <span
+                              className="iep-limit-badge"
+                              data-testid="max-limit-badge-inline"
+                            >
+                              (Maximum 5 reached)
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <TextAreaField
+                  <SpecialFactorNotesField
+                    id="step1-special-factor-notes"
                     label="Other special factor notes"
                     placeholder="Add notes about behavior, communication, sensory, or other special factors."
                     value={form.specialFactorNotes}
-                    onChange={setField("specialFactorNotes")}
-                    rows={3}
+                    onChange={(val) =>
+                      setForm((prev) => ({ ...prev, specialFactorNotes: val }))
+                    }
                   />
 
                   <SectionHeader
@@ -2121,14 +2353,10 @@ export default function IEPGenerationPage({
                         )}
                         {form.barrierRows.map((row, i) => (
                           <tr key={i}>
-                            <td>
-                              <input
-                                value={row.difficulty}
-                                className="form-input"
-                                placeholder="Difficulty from profile"
-                                readOnly
-                                aria-readonly="true"
-                              />
+                            <td className="iep-difficulty-td">
+                              <p className="iep-difficulty-cell-text">
+                                {row.difficulty || "—"}
+                              </p>
                             </td>
                             <td>
                               <select

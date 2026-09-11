@@ -8,10 +8,10 @@
   }
   
   .btn {
-    padding: 9px 22px;
+    padding: 10px 24px;
     border: none;
-    border-radius: 5px;
-    font-size: 13.5px;
+    border-radius: 6px;
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     letter-spacing: 0.4px;
@@ -45,29 +45,29 @@
   /* ── Tab header ───────────────────────────────────────── */
 .tab-header {
     display: flex;
-    border-bottom: 2px solid #e0e0e0;
-    margin-bottom: 16px;
+    border-bottom: 2px solid #e2e8f0;
+    margin-bottom: 18px;
   }
   
   .tab-btn {
     flex: 1;
-    padding: 10px 0;
+    padding: 12px 0;
     background: none;
     border: none;
-    font-size: 14px;
+    font-size: 14.5px;
     font-weight: 600;
     cursor: pointer;
-    color: #555;
+    color: #64748b;
     transition: color 0.2s ease, border-bottom 0.2s ease;
   }
   
   .tab-btn.active {
-    color: #3d9de8;
-    border-bottom: 3px solid #3d9de8;
+    color: #2589c7;
+    border-bottom: 3px solid #2589c7;
   }
   
   .tab-btn:hover {
-    color: #2c89d0;
+    color: #1a6fa8;
   }
   
   /* ── Tab content ─────────────────────────────────────── */
@@ -84,16 +84,17 @@
   }
   
   .insight-card {
-    background: #f9f9f9;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 14px;
   }
   
   .insight-card h4 {
     margin: 0 0 8px;
-    font-size: 14px;
-    color: #333;
+    font-size: 15px;
+    font-weight: 600;
+    color: #1e293b;
   }
   
   .insight-card ul {
@@ -102,8 +103,9 @@
   }
   
   .insight-card li {
-    font-size: 13px;
-    color: #444;
-    margin-bottom: 4px;
+    font-size: 14px;
+    color: #334155;
+    margin-bottom: 5px;
+    line-height: 1.5;
   }
   

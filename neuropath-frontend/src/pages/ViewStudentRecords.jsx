@@ -613,14 +613,18 @@ export default function ViewStudentRecords({ setActivePage }) {
           )}
           <div className="om-search-bar">
             <input
+              id="search-students-input"
               className="form-input om-search-input"
               placeholder="Search Student Records"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search students by name"
             />
             <div className="om-filters">
               <span className="om-filter-label">Filter:</span>
               <select
+                id="filter-grade-select"
+                aria-label="Filter by grade"
                 className="form-select om-filter-select"
                 value={filterGrade}
                 onChange={(e) => setFilterGrade(e.target.value)}
@@ -633,6 +637,8 @@ export default function ViewStudentRecords({ setActivePage }) {
                 ))}
               </select>
               <select
+                id="filter-age-select"
+                aria-label="Filter by age"
                 className="form-select om-filter-select"
                 value={filterAge}
                 onChange={(e) => setFilterAge(e.target.value)}
