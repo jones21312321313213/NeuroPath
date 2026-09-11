@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import IEPGenerationPage from "./IepGenerationPage";
+import { mergeDifficulties } from "../utils/difficultyUtils";
 import { studentsAPI, iepAPI } from "../api/client";
 
 const mockNavigate = vi.fn();
@@ -18,6 +19,8 @@ vi.mock("react-router-dom", async () => {
 vi.mock("../api/client", () => ({
   studentsAPI: {
     list: vi.fn(),
+    get: vi.fn(),
+    update: vi.fn(),
   },
   iepAPI: {
     listByStudent: vi.fn(),
@@ -72,6 +75,9 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       JSON.stringify({ id: 10, teacherID: 10 }),
     );
     studentsAPI.list.mockResolvedValue([mockStudent]);
+    studentsAPI.update.mockResolvedValue({
+      message: "Student profile updated successfully.",
+    });
     iepAPI.listByStudent.mockResolvedValue([mockIep]);
     iepAPI.listGoalsByIep.mockResolvedValue([]);
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -662,6 +668,190 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       expect(
         screen.queryByText("Edit Considerations of Special Factors"),
       ).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Sync Section B Difficulties to Student Profile & Generator (#135)", () => {
+    it("mergeDifficulties utility deduplicates case-insensitively and preserves order", () => {
+      const existing = ["Difficulty in Seeing", "Sensory Processing"];
+      const newItems = ["difficulty in seeing", "Difficulty in Hearing", "DIFFICULTY IN HEARING", "  "];
+      const result = mergeDifficulties(existing, newItems);
+      expect(result).toEqual([
+        "Difficulty in Seeing",
+        "Sensory Processing",
+        "Difficulty in Hearing",
+      ]);
+    });
+
+    it("syncs newly added Section B difficulty row to student profile via studentsAPI.update on save", async () => {
+      const user = userEvent.setup();
+      iepAPI.update.mockResolvedValue({
+        iepID: 101,
+        difficulties: "Sensory Processing\nDifficulty in Speech",
+        generatedDetails: {
+          barrierRows: [
+            {
+              difficulty: "Sensory Processing",
+              barrierQualifier: "Moderate barrier",
+              facilitator: "Headphones",
+              accommodation: "Quiet room",
+            },
+            {
+              difficulty: "Difficulty in Speech",
+              barrierQualifier: "High barrier",
+              facilitator: "Visual AAC",
+              accommodation: "Extra time",
+            },
+          ],
+        },
+      });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("EDIT IEP"));
+      expect(screen.getByText(/Editing IEP/i)).toBeInTheDocument();
+
+      // Click + ADD ROW to add a new Section B difficulty row
+      await user.click(screen.getByText("+ ADD ROW"));
+
+      // Find the inputs for the newly added row
+      const difficultyInputs = screen.getAllByPlaceholderText("Type difficulty");
+      expect(difficultyInputs.length).toBeGreaterThanOrEqual(2);
+      const newDifficultyInput = difficultyInputs[difficultyInputs.length - 1];
+
+      await user.type(newDifficultyInput, "Difficulty in Speech");
+
+      // Click SAVE CHANGES
+      await user.click(screen.getByRole("button", { name: /^SAVE CHANGES$/i }));
+
+      await waitFor(() => {
+        expect(iepAPI.update).toHaveBeenCalled();
+      });
+
+      // Verify studentsAPI.update was called with the merged difficulties
+      expect(studentsAPI.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          profileDetails: expect.objectContaining({
+            difficultyMarkers: expect.arrayContaining([
+              "Sensory Processing",
+              "Difficulty in Speech",
+            ]),
+          }),
+        }),
+      );
+    });
+
+    it("immediately renders the newly synced difficulty in Generate IEP tab", async () => {
+      const user = userEvent.setup();
+      iepAPI.update.mockResolvedValue({
+        iepID: 101,
+        difficulties: "Sensory Processing\nDifficulty in Speech",
+        generatedDetails: {
+          barrierRows: [
+            {
+              difficulty: "Sensory Processing",
+              barrierQualifier: "Moderate barrier",
+              facilitator: "Headphones",
+              accommodation: "Quiet room",
+            },
+            {
+              difficulty: "Difficulty in Speech",
+              barrierQualifier: "High barrier",
+              facilitator: "Visual AAC",
+              accommodation: "Extra time",
+            },
+          ],
+        },
+      });
+
+      const { rerender } = render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("EDIT IEP"));
+      await user.click(screen.getByText("+ ADD ROW"));
+
+      const difficultyInputs = screen.getAllByPlaceholderText("Type difficulty");
+      const newDifficultyInput = difficultyInputs[difficultyInputs.length - 1];
+      await user.type(newDifficultyInput, "Difficulty in Speech");
+
+      await user.click(screen.getByRole("button", { name: /^SAVE CHANGES$/i }));
+
+      await waitFor(() => {
+        expect(studentsAPI.update).toHaveBeenCalled();
+      });
+
+      // Switch to Generate mode for the same student
+      rerender(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getAllByText("Difficulty in Speech").length,
+        ).toBeGreaterThanOrEqual(1);
+      });
+      expect(
+        screen.getAllByText("Sensory Processing").length,
+      ).toBeGreaterThanOrEqual(1);
+    });
+
+    it("deduplicates difficulties so duplicate markers are not duplicated", async () => {
+      const user = userEvent.setup();
+      iepAPI.update.mockResolvedValue({
+        iepID: 101,
+        difficulties: "Sensory Processing\nsensory processing",
+        generatedDetails: {
+          barrierRows: [
+            { difficulty: "Sensory Processing" },
+            { difficulty: "sensory processing" },
+          ],
+        },
+      });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("EDIT IEP"));
+      await user.click(screen.getByText("+ ADD ROW"));
+
+      const difficultyInputs = screen.getAllByPlaceholderText("Type difficulty");
+      const newDifficultyInput = difficultyInputs[difficultyInputs.length - 1];
+      await user.type(newDifficultyInput, "sensory processing");
+
+      await user.click(screen.getByRole("button", { name: /^SAVE CHANGES$/i }));
+
+      await waitFor(() => {
+        expect(studentsAPI.update).toHaveBeenCalled();
+      });
+
+      const callArgs = studentsAPI.update.mock.calls[0];
+      const savedMarkers = callArgs[1].profileDetails.difficultyMarkers;
+      expect(savedMarkers).toEqual(["Sensory Processing"]);
     });
   });
 });
