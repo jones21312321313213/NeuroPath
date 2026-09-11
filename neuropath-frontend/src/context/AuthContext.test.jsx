@@ -114,6 +114,7 @@ describe("AuthContext", () => {
       JSON.stringify({ email: "stored@example.com" }),
     );
     localStorage.setItem("neuropath_access_token", "abc123");
+    localStorage.setItem("neuropath_last_active", "123456");
     fetch.mockResolvedValueOnce(jsonResponse({ message: "Logged out" }));
 
     const { result } = renderAuthHook();
@@ -134,6 +135,7 @@ describe("AuthContext", () => {
     expect(result.current.isAuthenticated).toBe(false);
     expect(localStorage.getItem("neuropath_user")).toBeNull();
     expect(localStorage.getItem("neuropath_access_token")).toBeNull();
+    expect(localStorage.getItem("neuropath_last_active")).toBeNull();
   });
 
   it("updates user profile with FormData and updates state and localStorage", async () => {

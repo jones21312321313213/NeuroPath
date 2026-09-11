@@ -22,6 +22,7 @@ import UpdateStudentProfile from "./pages/StudentProfiling/UpdateStudentProfile"
 import LoginSplash from "./components/LoginSplash";
 import TeacherTutorialModal from "./components/TeacherTutorialModal";
 import NotFoundPage from "./pages/NotFoundPage";
+import SessionTimeoutManager from "./components/session/SessionTimeoutManager";
 import "./App.css";
 
 function getBreadcrumb(pathname) {
@@ -102,6 +103,7 @@ function AppRoutes() {
 
   return (
     <>
+      <SessionTimeoutManager />
       {showSplash && (
         <LoginSplash
           onComplete={() => {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function LoginPage({
@@ -6,13 +7,34 @@ export default function LoginPage({
   onLoginSuccess,
   successMessage,
   onClearMessage,
+  sessionNotice: initialSessionNotice,
 }) {
-  
+  const location = useLocation();
   const { login } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState(() => {
+    return (
+      initialSessionNotice ||
+      location?.state?.message ||
+      (typeof sessionStorage !== "undefined"
+        ? sessionStorage.getItem("neuropath_session_notice")
+        : "") ||
+      ""
+    );
+  });
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.removeItem("neuropath_session_notice");
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+  }, []);
 
   useEffect(() => {
     if (successMessage) {
@@ -24,6 +46,7 @@ export default function LoginPage({
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     setError("");
+    setNotice("");
   };
 
   const handleSubmit = async (e) => {
@@ -141,6 +164,22 @@ export default function LoginPage({
               Sign in to your NeuroPath account
             </p>
           </div>
+
+          {/* Session timeout warning banner */}
+          {notice && (
+            <div
+              className="mb-6 flex items-center gap-2.5 text-sm p-3.5 rounded-xl"
+              style={{
+                background: "#fffbeb",
+                border: "1px solid #fde68a",
+                color: "#92400e",
+              }}
+              role="alert"
+            >
+              <span className="text-base" aria-hidden="true">⏱️</span>
+              <p className="font-medium">{notice}</p>
+            </div>
+          )}
 
           {/* Success banner */}
           {successMessage && (

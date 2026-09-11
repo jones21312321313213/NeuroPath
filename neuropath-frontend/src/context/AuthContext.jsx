@@ -1,12 +1,14 @@
 import { createContext, useContext, useState, useCallback } from "react";
 import { authAPI, usersAPI } from "../api/client";
+import { queryClient } from "../queryClient";
+import { STORAGE_KEYS } from "../constants/session";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
-      const stored = localStorage.getItem("neuropath_user");
+      const stored = localStorage.getItem(STORAGE_KEYS.USER);
       return stored ? JSON.parse(stored) : null;
     } catch {
       return null;
@@ -15,8 +17,9 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const data = await authAPI.login({ email, password });
-    localStorage.setItem("neuropath_access_token", data.token);
-    localStorage.setItem("neuropath_user", JSON.stringify(data.teacher));
+    localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.token);
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.teacher));
+    localStorage.setItem(STORAGE_KEYS.LAST_ACTIVE, String(Date.now()));
     setUser(data.teacher);
     return data;
   };
@@ -30,8 +33,10 @@ export function AuthProvider({ children }) {
       // Token already invalid or backend unreachable — clear locally regardless.
       console.error("Logout failed:", error);
     } finally {
-      localStorage.removeItem("neuropath_user");
-      localStorage.removeItem("neuropath_access_token");
+      localStorage.removeItem(STORAGE_KEYS.USER);
+      localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.LAST_ACTIVE);
+      queryClient.clear();
       setUser(null);
     }
   }, []);
