@@ -3,7 +3,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import IEPGenerationPage from "./IepGenerationPage";
-import { mergeDifficulties } from "../utils/difficultyUtils";
+import { sanitizeDifficulties, mergeDifficulties } from "../utils/difficultyUtils";
+
 import { studentsAPI, iepAPI } from "../api/client";
 
 const mockNavigate = vi.fn();
@@ -635,6 +636,18 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
   });
 
   describe("Sync Section B Difficulties to Student Profile & Generator (#135)", () => {
+    it("sanitizeDifficulties utility deduplicates case-insensitively and filters empty items", () => {
+      const input = [
+        { difficulty: "Difficulty in Seeing" },
+        "difficulty in seeing",
+        "  ",
+        { difficulty: "Difficulty in Hearing" },
+        "DIFFICULTY IN HEARING",
+      ];
+      const result = sanitizeDifficulties(input);
+      expect(result).toEqual(["Difficulty in Seeing", "Difficulty in Hearing"]);
+    });
+
     it("mergeDifficulties utility deduplicates case-insensitively and preserves order", () => {
       const existing = ["Difficulty in Seeing", "Sensory Processing"];
       const newItems = ["difficulty in seeing", "Difficulty in Hearing", "DIFFICULTY IN HEARING", "  "];
@@ -645,6 +658,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         "Difficulty in Hearing",
       ]);
     });
+
 
     it("syncs newly added Section B difficulty row to student profile via studentsAPI.update on save", async () => {
       const user = userEvent.setup();
@@ -816,5 +830,48 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       const savedMarkers = callArgs[1].profileDetails.difficultyMarkers;
       expect(savedMarkers).toEqual(["Sensory Processing"]);
     });
+
+    it("renaming an existing difficulty in Section B replaces the old name without creating duplicate rows", async () => {
+      const user = userEvent.setup();
+      iepAPI.update.mockResolvedValue({
+        iepID: 101,
+        difficulties: "test",
+        generatedDetails: {
+          barrierRows: [
+            { difficulty: "test", barrierQualifier: "Moderate barrier", facilitator: "F", accommodation: "A" },
+          ],
+        },
+      });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("EDIT IEP"));
+
+      // Edit the existing difficulty input (which initially was "Sensory Processing") to "test"
+      const difficultyInputs = screen.getAllByPlaceholderText("Type difficulty");
+      expect(difficultyInputs[0]).toHaveValue("Sensory Processing");
+      await user.clear(difficultyInputs[0]);
+      await user.type(difficultyInputs[0], "test");
+
+      await user.click(screen.getByRole("button", { name: /^SAVE CHANGES$/i }));
+
+      await waitFor(() => {
+        expect(studentsAPI.update).toHaveBeenCalled();
+      });
+
+      const callArgs = studentsAPI.update.mock.calls[0];
+      const savedMarkers = callArgs[1].profileDetails.difficultyMarkers;
+      // Must be replaced with ["test"], NOT ["Sensory Processing", "test"]
+      expect(savedMarkers).toEqual(["test"]);
+    });
   });
 });
+
