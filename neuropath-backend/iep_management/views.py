@@ -230,38 +230,28 @@ class IEPEditAPIView(generics.UpdateAPIView):
                             raw_difficulties.append(d_str)
 
             if raw_difficulties:
-                profile_details = student.profileDetails if isinstance(student.profileDetails, dict) else {}
-                existing_markers = profile_details.get('difficultyMarkers') or []
-                if isinstance(existing_markers, str):
-                    existing_markers = [m.strip() for m in existing_markers.splitlines() if m.strip()]
-                elif not isinstance(existing_markers, list):
-                    existing_markers = []
-
                 seen = set()
-                merged = []
-                for item in existing_markers:
-                    key = item.strip().lower()
-                    if key and key not in seen:
-                        seen.add(key)
-                        merged.append(item.strip())
+                updated_markers = []
                 for item in raw_difficulties:
                     key = item.strip().lower()
                     if key and key not in seen:
                         seen.add(key)
-                        merged.append(item.strip())
+                        updated_markers.append(item.strip())
 
-                profile_details['difficultyMarkers'] = merged
-                student.profileDetails = profile_details
-                try:
-                    import json
-                    existing_prefs = json.loads(student.preferences) if student.preferences else {}
-                    if not isinstance(existing_prefs, dict):
+                if updated_markers:
+                    profile_details = student.profileDetails if isinstance(student.profileDetails, dict) else {}
+                    profile_details['difficultyMarkers'] = updated_markers
+                    student.profileDetails = profile_details
+                    try:
+                        import json
+                        existing_prefs = json.loads(student.preferences) if student.preferences else {}
+                        if not isinstance(existing_prefs, dict):
+                            existing_prefs = {}
+                    except Exception:
                         existing_prefs = {}
-                except Exception:
-                    existing_prefs = {}
-                existing_prefs['difficultyMarkers'] = merged
-                student.preferences = json.dumps(existing_prefs)
-                student.save(update_fields=['profileDetails', 'preferences'])
+                    existing_prefs['difficultyMarkers'] = updated_markers
+                    student.preferences = json.dumps(existing_prefs)
+                    student.save(update_fields=['profileDetails', 'preferences'])
 
 
 class IEPDeleteAPIView(generics.DestroyAPIView):

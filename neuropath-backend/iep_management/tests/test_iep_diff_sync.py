@@ -73,3 +73,21 @@ class IEPDifficultySyncTests(APITestCase):
         self.assertEqual(len(markers), 2)
         self.assertEqual(markers[0], 'Difficulty in Seeing')
         self.assertEqual(markers[1], 'Difficulty in Hearing')
+
+    def test_rename_difficulty_in_section_b_replaces_old_difficulty(self):
+        # Originally had 'Difficulty in Seeing'
+        payload = {
+            'difficulties': 'test',
+            'generatedDetails': {
+                'barrierRows': [
+                    {'difficulty': 'test'}
+                ]
+            }
+        }
+        response = self.client.put(f'/api/iep/edit/{self.iep.iepID}/', payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.student.refresh_from_db()
+        markers = self.student.profileDetails.get('difficultyMarkers', [])
+        self.assertEqual(markers, ['test'])
+
