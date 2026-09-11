@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { iepAPI, studentsAPI } from "../api/client";
 import { queryClient } from "../queryClient";
 import { queryKeys } from "../hooks/queries";
+import { mergeDifficulties } from "../utils/difficultyUtils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -315,22 +316,6 @@ function normalizeTextList(value) {
       .filter(Boolean);
   }
   return [];
-}
-
-export function mergeDifficulties(existingList = [], newList = []) {
-  const seen = new Set();
-  const result = [];
-  const combined = [...(existingList || []), ...(newList || [])];
-  for (const item of combined) {
-    const trimmed = String(item || "").trim();
-    if (!trimmed) continue;
-    const key = trimmed.toLowerCase();
-    if (!seen.has(key)) {
-      seen.add(key);
-      result.push(trimmed);
-    }
-  }
-  return result;
 }
 
 function getStudentProfileDifficulties(student) {
