@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { iepAPI, studentsAPI } from "../api/client";
+import { queryClient } from "../queryClient";
+import { queryKeys } from "../hooks/queries";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -313,6 +315,22 @@ function normalizeTextList(value) {
       .filter(Boolean);
   }
   return [];
+}
+
+export function mergeDifficulties(existingList = [], newList = []) {
+  const seen = new Set();
+  const result = [];
+  const combined = [...(existingList || []), ...(newList || [])];
+  for (const item of combined) {
+    const trimmed = String(item || "").trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(trimmed);
+    }
+  }
+  return result;
 }
 
 function getStudentProfileDifficulties(student) {
@@ -712,22 +730,26 @@ function ViewIEPPanel({
         specialFactorNotes: editSpecialFactorNotes,
         special_factor_notes: editSpecialFactorNotes,
       };
-      await onUpdateIep(selectedIep, {
-        baselineData: selectedIep.baselineData,
-        goals: selectedIep.goals,
-        accommodations: selectedIep.accommodations,
-        generatedDetails: { ...updatedDetails, learnerGoals: editGoals },
-        difficulties: editBarrierRows.map((r) => r.difficulty).join("\n"),
-        learning_barriers: editBarrierRows
-          .map((r) => r.barrierQualifier)
-          .join("\n"),
-        learning_facilitators: editBarrierRows
-          .map((r) => r.facilitator)
-          .join("\n"),
-        learning_accommodations: editBarrierRows
-          .map((r) => r.accommodation)
-          .join("\n"),
-      });
+      await onUpdateIep(
+        selectedIep,
+        {
+          baselineData: selectedIep.baselineData,
+          goals: selectedIep.goals,
+          accommodations: selectedIep.accommodations,
+          generatedDetails: { ...updatedDetails, learnerGoals: editGoals },
+          difficulties: editBarrierRows.map((r) => r.difficulty).join("\n"),
+          learning_barriers: editBarrierRows
+            .map((r) => r.barrierQualifier)
+            .join("\n"),
+          learning_facilitators: editBarrierRows
+            .map((r) => r.facilitator)
+            .join("\n"),
+          learning_accommodations: editBarrierRows
+            .map((r) => r.accommodation)
+            .join("\n"),
+        },
+        editBarrierRows,
+      );
 
       for (const goalID of goalsToDelete) {
         await iepAPI.deleteGoal(goalID);
@@ -1458,13 +1480,15 @@ export default function IEPGenerationPage({
   // Reset state when switching tabs
   useEffect(() => {
     queueMicrotask(() => {
-      setSearchTerm("");
-      setSelectedStudent(null);
+      if (!effectiveStudentId) {
+        setSearchTerm("");
+        setSelectedStudent(null);
+      }
       setIeps([]);
       setSelectedIep(null);
       setViewError("");
     });
-  }, [activeView]);
+  }, [activeView, effectiveStudentId]);
 
   // Auto-select student if effectiveStudentId is provided
   useEffect(() => {
@@ -1479,7 +1503,7 @@ export default function IEPGenerationPage({
         if (setSelectedStudentId) setSelectedStudentId(getStudentId(found));
       });
     }
-  }, [effectiveStudentId, students, setSelectedStudentId]);
+  }, [effectiveStudentId, students, activeView, setSelectedStudentId]);
 
   // Load students
   useEffect(() => {
@@ -2053,7 +2077,7 @@ export default function IEPGenerationPage({
 
   // ── IEP CRUD ──────────────────────────────────────────────────────────────
 
-  const handleUpdateIep = async (iep, payload) => {
+  const handleUpdateIep = async (iep, payload, barrierRows) => {
     try {
       let generatedDetails = payload.generatedDetails;
       if (typeof generatedDetails === "string") {
@@ -2081,6 +2105,115 @@ export default function IEPGenerationPage({
       );
       setSelectedIep(merged);
       setViewError("");
+
+      // Synchronize newly added Section B difficulties to student profile (#135)
+      const targetStudent =
+        selectedStudent ||
+        students.find(
+          (s) =>
+            String(getStudentId(s)) ===
+            String(iep.studentID?.pk ?? iep.studentID),
+        );
+      const sid =
+        getStudentId(targetStudent) ||
+        (iep.studentID?.pk ?? iep.studentID);
+
+      if (sid && targetStudent) {
+        const rows =
+          barrierRows ||
+          generatedDetails?.barrierRows ||
+          (payload.difficulties
+            ? payload.difficulties.split("\n").map((d) => ({ difficulty: d }))
+            : []);
+        const newDifficulties = rows
+          .map((r) => (typeof r === "object" ? r.difficulty : r))
+          .map((d) => String(d || "").trim())
+          .filter(Boolean);
+
+        const currentDifficulties = getStudentProfileDifficulties(targetStudent);
+        const mergedDifficulties = mergeDifficulties(
+          currentDifficulties,
+          newDifficulties,
+        );
+
+        if (mergedDifficulties.length > 0) {
+          const currentProfileDetails = getStudentProfileDetails(targetStudent);
+          const updatedProfileDetails = {
+            ...currentProfileDetails,
+            difficultyMarkers: mergedDifficulties,
+          };
+
+          const studentPayload = {
+            name: getStudentName(targetStudent),
+            age: Number(targetStudent.age) || 0,
+            grade: Number(targetStudent.grade) || 0,
+            gender: targetStudent.gender || "",
+            diagnosis: targetStudent.diagnosis || "",
+            support_needs: targetStudent.support_needs || "",
+            asdBackground: targetStudent.asdBackground || "",
+            assessmentResult: targetStudent.assessmentResult || "",
+            preferences: JSON.stringify(updatedProfileDetails),
+            profileDetails: updatedProfileDetails,
+            learning_style: targetStudent.learning_style || "",
+            interests: targetStudent.interests || "",
+            sensory_preferences: targetStudent.sensory_preferences || "",
+          };
+
+          try {
+            await studentsAPI.update(sid, studentPayload);
+          } catch (err) {
+            console.error("Failed to update student profile difficulties:", err);
+          }
+
+          const mergedStudent = {
+            ...targetStudent,
+            ...studentPayload,
+            profileDetails: updatedProfileDetails,
+            difficultyMarkers: mergedDifficulties,
+          };
+
+          setSelectedStudent(mergedStudent);
+          setStudents((prev) =>
+            prev.map((s) =>
+              String(getStudentId(s)) === String(sid) ? mergedStudent : s,
+            ),
+          );
+
+          setForm((prev) => ({
+            ...prev,
+            difficultyMarkers: mergedDifficulties,
+            barrierRows: buildProfileBarrierRows(
+              mergedDifficulties,
+              prev.barrierRows,
+            ),
+          }));
+
+          if (queryClient) {
+            queryClient.setQueryData(queryKeys.student(sid), (old) =>
+              old ? { ...old, ...mergedStudent } : mergedStudent,
+            );
+            if (currentUserId) {
+              queryClient.setQueryData(
+                queryKeys.students(currentUserId),
+                (old) =>
+                  Array.isArray(old)
+                    ? old.map((s) =>
+                        String(getStudentId(s)) === String(sid)
+                          ? { ...s, ...mergedStudent }
+                          : s,
+                      )
+                    : old,
+              );
+              queryClient.invalidateQueries({
+                queryKey: queryKeys.students(currentUserId),
+              });
+            }
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.student(sid),
+            });
+          }
+        }
+      }
     } catch (err) {
       setViewError(err.message || "Unable to update IEP record.");
       throw err;
