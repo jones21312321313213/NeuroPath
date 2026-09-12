@@ -299,7 +299,9 @@ function PageSectionBC({ d, studentId, studentName, onBack, setActivePage }) {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
     } catch (err) {
       setExportError(err.message || "Failed to export PDF. Please try again.");
     } finally {

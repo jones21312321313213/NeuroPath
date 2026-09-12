@@ -234,8 +234,13 @@ describe("ViewStudentRecords Component", () => {
     expect(clickSpy).toHaveBeenCalledTimes(1);
 
     // Verify object URL was cleanly revoked to prevent memory leaks
-    expect(window.URL.revokeObjectURL).toHaveBeenCalledWith(
-      "blob:http://localhost:3000/mock-uuid",
+    await waitFor(
+      () => {
+        expect(window.URL.revokeObjectURL).toHaveBeenCalledWith(
+          "blob:http://localhost:3000/mock-uuid",
+        );
+      },
+      { timeout: 2000 },
     );
 
     createElementSpy.mockRestore();
