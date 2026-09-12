@@ -307,3 +307,11 @@
   color: #ffffff !important;
 }
 
+.vsr-export-error {
+  color: #c0392b;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 8px;
+  text-align: right;
+}
+

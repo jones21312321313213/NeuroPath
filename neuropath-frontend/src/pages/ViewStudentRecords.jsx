@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/OutcomeMonitoring.css";
 import "../styles/ViewStudentRecords.css";
-import { iepAPI, studentsAPI } from "../api/client";
+import { iepAPI, studentsAPI, trackingAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import StudentShimmer from "../components/StudentShimmer";
 
@@ -278,82 +278,33 @@ function PagePresentLevels({ d, onNext, onBack }) {
 }
 
 // ── PAGE 3: Section B + AI + Section C ────────────────────────────────────
-function PageSectionBC({ d, onBack, setActivePage }) {
+function PageSectionBC({ d, studentId, studentName, onBack, setActivePage }) {
   const navigate = useNavigate();
-  const handleExport = () => {
-    const goalHtml = (d.learnerGoals || [])
-      .map(
-        (goal) => `
-          <section class="pdf-card">
-            <h3>${goal.type || "Goal"} — Annual Goal / Long Term</h3>
-            <p>${goal.annualGoal || "—"}</p>
-            ${
-              goal.rows?.length
-                ? `<table><thead><tr><th>Enroute Objectives / Procedure</th><th>Interventions / Activities / Procedure</th><th>Timeline / Session</th><th>Individuals Responsible</th><th>Progress / Instructional Evaluation</th><th>Remarks</th></tr></thead><tbody>${goal.rows
-                    .map(
-                      (row) => `<tr><td>${row.objective || "—"}</td><td>${row.interventions || "—"}</td><td>${row.timeline || "—"}</td><td>${row.responsible || "—"}</td><td>${row.evaluation || "—"}</td><td>${row.remarks || "—"}</td></tr>`,
-                    )
-                    .join("")}</tbody></table>`
-                : ""
-            }
-          </section>`,
-      )
-      .join("");
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
 
-    const barrierHtml = (d.barrierRows || []).length
-      ? (d.barrierRows || [])
-          .map(
-            (row) => `<tr><td>${row.difficulty || "—"}</td><td>${row.barrierQualifier || "—"}</td><td>${row.facilitator || "—"}</td><td>${row.accommodation || "—"}</td></tr>`,
-          )
-          .join("")
-      : `<tr><td colspan="4">No Section B details available.</td></tr>`;
+  const handleExport = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    setExportError("");
 
-    const html = `<!doctype html><html><head><title>Student Record</title><style>
-      @page { size: A4; margin: 14mm; }
-      body { font-family: Arial, Helvetica, sans-serif; color: #111; font-size: 11px; line-height: 1.45; }
-      h1 { font-size: 18px; margin: 0 0 8px; color: #111; }
-      h2 { font-size: 14px; margin: 18px 0 8px; color: #111; }
-      h3 { font-size: 12px; margin: 0 0 8px; color: #111; }
-      .meta { margin-bottom: 12px; color: #111; }
-      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; margin-bottom: 14px; }
-      .field strong { display: inline-block; min-width: 110px; }
-      .box, .pdf-card { border: 1px solid #cfd8e3; border-radius: 6px; padding: 10px; margin-bottom: 10px; page-break-inside: avoid; }
-      table { width: 100%; border-collapse: collapse; margin-top: 8px; page-break-inside: auto; }
-      th, td { border: 1px solid #cfd8e3; padding: 7px; vertical-align: top; color: #111; }
-      th { background: #f2f4f7; font-weight: 700; }
-      p { margin: 4px 0 8px; }
-    </style></head><body>
-      <h1>Student Record</h1>
-      <div class="meta">IEP Version: ${d.iepVersion || "—"} ${d.iepDate ? `• ${d.iepDate}` : ""}</div>
-      <div class="grid">
-        <div class="field"><strong>Name:</strong> ${d.name || "—"}</div>
-        <div class="field"><strong>Age:</strong> ${d.age || "—"}</div>
-        <div class="field"><strong>Grade:</strong> ${d.grade || "—"}</div>
-        <div class="field"><strong>Gender:</strong> ${d.gender || "—"}</div>
-        <div class="field"><strong>School:</strong> ${d.school || "—"}</div>
-        <div class="field"><strong>School Year:</strong> ${d.schoolYear || "—"}</div>
-        <div class="field"><strong>Birthdate:</strong> ${d.birthdate || "—"}</div>
-        <div class="field"><strong>Diagnosis:</strong> ${d.disabilityCategory || "—"}</div>
-      </div>
-      <h2>Present Levels</h2>
-      <div class="box"><strong>Evaluation:</strong><p>${d.presentEvaluation || "—"}</p></div>
-      <div class="box"><strong>Strengths:</strong><p>${d.academicStrengths || "—"}</p></div>
-      <div class="box"><strong>Needs:</strong><p>${d.academicNeeds || "—"}</p></div>
-      <div class="box"><strong>Parental Concerns:</strong><p>${d.parentalConcerns || "—"}</p></div>
-      <div class="box"><strong>Curriculum Impact:</strong><p>${d.curriculumImpact || "—"}</p></div>
-      <h2>Section B: Difficulties, Barriers, and Enabling Supports</h2>
-      <table><thead><tr><th>Difficulty</th><th>Learning Barriers</th><th>Learning Facilitators</th><th>Accommodation</th></tr></thead><tbody>${barrierHtml}</tbody></table>
-      ${d.aiAccommodations ? `<div class="box"><strong>AI-Generated Accommodations / Resources</strong><p>${d.aiAccommodations}</p></div>` : ""}
-      <h2>Section C: Learner's Goals</h2>
-      ${goalHtml || "<p>No learner goals available.</p>"}
-      <script>window.onload = () => { window.print(); };</script>
-    </body></html>`;
-
-    const win = window.open("", "_blank");
-    if (!win) return;
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
+    try {
+      const targetId = studentId || d?.studentID;
+      const blob = await trackingAPI.exportStudentRecordPDF(targetId);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const cleanName = (studentName || d?.name || "Student").replace(/\s+/g, "_");
+      link.download = `StudentRecord_${cleanName}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setExportError(err.message || "Failed to export PDF. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -432,10 +383,19 @@ function PageSectionBC({ d, onBack, setActivePage }) {
         <button className="btn btn-back" onClick={onBack}>
           ← Previous
         </button>
-        <button className="btn om-export-btn vsr-export-pdf-btn" onClick={handleExport}>
-          EXPORT PDF
+        <button
+          className="btn om-export-btn vsr-export-pdf-btn"
+          onClick={handleExport}
+          disabled={isExporting}
+        >
+          {isExporting ? "Exporting PDF..." : "EXPORT PDF"}
         </button>
       </div>
+      {exportError && (
+        <div role="alert" className="vsr-export-error">
+          ⚠️ {exportError}
+        </div>
+      )}
     </div>
   );
 }
@@ -585,6 +545,8 @@ export default function ViewStudentRecords({ setActivePage }) {
                 {recordStep === 3 && (
                   <PageSectionBC
                     d={recordData}
+                    studentId={selected?.studentID}
+                    studentName={recordData?.name || selected?.name}
                     onBack={() => setRecordStep(2)}
                     setActivePage={setActivePage}
                   />
