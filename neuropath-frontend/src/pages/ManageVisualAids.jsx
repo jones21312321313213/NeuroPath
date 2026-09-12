@@ -140,7 +140,7 @@ function AidRowList({
                 target="_blank"
                 rel="noreferrer"
                 className="va-btn va-btn-ghost"
-                style={{ textDecoration: "none", fontSize: 12 }}
+                style={{ textDecoration: "none" }}
               >
                 ⬇ PDF
               </a>

@@ -352,11 +352,33 @@
   cursor: pointer;
 }
 
+.ts-form-intro {
+  font-size: 14.5px;
+  color: #475569;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
 .ts-goal-text {
   font-size: 14.5px;
   color: #1e293b;
   line-height: 1.6;
   font-weight: 500;
+}
+
+.ts-goal-subtext {
+  display: block;
+  font-size: 13.5px;
+  color: #64748b;
+  line-height: 1.5;
+  margin-top: 2px;
+}
+
+.ts-empty-italic {
+  color: #64748b;
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 /* ── Generate button ───────────────────────────────── */

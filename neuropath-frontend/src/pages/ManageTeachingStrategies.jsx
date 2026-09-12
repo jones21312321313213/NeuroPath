@@ -323,7 +323,7 @@ function GenerateTab({ onSave, setActivePage }) {
           <div className="ts-step-badge">
             <span className="ts-step-num">2</span>Select an IEP Goal
           </div>
-          <p style={{ fontSize: 13, color: "#5a7491", marginBottom: 14 }}>
+          <p className="ts-form-intro">
             Choosing a goal for{" "}
             <strong style={{ color: "#1a2b40" }}>
               {selectedStudent.studentName}
