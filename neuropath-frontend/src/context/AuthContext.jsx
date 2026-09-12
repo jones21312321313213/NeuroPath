@@ -1,12 +1,18 @@
 import { createContext, useContext, useState, useCallback } from "react";
 import { authAPI, usersAPI } from "../api/client";
+import { queryClient } from "../queryClient";
+import {
+  STORAGE_KEYS,
+  SESSION_CHANNEL_NAME,
+  BROADCAST_ACTIONS,
+} from "../constants/session";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
-      const stored = localStorage.getItem("neuropath_user");
+      const stored = localStorage.getItem(STORAGE_KEYS.USER);
       return stored ? JSON.parse(stored) : null;
     } catch {
       return null;
@@ -15,25 +21,80 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const data = await authAPI.login({ email, password });
-    localStorage.setItem("neuropath_access_token", data.token);
-    localStorage.setItem("neuropath_user", JSON.stringify(data.teacher));
+    localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.token);
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.teacher));
+    localStorage.setItem(STORAGE_KEYS.LAST_ACTIVE, String(Date.now()));
     setUser(data.teacher);
     return data;
   };
 
   const register = async (userData) => authAPI.register(userData);
 
-  const logout = useCallback(async () => {
+  const logout = useCallback((options = {}) => {
+    const reason = options?.reason || "manual";
+    const skipBroadcast = options?.skipBroadcast || false;
+    const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+
+    // 1. Immediately clear local storage, query cache, and user state before network call
+    localStorage.removeItem(STORAGE_KEYS.USER);
+    localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.LAST_ACTIVE);
     try {
-      await authAPI.logout();
-    } catch (error) {
-      // Token already invalid or backend unreachable — clear locally regardless.
-      console.error("Logout failed:", error);
-    } finally {
-      localStorage.removeItem("neuropath_user");
-      localStorage.removeItem("neuropath_access_token");
-      setUser(null);
+      localStorage.setItem(
+        STORAGE_KEYS.LOGOUT_EVENT,
+        JSON.stringify({ reason, timestamp: Date.now() })
+      );
+    } catch {
+      // Ignore storage errors
     }
+    queryClient.clear();
+    setUser(null);
+
+    // 2. Broadcast logout across all other open tabs
+    if (!skipBroadcast && typeof BroadcastChannel !== "undefined") {
+      try {
+        const channel = new BroadcastChannel(SESSION_CHANNEL_NAME);
+        channel.postMessage({
+          type: BROADCAST_ACTIONS.LOGOUT,
+          reason,
+          timestamp: Date.now(),
+        });
+        channel.close();
+      } catch (err) {
+        console.warn("Failed to broadcast logout message:", err);
+      }
+    }
+
+    // 3. Fire-and-forget backend notification with 4s AbortSignal timeout so hung requests never keep local state alive
+    if (token) {
+      let controller = null;
+      let timeoutId = null;
+      if (typeof AbortController !== "undefined") {
+        controller = new AbortController();
+        timeoutId = setTimeout(() => {
+          try {
+            controller.abort();
+          } catch {
+            // Ignore abort errors
+          }
+        }, 4000);
+      }
+
+      authAPI
+        .logout({
+          headers: { Authorization: `Token ${token}` },
+          signal: controller?.signal,
+        })
+        .catch((error) => {
+          // Token already invalid, network timed out, or backend unreachable — local state is already cleared.
+          console.error("Logout failed:", error);
+        })
+        .finally(() => {
+          if (timeoutId) clearTimeout(timeoutId);
+        });
+    }
+
+    return Promise.resolve();
   }, []);
 
   // ── Update teacher profile ─────────────────────────────

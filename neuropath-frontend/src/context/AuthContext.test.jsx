@@ -114,6 +114,7 @@ describe("AuthContext", () => {
       JSON.stringify({ email: "stored@example.com" }),
     );
     localStorage.setItem("neuropath_access_token", "abc123");
+    localStorage.setItem("neuropath_last_active", "123456");
     fetch.mockResolvedValueOnce(jsonResponse({ message: "Logged out" }));
 
     const { result } = renderAuthHook();
@@ -128,12 +129,104 @@ describe("AuthContext", () => {
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({}),
+        headers: expect.objectContaining({
+          Authorization: "Token abc123",
+        }),
       }),
     );
     expect(result.current.user).toBeNull();
     expect(result.current.isAuthenticated).toBe(false);
     expect(localStorage.getItem("neuropath_user")).toBeNull();
     expect(localStorage.getItem("neuropath_access_token")).toBeNull();
+    expect(localStorage.getItem("neuropath_last_active")).toBeNull();
+    expect(localStorage.getItem("neuropath_logout_event")).toContain("manual");
+  });
+
+  it("clears local state immediately even if backend logout request hangs or rejects", async () => {
+    localStorage.setItem(
+      "neuropath_user",
+      JSON.stringify({ email: "stored@example.com" }),
+    );
+    localStorage.setItem("neuropath_access_token", "abc123");
+    // Simulate backend network timeout or rejection
+    fetch.mockRejectedValueOnce(new Error("Network connection dropped"));
+
+    const { result } = renderAuthHook();
+    expect(result.current.isAuthenticated).toBe(true);
+
+    await act(async () => {
+      await result.current.logout();
+    });
+
+    expect(result.current.user).toBeNull();
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(localStorage.getItem("neuropath_user")).toBeNull();
+    expect(localStorage.getItem("neuropath_access_token")).toBeNull();
+  });
+
+  it("resolves logout immediately and attaches AbortSignal without blocking when backend hangs indefinitely", async () => {
+    localStorage.setItem(
+      "neuropath_user",
+      JSON.stringify({ email: "stored@example.com" }),
+    );
+    localStorage.setItem("neuropath_access_token", "abc123");
+
+    // Simulate completely hung backend request
+    let fetchSignal;
+    fetch.mockImplementationOnce((_url, options) => {
+      fetchSignal = options?.signal;
+      return new Promise(() => {}); // never resolves
+    });
+
+    const { result } = renderAuthHook();
+    expect(result.current.isAuthenticated).toBe(true);
+
+    let logoutSettled = false;
+    await act(async () => {
+      await result.current.logout();
+      logoutSettled = true;
+    });
+
+    // Logout must settle immediately without waiting for fetch
+    expect(logoutSettled).toBe(true);
+    expect(result.current.user).toBeNull();
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(localStorage.getItem("neuropath_user")).toBeNull();
+    expect(localStorage.getItem("neuropath_access_token")).toBeNull();
+    expect(fetchSignal).toBeDefined();
+  });
+
+  it("broadcasts logout message via BroadcastChannel on manual logout", async () => {
+    const postMessageMock = vi.fn();
+    const closeMock = vi.fn();
+    vi.stubGlobal(
+      "BroadcastChannel",
+      vi.fn().mockImplementation(function () {
+        this.postMessage = postMessageMock;
+        this.close = closeMock;
+      }),
+    );
+
+    localStorage.setItem(
+      "neuropath_user",
+      JSON.stringify({ email: "stored@example.com" }),
+    );
+    localStorage.setItem("neuropath_access_token", "abc123");
+    fetch.mockResolvedValueOnce(jsonResponse({ message: "Logged out" }));
+
+    const { result } = renderAuthHook();
+
+    await act(async () => {
+      await result.current.logout({ reason: "manual" });
+    });
+
+    expect(postMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "LOGOUT",
+        reason: "manual",
+      }),
+    );
+    expect(closeMock).toHaveBeenCalledTimes(1);
   });
 
   it("updates user profile with FormData and updates state and localStorage", async () => {
