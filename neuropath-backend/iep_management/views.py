@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from .serializers import IEPDataSerializer, IEPListDetailSerializer, IEPUpdateSerializer,StandaloneIEPGoalSerializer,IEPGenerationRequestSerializer
 from users.models import StudentProfile
 from users.utils import get_teacher_for_user
-from tracking.models import AIGenerationLog
+from tracking.models import AIGenerationLog, StudentProgress
 from .models import Assessment, IEPGoal, IEPModel,GeneratedAIInsight
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError, transaction
@@ -141,11 +141,39 @@ class IEPGenerationAPIView(APIView):
                         if serializer.is_valid():
                             iep_instance = serializer.save()
 
-                            # NOTE: IEPGoal rows are NOT created here intentionally.
-                            # The actual AI-generated goals are created separately by
-                            # GenerateIEPGoalsFromIEPView (POST /iep/generate-goals-from-iep/)
-                            # and then saved via StandaloneIEPGoalViewSet (POST /iep/goals/).
-                            # Creating goals here too caused duplicate tables in the frontend.
+                            # Auto-seed initial baseline StudentProgress data points
+                            raw_difficulties = []
+                            if iep_instance.difficulties:
+                                for line in iep_instance.difficulties.splitlines():
+                                    for item in line.split(','):
+                                        d_str = item.strip()
+                                        if d_str:
+                                            raw_difficulties.append(d_str)
+                            if isinstance(iep_instance.generatedDetails, dict) and 'barrierRows' in iep_instance.generatedDetails:
+                                for r in iep_instance.generatedDetails['barrierRows']:
+                                    if isinstance(r, dict) and r.get('difficulty'):
+                                        d_str = str(r['difficulty']).strip()
+                                        if d_str:
+                                            raw_difficulties.append(d_str)
+
+                            student_obj = iep_instance.studentID
+                            if not raw_difficulties and student_obj and student_obj.profileDetails:
+                                markers = student_obj.profileDetails.get('difficultyMarkers', [])
+                                raw_difficulties.extend([str(m).strip() for m in markers if str(m).strip()])
+
+                            if not raw_difficulties:
+                                raw_difficulties = ['General']
+
+                            seen_domains = set()
+                            for domain in raw_difficulties:
+                                norm = domain.strip()
+                                if norm and norm.lower() not in seen_domains:
+                                    seen_domains.add(norm.lower())
+                                    StudentProgress.objects.get_or_create(
+                                        student=student_obj,
+                                        subjectName=norm,
+                                        defaults={'performanceScore': 40}
+                                    )
 
                             return Response({
                                 'message': 'IEP Created Successfully.',
