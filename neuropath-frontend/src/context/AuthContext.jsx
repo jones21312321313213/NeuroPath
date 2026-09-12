@@ -30,7 +30,7 @@ export function AuthProvider({ children }) {
 
   const register = async (userData) => authAPI.register(userData);
 
-  const logout = useCallback(async (options = {}) => {
+  const logout = useCallback((options = {}) => {
     const reason = options?.reason || "manual";
     const skipBroadcast = options?.skipBroadcast || false;
     const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
@@ -65,17 +65,36 @@ export function AuthProvider({ children }) {
       }
     }
 
-    // 3. Fire-and-forget backend notification with the saved token so hung requests never keep local state alive
-    try {
-      if (token) {
-        await authAPI.logout({ headers: { Authorization: `Token ${token}` } });
-      } else {
-        await authAPI.logout();
+    // 3. Fire-and-forget backend notification with 4s AbortSignal timeout so hung requests never keep local state alive
+    if (token) {
+      let controller = null;
+      let timeoutId = null;
+      if (typeof AbortController !== "undefined") {
+        controller = new AbortController();
+        timeoutId = setTimeout(() => {
+          try {
+            controller.abort();
+          } catch {
+            // Ignore abort errors
+          }
+        }, 4000);
       }
-    } catch (error) {
-      // Token already invalid or backend unreachable — local state is already cleared.
-      console.error("Logout failed:", error);
+
+      authAPI
+        .logout({
+          headers: { Authorization: `Token ${token}` },
+          signal: controller?.signal,
+        })
+        .catch((error) => {
+          // Token already invalid, network timed out, or backend unreachable — local state is already cleared.
+          console.error("Logout failed:", error);
+        })
+        .finally(() => {
+          if (timeoutId) clearTimeout(timeoutId);
+        });
     }
+
+    return Promise.resolve();
   }, []);
 
   // ── Update teacher profile ─────────────────────────────

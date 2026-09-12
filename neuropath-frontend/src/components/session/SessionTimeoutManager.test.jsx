@@ -93,4 +93,63 @@ describe("SessionTimeoutManager", () => {
     expect(navigate).toHaveBeenCalledWith("/login", { replace: true });
     expect(sessionStorage.getItem("neuropath_session_notice")).toBeNull();
   });
+
+  it("immediately navigates to login and sets session notice without waiting if logout hangs", async () => {
+    // Return an unresolved promise to simulate a hung network request
+    const pendingPromise = new Promise(() => {});
+    logout.mockReturnValue(pendingPromise);
+
+    let capturedOnTimeout;
+    vi.spyOn(await import("../../hooks/useSessionTimeout"), "useSessionTimeout").mockImplementation(
+      ({ onTimeout }) => {
+        capturedOnTimeout = onTimeout;
+        return {
+          isWarningOpen: false,
+          secondsRemaining: 60,
+          extendSession: vi.fn(),
+          triggerLogout: vi.fn(),
+        };
+      }
+    );
+
+    render(<SessionTimeoutManager />);
+
+    expect(capturedOnTimeout).toBeDefined();
+    // Invoke timeout synchronously - should not be blocked by pendingPromise
+    capturedOnTimeout({ reason: "timeout" });
+
+    expect(logout).toHaveBeenCalledWith({ skipBroadcast: true, reason: "timeout" });
+    expect(queryClient.clear).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem("neuropath_session_notice")).toContain("30 minutes of inactivity");
+    expect(navigate).toHaveBeenCalledWith("/login", {
+      replace: true,
+      state: {
+        sessionExpired: true,
+        message: "Your session has expired due to 30 minutes of inactivity. Please sign in again to continue.",
+      },
+    });
+  });
+
+  it("handles manual logout from modal immediately without waiting if logout hangs", async () => {
+    const pendingPromise = new Promise(() => {});
+    logout.mockReturnValue(pendingPromise);
+
+    vi.spyOn(await import("../../hooks/useSessionTimeout"), "useSessionTimeout").mockImplementation(
+      () => ({
+        isWarningOpen: true,
+        secondsRemaining: 30,
+        extendSession: vi.fn(),
+        triggerLogout: vi.fn(),
+      })
+    );
+
+    render(<SessionTimeoutManager />);
+
+    const logoutBtn = screen.getByRole("button", { name: /log out now/i });
+    logoutBtn.click();
+
+    expect(logout).toHaveBeenCalledTimes(1);
+    expect(queryClient.clear).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith("/login", { replace: true });
+  });
 });

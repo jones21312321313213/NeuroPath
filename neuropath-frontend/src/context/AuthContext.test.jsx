@@ -164,6 +164,38 @@ describe("AuthContext", () => {
     expect(localStorage.getItem("neuropath_access_token")).toBeNull();
   });
 
+  it("resolves logout immediately and attaches AbortSignal without blocking when backend hangs indefinitely", async () => {
+    localStorage.setItem(
+      "neuropath_user",
+      JSON.stringify({ email: "stored@example.com" }),
+    );
+    localStorage.setItem("neuropath_access_token", "abc123");
+
+    // Simulate completely hung backend request
+    let fetchSignal;
+    fetch.mockImplementationOnce((_url, options) => {
+      fetchSignal = options?.signal;
+      return new Promise(() => {}); // never resolves
+    });
+
+    const { result } = renderAuthHook();
+    expect(result.current.isAuthenticated).toBe(true);
+
+    let logoutSettled = false;
+    await act(async () => {
+      await result.current.logout();
+      logoutSettled = true;
+    });
+
+    // Logout must settle immediately without waiting for fetch
+    expect(logoutSettled).toBe(true);
+    expect(result.current.user).toBeNull();
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(localStorage.getItem("neuropath_user")).toBeNull();
+    expect(localStorage.getItem("neuropath_access_token")).toBeNull();
+    expect(fetchSignal).toBeDefined();
+  });
+
   it("broadcasts logout message via BroadcastChannel on manual logout", async () => {
     const postMessageMock = vi.fn();
     const closeMock = vi.fn();

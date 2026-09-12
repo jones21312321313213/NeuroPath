@@ -15,41 +15,47 @@ export default function SessionTimeoutManager() {
   const navigate = useNavigate();
 
   const handleSessionTimeout = useCallback(
-    async ({ reason = "timeout" } = {}) => {
+    ({ reason = "timeout" } = {}) => {
       try {
-        await logout({ skipBroadcast: true, reason });
+        logout({ skipBroadcast: true, reason });
       } catch (err) {
         console.error("Error during session timeout logout:", err);
-      } finally {
-        queryClient.clear();
-        if (reason === "timeout") {
+      }
+
+      queryClient.clear();
+
+      if (reason === "timeout") {
+        try {
           sessionStorage.setItem(
             STORAGE_KEYS.SESSION_NOTICE,
             "Your session has expired due to 30 minutes of inactivity. Please sign in again to continue."
           );
-          navigate("/login", {
-            replace: true,
-            state: {
-              sessionExpired: true,
-              message:
-                "Your session has expired due to 30 minutes of inactivity. Please sign in again to continue.",
-            },
-          });
-        } else {
-          navigate("/login", { replace: true });
+        } catch {
+          // Ignore storage errors
         }
+        navigate("/login", {
+          replace: true,
+          state: {
+            sessionExpired: true,
+            message:
+              "Your session has expired due to 30 minutes of inactivity. Please sign in again to continue.",
+          },
+        });
+      } else {
+        navigate("/login", { replace: true });
       }
     },
     [logout, navigate]
   );
 
-  const handleManualLogout = useCallback(async () => {
+  const handleManualLogout = useCallback(() => {
     try {
-      await logout();
-    } finally {
-      queryClient.clear();
-      navigate("/login", { replace: true });
+      logout();
+    } catch (err) {
+      console.error("Error during manual logout:", err);
     }
+    queryClient.clear();
+    navigate("/login", { replace: true });
   }, [logout, navigate]);
 
   const { isWarningOpen, secondsRemaining, extendSession } = useSessionTimeout({
