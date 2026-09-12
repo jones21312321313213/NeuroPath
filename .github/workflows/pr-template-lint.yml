@@ -18,46 +18,55 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          echo "=== Validating PR Title & Description ==="
-          FAILED=0
+          python3 - << 'EOF'
+          import os
+          import sys
+          import re
 
-          if [ -z "$PR_BODY" ]; then
-            echo "::error::PR description is completely empty! Please fill out the pull request template."
-            exit 1
-          fi
+          body = os.environ.get("PR_BODY", "") or ""
+          title = os.environ.get("PR_TITLE", "") or ""
+
+          print("=== Validating PR Title & Description ===")
+          errors = []
+          warnings = []
+
+          if not body.strip():
+              print("::error::PR description is completely empty! Please fill out the pull request template.")
+              sys.exit(1)
 
           # 1. Check for linked issue (Closes #123, Fixes #123, Resolves #123)
-          if ! echo "$PR_BODY" | grep -Eiq "(closes|fixes|resolves) #[0-9]+"; then
-            echo "::error::Missing linked issue! Please specify 'Closes #<issue_number>' in the Linked Issue section."
-            FAILED=1
-          fi
+          if not re.search(r"(closes|fixes|resolves)\s*#[0-9]+", body, re.IGNORECASE):
+              errors.append("Missing linked issue! Please specify 'Closes #<issue_number>' in the Linked Issue section.")
 
           # 2. Check for empty or default placeholder summary
-          if echo "$PR_BODY" | grep -Fq "Replace this text with a summary" || ! echo "$PR_BODY" | grep -Eiq "## Summary[[:space:]]+[^#[:space:]]"; then
-            echo "::error::Summary section is empty or contains default placeholder text. Please provide a clear summary of your changes."
-            FAILED=1
-          fi
+          if "Replace this text with a summary" in body:
+              errors.append("Summary section contains default placeholder text. Please replace it with your description.")
+          else:
+              summary_match = re.search(r"##\s*Summary\s*\n+([\s\S]*?)(?=\n##|\Z)", body, re.IGNORECASE)
+              summary_text = summary_match.group(1).strip() if summary_match else ""
+              if not summary_text or len(summary_text) < 10:
+                  errors.append("Summary section is empty or too short. Please provide a clear summary of your changes.")
 
           # 3. Check that at least one 'Type of Change' checkbox is selected
-          if ! echo "$PR_BODY" | grep -Eiq "^- \[[xX]\] (Bug fix|New feature|Breaking change|Documentation|Refactor)"; then
-            echo "::error::Please select at least one box under 'Type of Change' (- [x])."
-            FAILED=1
-          fi
+          if not re.search(r"^-\s*\[[xX]\]\s*(Bug fix|New feature|Breaking change|Documentation|Refactor)", body, re.MULTILINE | re.IGNORECASE):
+              errors.append("Please select at least one box under 'Type of Change' (- [x]).")
 
           # 4. Check that at least one 'How Has This Been Tested?' checkbox is selected
-          if ! echo "$PR_BODY" | grep -Eiq "^- \[[xX]\] (Unit tests|Integration tests|Manual verification)"; then
-            echo "::error::Please select at least one testing method under 'How Has This Been Tested?' (- [x])."
-            FAILED=1
-          fi
+          if not re.search(r"^-\s*\[[xX]\]\s*(Unit tests|Integration tests|Manual verification)", body, re.MULTILINE | re.IGNORECASE):
+              errors.append("Please select at least one testing method under 'How Has This Been Tested?' (- [x]).")
 
-          # 5. Check Conventional Commits title format (e.g. feat:, fix:, refactor:)
-          if ! echo "$PR_TITLE" | grep -Eiq "^(feat|fix|docs|style|refactor|perf|test|chore|ci)(\([a-zA-Z0-9_-]+\))?: .+"; then
-            echo "::warning::PR Title should follow Conventional Commits (e.g. 'feat(frontend): ...', 'fix(backend): ...')."
-          fi
+          # 5. Check Conventional Commits title format (warning only)
+          if not re.search(r"^(feat|fix|docs|style|refactor|perf|test|chore|ci)(\([a-zA-Z0-9_-]+\))?:\s*.+", title, re.IGNORECASE):
+              warnings.append("PR Title should follow Conventional Commits (e.g. 'feat(frontend): ...', 'fix(backend): ...').")
 
-          if [ "$FAILED" -ne 0 ]; then
-            echo "❌ PR description does not satisfy the PR template requirements."
-            exit 1
-          fi
+          for w in warnings:
+              print(f"::warning::{w}")
 
-          echo "✅ PR description is fully compliant with the project template!"
+          if errors:
+              for e in errors:
+                  print(f"::error::{e}")
+              print(f"❌ PR description does not satisfy the PR template requirements ({len(errors)} error(s) found).")
+              sys.exit(1)
+
+          print("✅ PR description is fully compliant with the project template!")
+          EOF
