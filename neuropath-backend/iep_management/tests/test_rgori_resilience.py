@@ -27,7 +27,10 @@ class RGORIResilienceTestCase(TestCase):
             age=11,
             teacher=self.teacher,
             diagnosis='Autism Spectrum Disorder',
-            support_needs='Visual structure and sensory accommodations'
+            support_needs='Visual structure and sensory accommodations',
+            parental_consent_obtained=True,
+            guardian_name='Aurelius Guardian',
+            consent_date='2026-09-11',
         )
         self.iep = IEPModel.objects.create(
             studentID=self.student,

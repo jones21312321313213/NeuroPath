@@ -1,4 +1,4 @@
-﻿from django.test import TestCase
+from django.test import TestCase
 from unittest.mock import patch
 from users.models import Teacher, StudentProfile
 from iep_management.models import IEPModel
@@ -14,7 +14,10 @@ class InsightsAndGoalsTestCase(TestCase):
             diagnosis='ASD Level 1',
             teacher=self.teacher,
             support_needs='Sensory breaks',
-            assessmentResult='Age appropriate'
+            assessmentResult='Age appropriate',
+            parental_consent_obtained=True,
+            guardian_name='Guardian Valdez',
+            consent_date='2026-09-01'
         )
         self.iep = IEPModel.objects.create(
             studentID=self.student,
