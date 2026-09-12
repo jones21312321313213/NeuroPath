@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import "../styles/OutcomeMonitoring.css";
 import { studentsAPI, trackingAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -115,14 +115,11 @@ export default function ViewProgressDashboard() {
       .finally(() => setLoading(false));
   }, [user?.id]);
 
-  const fetchStudentSubjects = useCallback(async (studentId) => {
+  const refreshSubjects = async (studentId) => {
     if (!studentId) return;
-    setSubjectsLoading(true);
-    setSubjectsError("");
     try {
       const data = await trackingAPI.getProgressDashboard(studentId);
       setSubjects(data || []);
-      // If a subject is currently selected, refresh its data in place
       setSelectedSubject((prev) => {
         if (!prev || !data) return prev;
         const updated = data.find((s) => s.name === prev.name || s.id === prev.id);
@@ -132,15 +129,49 @@ export default function ViewProgressDashboard() {
       console.error(err);
       setSubjectsError("Failed to load progress data for this student.");
       setSubjects([]);
-    } finally {
-      setSubjectsLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
     if (!selectedStudent?.studentID) return;
-    fetchStudentSubjects(selectedStudent.studentID);
-  }, [selectedStudent?.studentID, fetchStudentSubjects]);
+
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setSubjectsLoading(true);
+        setSubjectsError("");
+      }
+    });
+
+    trackingAPI
+      .getProgressDashboard(selectedStudent.studentID)
+      .then((data) => {
+        if (!cancelled) {
+          setSubjects(data || []);
+          setSelectedSubject((prev) => {
+            if (!prev || !data) return prev;
+            const updated = data.find((s) => s.name === prev.name || s.id === prev.id);
+            return updated || prev;
+          });
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error(err);
+          setSubjectsError("Failed to load progress data for this student.");
+          setSubjects([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSubjectsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedStudent?.studentID]);
 
   const filtered = students.filter((s) => {
     const matchName = s.name.toLowerCase().includes(search.toLowerCase());
@@ -265,7 +296,7 @@ export default function ViewProgressDashboard() {
           initialSubject={selectedSubject.name}
           onSubmitSuccess={() => {
             if (selectedStudent?.studentID) {
-              fetchStudentSubjects(selectedStudent.studentID);
+              refreshSubjects(selectedStudent.studentID);
             }
           }}
         />
@@ -389,7 +420,7 @@ export default function ViewProgressDashboard() {
           existingSubjects={subjects}
           onSubmitSuccess={() => {
             if (selectedStudent?.studentID) {
-              fetchStudentSubjects(selectedStudent.studentID);
+              refreshSubjects(selectedStudent.studentID);
             }
           }}
         />
