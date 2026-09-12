@@ -54,6 +54,43 @@ class BinaryReportRenderEngineTestCase(TestCase):
         page_text = reader.pages[0].extract_text()
         self.assertIn('Alice Johnson', page_text)
 
+    def test_generate_report_stream_with_iep_sections(self):
+        from iep_management.models import IEPModel, IEPGoal, IEPObjectiveRow
+        iep = IEPModel.objects.create(
+            studentID=self.student,
+            version=1,
+            difficulties='Difficulty in Reading Comprehension\nDifficulty in Math Operations',
+            learning_barriers='Struggles with multi-step word problems\nAbstract symbol decoding',
+            learning_facilitators='Visual diagrams and step-by-step guides\nManipulatives',
+            learning_accommodations='Extra time 20 mins\nGraphic organizers',
+        )
+        goal = IEPGoal.objects.create(
+            iep=iep,
+            goalName='Reading Goal',
+            subject_category='Literacy',
+            annual_goal='Improve reading comprehension to Grade 3 level',
+            target_metric='80% accuracy',
+        )
+        IEPObjectiveRow.objects.create(
+            parent_goal=goal,
+            enroute_objectives='Decode multi-syllable words',
+            interventions_procedures='Phonics flashcards daily',
+            timeline_mins_session='15 mins daily',
+            individuals_responsible='SPED Teacher',
+            progress_instructional='Satisfactory',
+            remarks='Consistent growth',
+        )
+
+        pdf_stream = BinaryReportRenderEngine.generate_report_stream(self.student)
+        reader = PdfReader(io.BytesIO(pdf_stream.getvalue()))
+        full_text = " ".join("".join([page.extract_text() for page in reader.pages]).split())
+
+        self.assertIn('Section B: Difficulties, Barriers', full_text)
+        self.assertIn('Difficulty in Reading Comprehension', full_text)
+        self.assertIn("Section C: Learner's Goals", full_text)
+        self.assertIn('Literacy', full_text)
+        self.assertIn('Decode multi-syllable words', full_text)
+
 
 class TrackingAuthAndTenantIsolationTests(TestCase):
     """Student tracking/progress data must require authentication and must
