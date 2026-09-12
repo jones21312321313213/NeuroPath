@@ -275,5 +275,34 @@ export const trackingAPI = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  exportStudentRecordPDF: async (studentId) => {
+    const token = localStorage.getItem("neuropath_access_token");
+    const headers = {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+    };
+
+    const response = await fetch(
+      `${BASE_URL}/tracking/student-records/${studentId}/export/`,
+      { headers },
+    );
+
+    if (!response.ok) {
+      if (response.status === 401 && token) {
+        forceReauth();
+      }
+      let message = "Failed to export student record PDF.";
+      try {
+        const data = await response.json();
+        message = data.errors || data.detail || data.error || message;
+      } catch {
+        // Fallback to default message
+      }
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.blob();
+  },
 };
 

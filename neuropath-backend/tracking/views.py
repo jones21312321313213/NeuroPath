@@ -213,6 +213,86 @@ class BinaryReportRenderEngine:
         )
         story.append(Paragraph(perf_summary, style_body))
 
+        # Section B & Section C (IEP Factors & Learner Goals)
+        latest_iep = student_record.ieps.order_by('-version').first() if hasattr(student_record, 'ieps') else None
+        if latest_iep:
+            story.append(Spacer(1, 4 * mm))
+            story.append(Paragraph("Section B: Difficulties, Barriers, and Enabling Supports", style_section_heading))
+
+            diff_list = [d.strip() for d in (latest_iep.difficulties or '').split('\n') if d.strip()]
+            barr_list = [b.strip() for b in (latest_iep.learning_barriers or '').split('\n') if b.strip()]
+            facil_list = [f.strip() for f in (latest_iep.learning_facilitators or '').split('\n') if f.strip()]
+            accom_list = [a.strip() for a in (latest_iep.learning_accommodations or '').split('\n') if a.strip()]
+            max_len = max(len(diff_list), len(barr_list), len(facil_list), len(accom_list), 0)
+
+            if max_len > 0:
+                sec_b_data = [[
+                    Paragraph("Difficulty", style_cell_label),
+                    Paragraph("Learning Barriers", style_cell_label),
+                    Paragraph("Learning Facilitators", style_cell_label),
+                    Paragraph("Accommodations", style_cell_label),
+                ]]
+                for i in range(max_len):
+                    sec_b_data.append([
+                        Paragraph(diff_list[i] if i < len(diff_list) else '—', style_cell_value),
+                        Paragraph(barr_list[i] if i < len(barr_list) else '—', style_cell_value),
+                        Paragraph(facil_list[i] if i < len(facil_list) else '—', style_cell_value),
+                        Paragraph(accom_list[i] if i < len(accom_list) else '—', style_cell_value),
+                    ])
+                b_table = Table(sec_b_data, colWidths=[40 * mm, 42 * mm, 42 * mm, 46 * mm])
+                b_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
+                    ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+                    ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
+                    ('TOPPADDING', (0, 0), (-1, -1), 4),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ]))
+                story.append(b_table)
+            else:
+                story.append(Paragraph("No Section B factors recorded.", style_body))
+
+            story.append(Spacer(1, 4 * mm))
+            story.append(Paragraph("Section C: Learner's Goals", style_section_heading))
+            goals = latest_iep.individual_goals.all() if hasattr(latest_iep, 'individual_goals') else []
+            if goals.exists():
+                for g in goals:
+                    story.append(Paragraph(f"<b>{g.subject_category or g.goalName or 'Goal'}:</b> {g.annual_goal or g.target_metric or ''}", style_body))
+                    rows = g.objective_rows.all() if hasattr(g, 'objective_rows') else []
+                    if rows.exists():
+                        g_data = [[
+                            Paragraph("Objective", style_cell_label),
+                            Paragraph("Interventions", style_cell_label),
+                            Paragraph("Timeline", style_cell_label),
+                            Paragraph("Responsible", style_cell_label),
+                            Paragraph("Evaluation", style_cell_label),
+                        ]]
+                        for r in rows:
+                            g_data.append([
+                                Paragraph(r.enroute_objectives or '—', style_cell_value),
+                                Paragraph(r.interventions_procedures or '—', style_cell_value),
+                                Paragraph(r.timeline_mins_session or '—', style_cell_value),
+                                Paragraph(r.individuals_responsible or '—', style_cell_value),
+                                Paragraph(r.progress_instructional or '—', style_cell_value),
+                            ])
+                        g_table = Table(g_data, colWidths=[36 * mm, 40 * mm, 28 * mm, 32 * mm, 34 * mm])
+                        g_table.setStyle(TableStyle([
+                            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
+                            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+                            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
+                            ('TOPPADDING', (0, 0), (-1, -1), 3),
+                            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                        ]))
+                        story.append(g_table)
+                        story.append(Spacer(1, 3 * mm))
+            else:
+                story.append(Paragraph("No learner goals recorded for this IEP.", style_body))
+
         doc.build(story)
         buffer.seek(0)
         return buffer
