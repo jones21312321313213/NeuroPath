@@ -49,8 +49,6 @@ describe("RecordProgressModal", () => {
     expect(screen.getByText("Alice Wonderland")).toBeInTheDocument();
     expect(screen.getByLabelText(/Domain \/ Subject/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Performance Score/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Evaluation Date/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Observation Notes/i)).toBeInTheDocument();
   });
 
   it("allows selecting a preset domain and entering custom domain", async () => {
@@ -147,9 +145,6 @@ describe("RecordProgressModal", () => {
 
     const scoreInput = screen.getByLabelText(/Performance Score/i);
     fireEvent.change(scoreInput, { target: { value: "88" } });
-
-    const notesInput = screen.getByLabelText(/Observation Notes/i);
-    fireEvent.change(notesInput, { target: { value: "Demonstrated great accuracy in addition." } });
 
     const submitBtn = screen.getByRole("button", { name: /Save Progress/i });
     await user.click(submitBtn);

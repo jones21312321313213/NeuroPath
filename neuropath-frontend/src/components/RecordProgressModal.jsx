@@ -24,8 +24,6 @@ function RecordProgressForm({
   onClose,
   onSubmitSuccess,
 }) {
-  const todayStr = new Date().toISOString().split("T")[0];
-
   const availableDomains = [
     ...PRESET_DOMAINS,
     ...existingSubjects
@@ -43,8 +41,6 @@ function RecordProgressForm({
     isCustomInitial ? defaultDomain : "",
   );
   const [score, setScore] = useState("75");
-  const [evalDate, setEvalDate] = useState(todayStr);
-  const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -67,11 +63,6 @@ function RecordProgressForm({
     const numScore = parseInt(score, 10);
     if (isNaN(numScore) || numScore < 0 || numScore > 100) {
       setErrorMessage("Performance score must be between 0 and 100.");
-      return;
-    }
-
-    if (!evalDate) {
-      setErrorMessage("Please select an evaluation date.");
       return;
     }
 
@@ -191,45 +182,6 @@ function RecordProgressForm({
             disabled={isSubmitting}
           />
         </div>
-      </div>
-
-      {/* Evaluation Date */}
-      <div className="form-group rpm-form-group">
-        <label htmlFor="rpm-date-input" className="form-label rpm-label">
-          Evaluation Date <span className="rpm-required">*</span>
-        </label>
-        <input
-          id="rpm-date-input"
-          type="date"
-          className="form-input rpm-input"
-          value={evalDate}
-          onChange={(e) => setEvalDate(e.target.value)}
-          disabled={isSubmitting}
-        />
-      </div>
-
-      {/* Observation Notes */}
-      <div className="form-group rpm-form-group">
-        <div className="rpm-notes-header">
-          <label
-            htmlFor="rpm-notes-textarea"
-            className="form-label rpm-label"
-            style={{ margin: 0 }}
-          >
-            Observation Notes (Optional)
-          </label>
-          <span className="rpm-char-count">{notes.length} / 500</span>
-        </div>
-        <textarea
-          id="rpm-notes-textarea"
-          rows="3"
-          maxLength={500}
-          className="form-textarea rpm-textarea"
-          placeholder="Record contextual notes, task mastery notes, behavioral triggers, or prompt level needed..."
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          disabled={isSubmitting}
-        />
       </div>
 
       {/* Footer Actions */}

@@ -190,15 +190,26 @@ export default function ViewProgressDashboard() {
         )
       : 0;
   const goalsOnTrackCount = subjects.filter(
-    (s) => (s.progress || 0) >= 70 || s.status === "On Track",
+    (s) => (s.progress || 0) >= 70,
   ).length;
   const needsSupportCount = subjects.filter(
-    (s) => (s.progress || 0) < 70 || s.status === "Needs Support",
+    (s) => (s.progress || 0) < 70,
   ).length;
-  const lastEvaluatedDate =
-    subjects.length > 0 && subjects[0]?.lastUpdated
-      ? subjects[0].lastUpdated
-      : "N/A";
+  const lastEvaluatedDate = (() => {
+    if (!subjects || subjects.length === 0) return "N/A";
+    const subjectsWithDate = subjects.filter(
+      (s) => s.lastUpdated && !isNaN(Date.parse(s.lastUpdated)),
+    );
+    if (subjectsWithDate.length === 0) {
+      return subjects[0]?.lastUpdated || "N/A";
+    }
+    const latestSubject = subjectsWithDate.reduce((latest, current) => {
+      return new Date(current.lastUpdated) > new Date(latest.lastUpdated)
+        ? current
+        : latest;
+    });
+    return latestSubject.lastUpdated;
+  })();
 
   // ── Subject Detail ─────────────────────────────────────
   if (selectedSubject) {

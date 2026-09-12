@@ -175,7 +175,7 @@ describe("ViewProgressDashboard", () => {
     expect(screen.getByText("Goals on Track")).toBeInTheDocument();
     expect(screen.getByText("Needs Support")).toBeInTheDocument();
     expect(screen.getByText("Last Evaluated")).toBeInTheDocument();
-    expect(screen.getByText("May 10, 2026")).toBeInTheDocument();
+    expect(screen.getByText("May 12, 2026")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /\+ Log Progress/i })).toBeInTheDocument();
   });
 
