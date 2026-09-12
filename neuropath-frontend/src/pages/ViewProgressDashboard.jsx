@@ -3,6 +3,7 @@ import "../styles/OutcomeMonitoring.css";
 import { studentsAPI, trackingAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import StudentShimmer from "../components/StudentShimmer";
+import RecordProgressModal from "../components/RecordProgressModal";
 
 function EmptyState({ message }) {
   return (
@@ -104,6 +105,7 @@ export default function ViewProgressDashboard() {
   const [subjects, setSubjects] = useState([]);
   const [subjectsLoading, setSubjectsLoading] = useState(false);
   const [subjectsError, setSubjectsError] = useState("");
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
 
   useEffect(() => {
     studentsAPI
@@ -112,6 +114,23 @@ export default function ViewProgressDashboard() {
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoading(false));
   }, [user?.id]);
+
+  const refreshSubjects = async (studentId) => {
+    if (!studentId) return;
+    try {
+      const data = await trackingAPI.getProgressDashboard(studentId);
+      setSubjects(data || []);
+      setSelectedSubject((prev) => {
+        if (!prev || !data) return prev;
+        const updated = data.find((s) => s.name === prev.name || s.id === prev.id);
+        return updated || prev;
+      });
+    } catch (err) {
+      console.error(err);
+      setSubjectsError("Failed to load progress data for this student.");
+      setSubjects([]);
+    }
+  };
 
   useEffect(() => {
     if (!selectedStudent?.studentID) return;
@@ -129,6 +148,11 @@ export default function ViewProgressDashboard() {
       .then((data) => {
         if (!cancelled) {
           setSubjects(data || []);
+          setSelectedSubject((prev) => {
+            if (!prev || !data) return prev;
+            const updated = data.find((s) => s.name === prev.name || s.id === prev.id);
+            return updated || prev;
+          });
         }
       })
       .catch((err) => {
@@ -149,7 +173,6 @@ export default function ViewProgressDashboard() {
     };
   }, [selectedStudent?.studentID]);
 
-
   const filtered = students.filter((s) => {
     const matchName = s.name.toLowerCase().includes(search.toLowerCase());
     const matchGrade = filterGrade ? s.grade === parseInt(filterGrade) : true;
@@ -157,6 +180,25 @@ export default function ViewProgressDashboard() {
     return matchName && matchGrade && matchAge;
   });
 
+  // ── Executive KPI Metric Computations ───────────────────
+  const totalSubjectsCount = subjects.length;
+  const overallMasteryRate =
+    totalSubjectsCount > 0
+      ? Math.round(
+          subjects.reduce((sum, s) => sum + (s.progress || 0), 0) /
+            totalSubjectsCount,
+        )
+      : 0;
+  const goalsOnTrackCount = subjects.filter(
+    (s) => (s.progress || 0) >= 70 || s.status === "On Track",
+  ).length;
+  const needsSupportCount = subjects.filter(
+    (s) => (s.progress || 0) < 70 || s.status === "Needs Support",
+  ).length;
+  const lastEvaluatedDate =
+    subjects.length > 0 && subjects[0]?.lastUpdated
+      ? subjects[0].lastUpdated
+      : "N/A";
 
   // ── Subject Detail ─────────────────────────────────────
   if (selectedSubject) {
@@ -172,14 +214,23 @@ export default function ViewProgressDashboard() {
         </div>
         <div className="om-body">
           <div className="om-record-card">
-            <div className="om-subject-header">
-              <h2 className="om-subject-title">{selectedSubject.name}</h2>
-              <span
-                className="om-status-badge"
-                style={{ color: statusColor, background: statusBg }}
+            <div className="om-list-action-bar">
+              <div className="om-subject-header" style={{ margin: 0 }}>
+                <h2 className="om-subject-title">{selectedSubject.name}</h2>
+                <span
+                  className="om-status-badge"
+                  style={{ color: statusColor, background: statusBg }}
+                >
+                  {selectedSubject.status}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="om-log-progress-btn"
+                onClick={() => setIsLogModalOpen(true)}
               >
-                {selectedSubject.status}
-              </span>
+                + Log Progress
+              </button>
             </div>
             <p className="om-last-updated">
               Last Updated: {selectedSubject.lastUpdated}
@@ -236,6 +287,19 @@ export default function ViewProgressDashboard() {
             </div>
           </div>
         </div>
+
+        <RecordProgressModal
+          isOpen={isLogModalOpen}
+          onClose={() => setIsLogModalOpen(false)}
+          student={selectedStudent}
+          existingSubjects={subjects}
+          initialSubject={selectedSubject.name}
+          onSubmitSuccess={() => {
+            if (selectedStudent?.studentID) {
+              refreshSubjects(selectedStudent.studentID);
+            }
+          }}
+        />
       </div>
     );
   }
@@ -249,7 +313,69 @@ export default function ViewProgressDashboard() {
         </div>
         <div className="om-body">
           <div className="om-card">
-            <h2 className="om-list-title">{selectedStudent.name} – Subjects</h2>
+            <div className="om-list-action-bar">
+              <h2 className="om-list-title">{selectedStudent.name} – Subjects</h2>
+              <button
+                type="button"
+                className="om-log-progress-btn"
+                onClick={() => setIsLogModalOpen(true)}
+              >
+                + Log Progress
+              </button>
+            </div>
+
+            {/* Executive KPI Summary Cards */}
+            <div className="om-kpi-grid">
+              <div className="om-kpi-card">
+                <div className="om-kpi-header">
+                  <span className="om-kpi-title">Overall Mastery Rate</span>
+                  <span className="om-kpi-icon">📈</span>
+                </div>
+                <span className="om-kpi-value">
+                  {totalSubjectsCount > 0 ? `${overallMasteryRate}%` : "0%"}
+                </span>
+                <span className="om-kpi-subtext">
+                  Average score across {totalSubjectsCount} domain{totalSubjectsCount === 1 ? "" : "s"}
+                </span>
+              </div>
+
+              <div className="om-kpi-card">
+                <div className="om-kpi-header">
+                  <span className="om-kpi-title">Goals on Track</span>
+                  <span className="om-kpi-icon">🎯</span>
+                </div>
+                <span className="om-kpi-value" style={{ color: "#16a34a" }}>
+                  {goalsOnTrackCount}
+                </span>
+                <span className="om-kpi-subtext">Scoring ≥ 70% threshold</span>
+              </div>
+
+              <div className="om-kpi-card">
+                <div className="om-kpi-header">
+                  <span className="om-kpi-title">Needs Support</span>
+                  <span className="om-kpi-icon">⚠️</span>
+                </div>
+                <span
+                  className="om-kpi-value"
+                  style={{ color: needsSupportCount > 0 ? "#d97706" : "#1a2b40" }}
+                >
+                  {needsSupportCount}
+                </span>
+                <span className="om-kpi-subtext">Scoring &lt; 70% threshold</span>
+              </div>
+
+              <div className="om-kpi-card">
+                <div className="om-kpi-header">
+                  <span className="om-kpi-title">Last Evaluated</span>
+                  <span className="om-kpi-icon">📅</span>
+                </div>
+                <span className="om-kpi-value" style={{ fontSize: 16 }}>
+                  {lastEvaluatedDate}
+                </span>
+                <span className="om-kpi-subtext">Latest progress log</span>
+              </div>
+            </div>
+
             {subjectsLoading ? (
               <StudentShimmer />
             ) : subjectsError ? (
@@ -286,6 +412,18 @@ export default function ViewProgressDashboard() {
             </div>
           </div>
         </div>
+
+        <RecordProgressModal
+          isOpen={isLogModalOpen}
+          onClose={() => setIsLogModalOpen(false)}
+          student={selectedStudent}
+          existingSubjects={subjects}
+          onSubmitSuccess={() => {
+            if (selectedStudent?.studentID) {
+              refreshSubjects(selectedStudent.studentID);
+            }
+          }}
+        />
       </div>
     );
   }

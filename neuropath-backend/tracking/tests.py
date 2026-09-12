@@ -207,3 +207,53 @@ class TrackingAuthAndTenantIsolationTests(TestCase):
             ).exists()
         )
 
+    def test_record_progress_invalid_score_bounds_rejected(self):
+        self._auth(self.token1)
+        for invalid_score in [-5, 105, 'abc']:
+            payload = {
+                'studentID': self.student1.pk,
+                'subjectName': 'Science',
+                'performanceScore': invalid_score,
+            }
+            response = self.client.post('/api/tracking/analytics/', payload, format='json')
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_record_progress_missing_fields_rejected(self):
+        self._auth(self.token1)
+        # Missing subjectName
+        response = self.client.post(
+            '/api/tracking/analytics/',
+            {'studentID': self.student1.pk, 'performanceScore': 80},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Missing studentID
+        response = self.client.post(
+            '/api/tracking/analytics/',
+            {'subjectName': 'Math', 'performanceScore': 80},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_record_progress_updates_dashboard_aggregation(self):
+        self._auth(self.token1)
+        # Log progress for existing 'Math' subject
+        payload = {
+            'studentID': self.student1.pk,
+            'subjectName': 'Math',
+            'performanceScore': 95,
+        }
+        response = self.client.post('/api/tracking/analytics/', payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Fetch progress dashboard and verify updated aggregation
+        dash_response = self.client.get('/api/tracking/progress-dashboard/', {'studentID': self.student1.pk})
+        self.assertEqual(dash_response.status_code, status.HTTP_200_OK)
+        math_data = next((s for s in dash_response.data if s['name'] == 'Math'), None)
+        self.assertIsNotNone(math_data)
+        self.assertEqual(math_data['progress'], 95)
+        self.assertEqual(math_data['chartData'], [80, 95])
+        self.assertEqual(math_data['status'], 'On Track')
+
+

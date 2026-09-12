@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import IEPGenerationPage from "./IepGenerationPage";
 import { sanitizeDifficulties, mergeDifficulties } from "../utils/difficultyUtils";
 
 import { studentsAPI, iepAPI } from "../api/client";
+import { queryClient } from "../queryClient";
 
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
@@ -70,6 +71,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    queryClient.clear();
     localStorage.setItem(
       "neuropath_user",
       JSON.stringify({ id: 10, teacherID: 10 }),
@@ -464,7 +466,6 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
     });
 
     it("enforces 500 character maximum limit and disables preset chips when capacity reached", async () => {
-      const user = userEvent.setup();
       render(
         <MemoryRouter>
           <IEPGenerationPage mode="generate" initialStudentId={1} />
@@ -477,7 +478,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
 
       const textarea = screen.getByPlaceholderText(/Add notes about behavior, communication, sensory/i);
       const longText = "A".repeat(500);
-      await user.type(textarea, longText);
+      fireEvent.change(textarea, { target: { value: longText } });
 
       expect(screen.getByText(/500 \/ 500 characters \(Maximum reached\)/i)).toBeInTheDocument();
 
@@ -704,7 +705,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       expect(difficultyInputs.length).toBeGreaterThanOrEqual(2);
       const newDifficultyInput = difficultyInputs[difficultyInputs.length - 1];
 
-      await user.type(newDifficultyInput, "Difficulty in Speech");
+      fireEvent.change(newDifficultyInput, { target: { value: "Difficulty in Speech" } });
 
       // Click SAVE CHANGES
       await user.click(screen.getByRole("button", { name: /^SAVE CHANGES$/i }));
@@ -765,7 +766,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
 
       const difficultyInputs = screen.getAllByPlaceholderText("Type difficulty");
       const newDifficultyInput = difficultyInputs[difficultyInputs.length - 1];
-      await user.type(newDifficultyInput, "Difficulty in Speech");
+      fireEvent.change(newDifficultyInput, { target: { value: "Difficulty in Speech" } });
 
       await user.click(screen.getByRole("button", { name: /^SAVE CHANGES$/i }));
 
@@ -818,7 +819,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
 
       const difficultyInputs = screen.getAllByPlaceholderText("Type difficulty");
       const newDifficultyInput = difficultyInputs[difficultyInputs.length - 1];
-      await user.type(newDifficultyInput, "sensory processing");
+      fireEvent.change(newDifficultyInput, { target: { value: "sensory processing" } });
 
       await user.click(screen.getByRole("button", { name: /^SAVE CHANGES$/i }));
 

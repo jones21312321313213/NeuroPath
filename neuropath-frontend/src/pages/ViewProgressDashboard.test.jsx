@@ -16,6 +16,7 @@ vi.mock("../api/client", () => ({
   },
   trackingAPI: {
     getProgressDashboard: vi.fn(),
+    recordProgress: vi.fn(),
   },
 }));
 
@@ -132,21 +133,97 @@ describe("ViewProgressDashboard", () => {
     expect(screen.getByText("List of Students")).toBeInTheDocument();
   });
 
-  it("renders single-data-point chart without crashing", async () => {
-    studentsAPI.list.mockResolvedValueOnce([mockStudents[0]]);
-    const singleDataSubject = [
+  it("renders Executive KPI Summary Cards with aggregate mastery rate and goal counts", async () => {
+    studentsAPI.list.mockResolvedValueOnce(mockStudents);
+    const mockSubjects = [
       {
-        id: 20,
-        name: "Math",
-        progress: 90,
+        id: 10,
+        name: "Mathematics",
+        progress: 80,
         status: "On Track",
-        lastUpdated: "June 01, 2026",
-        currentLevel: "Advanced",
-        chartData: [90],
-        months: ["Jun"],
+        lastUpdated: "May 10, 2026",
+        currentLevel: "Developing",
+        chartData: [80],
+        months: ["May"],
+      },
+      {
+        id: 11,
+        name: "Reading Comprehension",
+        progress: 60,
+        status: "Needs Support",
+        lastUpdated: "May 12, 2026",
+        currentLevel: "Emerging",
+        chartData: [60],
+        months: ["May"],
       },
     ];
-    trackingAPI.getProgressDashboard.mockResolvedValueOnce(singleDataSubject);
+    trackingAPI.getProgressDashboard.mockResolvedValueOnce(mockSubjects);
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter>
+        <ViewProgressDashboard />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("Alice Wonderland");
+    await user.click(screen.getAllByRole("button", { name: /select/i })[0]);
+
+    // Check KPI Cards
+    expect(await screen.findByText("Overall Mastery Rate")).toBeInTheDocument();
+    expect(screen.getByText("70%")).toBeInTheDocument(); // (80 + 60) / 2
+    expect(screen.getByText("Goals on Track")).toBeInTheDocument();
+    expect(screen.getByText("Needs Support")).toBeInTheDocument();
+    expect(screen.getByText("Last Evaluated")).toBeInTheDocument();
+    expect(screen.getByText("May 10, 2026")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /\+ Log Progress/i })).toBeInTheDocument();
+  });
+
+  it("opens RecordProgressModal, logs progress, and dynamically refreshes subjects", async () => {
+    studentsAPI.list.mockResolvedValueOnce(mockStudents);
+    const initialSubjects = [
+      {
+        id: 10,
+        name: "Mathematics",
+        progress: 70,
+        status: "On Track",
+        lastUpdated: "May 10, 2026",
+        currentLevel: "Developing",
+        chartData: [70],
+        months: ["May"],
+      },
+    ];
+    const updatedSubjects = [
+      {
+        id: 10,
+        name: "Mathematics",
+        progress: 85,
+        status: "On Track",
+        lastUpdated: "May 15, 2026",
+        currentLevel: "Proficient",
+        chartData: [70, 85],
+        months: ["May", "May"],
+      },
+      {
+        id: 12,
+        name: "Social Skills",
+        progress: 90,
+        status: "On Track",
+        lastUpdated: "May 15, 2026",
+        currentLevel: "Advanced",
+        chartData: [90],
+        months: ["May"],
+      },
+    ];
+    trackingAPI.getProgressDashboard
+      .mockResolvedValueOnce(initialSubjects)
+      .mockResolvedValueOnce(updatedSubjects);
+    trackingAPI.recordProgress.mockResolvedValueOnce({
+      progressID: 12,
+      subjectName: "Social Skills",
+      performanceScore: 90,
+    });
+
     const user = userEvent.setup();
     render(
       <MemoryRouter>
@@ -155,13 +232,39 @@ describe("ViewProgressDashboard", () => {
     );
 
     await screen.findByText("Alice Wonderland");
-    await user.click(screen.getByRole("button", { name: /select/i }));
+    await user.click(screen.getAllByRole("button", { name: /select/i })[0]);
 
-    await screen.findByText("Math");
-    await user.click(screen.getByRole("button", { name: /view progress/i }));
+    expect(await screen.findByText("Mathematics")).toBeInTheDocument();
 
-    expect(screen.getByText("Math")).toBeInTheDocument();
-    expect(screen.getByText("90%")).toBeInTheDocument();
-    expect(screen.getByText("Jun")).toBeInTheDocument();
+    // Click + Log Progress button
+    const logProgressBtn = screen.getByRole("button", { name: /\+ Log Progress/i });
+    await user.click(logProgressBtn);
+
+    expect(screen.getByText(/Log Student Progress/i)).toBeInTheDocument();
+
+    // Select Social Skills domain and submit score
+    const subjectSelect = screen.getByLabelText(/Domain \/ Subject/i);
+    await user.selectOptions(subjectSelect, "Social Skills");
+
+    const scoreInput = screen.getByLabelText(/Performance Score/i);
+    await user.clear(scoreInput);
+    await user.type(scoreInput, "90");
+
+    const saveBtn = screen.getByRole("button", { name: /Save Progress/i });
+    await user.click(saveBtn);
+
+    await waitFor(() => {
+      expect(trackingAPI.recordProgress).toHaveBeenCalledWith(
+        expect.objectContaining({
+          studentID: 1,
+          subjectName: "Social Skills",
+          performanceScore: 90,
+        }),
+      );
+    });
+
+    // Verify dashboard refreshed and new subject appears
+    expect(await screen.findByText("Social Skills")).toBeInTheDocument();
   });
 });
+
