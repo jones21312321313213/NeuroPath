@@ -1,7 +1,11 @@
 import { createContext, useContext, useState, useCallback } from "react";
 import { authAPI, usersAPI } from "../api/client";
 import { queryClient } from "../queryClient";
-import { STORAGE_KEYS } from "../constants/session";
+import {
+  STORAGE_KEYS,
+  SESSION_CHANNEL_NAME,
+  BROADCAST_ACTIONS,
+} from "../constants/session";
 
 const AuthContext = createContext(null);
 
@@ -26,18 +30,51 @@ export function AuthProvider({ children }) {
 
   const register = async (userData) => authAPI.register(userData);
 
-  const logout = useCallback(async () => {
+  const logout = useCallback(async (options = {}) => {
+    const reason = options?.reason || "manual";
+    const skipBroadcast = options?.skipBroadcast || false;
+    const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+
+    // 1. Immediately clear local storage, query cache, and user state before network call
+    localStorage.removeItem(STORAGE_KEYS.USER);
+    localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.LAST_ACTIVE);
     try {
-      await authAPI.logout();
+      localStorage.setItem(
+        STORAGE_KEYS.LOGOUT_EVENT,
+        JSON.stringify({ reason, timestamp: Date.now() })
+      );
+    } catch {
+      // Ignore storage errors
+    }
+    queryClient.clear();
+    setUser(null);
+
+    // 2. Broadcast logout across all other open tabs
+    if (!skipBroadcast && typeof BroadcastChannel !== "undefined") {
+      try {
+        const channel = new BroadcastChannel(SESSION_CHANNEL_NAME);
+        channel.postMessage({
+          type: BROADCAST_ACTIONS.LOGOUT,
+          reason,
+          timestamp: Date.now(),
+        });
+        channel.close();
+      } catch (err) {
+        console.warn("Failed to broadcast logout message:", err);
+      }
+    }
+
+    // 3. Fire-and-forget backend notification with the saved token so hung requests never keep local state alive
+    try {
+      if (token) {
+        await authAPI.logout({ headers: { Authorization: `Token ${token}` } });
+      } else {
+        await authAPI.logout();
+      }
     } catch (error) {
-      // Token already invalid or backend unreachable — clear locally regardless.
+      // Token already invalid or backend unreachable — local state is already cleared.
       console.error("Logout failed:", error);
-    } finally {
-      localStorage.removeItem(STORAGE_KEYS.USER);
-      localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
-      localStorage.removeItem(STORAGE_KEYS.LAST_ACTIVE);
-      queryClient.clear();
-      setUser(null);
     }
   }, []);
 

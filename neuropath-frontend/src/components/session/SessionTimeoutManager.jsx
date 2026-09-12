@@ -15,25 +15,29 @@ export default function SessionTimeoutManager() {
   const navigate = useNavigate();
 
   const handleSessionTimeout = useCallback(
-    async () => {
+    async ({ reason = "timeout" } = {}) => {
       try {
-        await logout();
+        await logout({ skipBroadcast: true, reason });
       } catch (err) {
         console.error("Error during session timeout logout:", err);
       } finally {
         queryClient.clear();
-        sessionStorage.setItem(
-          STORAGE_KEYS.SESSION_NOTICE,
-          "Your session has expired due to 30 minutes of inactivity. Please sign in again to continue."
-        );
-        navigate("/login", {
-          replace: true,
-          state: {
-            sessionExpired: true,
-            message:
-              "Your session has expired due to 30 minutes of inactivity. Please sign in again to continue.",
-          },
-        });
+        if (reason === "timeout") {
+          sessionStorage.setItem(
+            STORAGE_KEYS.SESSION_NOTICE,
+            "Your session has expired due to 30 minutes of inactivity. Please sign in again to continue."
+          );
+          navigate("/login", {
+            replace: true,
+            state: {
+              sessionExpired: true,
+              message:
+                "Your session has expired due to 30 minutes of inactivity. Please sign in again to continue.",
+            },
+          });
+        } else {
+          navigate("/login", { replace: true });
+        }
       }
     },
     [logout, navigate]

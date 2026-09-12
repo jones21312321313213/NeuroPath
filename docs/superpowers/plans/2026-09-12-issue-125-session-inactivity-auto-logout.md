@@ -1152,3 +1152,23 @@ Expected: Build finishes cleanly with zero syntax or bundling errors.
    - Handled gracefully in `finally` blocks: even if `POST /api/users/logout/` encounters network failure or token expiration, local tokens, user profiles, and TanStack query caches are wiped out regardless.
 5. **FERPA / RA 10173 Cache Retention:**
    - Handled by invoking `queryClient.clear()`, wiping out all cached student profiles, IEP objectives, and diagnostic observations from memory.
+
+---
+
+### Task 8: Code Review Resolutions (Lyster-A Feedback on PR #141)
+
+**Files:**
+- Modify: `neuropath-frontend/src/api/client.js`
+- Modify: `neuropath-frontend/src/context/AuthContext.jsx`
+- Modify: `neuropath-frontend/src/context/AuthContext.test.jsx`
+- Modify: `neuropath-frontend/src/hooks/useSessionTimeout.js`
+- Modify: `neuropath-frontend/src/hooks/useSessionTimeout.test.jsx`
+- Modify: `neuropath-frontend/src/components/session/SessionTimeoutManager.jsx`
+- Modify: `neuropath-frontend/src/components/session/SessionTimeoutManager.test.jsx`
+
+- [x] **Step 1: Immediate local credential & query cache purging in `AuthContext.logout()` before network request**
+- [x] **Step 2: Cross-tab logout broadcast in `AuthContext.logout()` for manual logouts from Sidebar/Header**
+- [x] **Step 3: `Math.max(lastRecordedRef.current, getLastActiveTime())` in `useSessionTimeout.js` to guard against `localStorage` write latency**
+- [x] **Step 4: Differentiate timeout vs remote manual logout navigation in `SessionTimeoutManager.jsx`**
+- [x] **Step 5: Automated test coverage across all modified files and full test suite passing (32 test files, 243 tests)**
+

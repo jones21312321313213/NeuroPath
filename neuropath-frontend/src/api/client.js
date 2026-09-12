@@ -78,11 +78,12 @@ export const authAPI = {
   // Content-Type: application/json, so an empty payload must still be valid JSON.
   // skipAuthRedirect: an already-revoked token 401s here, and the caller is
   // logging out anyway — it must finish its own teardown, not be redirected.
-  logout: () =>
+  logout: (options = {}) =>
     request("/users/logout/", {
       method: "POST",
       body: JSON.stringify({}),
       skipAuthRedirect: true,
+      ...options,
     }),
 };
 

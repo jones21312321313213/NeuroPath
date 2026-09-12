@@ -20,13 +20,13 @@ describe("useSessionTimeout", () => {
     broadcastPostMessage = vi.fn();
     broadcastClose = vi.fn();
 
-    mockBroadcastChannel = vi.fn().mockImplementation(() => ({
-      postMessage: broadcastPostMessage,
-      close: broadcastClose,
-      onmessage: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    }));
+    mockBroadcastChannel = vi.fn().mockImplementation(function () {
+      this.postMessage = broadcastPostMessage;
+      this.close = broadcastClose;
+      this.onmessage = null;
+      this.addEventListener = vi.fn();
+      this.removeEventListener = vi.fn();
+    });
     vi.stubGlobal("BroadcastChannel", mockBroadcastChannel);
   });
 
@@ -255,6 +255,43 @@ describe("useSessionTimeout", () => {
       );
     });
 
-    expect(onTimeout).toHaveBeenCalledTimes(1);
+    expect(onTimeout).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "timeout" })
+    );
+  });
+
+  it("guards against localStorage write latency by honoring the fresher in-memory lastRecorded timestamp", () => {
+    const startTime = 1000000;
+    vi.setSystemTime(startTime);
+    const onTimeout = vi.fn();
+
+    const { result } = renderHook(() =>
+      useSessionTimeout({
+        isAuthenticated: true,
+        onTimeout,
+      })
+    );
+
+    // Advance 25 minutes
+    vi.advanceTimersByTime(25 * 60 * 1000);
+    vi.setSystemTime(startTime + 25 * 60 * 1000);
+
+    // Trigger throttled user activity
+    act(() => {
+      window.dispatchEvent(new Event("mousemove"));
+    });
+
+    // Simulate localStorage write latency or stale read where localStorage has older timestamp (startTime)
+    localStorage.setItem(STORAGE_KEYS.LAST_ACTIVE, String(startTime));
+
+    // Advance another 5 minutes (30 minutes from startTime, but only 5 minutes from last in-memory event)
+    act(() => {
+      vi.advanceTimersByTime(5 * 60 * 1000);
+      vi.setSystemTime(startTime + 30 * 60 * 1000);
+    });
+
+    // Warning and timeout must NOT trigger because in-memory activity is fresher!
+    expect(result.current.isWarningOpen).toBe(false);
+    expect(onTimeout).not.toHaveBeenCalled();
   });
 });

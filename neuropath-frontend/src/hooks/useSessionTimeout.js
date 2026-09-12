@@ -139,7 +139,7 @@ export function useSessionTimeout({
             if (!isTimedOutRef.current) {
               isTimedOutRef.current = true;
               setIsWarningOpen(false);
-              if (onTimeout) onTimeout({ reason: "remote_logout" });
+              if (onTimeout) onTimeout({ reason: event.data?.reason || "remote_logout" });
             }
           }
         };
@@ -157,7 +157,14 @@ export function useSessionTimeout({
         if (!isTimedOutRef.current) {
           isTimedOutRef.current = true;
           setIsWarningOpen(false);
-          if (onTimeout) onTimeout({ reason: "remote_logout" });
+          let reason = "remote_logout";
+          try {
+            const parsed = JSON.parse(e.newValue);
+            if (parsed?.reason) reason = parsed.reason;
+          } catch {
+            // Ignore parse errors
+          }
+          if (onTimeout) onTimeout({ reason });
         }
       }
     };
@@ -186,7 +193,7 @@ export function useSessionTimeout({
     const checkActivity = () => {
       if (isTimedOutRef.current) return;
 
-      const lastActive = getLastActiveTime();
+      const lastActive = Math.max(lastRecordedRef.current, getLastActiveTime());
       const now = Date.now();
       const elapsed = now - lastActive;
 

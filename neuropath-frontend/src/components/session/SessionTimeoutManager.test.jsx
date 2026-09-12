@@ -25,6 +25,7 @@ describe("SessionTimeoutManager", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
     useAuth.mockReturnValue({
       user: { id: 1, email: "teacher@school.edu" },
       isAuthenticated: true,
@@ -57,7 +58,7 @@ describe("SessionTimeoutManager", () => {
     expect(capturedOnTimeout).toBeDefined();
     await capturedOnTimeout({ reason: "timeout" });
 
-    expect(logout).toHaveBeenCalledTimes(1);
+    expect(logout).toHaveBeenCalledWith({ skipBroadcast: true, reason: "timeout" });
     expect(queryClient.clear).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith("/login", {
       replace: true,
@@ -66,5 +67,30 @@ describe("SessionTimeoutManager", () => {
         message: "Your session has expired due to 30 minutes of inactivity. Please sign in again to continue.",
       },
     });
+  });
+
+  it("navigates cleanly to login without session timeout notice when remote logout occurs", async () => {
+    let capturedOnTimeout;
+    vi.spyOn(await import("../../hooks/useSessionTimeout"), "useSessionTimeout").mockImplementation(
+      ({ onTimeout }) => {
+        capturedOnTimeout = onTimeout;
+        return {
+          isWarningOpen: false,
+          secondsRemaining: 60,
+          extendSession: vi.fn(),
+          triggerLogout: vi.fn(),
+        };
+      }
+    );
+
+    render(<SessionTimeoutManager />);
+
+    expect(capturedOnTimeout).toBeDefined();
+    await capturedOnTimeout({ reason: "remote_logout" });
+
+    expect(logout).toHaveBeenCalledWith({ skipBroadcast: true, reason: "remote_logout" });
+    expect(queryClient.clear).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith("/login", { replace: true });
+    expect(sessionStorage.getItem("neuropath_session_notice")).toBeNull();
   });
 });
