@@ -4,7 +4,6 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from users.models import Teacher, StudentProfile
 from tracking.models import StudentProgress
-from iep_management.models import IEPModel
 
 
 class IEPBaselineProgressSeedingTests(APITestCase):
