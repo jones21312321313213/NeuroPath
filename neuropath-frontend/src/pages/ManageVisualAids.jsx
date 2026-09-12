@@ -47,19 +47,7 @@ function EmptyState({
     <div className="va-empty-state">
       <span className="va-empty-icon">{icon}</span>
       <p className="va-empty-text">{message}</p>
-      {description && (
-        <p
-          style={{
-            fontSize: 13,
-            color: "#5a7491",
-            maxWidth: 480,
-            margin: "6px auto 0",
-            lineHeight: 1.5,
-          }}
-        >
-          {description}
-        </p>
-      )}
+      {description && <p className="va-empty-desc">{description}</p>}
       {actionLabel && onAction && (
         <button
           type="button"
@@ -152,7 +140,7 @@ function AidRowList({
                 target="_blank"
                 rel="noreferrer"
                 className="va-btn va-btn-ghost"
-                style={{ textDecoration: "none", fontSize: 12 }}
+                style={{ textDecoration: "none" }}
               >
                 ⬇ PDF
               </a>
@@ -293,7 +281,7 @@ function GenerateTab({ setActivePage }) {
               <span className="va-step-done-chip">✓ Goal selected</span>
             )}
           </div>
-          <p style={{ fontSize: 13, color: "#5a7491", marginBottom: 14 }}>
+          <p className="va-form-intro">
             Select an existing IEP goal for{" "}
             <strong style={{ color: "#1a2b40" }}>{selectedStudent.name}</strong>
             , then optionally describe what you'd like the visual to show.
@@ -347,13 +335,14 @@ function GenerateTab({ setActivePage }) {
           )}
 
           <div className="va-form-group" style={{ marginTop: 14 }}>
-            <label className="va-form-label">
+            <label htmlFor="va-extra-prompt" className="va-form-label">
               Additional Prompt{" "}
               <span style={{ fontWeight: 400, color: "#8a9ab5" }}>
                 (optional)
               </span>
             </label>
             <textarea
+              id="va-extra-prompt"
               className="va-form-textarea"
               placeholder="e.g. Show a child raising their hand in class, simple cartoon style…"
               value={extraPrompt}
