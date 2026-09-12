@@ -1,0 +1,63 @@
+name: PR Template Compliance
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: read
+  contents: read
+
+jobs:
+  validate-pr-description:
+    name: Validate PR Template
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR Body Compliance
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "=== Validating PR Title & Description ==="
+          FAILED=0
+
+          if [ -z "$PR_BODY" ]; then
+            echo "::error::PR description is completely empty! Please fill out the pull request template."
+            exit 1
+          fi
+
+          # 1. Check for linked issue (Closes #123, Fixes #123, Resolves #123)
+          if ! echo "$PR_BODY" | grep -Eiq "(closes|fixes|resolves) #[0-9]+"; then
+            echo "::error::Missing linked issue! Please specify 'Closes #<issue_number>' in the Linked Issue section."
+            FAILED=1
+          fi
+
+          # 2. Check for empty or default placeholder summary
+          if echo "$PR_BODY" | grep -Fq "Replace this text with a summary" || ! echo "$PR_BODY" | grep -Eiq "## Summary[[:space:]]+[^#[:space:]]"; then
+            echo "::error::Summary section is empty or contains default placeholder text. Please provide a clear summary of your changes."
+            FAILED=1
+          fi
+
+          # 3. Check that at least one 'Type of Change' checkbox is selected
+          if ! echo "$PR_BODY" | grep -Eiq "^- \[[xX]\] (Bug fix|New feature|Breaking change|Documentation|Refactor)"; then
+            echo "::error::Please select at least one box under 'Type of Change' (- [x])."
+            FAILED=1
+          fi
+
+          # 4. Check that at least one 'How Has This Been Tested?' checkbox is selected
+          if ! echo "$PR_BODY" | grep -Eiq "^- \[[xX]\] (Unit tests|Integration tests|Manual verification)"; then
+            echo "::error::Please select at least one testing method under 'How Has This Been Tested?' (- [x])."
+            FAILED=1
+          fi
+
+          # 5. Check Conventional Commits title format (e.g. feat:, fix:, refactor:)
+          if ! echo "$PR_TITLE" | grep -Eiq "^(feat|fix|docs|style|refactor|perf|test|chore|ci)(\([a-zA-Z0-9_-]+\))?: .+"; then
+            echo "::warning::PR Title should follow Conventional Commits (e.g. 'feat(frontend): ...', 'fix(backend): ...')."
+          fi
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo "❌ PR description does not satisfy the PR template requirements."
+            exit 1
+          fi
+
+          echo "✅ PR description is fully compliant with the project template!"
