@@ -68,6 +68,12 @@ class AIEngineService:
                     }
                 ]
             })
+        prompt_lower = (prompt or '').lower()
+        if 'goal' in prompt_lower:
+            return (
+                'By the end of the school year, the learner will independently select and demonstrate '
+                'the target functional skill with 80% accuracy across 4 out of 5 consecutive classroom sessions.'
+            )
         return (
             'The learner demonstrates steady progress when provided with structured routines, '
             'visual prompts, and individualized pacing. Continuing with multimodal instructional strategies, '

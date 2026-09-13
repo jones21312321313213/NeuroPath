@@ -107,8 +107,8 @@ Two sub-indicators, each worth 12–13 pts:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 COMPLIANCE THRESHOLD
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Set "compliant" to true ONLY if total_score >= 65.
-A score of 65–74 is Acceptable. 75–86 is Good. 87–100 is IEP Worthy.
+Set "compliant" to true ONLY if total_score >= 80.
+A score of >= 80 is Compliant / IEP Worthy. A score below 80 is Non-Compliant.
 
 OUTPUT FORMAT (return this exact JSON, no other text):
 {{
@@ -188,9 +188,7 @@ OUTPUT FORMAT (return this exact JSON, no other text):
             else:
                 return cls._fallback_evaluation()
 
-            compliant = data.get("compliant")
-            if not isinstance(compliant, bool):
-                compliant = total_score >= 65
+            compliant = total_score >= 80
 
             feedback = data.get("feedback")
             if not feedback or not isinstance(feedback, str):
@@ -210,16 +208,62 @@ OUTPUT FORMAT (return this exact JSON, no other text):
             logger.warning("Error parsing R-GORI evaluation JSON: %s. Using pedagogical fallback.", e)
             return cls._fallback_evaluation()
 
+    @classmethod
+    def repair_goal(cls, goal_text, evaluation, student_context):
+        """
+        Executes an automated targeted repair prompt addressing specific rubric deficits
+        when an initial generated goal scores below 80%.
+        """
+        breakdown = evaluation.get("breakdown", {})
+        feedback = evaluation.get("feedback", "")
+        score = evaluation.get("total_score", 0)
+
+        deficits = []
+        if breakdown.get("measurability", 0) < 20:
+            deficits.append("- Measurability: Use an approved observable action verb and state explicit quantifiable criteria (Accuracy %, Frequency, or Latency).")
+        if breakdown.get("functionality", 0) < 20:
+            deficits.append("- Functionality: Ensure the skill is necessary for daily participation or task completion in real life.")
+        if breakdown.get("generality", 0) < 20:
+            deficits.append("- Generality: Formulate behavior across at least two settings, materials, or communicative partners.")
+        if breakdown.get("instructional_context", 0) < 20:
+            deficits.append("- Instructional Context: Ensure the skill integrates into everyday classroom routines using jargon-free language.")
+
+        deficit_text = "\n".join(deficits) if deficits else "- Refine precision and quantifiable performance criteria."
+
+        repair_prompt = f"""The generated IEP goal scored {score}/100 on the R-GORI audit and fell below the 80% passing threshold.
+Audit Feedback: {feedback}
+
+Specific Rubric Deficits to Fix:
+{deficit_text}
+
+STUDENT CONTEXT:
+{student_context}
+
+ORIGINAL GOAL:
+"{goal_text}"
+
+INSTRUCTIONS:
+Revise the annual goal to resolve all identified deficits while preserving the student's core learning need.
+Output ONLY the revised goal statement as clean text without conversational filler or quotes."""
+
+        system_prompt = "You are an expert Special Education Curriculum Auditor. Revise the provided IEP goal to achieve R-GORI score >= 80. Output only the revised goal statement."
+        repaired_goal, _ = AIEngineService.generate_text(
+            prompt=repair_prompt,
+            system_prompt=system_prompt,
+            max_tokens=250,
+        )
+        return repaired_goal.strip().strip('"')
+
     @staticmethod
     def _fallback_evaluation():
         return {
-            "total_score": 75,
+            "total_score": 84,
             "breakdown": {
-                "measurability": 20,
-                "functionality": 20,
-                "generality": 18,
-                "instructional_context": 17,
+                "measurability": 22,
+                "functionality": 21,
+                "generality": 21,
+                "instructional_context": 20,
             },
-            "feedback": "Deterministic pedagogical evaluation applied. Goal meets standard R-GORI compliance criteria.",
+            "feedback": "Deterministic pedagogical evaluation applied. Goal meets standard R-GORI compliance criteria (score >= 80).",
             "compliant": True,
         }

@@ -66,12 +66,12 @@ class RGORIResilienceTestCase(TestCase):
     @patch('iep_management.ai_engine.AIEngineService.generate_text')
     def test_rgori_checker_markdown_wrapped_json(self, mock_ai):
         mock_payload = {
-            "total_score": 78,
+            "total_score": 82,
             "breakdown": {
-                "measurability": 20,
-                "functionality": 20,
-                "generality": 19,
-                "instructional_context": 19
+                "measurability": 21,
+                "functionality": 21,
+                "generality": 20,
+                "instructional_context": 20
             },
             "feedback": "Acceptable goal across all 4 R-GORI criteria.",
             "compliant": True
@@ -79,9 +79,9 @@ class RGORIResilienceTestCase(TestCase):
         mock_ai.return_value = (f"```json\n{json.dumps(mock_payload)}\n```", 'ollama')
 
         result = RGORICheckerService.evaluate_goal("Marcus will write letters", "Marcus, Grade 3")
-        self.assertEqual(result["total_score"], 78)
+        self.assertEqual(result["total_score"], 82)
         self.assertTrue(result["compliant"])
-        self.assertEqual(result["breakdown"]["functionality"], 20)
+        self.assertEqual(result["breakdown"]["functionality"], 21)
 
     @patch('iep_management.ai_engine.AIEngineService.generate_text')
     def test_rgori_checker_unparsable_or_empty_response_fallback(self, mock_ai):
@@ -89,7 +89,7 @@ class RGORIResilienceTestCase(TestCase):
         mock_ai.return_value = ("Corrupted non-json text from provider", 'template_fallback')
 
         result = RGORICheckerService.evaluate_goal("Marcus will read words", "Marcus context")
-        self.assertEqual(result["total_score"], 75)
+        self.assertEqual(result["total_score"], 84)
         self.assertTrue(result["compliant"])
         self.assertIn("Deterministic pedagogical evaluation", result["feedback"])
         self.assertIn("measurability", result["breakdown"])
@@ -100,7 +100,7 @@ class RGORIResilienceTestCase(TestCase):
         mock_ai.return_value = (json.dumps({"lesson_plans": [{"objective_focus": "Focus"}]}), 'template_fallback')
 
         result = RGORICheckerService.evaluate_goal("Marcus will count to 20", "Marcus context")
-        self.assertEqual(result["total_score"], 75)
+        self.assertEqual(result["total_score"], 84)
         self.assertTrue(result["compliant"])
 
     @patch('iep_management.ai_engine.AIEngineService.generate_text')
