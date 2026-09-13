@@ -4,7 +4,9 @@ import { iepAPI, studentsAPI } from "../api/client";
 import { Callout } from "../components/ui";
 import { queryClient } from "../queryClient";
 import { queryKeys } from "../hooks/queries";
-import { mergeDifficulties } from "../utils/difficultyUtils";
+import { sanitizeDifficulties } from "../utils/difficultyUtils";
+
+
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -2115,22 +2117,13 @@ export default function IEPGenerationPage({
           (payload.difficulties
             ? payload.difficulties.split("\n").map((d) => ({ difficulty: d }))
             : []);
-        const newDifficulties = rows
-          .map((r) => (typeof r === "object" ? r.difficulty : r))
-          .map((d) => String(d || "").trim())
-          .filter(Boolean);
+        const sanitizedDifficulties = sanitizeDifficulties(rows);
 
-        const currentDifficulties = getStudentProfileDifficulties(targetStudent);
-        const mergedDifficulties = mergeDifficulties(
-          currentDifficulties,
-          newDifficulties,
-        );
-
-        if (mergedDifficulties.length > 0) {
+        if (sanitizedDifficulties.length > 0) {
           const currentProfileDetails = getStudentProfileDetails(targetStudent);
           const updatedProfileDetails = {
             ...currentProfileDetails,
-            difficultyMarkers: mergedDifficulties,
+            difficultyMarkers: sanitizedDifficulties,
           };
 
           const studentPayload = {
@@ -2159,7 +2152,7 @@ export default function IEPGenerationPage({
             ...targetStudent,
             ...studentPayload,
             profileDetails: updatedProfileDetails,
-            difficultyMarkers: mergedDifficulties,
+            difficultyMarkers: sanitizedDifficulties,
           };
 
           setSelectedStudent(mergedStudent);
@@ -2171,12 +2164,13 @@ export default function IEPGenerationPage({
 
           setForm((prev) => ({
             ...prev,
-            difficultyMarkers: mergedDifficulties,
+            difficultyMarkers: sanitizedDifficulties,
             barrierRows: buildProfileBarrierRows(
-              mergedDifficulties,
+              sanitizedDifficulties,
               prev.barrierRows,
             ),
           }));
+
 
           if (queryClient) {
             queryClient.setQueryData(queryKeys.student(sid), (old) =>
