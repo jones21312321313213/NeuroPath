@@ -47,7 +47,7 @@ def scrub_pii_from_text(text: str, pii_terms: Optional[Iterable[str]] = None, re
     sorted_terms = sorted([t.strip() for t in pii_terms if t and len(t.strip()) > 1], key=len, reverse=True)
     
     for term in sorted_terms:
-        pattern = re.compile(re.escape(term), re.IGNORECASE)
+        pattern = re.compile(rf'\b{re.escape(term)}\b', re.IGNORECASE)
         scrubbed = pattern.sub(replacement, scrubbed)
         
     return scrubbed
@@ -82,14 +82,14 @@ class PIIScrubberService:
 
         if real_name and len(real_name) > 1:
             surrogate_map['[STUDENT_A]'] = real_name
-            sanitized = re.sub(re.escape(real_name), '[STUDENT_A]', sanitized, flags=re.IGNORECASE)
+            sanitized = re.sub(rf'\b{re.escape(real_name)}\b', '[STUDENT_A]', sanitized, flags=re.IGNORECASE)
         if first_name and len(first_name) > 1 and first_name.lower() not in ('the', 'a', 'student', 'learner'):
             if '[STUDENT_A]' not in surrogate_map:
                 surrogate_map['[STUDENT_A]'] = first_name
             sanitized = re.sub(rf'\b{re.escape(first_name)}\b', '[STUDENT_A]', sanitized, flags=re.IGNORECASE)
         if guardian_name and len(guardian_name) > 1:
             surrogate_map['[GUARDIAN_A]'] = guardian_name
-            sanitized = re.sub(re.escape(guardian_name), '[GUARDIAN_A]', sanitized, flags=re.IGNORECASE)
+            sanitized = re.sub(rf'\b{re.escape(guardian_name)}\b', '[GUARDIAN_A]', sanitized, flags=re.IGNORECASE)
 
         # 2. Scrub DepEd LRNs
         sanitized = cls.LRN_PATTERN.sub('[LRN_REDACTED]', sanitized)
