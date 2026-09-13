@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { iepAPI, studentsAPI } from "../api/client";
+import { Callout } from "../components/ui";
 import { queryClient } from "../queryClient";
 import { queryKeys } from "../hooks/queries";
 import { sanitizeDifficulties } from "../utils/difficultyUtils";
@@ -1896,6 +1897,10 @@ export default function IEPGenerationPage({
       alert("Please select a student first.");
       return;
     }
+    if (selectedStudent && selectedStudent.parental_consent_obtained === false) {
+      alert("RA 10173 Parental Consent Pending: Generating AI goals requires verified parental consent. Please update the student profile with parental consent or manually author goals below.");
+      return;
+    }
     if (!selectedGoalCategory) {
       alert("Please select a learner goal area.");
       return;
@@ -2534,6 +2539,16 @@ export default function IEPGenerationPage({
                     subtitle="Select one goal area. The AI will generate the actual goals and objectives when you click Generate Final IEP."
                   />
 
+                  {selectedStudent && selectedStudent.parental_consent_obtained === false && (
+                    <Callout
+                      variant="warning"
+                      className="mb-4"
+                      style={{ marginBottom: "1rem" }}
+                    >
+                      RA 10173 Parental Consent Pending: Generating AI goals requires verified parental consent. Please update the student profile with parental consent or manually author goals below.
+                    </Callout>
+                  )}
+
                   <div className="iep-ai-goal-toolbar multi">
                     <div className="form-group">
                       <label className="form-label">Goal Area:</label>
@@ -2608,7 +2623,16 @@ export default function IEPGenerationPage({
                       type="button"
                       className="btn btn-submit"
                       onClick={handleGenerateFinalIep}
-                      disabled={generatingFinalIep || savingGoals}
+                      disabled={
+                        generatingFinalIep ||
+                        savingGoals ||
+                        (selectedStudent && selectedStudent.parental_consent_obtained === false)
+                      }
+                      title={
+                        selectedStudent && selectedStudent.parental_consent_obtained === false
+                          ? "Parental consent under RA 10173 is required to generate AI goals"
+                          : undefined
+                      }
                     >
                       {generatingFinalIep
                         ? "GENERATING..."

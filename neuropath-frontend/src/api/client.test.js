@@ -254,6 +254,40 @@ describe("api client", () => {
         }),
       );
     });
+
+    it("fetches student record pdf as a blob with auth header", async () => {
+      localStorage.setItem("neuropath_access_token", "test-token");
+      const mockBlob = new Blob(["mock-pdf-content"], { type: "application/pdf" });
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        blob: vi.fn().mockResolvedValue(mockBlob),
+      });
+
+      const blob = await trackingAPI.exportStudentRecordPDF(15);
+
+      expect(blob).toBe(mockBlob);
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/tracking/student-records/15/export/",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: "Token test-token",
+          }),
+        }),
+      );
+    });
+
+    it("throws an error when exportStudentRecordPDF request fails", async () => {
+      fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: vi.fn().mockResolvedValue({ error: "Export engine failure." }),
+      });
+
+      await expect(trackingAPI.exportStudentRecordPDF(15)).rejects.toThrow(
+        "Export engine failure.",
+      );
+    });
   });
 });
 

@@ -9,11 +9,13 @@ import { Callout, Button, EmptyState } from "../../components/ui";
 
 const USE_MOCK_INSIGHTS = import.meta.env.VITE_USE_MOCK_INSIGHTS === "true";
 
-export default function StudentInsightsTab({ studentId, setActivePage }) {
+export default function StudentInsightsTab({ studentId, setActivePage, student }) {
   const navigate = useNavigate();
   const isDemo = Boolean(
     import.meta.env.VITE_USE_MOCK_INSIGHTS === "true" || USE_MOCK_INSIGHTS
   );
+
+  const hasConsent = student ? Boolean(student.parental_consent_obtained) : true;
 
   const [demoInsights, setDemoInsights] = useState(mockInsights);
   const [demoGenerating, setDemoGenerating] = useState(false);
@@ -48,6 +50,12 @@ export default function StudentInsightsTab({ studentId, setActivePage }) {
       : null);
 
   const handleGenerate = async () => {
+    if (!hasConsent) {
+      setError(
+        "RA 10173 Consent Required: Parental/guardian consent has not been recorded for this student. Automated AI insight generation is disabled until consent is verified in the student profile."
+      );
+      return;
+    }
     setError(null);
     if (generateMutation.reset) {
       generateMutation.reset();
@@ -122,6 +130,12 @@ export default function StudentInsightsTab({ studentId, setActivePage }) {
           </button>
         </div>
 
+        {!hasConsent && (
+          <Callout variant="warning" className="mb-4">
+            RA 10173 Consent Required: Parental/guardian consent has not been recorded for this student. Automated AI insight generation is disabled until consent is verified in the student profile.
+          </Callout>
+        )}
+
         {errorMessage && (
           <Callout variant="error" className="error-banner mb-4">
             {errorMessage}
@@ -189,7 +203,7 @@ export default function StudentInsightsTab({ studentId, setActivePage }) {
           <Button
             variant="primary"
             onClick={handleGenerate}
-            disabled={isGenerating}
+            disabled={isGenerating || !hasConsent}
             className="btn-submit"
           >
             {isGenerating ? "Analyzing Profile..." : "Generate Quick Summary"}
