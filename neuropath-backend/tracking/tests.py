@@ -54,6 +54,111 @@ class BinaryReportRenderEngineTestCase(TestCase):
         page_text = reader.pages[0].extract_text()
         self.assertIn('Alice Johnson', page_text)
 
+    def test_generate_report_stream_with_iep_sections(self):
+        from iep_management.models import IEPModel, IEPGoal, IEPObjectiveRow
+        iep = IEPModel.objects.create(
+            studentID=self.student,
+            version=1,
+            difficulties='Difficulty in Reading Comprehension\nDifficulty in Math Operations',
+            learning_barriers='Struggles with multi-step word problems\nAbstract symbol decoding',
+            learning_facilitators='Visual diagrams and step-by-step guides\nManipulatives',
+            learning_accommodations='Extra time 20 mins\nGraphic organizers',
+        )
+        goal = IEPGoal.objects.create(
+            iep=iep,
+            goalName='Reading Goal',
+            subject_category='Literacy',
+            annual_goal='Improve reading comprehension to Grade 3 level',
+            target_metric='80% accuracy',
+        )
+        IEPObjectiveRow.objects.create(
+            parent_goal=goal,
+            enroute_objectives='Decode multi-syllable words',
+            interventions_procedures='Phonics flashcards daily',
+            timeline_mins_session='15 mins daily',
+            individuals_responsible='SPED Teacher',
+            progress_instructional='Satisfactory',
+            remarks='Consistent growth',
+        )
+
+        pdf_stream = BinaryReportRenderEngine.generate_report_stream(self.student)
+        reader = PdfReader(io.BytesIO(pdf_stream.getvalue()))
+        full_text = " ".join("".join([page.extract_text() for page in reader.pages]).split())
+
+        self.assertIn('Section B: Difficulties, Barriers', full_text)
+        self.assertIn('Difficulty in Reading Comprehension', full_text)
+        self.assertIn("Section C: Learner's Goals", full_text)
+        self.assertIn('Literacy', full_text)
+        self.assertIn('Decode multi-syllable words', full_text)
+
+    def test_generate_report_stream_with_profile_details_present_levels(self):
+        self.student.profileDetails = {
+            'school': 'West Elementary',
+            'schoolYear': '2026-2027',
+            'birthdate': '2018-05-12',
+            'presentEvaluation': 'Evaluated at Grade 2 reading level.',
+            'academicStrengths': 'Excels in arithmetic & mental math.',
+            'academicNeeds': 'Needs explicit phonetic instruction.',
+            'parentalConcerns': 'Concerned about homework avoidance.',
+            'curriculumImpact': 'Struggles with reading word problems.',
+        }
+        self.student.save()
+
+        pdf_stream = BinaryReportRenderEngine.generate_report_stream(self.student)
+        reader = PdfReader(io.BytesIO(pdf_stream.getvalue()))
+        full_text = " ".join("".join([page.extract_text() for page in reader.pages]).split())
+
+        self.assertIn('Present Levels of Academic Achievement', full_text)
+        self.assertIn('West Elementary', full_text)
+        self.assertIn('Excels in arithmetic & mental math.', full_text)
+        self.assertIn('Needs explicit phonetic instruction.', full_text)
+        self.assertIn('Concerned about homework avoidance.', full_text)
+        self.assertIn('Struggles with reading word problems.', full_text)
+
+    def test_generate_report_stream_escapes_xml_entities_without_crashing(self):
+        from iep_management.models import IEPModel, IEPGoal, IEPObjectiveRow
+        # Create student and IEP with &, <, >, " characters that would crash unescaped ReportLab Paragraphs
+        self.student.name = "Alice & Bob <Special>"
+        self.student.assessmentResult = "Math < 50% & Science > 80% with 'High' & \"Advanced\" tags"
+        self.student.profileDetails = {
+            'academicStrengths': "Calculus & Geometry <Advanced>",
+            'academicNeeds': "Reading < Grade 1 & Comprehension",
+        }
+        self.student.save()
+
+        iep = IEPModel.objects.create(
+            studentID=self.student,
+            version=1,
+            difficulties='Difficulty & Barriers <Level 1>',
+            learning_barriers='Restricted participation <50%> & sensory issues',
+            learning_facilitators='Facilitator A & B <100%>',
+            learning_accommodations='Extra time < 30 mins & visual aids',
+        )
+        goal = IEPGoal.objects.create(
+            iep=iep,
+            goalName='Math & Logic Goal',
+            subject_category='Math & Logic <STEM>',
+            annual_goal='Achieve score > 80% & pass tests',
+        )
+        IEPObjectiveRow.objects.create(
+            parent_goal=goal,
+            enroute_objectives='Objective A <step 1> & step 2',
+            interventions_procedures='Drills & practice <daily>',
+            timeline_mins_session='15 < 20 mins',
+            individuals_responsible='Teacher & Aide',
+            progress_instructional='Score > 75%',
+            remarks='Good & steady',
+        )
+
+        # Generating report stream should NOT raise xml / ReportLab parser exceptions
+        pdf_stream = BinaryReportRenderEngine.generate_report_stream(self.student)
+        self.assertIsNotNone(pdf_stream)
+        reader = PdfReader(io.BytesIO(pdf_stream.getvalue()))
+        self.assertGreaterEqual(len(reader.pages), 1)
+        full_text = " ".join("".join([page.extract_text() for page in reader.pages]).split())
+        self.assertIn('Alice & Bob <Special>', full_text)
+        self.assertIn('Math & Logic <STEM>', full_text)
+
 
 class TrackingAuthAndTenantIsolationTests(TestCase):
     """Student tracking/progress data must require authentication and must
