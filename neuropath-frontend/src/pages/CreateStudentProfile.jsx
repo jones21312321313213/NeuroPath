@@ -136,6 +136,10 @@ const initialFormState = {
   academicNeeds: "",
   parentalConcerns: "",
   curriculumImpact: "",
+  parentalConsentObtained: false,
+  consentDate: new Date().toISOString().split("T")[0],
+  guardianName: "",
+  guardianRelationship: "Parent",
 };
 
 function SuccessModal({
@@ -363,6 +367,17 @@ export default function CreateStudentProfile({
       return false;
     }
 
+    if (form.parentalConsentObtained) {
+      if (!String(form.guardianName || "").trim()) {
+        setError("Guardian name is required when parental consent is obtained.");
+        return false;
+      }
+      if (!String(form.consentDate || "").trim()) {
+        setError("Consent date is required when parental consent is obtained.");
+        return false;
+      }
+    }
+
     setError("");
     return true;
   };
@@ -444,6 +459,10 @@ export default function CreateStudentProfile({
       interests: "",
       sensory_preferences: "",
       teacher_user_id: user?.id,
+      parental_consent_obtained: Boolean(form.parentalConsentObtained),
+      consent_date: form.parentalConsentObtained ? form.consentDate : null,
+      guardian_name: form.parentalConsentObtained ? form.guardianName.trim() : "",
+      guardian_relationship: form.parentalConsentObtained ? form.guardianRelationship : "Parent",
     };
 
     try {
@@ -611,6 +630,70 @@ export default function CreateStudentProfile({
                     />
                   ))}
                 </div>
+              </div>
+
+              <div
+                className="ra10173-consent-section"
+                style={{
+                  marginTop: "1.5rem",
+                  padding: "1.25rem",
+                  borderRadius: "0.75rem",
+                  backgroundColor: "#f8fafc",
+                  border: "1px solid #cbd5e1",
+                }}
+              >
+                <h3
+                  className="iep-small-title"
+                  style={{
+                    color: "#0f172a",
+                    fontSize: "0.95rem",
+                    fontWeight: 700,
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  Republic Act 10173 (Data Privacy Act of 2012) Compliance
+                </h3>
+                <p
+                  className="iep-muted"
+                  style={{ fontSize: "0.85rem", marginBottom: "1rem" }}
+                >
+                  In compliance with Philippine RA 10173, processing sensitive personal information and automated AI analysis for minors require explicit parental or guardian consent.
+                </p>
+                <CheckOption
+                  label="Parental/Guardian Consent has been verified and obtained for this learner."
+                  checked={Boolean(form.parentalConsentObtained)}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      parentalConsentObtained: e.target.checked,
+                    }))
+                  }
+                />
+                {form.parentalConsentObtained && (
+                  <div
+                    className="form-grid-2"
+                    style={{ marginTop: "1rem" }}
+                  >
+                    <FormField
+                      label="Guardian Full Name"
+                      placeholder="Enter parent or guardian name"
+                      value={form.guardianName}
+                      onChange={setField("guardianName")}
+                    />
+                    <SelectField
+                      label="Guardian Relationship"
+                      value={form.guardianRelationship}
+                      onChange={setField("guardianRelationship")}
+                      options={["Parent", "Mother", "Father", "Legal Guardian", "Other"]}
+                    />
+                    <FormField
+                      label="Consent Verification Date"
+                      type="date"
+                      value={form.consentDate}
+                      onChange={setField("consentDate")}
+                    />
+                  </div>
+                )}
               </div>
             </section>
           )}

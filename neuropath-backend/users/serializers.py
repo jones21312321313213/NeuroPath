@@ -68,6 +68,19 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             if errors:
                 raise serializers.ValidationError(errors)
 
+        # RA 10173 (Data Privacy Act of 2012) Minor Consent Validation
+        consent_obtained = data.get('parental_consent_obtained')
+        if consent_obtained:
+            guardian_name = (data.get('guardian_name') or '').strip()
+            consent_date = data.get('consent_date')
+            consent_errors = {}
+            if not guardian_name:
+                consent_errors['guardian_name'] = 'Parent or legal guardian name is required when consent is marked as obtained.'
+            if not consent_date:
+                consent_errors['consent_date'] = 'Consent verification date is required when consent is marked as obtained.'
+            if consent_errors:
+                raise serializers.ValidationError(consent_errors)
+
         return data
 
     def validate_age(self, value):
