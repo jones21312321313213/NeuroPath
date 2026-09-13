@@ -90,8 +90,12 @@ export default function Sidebar({
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleConfirmLogout = async () => {
-    await logout();
+  const handleConfirmLogout = () => {
+    try {
+      logout();
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
     sessionStorage.clear();
     setIsModalOpen(false);
     navigate("/login");

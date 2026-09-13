@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import LoginPage from "./loginPage";
 import { useAuth } from "../context/AuthContext";
 
@@ -16,17 +17,20 @@ describe("LoginPage", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
     useAuth.mockReturnValue({ login });
   });
 
-  function renderPage(props = {}) {
+  function renderPage(props = {}, { initialEntries = ["/login"] } = {}) {
     return render(
-      <LoginPage
-        onNavigateRegister={onNavigateRegister}
-        onLoginSuccess={onLoginSuccess}
-        onClearMessage={onClearMessage}
-        {...props}
-      />,
+      <MemoryRouter initialEntries={initialEntries}>
+        <LoginPage
+          onNavigateRegister={onNavigateRegister}
+          onLoginSuccess={onLoginSuccess}
+          onClearMessage={onClearMessage}
+          {...props}
+        />
+      </MemoryRouter>,
     );
   }
 
@@ -136,5 +140,67 @@ describe("LoginPage", () => {
     renderPage({ successMessage: "Registration complete!" });
 
     expect(screen.getByText("Registration complete!")).toBeInTheDocument();
+  });
+
+  it("renders session timeout banner when sessionNotice prop is provided", () => {
+    renderPage({
+      sessionNotice: "Your session has expired due to 30 minutes of inactivity.",
+    });
+
+    expect(
+      screen.getByText(/your session has expired due to 30 minutes of inactivity/i),
+    ).toBeInTheDocument();
+  });
+
+  it("renders session timeout banner when stored in sessionStorage", () => {
+    sessionStorage.setItem(
+      "neuropath_session_notice",
+      "Your session has expired due to 30 minutes of inactivity. Please sign in again.",
+    );
+
+    renderPage();
+
+    expect(
+      screen.getByText(/your session has expired due to 30 minutes of inactivity/i),
+    ).toBeInTheDocument();
+    expect(sessionStorage.getItem("neuropath_session_notice")).toBeNull();
+  });
+
+  it("renders session timeout banner when passed via location state", () => {
+    renderPage(
+      {},
+      {
+        initialEntries: [
+          {
+            pathname: "/login",
+            state: {
+              sessionExpired: true,
+              message: "Your session has expired due to 30 minutes of inactivity.",
+            },
+          },
+        ],
+      },
+    );
+
+    expect(
+      screen.getByText(/your session has expired due to 30 minutes of inactivity/i),
+    ).toBeInTheDocument();
+  });
+
+  it("clears session notice banner when user types in an input field", async () => {
+    const user = userEvent.setup();
+    renderPage({
+      sessionNotice: "Your session has expired due to 30 minutes of inactivity.",
+    });
+
+    expect(
+      screen.getByText(/your session has expired due to 30 minutes of inactivity/i),
+    ).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/email address/i), "a");
+
+    expect(
+      screen.queryByText(/your session has expired due to 30 minutes of inactivity/i),
+    ).not.toBeInTheDocument();
   });
 });
