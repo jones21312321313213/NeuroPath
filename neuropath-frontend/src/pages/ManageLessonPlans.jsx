@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import "../styles/ManageTeachingStrategies.css";
 import "../styles/ManageLessonPlans.css";
 import { iepAPI, lessonPlansAPI, studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -38,19 +39,7 @@ function EmptyState({
     <div className="ts-empty">
       <span className="ts-empty-icon">{icon}</span>
       <p className="ts-empty-text">{message}</p>
-      {description && (
-        <p
-          style={{
-            fontSize: 13,
-            color: "#5a7491",
-            maxWidth: 480,
-            margin: "6px auto 0",
-            lineHeight: 1.5,
-          }}
-        >
-          {description}
-        </p>
-      )}
+      {description && <p className="ts-empty-desc">{description}</p>}
       {actionLabel && onAction && (
         <button
           type="button"
@@ -122,17 +111,7 @@ function formatSavedIepGoal(goal) {
 function StatusBadge({ status }) {
   const isActive = status === "Active";
   return (
-    <span
-      style={{
-        display: "inline-block",
-        padding: "3px 10px",
-        borderRadius: 12,
-        fontSize: 12,
-        fontWeight: 700,
-        background: isActive ? "#dcfce7" : "#fef9c3",
-        color: isActive ? "#16a34a" : "#92400e",
-      }}
-    >
+    <span className={`lp-status-badge ${isActive ? "active" : "draft"}`}>
       {status}
     </span>
   );
@@ -165,18 +144,7 @@ function renderSafeText(content) {
 // Phase badge used in both Generate result and View detail
 function PhaseBadge({ index }) {
   return (
-    <span
-      style={{
-        background: "linear-gradient(135deg, #3d9de8, #5aabf0)",
-        color: "#fff",
-        padding: "4px 10px",
-        borderRadius: 12,
-        fontSize: 11,
-        fontWeight: 800,
-        letterSpacing: "0.5px",
-        flexShrink: 0,
-      }}
-    >
+    <span className="lp-phase-badge">
       Phase {index + 1}
     </span>
   );
@@ -184,25 +152,10 @@ function PhaseBadge({ index }) {
 
 // Renders a single lesson-plan phase block (used in Generate + View)
 function LessonPhaseBlock({ plan, index, total }) {
+  const isBordered = index !== total - 1;
   return (
-    <div
-      style={{
-        marginBottom: 24,
-        paddingBottom: 24,
-        borderBottom: index !== total - 1 ? "2px dashed #dde6f0" : "none",
-      }}
-    >
-      <h4
-        style={{
-          color: "#1a2b40",
-          fontSize: 15,
-          fontWeight: 700,
-          marginBottom: 14,
-          display: "flex",
-          gap: 10,
-          alignItems: "center",
-        }}
-      >
+    <div className={`lp-phase-block ${isBordered ? "bordered" : ""}`}>
+      <h4 className="lp-phase-title">
         <PhaseBadge index={index} />
         {renderSafeText(plan.objective_focus)}
       </h4>
@@ -448,7 +401,7 @@ function GenerateTab({ onSave, setActivePage }) {
           <div className="ts-step-badge">
             <span className="ts-step-num">2</span>Select an IEP Goal
           </div>
-          <p style={{ fontSize: 13, color: "#5a7491", marginBottom: 14 }}>
+          <p className="ts-form-intro">
             Choose a goal for{" "}
             <strong style={{ color: "#1a2b40" }}>
               {selectedStudent.studentName}
@@ -495,7 +448,7 @@ function GenerateTab({ onSave, setActivePage }) {
                           {goal.goalArea}
                         </strong>
                         {goal.label && goal.label !== goal.goalArea && (
-                          <span style={{ fontSize: 12.5, color: "#5a7491" }}>
+                          <span className="ts-goal-subtext">
                             {goal.label}
                           </span>
                         )}
@@ -573,13 +526,7 @@ function GenerateTab({ onSave, setActivePage }) {
                   />
                 ))
               ) : (
-                <p
-                  style={{
-                    color: "#8a9ab5",
-                    fontStyle: "italic",
-                    fontSize: 13,
-                  }}
-                >
+                <p className="ts-empty-italic">
                   No lesson plan data was returned from the AI.
                 </p>
               )}
@@ -741,9 +688,7 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
                 />
               ))
             ) : (
-              <p
-                style={{ color: "#8a9ab5", fontStyle: "italic", fontSize: 13 }}
-              >
+              <p className="ts-empty-italic">
                 No lesson plan content available to display.
               </p>
             )}
@@ -825,6 +770,7 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
 
       <div className="lp-search-bar" style={{ marginBottom: 16 }}>
         <input
+          aria-label="Search students"
           className="ts-form-input"
           style={{ flex: 1, minWidth: 180 }}
           placeholder="Search students…"
@@ -832,10 +778,11 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
           onChange={(e) => setSearch(e.target.value)}
         />
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#5a7491" }}>
-            Filter
+          <span className="lp-filter-label">
+            Filter:
           </span>
           <select
+            aria-label="Filter by Grade"
             className="ts-form-input"
             style={{ width: "auto", minWidth: 100, padding: "10px 12px" }}
             value={filterGrade}
@@ -849,6 +796,7 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
             ))}
           </select>
           <select
+            aria-label="Filter by Age"
             className="ts-form-input"
             style={{ width: "auto", minWidth: 80, padding: "10px 12px" }}
             value={filterAge}
@@ -969,8 +917,11 @@ function EditTab({ onGoToGenerate }) {
           </div>
         )}
         <div className="ts-form-group">
-          <label className="ts-form-label">Plan Title</label>
+          <label htmlFor="lp-edit-title" className="ts-form-label">
+            Plan Title
+          </label>
           <input
+            id="lp-edit-title"
             className="ts-form-input"
             value={formValue.title}
             onChange={(e) =>
@@ -979,8 +930,11 @@ function EditTab({ onGoToGenerate }) {
           />
         </div>
         <div className="ts-form-group">
-          <label className="ts-form-label">Status</label>
+          <label htmlFor="lp-edit-status" className="ts-form-label">
+            Status
+          </label>
           <select
+            id="lp-edit-status"
             className="ts-form-input"
             value={formValue.status}
             onChange={(e) =>
