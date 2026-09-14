@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { authAPI, studentsAPI, usersAPI, trackingAPI } from "./client";
+import { authAPI, studentsAPI, usersAPI, trackingAPI, teachingStrategiesAPI } from "./client";
 
 
 function jsonResponse(body, { ok = true, status } = {}) {
@@ -286,6 +286,64 @@ describe("api client", () => {
 
       await expect(trackingAPI.exportStudentRecordPDF(15)).rejects.toThrow(
         "Export engine failure.",
+      );
+    });
+  });
+
+  describe("teachingStrategiesAPI", () => {
+    it("posts payload to generate endpoint", async () => {
+      fetch.mockResolvedValueOnce(
+        jsonResponse({
+          message: "Teaching strategy successfully generated.",
+          data: {
+            title: "Strategy for: Goal 1",
+            strategyContent: "Tactical tips...",
+            goalID: 10,
+          },
+        }),
+      );
+
+      const result = await teachingStrategiesAPI.generate({ goalID: 10 });
+
+      expect(result.message).toBe("Teaching strategy successfully generated.");
+      expect(result.data.goalID).toBe(10);
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/resources/generate-strategy/",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ goalID: 10 }),
+        }),
+      );
+    });
+
+    it("posts payload to teaching-strategies explicit save endpoint", async () => {
+      fetch.mockResolvedValueOnce(
+        jsonResponse({
+          message: "Teaching Strategy successfully saved.",
+          data: {
+            strategyID: 42,
+            iep_goal: 10,
+            title: "Strategy for: Goal 1",
+            strategyContent: "Detailed actionable content...",
+          },
+        }),
+      );
+
+      const payload = {
+        iep_goal: 10,
+        title: "Strategy for: Goal 1",
+        strategyContent: "Detailed actionable content...",
+      };
+      const result = await teachingStrategiesAPI.save(payload);
+
+      expect(result.message).toBe("Teaching Strategy successfully saved.");
+      expect(result.data.strategyID).toBe(42);
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/resources/teaching-strategies/",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify(payload),
+        }),
       );
     });
   });

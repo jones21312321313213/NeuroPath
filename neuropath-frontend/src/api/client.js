@@ -159,6 +159,11 @@ export const teachingStrategiesAPI = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  save: (payload) =>
+    request("/resources/teaching-strategies/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   list: (studentID) =>
     request(`/resources/query-strategies/?studentID=${studentID}`),
   get: (id) => request(`/resources/query-strategies/${id}/`),
