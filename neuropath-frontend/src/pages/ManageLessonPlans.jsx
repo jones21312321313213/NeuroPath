@@ -332,6 +332,8 @@ function GenerateTab({ onSave, setActivePage }) {
         studentID: selectedStudent.studentID,
         goalID: selectedGoal.goalID,
         goalArea: selectedGoal.goalArea,
+        subject: selectedGoal.goalArea || "General",
+        topic: selectedGoal.label || selectedGoal.goalArea || "IEP Goal",
         teacherPrompt: "",
       });
       setGenerated(res);
@@ -343,7 +345,8 @@ function GenerateTab({ onSave, setActivePage }) {
   };
 
   const handleSave = async () => {
-    if (!generated?.lesson_plans || !selectedStudent) return;
+    const plans = generated?.lesson_plans || generated?.data?.lesson_plans;
+    if (!plans || !selectedStudent) return;
     setLoading(true);
     setError("");
 
@@ -352,7 +355,7 @@ function GenerateTab({ onSave, setActivePage }) {
         studentID: selectedStudent.studentID,
         goalID: selectedGoal?.goalID || null,
         title: `${selectedGoal?.goalArea || "ASD"} Lesson Plan`,
-        content: generated.lesson_plans,
+        content: plans,
       });
       setSaved(true);
       onSave(savedPlan);
