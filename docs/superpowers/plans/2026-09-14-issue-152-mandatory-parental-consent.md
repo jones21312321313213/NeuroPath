@@ -27,7 +27,7 @@
 - Consumes: Form state properties `guardianName`, `guardianRelationship`, `consentDate`, `parentalConsentObtained`
 - Produces: Always-visible RA 10173 consent fields in Step 1, mandatory Step 1 validation preventing advance if any consent field is missing, and submittable payload with `parental_consent_obtained: true`
 
-- [ ] **Step 1: Write the failing test for mandatory consent validation**
+- [x] **Step 1: Write the failing test for mandatory consent validation**
 
 Add unit tests in `neuropath-frontend/src/pages/CreateStudentProfile.test.jsx` verifying that Step 1 blocks advancing if Guardian Full Name, Guardian Relationship, Consent Verification Date, or Consent Agreement/Statement is missing.
 
@@ -60,12 +60,12 @@ Add unit tests in `neuropath-frontend/src/pages/CreateStudentProfile.test.jsx` v
   });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/pages/CreateStudentProfile.test.jsx -t "blocks advancing from Step 1 if guardian name is empty"`
 Expected: FAIL because current implementation only validates guardian name when `form.parentalConsentObtained` is true.
 
-- [ ] **Step 3: Implement mandatory consent in `CreateStudentProfile.jsx`**
+- [x] **Step 3: Implement mandatory consent in `CreateStudentProfile.jsx`**
 
 1. Remove the conditional `{form.parentalConsentObtained && (...)}` wrapper so `Guardian Full Name`, `Guardian Relationship`, and `Consent Verification Date` are unconditionally rendered in the RA 10173 section.
 2. Update the checkbox label to `Consent Agreement / Statement: I confirm that parental/guardian consent has been verified and obtained for this learner in compliance with Republic Act 10173.`
@@ -85,12 +85,12 @@ Expected: FAIL because current implementation only validates guardian name when 
    - `studentProfileDetails.parentalConsentObtained = true`
    - `studentProfileDetails.consentAgreement = true`
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/pages/CreateStudentProfile.test.jsx -t "blocks advancing from Step 1 if guardian name is empty"`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add neuropath-frontend/src/pages/CreateStudentProfile.jsx neuropath-frontend/src/pages/CreateStudentProfile.test.jsx
@@ -108,7 +108,7 @@ git commit -m "refactor(frontend): require mandatory parental consent on student
 - Consumes: `CreateStudentProfile` component
 - Produces: 100% passing test suite covering mandatory parental consent fields, step 1 validation, step 2 submission, next-step CTAs, and a11y compliance.
 
-- [ ] **Step 1: Write/update tests for mandatory parental consent**
+- [x] **Step 1: Write/update tests for mandatory parental consent**
 
 Update tests in `neuropath-frontend/src/pages/CreateStudentProfile.test.jsx`:
 - Update `fillAndSubmitValidForm` to fill `guardianName` and check the Consent Agreement / Statement checkbox.
@@ -118,22 +118,22 @@ Update tests in `neuropath-frontend/src/pages/CreateStudentProfile.test.jsx`:
 - Add `it("blocks advancing from Step 1 if consent date is empty")`.
 - Add `it("blocks advancing from Step 1 if guardian relationship is empty")`.
 
-- [ ] **Step 2: Run all frontend tests**
+- [x] **Step 2: Run all frontend tests**
 
 Run: `npx vitest run src/pages/CreateStudentProfile.test.jsx`
 Expected: 100% PASS with 0 failures
 
-- [ ] **Step 3: Run accessibility tests**
+- [x] **Step 3: Run accessibility tests**
 
 Run: `npx vitest run src/test/a11y.test.jsx`
 Expected: PASS (0 axe violations)
 
-- [ ] **Step 4: Run ESLint**
+- [x] **Step 4: Run ESLint**
 
 Run: `npx eslint src/pages/CreateStudentProfile.jsx src/pages/CreateStudentProfile.test.jsx`
 Expected: 0 errors, 0 warnings
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add neuropath-frontend/src/pages/CreateStudentProfile.test.jsx
