@@ -121,7 +121,6 @@ class TeachingStrategyAPITestCase(TestCase):
     def setUp(self):
         from rest_framework.test import APIClient
         from common_test_utils import create_teacher_with_login, create_student
-        from resources.models import TeachingStrategy
 
         self.client = APIClient()
         self.user, self.teacher, self.token = create_teacher_with_login('strat_tester@example.com')
