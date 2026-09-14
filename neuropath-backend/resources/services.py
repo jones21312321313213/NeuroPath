@@ -3,10 +3,12 @@ import json
 from .models import TeachingStrategy, LessonPlan
 from iep_management.models import IEPGoal
 from iep_management.ai_engine import AIEngineService
+from iep_management.retriever_service import SemanticRetrieverService
 from iep_management.privacy_utils import (
     anonymize_student_context,
     scrub_pii_from_text,
     verify_ra10173_consent,
+    PIIScrubberService,
 )
 
 
@@ -25,10 +27,22 @@ class TeachingStrategyGenerationService:
         verify_ra10173_consent(student)
 
         student_desc = anonymize_student_context(student)
-        pii_tokens = [
-            getattr(student, 'name', ''),
-            getattr(student, 'guardian_name', '')
-        ]
+        real_name = getattr(student, 'name', '') or ''
+        guardian_name = getattr(student, 'guardian_name', '') or ''
+        pii_tokens = [real_name, guardian_name]
+        if real_name:
+            pii_tokens.extend(real_name.split())
+        if guardian_name:
+            pii_tokens.extend(guardian_name.split())
+
+        student_profile = {
+            'full_name': real_name,
+            'name': real_name,
+            'first_name': real_name.split()[0] if real_name else '',
+            'guardian_name': guardian_name,
+            'age': getattr(student, 'age', None),
+            'grade': getattr(student, 'grade', None),
+        }
 
         # Extract specialFactorNotes from generatedDetails if present
         details = getattr(iep, 'generatedDetails', None) or {}
@@ -41,23 +55,58 @@ class TeachingStrategyGenerationService:
         special_notes = scrub_pii_from_text(special_notes, pii_tokens)
         special_notes_line = f"- Special Factors / Behavioral & Sensory: {special_notes}\n" if special_notes else ""
 
+        # Scrub Section B fields prior to query formation or prompt insertion
+        difficulties_scrubbed = scrub_pii_from_text(getattr(iep, 'difficulties', '') or '', pii_tokens)
+        barriers_scrubbed = scrub_pii_from_text(getattr(iep, 'learning_barriers', '') or '', pii_tokens)
+        accommodations_scrubbed = scrub_pii_from_text(getattr(iep, 'accommodations', '') or '', pii_tokens)
+        facilitators_scrubbed = scrub_pii_from_text(getattr(iep, 'learning_facilitators', '') or '', pii_tokens)
+
         # 2. Extract and format the nested enroute objectives (Section C rows)
         rows = goal_instance.objective_rows.all() if hasattr(goal_instance, 'objective_rows') else []
-        objectives_text = "\n".join(
+        raw_objectives = "\n".join(
             [f"- {row.enroute_objectives}" for row in rows if getattr(row, 'enroute_objectives', None)]
         )
+        objectives_text = scrub_pii_from_text(raw_objectives, pii_tokens)
         if not objectives_text.strip():
             objectives_text = "No specific enroute objectives provided. Focus on the annual goal."
 
+        # 2.5 Retrieve RAG Pedagogical Context with target age partition
+        goal_domain = getattr(goal_instance, 'subject_category', None) or 'Communication'
+        target_age_group = SemanticRetrieverService.derive_age_group(
+            age=getattr(student, 'age', None),
+            grade=getattr(student, 'grade', None)
+        )
+        rag_query = f"Teaching strategies and instructional accommodations for {goal_domain}. Barriers: {difficulties_scrubbed}"
+        retrieved_chunks = SemanticRetrieverService.retrieve_context(
+            domain=goal_domain,
+            query_text=rag_query,
+            target_age_group=target_age_group,
+            top_k=3
+        )
+        rag_context_text = SemanticRetrieverService.format_context_for_prompt(retrieved_chunks)
+
+        # Create surrogate map for in-memory rehydration
+        _, surrogate_map = PIIScrubberService.sanitize_plaafp(
+            f"{real_name} {special_notes}",
+            student_profile
+        )
+        if '[STUDENT_A]' not in surrogate_map:
+            surrogate_map['[STUDENT_A]'] = real_name or student_desc
+
         # 3. Construct the highly-structured Context Frame Prompt using Cloud Delimiters
-        prompt = f"""☁️system☁️Act as an elite Special Education Instructional Designer. You provide concise, highly actionable teaching methods. No fluff.☁️/system☁️
+        prompt = f"""☁️system☁️Act as an elite Special Education Instructional Designer for DepEd Region VII. You provide concise, highly actionable teaching methods grounded in evidence-based ASD practices. No fluff.☁️/system☁️
 ☁️user☁️
+PEDAGOGICAL KNOWLEDGE BASE (GROUNDING CONTEXT):
+----------------------------------------
+{rag_context_text}
+----------------------------------------
+
 STUDENT CONTEXT (SECTION B):
 - Learner: {student_desc}
-- Difficulties/Barriers: {getattr(iep, 'difficulties', 'None')} | {getattr(iep, 'learning_barriers', 'None')}
-- Accommodations/Facilitators: {getattr(iep, 'accommodations', 'None')} | {getattr(iep, 'learning_facilitators', 'None')}
+- Difficulties/Barriers: {difficulties_scrubbed or 'None'} | {barriers_scrubbed or 'None'}
+- Accommodations/Facilitators: {accommodations_scrubbed or 'None'} | {facilitators_scrubbed or 'None'}
 {special_notes_line}
-TARGET GOAL: {getattr(goal_instance, 'annual_goal', 'Not specified')}
+TARGET GOAL: {scrub_pii_from_text(getattr(goal_instance, 'annual_goal', 'Not specified'), pii_tokens)}
 
 ENROUTE OBJECTIVES:
 {objectives_text}
@@ -83,6 +132,8 @@ Strict Rules:
             # 4. Route to AIEngineService
             strategy_content, _ = AIEngineService.generate_text(prompt=prompt)
             strategy_content = strategy_content.strip()
+            # Rehydrate surrogate tokens in memory before storage
+            strategy_content = PIIScrubberService.rehydrate_text(strategy_content, surrogate_map)
             
             # 5. Create a dynamic title based on the IEP Goal Name
             goal_name = getattr(goal_instance, 'goalName', None) or getattr(goal_instance, 'annual_goal', 'Target Goal')
@@ -120,8 +171,24 @@ class LessonPlanGenerationService:
             verify_ra10173_consent(student)
 
             student_desc = anonymize_student_context(student)
-            
-            # 2. Extract all Enroute Objectives for this specific goal
+            real_name = getattr(student, 'name', '') or ''
+            guardian_name = getattr(student, 'guardian_name', '') or ''
+            pii_tokens = [real_name, guardian_name]
+            if real_name:
+                pii_tokens.extend(real_name.split())
+            if guardian_name:
+                pii_tokens.extend(guardian_name.split())
+
+            student_profile = {
+                'full_name': real_name,
+                'name': real_name,
+                'first_name': real_name.split()[0] if real_name else '',
+                'guardian_name': guardian_name,
+                'age': getattr(student, 'age', None),
+                'grade': getattr(student, 'grade', None),
+            }
+
+            # 2. Extract all Enroute Objectives for this specific goal and scrub PII
             rows = goal_instance.objective_rows.all()
             objectives_text = ""
             for idx, row in enumerate(rows, 1):
@@ -129,22 +196,54 @@ class LessonPlanGenerationService:
                 objectives_text += f"- Objective: {getattr(row, 'enroute_objectives', 'N/A')}\n"
                 objectives_text += f"- Interventions to use: {getattr(row, 'interventions_procedures', 'N/A')}\n\n"
 
+            objectives_scrubbed = scrub_pii_from_text(objectives_text, pii_tokens)
+            baseline_scrubbed = scrub_pii_from_text(getattr(iep, 'baselineData', '') or '', pii_tokens)
+            accommodations_scrubbed = scrub_pii_from_text(getattr(iep, 'accommodations', '') or '', pii_tokens)
+
         except Exception as e:
             raise Exception(f"Failed to extract IEP parameters: {str(e)}")
 
+        # 2.5 Retrieve RAG Pedagogical Context with target age partition
+        lesson_domain = getattr(goal_instance, 'subject_category', None) or 'Communication'
+        target_age_group = SemanticRetrieverService.derive_age_group(
+            age=getattr(student, 'age', None),
+            grade=getattr(student, 'grade', None)
+        )
+        rag_query = f"Lesson plan activities and ASD interventions for {lesson_domain}. Objectives: {objectives_scrubbed[:200]}"
+        retrieved_chunks = SemanticRetrieverService.retrieve_context(
+            domain=lesson_domain,
+            query_text=rag_query,
+            target_age_group=target_age_group,
+            top_k=3
+        )
+        rag_context_text = SemanticRetrieverService.format_context_for_prompt(retrieved_chunks)
+
+        # Create surrogate map for in-memory rehydration
+        _, surrogate_map = PIIScrubberService.sanitize_plaafp(
+            f"{real_name} {baseline_scrubbed}",
+            student_profile
+        )
+        if '[STUDENT_A]' not in surrogate_map:
+            surrogate_map['[STUDENT_A]'] = real_name or student_desc
+
         # 3. Construct the Cloud Delimited Prompt
-        prompt = f"""☁️system☁️Act as an elite Special Education Instructional Designer. You will be provided with a student's context, an Annual Goal, and multiple Enroute Objectives. 
-You MUST output ONLY a valid JSON object containing an array of lesson plans. Do not include markdown formatting or conversational filler.☁️/system☁️
+        prompt = f"""☁️system☁️Act as an elite Special Education Instructional Designer for DepEd Region VII. You will be provided with authoritative reference knowledge, a student's context, an Annual Goal, and multiple Enroute Objectives. 
+You MUST output ONLY a valid JSON object containing an array of lesson plans grounded in the pedagogical context. Do not include markdown formatting or conversational filler.☁️/system☁️
 ☁️user☁️
+PEDAGOGICAL KNOWLEDGE BASE (GROUNDING CONTEXT):
+----------------------------------------
+{rag_context_text}
+----------------------------------------
+
 STUDENT CONTEXT (SECTION A & B):
 - Learner: {student_desc}
-- Baseline/Barriers: {getattr(iep, 'baselineData', 'None specified')}
-- Accommodations: {getattr(iep, 'accommodations', 'None specified')}
+- Baseline/Barriers: {baseline_scrubbed or 'None specified'}
+- Accommodations: {accommodations_scrubbed or 'None specified'}
 
 ANNUAL GOAL: {getattr(goal_instance, 'subject_category', 'Target Goal')}
 
 ENROUTE OBJECTIVES:
-{objectives_text}
+{objectives_scrubbed}
 
 TASK:
 Generate a highly tailored lesson plan for EACH Enroute Objective listed above. Ensure the interventions and accommodations are heavily utilized in the 'core_activity'. Output MUST be in this exact JSON structure:
@@ -184,6 +283,18 @@ Generate a highly tailored lesson plan for EACH Enroute Objective listed above. 
                 fallback_str = AIEngineService._deterministic_fallback(prompt, json_mode=True)
                 parsed_json = json.loads(fallback_str)
             
+            # Rehydrate nested surrogate tokens in memory before database storage
+            def _rehydrate_payload(item, s_map):
+                if isinstance(item, str):
+                    return PIIScrubberService.rehydrate_text(item, s_map)
+                elif isinstance(item, list):
+                    return [_rehydrate_payload(x, s_map) for x in item]
+                elif isinstance(item, dict):
+                    return {k: _rehydrate_payload(v, s_map) for k, v in item.items()}
+                return item
+
+            parsed_json = _rehydrate_payload(parsed_json, surrogate_map)
+
             # 5. SAVE TO DATABASE AUTOMATICALLY
             # Extract a safe name for the title
             goal_area = getattr(goal_instance, 'subject_category', None) or "Target Goal"
