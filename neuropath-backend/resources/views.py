@@ -236,6 +236,45 @@ class InstructionalSupportDashboardAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+
+class ResourceDashboardStatsAPIView(APIView):
+    """
+    GET /api/resources/dashboard-stats/
+    Returns total count of all teacher-owned instructional resources
+    (Lesson Plans + Teaching Strategies + Visual Aids).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        teacher = get_teacher_for_user(request.user)
+        if not teacher:
+            return Response({
+                'total': 0,
+                'total_resources': 0,
+                'lesson_plans': 0,
+                'teaching_strategies': 0,
+                'visual_aids': 0,
+            }, status=status.HTTP_200_OK)
+
+        lesson_plans_count = LessonPlan.objects.filter(
+            iep_goal__iep__studentID__teacher=teacher
+        ).count()
+        teaching_strategies_count = TeachingStrategy.objects.filter(
+            iep_goal__iep__studentID__teacher=teacher
+        ).count()
+        visual_aids_count = VisualAid.objects.filter(
+            iep_goal__iep__studentID__teacher=teacher
+        ).count()
+        total = lesson_plans_count + teaching_strategies_count + visual_aids_count
+
+        return Response({
+            'total': total,
+            'total_resources': total,
+            'lesson_plans': lesson_plans_count,
+            'teaching_strategies': teaching_strategies_count,
+            'visual_aids': visual_aids_count,
+        }, status=status.HTTP_200_OK)
+
 # =====================================================================
 # SDD COMPONENT: LessonPlanManagerService
 # Description: Orchestrates the generation workflow, formats the final 

@@ -82,6 +82,30 @@ class ResourcesAuthAndTenantIsolationTests(TestCase):
         response = self.client.get('/api/resources/instructional-support/')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_unauthenticated_resource_dashboard_stats_rejected(self):
+        response = self.client.get('/api/resources/dashboard-stats/')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_resource_dashboard_stats_returns_teacher_scoped_counts(self):
+        self._auth(self.token1)
+        response = self.client.get('/api/resources/dashboard-stats/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data.get('total'), 3)
+        self.assertEqual(response.data.get('total_resources'), 3)
+        self.assertEqual(response.data.get('lesson_plans'), 1)
+        self.assertEqual(response.data.get('visual_aids'), 1)
+        self.assertEqual(response.data.get('teaching_strategies'), 1)
+
+    def test_resource_dashboard_stats_isolated_from_other_teacher(self):
+        self._auth(self.token2)
+        response = self.client.get('/api/resources/dashboard-stats/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data.get('total'), 0)
+        self.assertEqual(response.data.get('total_resources'), 0)
+        self.assertEqual(response.data.get('lesson_plans'), 0)
+        self.assertEqual(response.data.get('visual_aids'), 0)
+        self.assertEqual(response.data.get('teaching_strategies'), 0)
+
     def test_unauthenticated_lesson_plan_delete_rejected(self):
         response = self.client.delete(f'/api/resources/delete-lesson/{self.lesson_plan.pk}/')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

@@ -4,6 +4,7 @@ import {
   iepAPI,
   lessonPlansAPI,
   visualAidsAPI,
+  resourcesAPI,
 } from "../api/client";
 
 export const queryKeys = {
@@ -13,6 +14,7 @@ export const queryKeys = {
   studentInsights: (studentId) => ["student-insights", studentId],
   lessonPlans: (teacherId) => ["lesson-plans", teacherId ?? "all"],
   visualAids: (params) => ["visual-aids", params ?? "all"],
+  resourceStats: () => ["resources", "dashboard-stats"],
 };
 
 export function useStudents(teacherId, options = {}) {
@@ -81,6 +83,16 @@ export function useVisualAids(params = undefined, options = {}) {
     ...options,
   });
 }
+
+export function useResourceDashboardStats(options = {}) {
+  return useQuery({
+    queryKey: queryKeys.resourceStats(),
+    queryFn: () => resourcesAPI.dashboardStats(),
+    ...options,
+  });
+}
+
+export const useResourceStats = useResourceDashboardStats;
 
 export function useGenerateStudentInsight(studentId, options = {}) {
   const queryClient = useQueryClient();

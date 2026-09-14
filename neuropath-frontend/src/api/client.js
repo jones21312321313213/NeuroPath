@@ -327,3 +327,9 @@ export const trackingAPI = {
   },
 };
 
+// ── Resources Overview Stats ───────────────────────────────────────────────────
+export const resourcesAPI = {
+  dashboardStats: () => request("/resources/dashboard-stats/"),
+  stats: () => request("/resources/dashboard-stats/"),
+};
+

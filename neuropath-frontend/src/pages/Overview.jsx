@@ -4,8 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import {
   useStudents,
   useIepDashboardStats,
-  useLessonPlans,
-  useVisualAids,
+  useResourceDashboardStats,
 } from "../hooks/queries";
 import { Card, CountUp } from "../components/ui";
 
@@ -93,17 +92,17 @@ export default function Overview({ setActivePage }) {
 
   const { data: students = [] } = useStudents(user?.id);
   const { data: iepStats } = useIepDashboardStats();
-  const { data: lessons = [] } = useLessonPlans(user?.id);
-  const { data: visualAids = [] } = useVisualAids();
+  const { data: resourceStats } = useResourceDashboardStats();
 
   const studentList = Array.isArray(students) ? students : (students?.results || []);
-  const lessonList = Array.isArray(lessons) ? lessons : (lessons?.results || []);
-  const visualAidList = Array.isArray(visualAids) ? visualAids : (visualAids?.results || []);
 
   const counts = {
     students: studentList.length,
     ieps: iepStats?.active_ieps ?? 0,
-    resources: lessonList.length + visualAidList.length,
+    resources:
+      typeof resourceStats === "number"
+        ? resourceStats
+        : (resourceStats?.total ?? resourceStats?.total_resources ?? 0),
   };
 
   const hasStudents = counts.students > 0;

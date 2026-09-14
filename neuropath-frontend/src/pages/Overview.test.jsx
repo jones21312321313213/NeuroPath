@@ -5,7 +5,13 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import Overview from "./Overview";
 import { useAuth } from "../context/AuthContext";
-import { studentsAPI, iepAPI, lessonPlansAPI, visualAidsAPI } from "../api/client";
+import {
+  studentsAPI,
+  iepAPI,
+  lessonPlansAPI,
+  visualAidsAPI,
+  resourcesAPI,
+} from "../api/client";
 
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
@@ -33,6 +39,9 @@ vi.mock("../api/client", () => ({
   visualAidsAPI: {
     list: vi.fn(),
   },
+  resourcesAPI: {
+    dashboardStats: vi.fn(),
+  },
 }));
 
 // Mock CountUp and GlareHover to keep tests lightweight
@@ -54,6 +63,13 @@ describe("Overview - Getting Started 3-Step Path", () => {
     });
     lessonPlansAPI.list.mockResolvedValue([]);
     visualAidsAPI.list.mockResolvedValue([]);
+    resourcesAPI.dashboardStats.mockResolvedValue({
+      total: 0,
+      total_resources: 0,
+      lesson_plans: 0,
+      teaching_strategies: 0,
+      visual_aids: 0,
+    });
   });
 
   it("renders Getting Started heading and all 3 steps", async () => {
@@ -205,13 +221,25 @@ describe("Overview - At a Glance Stats (Option 2: Classroom & Resource Readiness
     useAuth.mockReturnValue({
       user: { id: 1, first_name: "Jane", last_name: "Doe" },
     });
+    resourcesAPI.dashboardStats.mockResolvedValue({
+      total: 0,
+      total_resources: 0,
+      lesson_plans: 0,
+      teaching_strategies: 0,
+      visual_aids: 0,
+    });
   });
 
   it("renders Total Students, Active IEPs, and Classroom Resources, and excludes vanity stats", async () => {
     studentsAPI.list.mockResolvedValue([{ id: 1 }, { id: 2 }]);
     iepAPI.dashboardStats.mockResolvedValue({ active_ieps: 4 });
-    lessonPlansAPI.list.mockResolvedValue([{ id: 10 }]);
-    visualAidsAPI.list.mockResolvedValue([{ id: 20 }, { id: 21 }]);
+    resourcesAPI.dashboardStats.mockResolvedValue({
+      total: 5,
+      total_resources: 5,
+      lesson_plans: 2,
+      teaching_strategies: 2,
+      visual_aids: 1,
+    });
 
     renderWithQueryClient(
       <MemoryRouter>
@@ -231,7 +259,30 @@ describe("Overview - At a Glance Stats (Option 2: Classroom & Resource Readiness
     await waitFor(() => {
       expect(screen.getByText("2")).toBeInTheDocument(); // students
       expect(screen.getByText("4")).toBeInTheDocument(); // ieps
-      expect(screen.getByText("3")).toBeInTheDocument(); // resources: 1 lesson + 2 visual aids
+      expect(screen.getByText("5")).toBeInTheDocument(); // resources: 2 lessons + 2 strategies + 1 visual aid
+    });
+  });
+
+  it("accurately reflects combined total resources from resourcesAPI.dashboardStats", async () => {
+    studentsAPI.list.mockResolvedValue([]);
+    iepAPI.dashboardStats.mockResolvedValue({ active_ieps: 0 });
+    resourcesAPI.dashboardStats.mockResolvedValue({
+      total: 7,
+      total_resources: 7,
+      lesson_plans: 3,
+      teaching_strategies: 2,
+      visual_aids: 2,
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <Overview setActivePage={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(resourcesAPI.dashboardStats).toHaveBeenCalled();
+      expect(screen.getByText("7")).toBeInTheDocument();
     });
   });
 });
