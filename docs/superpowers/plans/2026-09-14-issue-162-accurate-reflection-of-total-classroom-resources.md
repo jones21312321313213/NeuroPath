@@ -31,7 +31,7 @@
 - Consumes: Authenticated `request.user` (resolved to `Teacher` via `get_teacher_for_user(request.user)`)
 - Produces: JSON response with `{ "total": int, "total_resources": int, "lesson_plans": int, "teaching_strategies": int, "visual_aids": int }`
 
-- [ ] **Step 1: Write failing backend tests for `GET /api/resources/dashboard-stats/`**
+- [x] **Step 1: Write failing backend tests for `GET /api/resources/dashboard-stats/`**
 
 Add tests to `neuropath-backend/resources/tests/test_resources_legacy.py` in `ResourcesAuthAndTenantIsolationTests`:
 ```python
@@ -60,7 +60,7 @@ Add tests to `neuropath-backend/resources/tests/test_resources_legacy.py` in `Re
         self.assertEqual(response.data.get('teaching_strategies'), 0)
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 ```powershell
@@ -68,7 +68,7 @@ $env:DB_ENGINE='django.db.backends.sqlite3'; $env:DB_NAME='testdb.sqlite3'; pyth
 ```
 Expected: FAIL with 404 (URL not found).
 
-- [ ] **Step 3: Implement `ResourceDashboardStatsAPIView` and register URL**
+- [x] **Step 3: Implement `ResourceDashboardStatsAPIView` and register URL**
 
 In `neuropath-backend/resources/views.py`:
 ```python
@@ -117,7 +117,7 @@ Import `ResourceDashboardStatsAPIView` and add route:
 path('dashboard-stats/', ResourceDashboardStatsAPIView.as_view(), name='resource-dashboard-stats'),
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run:
 ```powershell
@@ -125,7 +125,7 @@ $env:DB_ENGINE='django.db.backends.sqlite3'; $env:DB_NAME='testdb.sqlite3'; pyth
 ```
 Expected: All tests PASS.
 
-- [ ] **Step 5: Commit backend changes**
+- [x] **Step 5: Commit backend changes**
 
 ```bash
 git add neuropath-backend/resources/views.py neuropath-backend/resources/urls.py neuropath-backend/resources/tests/test_resources_legacy.py
@@ -147,7 +147,7 @@ git commit -m "feat(backend): add resource dashboard-stats endpoint for teacher-
 - Consumes: `GET /api/resources/dashboard-stats/`
 - Produces: `resourcesAPI.dashboardStats()`, `queryKeys.resourceStats()`, `useResourceDashboardStats()`
 
-- [ ] **Step 1: Write failing tests for client and queries**
+- [x] **Step 1: Write failing tests for client and queries**
 
 In `neuropath-frontend/src/api/client.test.js`:
 ```javascript
@@ -196,7 +196,7 @@ describe("useResourceDashboardStats", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 ```bash
@@ -204,7 +204,7 @@ npx vitest run src/api/client.test.js src/hooks/queries.test.jsx
 ```
 Expected: FAIL (`resourcesAPI` / `useResourceDashboardStats` not exported).
 
-- [ ] **Step 3: Implement `resourcesAPI` and `useResourceDashboardStats`**
+- [x] **Step 3: Implement `resourcesAPI` and `useResourceDashboardStats`**
 
 In `neuropath-frontend/src/api/client.js`:
 ```javascript
@@ -241,7 +241,7 @@ Update `neuropath-frontend/src/App.test.jsx` to include `resourcesAPI` in the mo
   },
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run:
 ```bash
@@ -249,7 +249,7 @@ npx vitest run src/api/client.test.js src/hooks/queries.test.jsx src/App.test.js
 ```
 Expected: PASS.
 
-- [ ] **Step 5: Commit frontend API & hooks changes**
+- [x] **Step 5: Commit frontend API & hooks changes**
 
 ```bash
 git add neuropath-frontend/src/api/client.js neuropath-frontend/src/hooks/queries.js neuropath-frontend/src/api/client.test.js neuropath-frontend/src/hooks/queries.test.jsx neuropath-frontend/src/App.test.jsx
@@ -268,7 +268,7 @@ git commit -m "feat(frontend): add resourcesAPI and useResourceDashboardStats ho
 - Consumes: `useResourceDashboardStats()`
 - Produces: `counts.resources` accurately rendered in Classroom Resources stat card
 
-- [ ] **Step 1: Update failing tests in `Overview.test.jsx`**
+- [x] **Step 1: Update failing tests in `Overview.test.jsx`**
 
 Update `Overview.test.jsx` mocks:
 Add `resourcesAPI` to `vi.mock("../api/client")`:
@@ -301,7 +301,7 @@ Update test `"renders Total Students, Active IEPs, and Classroom Resources, and 
 ```
 Assert that `5` is rendered for Classroom Resources (2 lesson plans + 2 teaching strategies + 1 visual aid).
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 ```bash
@@ -309,7 +309,7 @@ npx vitest run src/pages/Overview.test.jsx
 ```
 Expected: FAIL (still expecting old mock or displaying 0).
 
-- [ ] **Step 3: Update `Overview.jsx` to use `useResourceDashboardStats`**
+- [x] **Step 3: Update `Overview.jsx` to use `useResourceDashboardStats`**
 
 In `neuropath-frontend/src/pages/Overview.jsx`:
 Import `useResourceDashboardStats` from `../hooks/queries`.
@@ -332,7 +332,7 @@ Replace:
   };
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run:
 ```bash
@@ -340,7 +340,7 @@ npx vitest run src/pages/Overview.test.jsx
 ```
 Expected: PASS.
 
-- [ ] **Step 5: Commit Overview changes**
+- [x] **Step 5: Commit Overview changes**
 
 ```bash
 git add neuropath-frontend/src/pages/Overview.jsx neuropath-frontend/src/pages/Overview.test.jsx
@@ -354,7 +354,7 @@ git commit -m "fix(frontend): accurately display combined classroom resources on
 **Files:**
 - None (verification and PR creation)
 
-- [ ] **Step 1: Run full backend test suite**
+- [x] **Step 1: Run full backend test suite**
 
 Run:
 ```powershell
@@ -362,7 +362,7 @@ $env:DB_ENGINE='django.db.backends.sqlite3'; $env:DB_NAME='testdb.sqlite3'; pyth
 ```
 Expected: All backend tests PASS.
 
-- [ ] **Step 2: Run full frontend test suite**
+- [x] **Step 2: Run full frontend test suite**
 
 Run:
 ```bash
@@ -370,7 +370,7 @@ npm test
 ```
 Expected: All frontend tests PASS (34 test files, 270+ tests).
 
-- [ ] **Step 3: Validate PR template compliance against pr-template-lint workflow**
+- [x] **Step 3: Validate PR template compliance against pr-template-lint workflow**
 
 Check against `.github/workflows/pr-template-lint.yml`:
 - Closes #162
@@ -379,7 +379,7 @@ Check against `.github/workflows/pr-template-lint.yml`:
 - Selected `[x] Unit tests`
 - Conventional commit title: `fix(resources): accurately reflect total classroom resources on dashboard (#162)`
 
-- [ ] **Step 4: Push branch and create PR**
+- [x] **Step 4: Push branch and create PR**
 
 Run:
 ```bash
