@@ -122,14 +122,41 @@ from .serializers import (
 )
 
 
-def _latest_saved_iep_for_student(student):
-    """Return the newest saved IEP/version for one student."""
+def _iep_summary_payload(iep):
+    """Structured IEP descriptor for selection menus and instructional support materials."""
+    created = iep.createdDate.strftime('%B %d, %Y') if iep.createdDate else ''
+    return {
+        "iepID": iep.pk,
+        "version": iep.version,
+        "createdDate": created,
+        "label": f"IEP Version {iep.version} ({created})" if created else f"IEP Version {iep.version}",
+        "program_type": iep.program_type or "Graded",
+        "accommodations": iep.accommodations or "",
+        "difficulties": iep.difficulties or "",
+    }
+
+
+def _saved_ieps_for_student(student):
+    """Return all saved IEPs/versions for one student, newest first."""
     return (
         IEPModel.objects
         .filter(studentID=student)
         .order_by('-version', '-createdDate', '-iepID')
-        .first()
     )
+
+
+def _latest_saved_iep_for_student(student):
+    """Return the newest saved IEP/version for one student."""
+    return _saved_ieps_for_student(student).first()
+
+
+def _get_iep_for_student(student, iep_id=None):
+    """Return specific IEP if requested and owned by student, else latest saved IEP."""
+    if iep_id:
+        iep = IEPModel.objects.filter(studentID=student, iepID=iep_id).first()
+        if iep:
+            return iep
+    return _latest_saved_iep_for_student(student)
 
 
 def _goal_option_payload(goal):
@@ -145,20 +172,31 @@ def _goal_option_payload(goal):
     }
 
 
-def _latest_goal_options_for_student(student):
-    latest_iep = _latest_saved_iep_for_student(student)
-    if not latest_iep:
+def _goal_options_for_iep(iep):
+    """Extract goal options for a specific IEP instance."""
+    if not iep:
         return []
 
-    _sync_goals_from_generated_details(latest_iep)
+    _sync_goals_from_generated_details(iep)
 
     goals = (
         IEPGoal.objects
-        .filter(iep=latest_iep)
+        .filter(iep=iep)
         .prefetch_related('objective_rows')
         .order_by('goalID')
     )
     return [_goal_option_payload(goal) for goal in goals]
+
+
+def _goal_options_for_student(student, iep_id=None):
+    """Return goal options for a student, optionally targeted to an IEP ID."""
+    iep = _get_iep_for_student(student, iep_id=iep_id)
+    return _goal_options_for_iep(iep)
+
+
+def _latest_goal_options_for_student(student):
+    return _goal_options_for_student(student, iep_id=None)
+
 
 
 
@@ -327,13 +365,29 @@ class GenerateLessonPlanAPIView(APIView):
                 status=status.HTTP_200_OK
             )
 
+        student_id = request.query_params.get('student_id') or request.query_params.get('studentID')
+        iep_id = request.query_params.get('iep_id') or request.query_params.get('iepID') or request.query_params.get('iep')
+
         directory_payload = []
         for student in students:
-            # Use the saved Section C goals from the student's latest IEP/version.
-            goal_list = _latest_goal_options_for_student(student)
+            ieps = _saved_ieps_for_student(student)
+            iep_list = [_iep_summary_payload(iep) for iep in ieps]
+
+            target_iep = None
+            if iep_id and student_id and str(student.pk) == str(student_id):
+                target_iep = ieps.filter(pk=iep_id).first()
+            elif iep_id and not student_id:
+                target_iep = ieps.filter(pk=iep_id).first()
+
+            if not target_iep:
+                target_iep = ieps.first()
+
+            goal_list = _goal_options_for_iep(target_iep) if target_iep else []
             directory_payload.append({
                 "studentID": student.pk,
                 "studentName": student.name,
+                "availableIEPs": iep_list,
+                "selectedIEPID": target_iep.pk if target_iep else None,
                 "availableGoals": goal_list,
             })
 
@@ -946,13 +1000,29 @@ class TeachingStrategyGenerationController(APIView):
                 status=status.HTTP_200_OK
             )
 
+        student_id = request.query_params.get('student_id') or request.query_params.get('studentID')
+        iep_id = request.query_params.get('iep_id') or request.query_params.get('iepID') or request.query_params.get('iep')
+
         directory_payload = []
         for student in students:
-            # Use the saved Section C goals from the student's latest IEP/version.
-            goal_list = _latest_goal_options_for_student(student)
+            ieps = _saved_ieps_for_student(student)
+            iep_list = [_iep_summary_payload(iep) for iep in ieps]
+
+            target_iep = None
+            if iep_id and student_id and str(student.pk) == str(student_id):
+                target_iep = ieps.filter(pk=iep_id).first()
+            elif iep_id and not student_id:
+                target_iep = ieps.filter(pk=iep_id).first()
+
+            if not target_iep:
+                target_iep = ieps.first()
+
+            goal_list = _goal_options_for_iep(target_iep) if target_iep else []
             directory_payload.append({
                 "studentID": student.pk,
                 "studentName": student.name,
+                "availableIEPs": iep_list,
+                "selectedIEPID": target_iep.pk if target_iep else None,
                 "availableGoals": goal_list
             })
 

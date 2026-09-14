@@ -340,7 +340,12 @@ class StandaloneIEPGoalViewSet(viewsets.ModelViewSet):
             return IEPGoal.objects.filter(iep__studentID=student).select_related('iep__studentID').prefetch_related('objective_rows').order_by('goalID')
 
         if iep_id:
-            return IEPGoal.objects.filter(iep__iepID=iep_id, iep__studentID__teacher=teacher).prefetch_related('objective_rows')
+            target_iep = IEPModel.objects.filter(iepID=iep_id, studentID__teacher=teacher).first()
+            if target_iep:
+                from resources.views import _sync_goals_from_generated_details
+                _sync_goals_from_generated_details(target_iep)
+                return IEPGoal.objects.filter(iep=target_iep).select_related('iep__studentID').prefetch_related('objective_rows').order_by('goalID')
+            return IEPGoal.objects.none()
 
         return IEPGoal.objects.filter(iep__studentID__teacher=teacher).select_related('iep__studentID').prefetch_related('objective_rows')
 

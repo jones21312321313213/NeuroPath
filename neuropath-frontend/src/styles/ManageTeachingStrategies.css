@@ -1018,6 +1018,114 @@
   max-width: 320px;
 }
 
+/* ── IEP Version Selector ────────────────────────────── */
+.ts-iep-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.ts-iep-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 2px solid #e8eef6;
+  background: #f9fbfd;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.ts-iep-item:hover {
+  border-color: #5aabf0;
+  background: #eef6fd;
+}
+
+.ts-iep-item.selected {
+  border-color: #3d9de8;
+  background: linear-gradient(135deg, #eef6fd, #e0f0ff);
+  box-shadow: 0 4px 12px rgba(61, 157, 232, 0.12);
+}
+
+.ts-iep-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ts-iep-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ts-iep-radio {
+  width: 18px;
+  height: 18px;
+  accent-color: #3d9de8;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ts-iep-version-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a2b40;
+}
+
+.ts-iep-badge-latest {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.3px;
+  border: 1px solid #bae6fd;
+}
+
+.ts-iep-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #64748b;
+}
+
+.ts-iep-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.ts-iep-accommodations {
+  font-size: 12.5px;
+  color: #475569;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border-left: 3px solid #3d9de8;
+  line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
 /* ── Responsive ─────────────────────────────────────── */
 @media (max-width: 768px) {
   .ts-page-hero {
