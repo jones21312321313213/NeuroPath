@@ -115,6 +115,18 @@ export const lessonPlansAPI = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  save: (payload) =>
+    request("/resources/lesson-plans/", {
+      method: "POST",
+      body: JSON.stringify({
+        iep_goal: payload.goalID || payload.iep_goal,
+        title: payload.title,
+        lessonContent:
+          typeof payload.content === "object"
+            ? JSON.stringify(payload.content)
+            : payload.content || payload.lessonContent,
+      }),
+    }),
   list: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return request(`/resources/view-lessons/${qs ? "?" + qs : ""}`);
