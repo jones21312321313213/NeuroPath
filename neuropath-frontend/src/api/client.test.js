@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { authAPI, studentsAPI, usersAPI, trackingAPI, teachingStrategiesAPI } from "./client";
+import { authAPI, studentsAPI, usersAPI, trackingAPI, lessonPlansAPI, teachingStrategiesAPI } from "./client";
 
 
 function jsonResponse(body, { ok = true, status } = {}) {
@@ -286,6 +286,54 @@ describe("api client", () => {
 
       await expect(trackingAPI.exportStudentRecordPDF(15)).rejects.toThrow(
         "Export engine failure.",
+      );
+    });
+  });
+
+  describe("lessonPlansAPI", () => {
+    it("generates a lesson plan with provided parameters", async () => {
+      fetch.mockResolvedValueOnce(
+        jsonResponse({ message: "Generated", data: { lesson_plans: [] } }),
+      );
+      const payload = {
+        studentID: 1,
+        goalID: 10,
+        goalArea: "Math",
+        teacherPrompt: "",
+      };
+      const result = await lessonPlansAPI.generate(payload);
+      expect(result).toEqual({ message: "Generated", data: { lesson_plans: [] } });
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/resources/generate-lesson/",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify(payload),
+        }),
+      );
+    });
+
+    it("saves a generated lesson plan with transformed payload", async () => {
+      fetch.mockResolvedValueOnce(
+        jsonResponse({ lessonID: 42, title: "Math Lesson Plan" }),
+      );
+      const payload = {
+        studentID: 1,
+        goalID: 10,
+        title: "Math Lesson Plan",
+        content: [{ objective_focus: "Counting" }],
+      };
+      const result = await lessonPlansAPI.save(payload);
+      expect(result).toEqual({ lessonID: 42, title: "Math Lesson Plan" });
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/resources/lesson-plans/",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            iep_goal: 10,
+            title: "Math Lesson Plan",
+            lessonContent: JSON.stringify([{ objective_focus: "Counting" }]),
+          }),
+        }),
       );
     });
   });

@@ -68,6 +68,54 @@ class InstructionalAIServiceTestCase(TestCase):
         self.assertIsInstance(data['lesson_plans'], list)
         self.assertGreater(len(data['lesson_plans']), 0)
 
+    def test_lesson_generation_serializer_with_only_goal_id_and_frontend_payload(self):
+        from resources.serializers import LessonGenerationSerializer
+        # Payload sent by ManageLessonPlans.jsx
+        payload = {
+            'studentID': self.student.pk,
+            'goalID': self.goal.pk,
+            'goalArea': 'Behavioral Skills',
+            'teacherPrompt': ''
+        }
+        serializer = LessonGenerationSerializer(data=payload)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data['goalID'], self.goal.pk)
+        # Should derive subject from goalArea or IEPGoal subject_category
+        self.assertEqual(serializer.validated_data['subject'], 'Behavioral Skills')
+        # Should derive topic from IEPGoal annual_goal
+        self.assertEqual(serializer.validated_data['topic'], self.goal.annual_goal)
+
+    def test_lesson_generation_serializer_invalid_goal_id(self):
+        from resources.serializers import LessonGenerationSerializer
+        serializer = LessonGenerationSerializer(data={'goalID': 0})
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('goalID', serializer.errors)
+
+    @patch('iep_management.ai_engine.AIEngineService.generate_text')
+    def test_generate_lesson_plan_api_view_post_success_with_frontend_payload(self, mock_ai):
+        from rest_framework.test import APIClient
+        from common_test_utils import create_teacher_with_login, create_student
+        mock_ai.return_value = ('{"lesson_plans": [{"objective_focus": "Task Completion", "introduction": "Intro", "core_activity": "Core", "assessment": "Check", "materials_needed": ["Timer"]}]}', 'template_fallback')
+
+        user, teacher, token = create_teacher_with_login('lesson_teacher@example.com')
+        student = create_student(teacher, name='Lesson Student', parental_consent_obtained=True)
+        iep = IEPModel.objects.create(studentID=student, version=1)
+        goal = IEPGoal.objects.create(iep=iep, subject_category='Math', annual_goal='Count to 10')
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+        payload = {
+            'studentID': student.pk,
+            'goalID': goal.pk,
+            'goalArea': 'Math',
+            'teacherPrompt': ''
+        }
+        response = client.post('/api/resources/generate-lesson/', payload, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('data', response.data)
+        self.assertIn('lesson_plans', response.data['data'])
+
 
 class TeachingStrategyAPITestCase(TestCase):
     def setUp(self):

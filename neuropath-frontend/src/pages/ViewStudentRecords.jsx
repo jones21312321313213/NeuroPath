@@ -38,29 +38,18 @@ const PLACEHOLDER = {
 function EmptyState({ message, description, actionLabel, onAction }) {
   return (
     <div className="om-empty">
-      <span style={{ fontSize: 32, display: "block", marginBottom: 8 }}>
+      <span className="om-empty-icon">
         📭
       </span>
-      <p style={{ fontWeight: 600, color: "#2d3748", margin: "0 0 6px 0" }}>{message}</p>
+      <p className="om-empty-title">{message}</p>
       {description && (
-        <p style={{ fontSize: 13, color: "#718096", maxWidth: 360, margin: "0 auto 12px auto" }}>
+        <p className="om-empty-desc">
           {description}
         </p>
       )}
       {actionLabel && onAction && (
         <button
-          className="btn btn-primary"
-          style={{
-            marginTop: 6,
-            padding: "8px 18px",
-            fontSize: "13px",
-            fontWeight: 600,
-            cursor: "pointer",
-            borderRadius: "6px",
-            border: "none",
-            backgroundColor: "#2b6cb0",
-            color: "#ffffff",
-          }}
+          className="btn btn-primary om-empty-action-btn"
           onClick={onAction}
         >
           {actionLabel}
@@ -357,20 +346,10 @@ function PageSectionBC({ d, studentId, studentName, onBack, setActivePage }) {
           </div>
         ))
       ) : (
-        <div className="vsr-goals-box" style={{ textAlign: "center", padding: "24px 16px" }}>
-          <p className="vsr-goals-empty" style={{ marginBottom: 12 }}>No learner goals available for this student.</p>
+        <div className="vsr-goals-box" style={{ textAlign: "center", padding: "28px 16px" }}>
+          <p className="vsr-goals-empty" style={{ marginBottom: 14 }}>No learner goals available for this student.</p>
           <button
-            className="btn btn-primary"
-            style={{
-              fontSize: 13,
-              padding: "8px 16px",
-              fontWeight: 600,
-              borderRadius: "6px",
-              border: "none",
-              backgroundColor: "#2b6cb0",
-              color: "#ffffff",
-              cursor: "pointer",
-            }}
+            className="btn btn-primary om-empty-action-btn"
             onClick={() => {
               navigate("/dashboard/iep/generate");
               if (setActivePage) setActivePage("iep-generation");
@@ -571,9 +550,9 @@ export default function ViewStudentRecords({ setActivePage }) {
         <div className="om-card">
           <h2 className="om-list-title">List of Students</h2>
           {error && (
-            <p style={{ color: "#c0392b", fontSize: 13, marginBottom: 8 }}>
+            <div role="alert" className="om-error-banner">
               ⚠️ {error}
-            </p>
+            </div>
           )}
           <div className="om-search-bar">
             <input

@@ -8,10 +8,10 @@ import RecordProgressModal from "../components/RecordProgressModal";
 function EmptyState({ message }) {
   return (
     <div className="om-empty">
-      <span style={{ fontSize: 32, display: "block", marginBottom: 8 }}>
+      <span className="om-empty-icon">
         📭
       </span>
-      {message}
+      <p className="om-empty-title">{message}</p>
     </div>
   );
 }
@@ -41,10 +41,10 @@ function LineChart({ data = [], months = [] }) {
               y1={y}
               x2={w - 10}
               y2={y}
-              stroke="#e3eaf2"
+              stroke="#e2e8f0"
               strokeWidth={1}
             />
-            <text x={0} y={y + 4} fontSize={9} fill="#aaa">
+            <text x={0} y={y + 4} fontSize={11} fill="#64748b" fontWeight={600}>
               {v}
             </text>
           </g>
@@ -53,8 +53,8 @@ function LineChart({ data = [], months = [] }) {
       <polyline
         points={points}
         fill="none"
-        stroke="#5aabf0"
-        strokeWidth={2.5}
+        stroke="#0284c7"
+        strokeWidth={3}
         strokeLinejoin="round"
         strokeLinecap="round"
       />
@@ -66,9 +66,9 @@ function LineChart({ data = [], months = [] }) {
             key={i}
             cx={x}
             cy={y}
-            r={4}
-            fill="#5aabf0"
-            stroke="#fff"
+            r={4.5}
+            fill="#0284c7"
+            stroke="#ffffff"
             strokeWidth={2}
           />
         );
@@ -79,9 +79,10 @@ function LineChart({ data = [], months = [] }) {
           <text
             key={i}
             x={x}
-            y={h + 14}
-            fontSize={9}
-            fill="#aaa"
+            y={h + 16}
+            fontSize={11}
+            fill="#64748b"
+            fontWeight={600}
             textAnchor="middle"
           >
             {m}
@@ -380,7 +381,7 @@ export default function ViewProgressDashboard() {
                   <span className="om-kpi-title">Last Evaluated</span>
                   <span className="om-kpi-icon">📅</span>
                 </div>
-                <span className="om-kpi-value" style={{ fontSize: 16 }}>
+                <span className="om-kpi-value om-kpi-date-value">
                   {lastEvaluatedDate}
                 </span>
                 <span className="om-kpi-subtext">Latest progress log</span>
@@ -390,9 +391,9 @@ export default function ViewProgressDashboard() {
             {subjectsLoading ? (
               <StudentShimmer />
             ) : subjectsError ? (
-              <p style={{ color: "#c0392b", fontSize: 13, marginBottom: 8 }}>
+              <div role="alert" className="om-error-banner">
                 ⚠️ {subjectsError}
-              </p>
+              </div>
             ) : subjects.length === 0 ? (
               <EmptyState message="No progress data found for this student." />
             ) : (
@@ -449,9 +450,9 @@ export default function ViewProgressDashboard() {
         <div className="om-card">
           <h2 className="om-list-title">List of Students</h2>
           {error && (
-            <p style={{ color: "#c0392b", fontSize: 13, marginBottom: 8 }}>
+            <div role="alert" className="om-error-banner">
               ⚠️ {error}
-            </p>
+            </div>
           )}
           <div className="om-search-bar">
             <input
