@@ -274,6 +274,10 @@ function GenerateTab({ onSave, setActivePage }) {
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [availableIEPs, setAvailableIEPs] = useState([]);
+  const [selectedIEP, setSelectedIEP] = useState(null);
+  const [loadingIEPs, setLoadingIEPs] = useState(false);
+  const [loadingGoals, setLoadingGoals] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState(null);
   const [generated, setGenerated] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -288,36 +292,98 @@ function GenerateTab({ onSave, setActivePage }) {
       .finally(() => setLoadingDir(false));
   }, [user?.id]);
 
+  const loadGoalsForIEP = async (iep, student = selectedStudent) => {
+    setLoadingGoals(true);
+    setError("");
+    setSelectedGoal(null);
+
+    try {
+      const rawGoals = await iepAPI.listGoalsByIep(iep.iepID);
+      const parsedGoals = (Array.isArray(rawGoals) ? rawGoals : rawGoals?.results || rawGoals?.data || [])
+        .map(formatSavedIepGoal)
+        .filter((g) => g.goalArea || g.label);
+
+      setSelectedStudent((prev) => ({
+        ...(prev || student),
+        availableGoals: parsedGoals,
+      }));
+    } catch {
+      try {
+        const fallbackGoals = await iepAPI.listLatestGoalsByStudent((student || selectedStudent)?.studentID);
+        const parsed = (Array.isArray(fallbackGoals) ? fallbackGoals : fallbackGoals?.results || fallbackGoals?.data || [])
+          .map(formatSavedIepGoal)
+          .filter((g) => g.goalArea || g.label);
+        setSelectedStudent((prev) => ({
+          ...(prev || student),
+          availableGoals: parsed,
+        }));
+      } catch {
+        setSelectedStudent((prev) => ({
+          ...(prev || student),
+          availableGoals: Array.isArray(student?.availableGoals) ? student.availableGoals : [],
+        }));
+      }
+    } finally {
+      setLoadingGoals(false);
+    }
+  };
+
+  const handleSelectIEP = async (iep) => {
+    if (selectedIEP?.iepID === iep.iepID) return;
+    setSelectedIEP(iep);
+    await loadGoalsForIEP(iep);
+  };
+
   const selectStudent = async (student) => {
     const baseStudent = { ...student, availableGoals: [] };
     setSelectedStudent(baseStudent);
+    setSelectedIEP(null);
+    setAvailableIEPs([]);
     setSelectedGoal(null);
     setGenerated(null);
     setError("");
     setSaved(false);
+    setLoadingIEPs(true);
 
+    let iepList = [];
     try {
-      const savedGoals = await iepAPI
-        .listLatestGoalsByStudent(student.studentID)
-        .catch(() => iepAPI.listGoalsByStudent(student.studentID));
-      const parsedGoals = (Array.isArray(savedGoals) ? savedGoals : savedGoals?.results || savedGoals?.data || [])
-        .map(formatSavedIepGoal)
-        .filter((g) => g.goalArea || g.label);
-
-      if (parsedGoals.length > 0) {
-        setSelectedStudent({ ...student, availableGoals: parsedGoals });
-        return;
-      }
+      const fetchedIeps = await iepAPI.listByStudent(student.studentID);
+      const rawIeps = Array.isArray(fetchedIeps) ? fetchedIeps : fetchedIeps?.results || fetchedIeps?.data || [];
+      iepList = rawIeps.map((iep) => ({
+        ...iep,
+        iepID: iep.iepID || iep.id,
+        version: iep.version || 1,
+        createdDate: iep.formattedDate || (iep.createdDate ? new Date(iep.createdDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : ""),
+        program_type: iep.program_type || "Graded",
+        accommodations: iep.accommodations || "",
+      }));
     } catch {
-      // fallback to preloaded directory goals below
+      if (Array.isArray(student.availableIEPs) && student.availableIEPs.length > 0) {
+        iepList = student.availableIEPs.map((iep) => ({
+          ...iep,
+          iepID: iep.iepID || iep.id,
+          version: iep.version || 1,
+          createdDate: iep.createdDate || "",
+          program_type: iep.program_type || "Graded",
+          accommodations: iep.accommodations || "",
+        }));
+      }
     }
 
-    setSelectedStudent({
-      ...student,
-      availableGoals: Array.isArray(student.availableGoals)
-        ? student.availableGoals
-        : [],
-    });
+    iepList.sort((a, b) => (b.version || 0) - (a.version || 0));
+    setAvailableIEPs(iepList);
+    setLoadingIEPs(false);
+
+    if (iepList.length > 0) {
+      const defaultIEP = iepList[0];
+      setSelectedIEP(defaultIEP);
+      await loadGoalsForIEP(defaultIEP, student);
+    } else {
+      setSelectedStudent({
+        ...student,
+        availableGoals: Array.isArray(student.availableGoals) ? student.availableGoals : [],
+      });
+    }
   };
 
   const handleGenerate = async () => {
@@ -398,28 +464,116 @@ function GenerateTab({ onSave, setActivePage }) {
         )}
       </div>
 
-      {/* Step 2 — Select IEP Goal */}
+      {/* Step 2 — Select IEP Version */}
       {selectedStudent && !generated && !loading && (
         <div className="ts-card">
           <div className="ts-step-badge">
-            <span className="ts-step-num">2</span>Select an IEP Goal
+            <span className="ts-step-num">2</span>Select an IEP Version
           </div>
           <p className="ts-form-intro">
-            Choose a goal for{" "}
+            Choose an IEP version for{" "}
             <strong style={{ color: "#1a2b40" }}>
               {selectedStudent.studentName}
-            </strong>
+            </strong>{" "}
+            to base instructional materials on:
           </p>
-          {selectedStudent.availableGoals.length === 0 ? (
+          {loadingIEPs ? (
+            <Loading text="Fetching created IEPs…" />
+          ) : availableIEPs.length === 0 ? (
             <EmptyState
-              icon="🎯"
-              message="No IEP goals found for this student."
-              description="Lesson plans are generated directly from saved IEP goals. Generate and save an IEP with goals for this student first."
+              icon="📋"
+              message="No IEP records found for this student."
+              description="Lesson plans require a created IEP. Generate and save an IEP for this student first."
               actionLabel="Generate IEP"
               actionIcon="✦"
               onAction={() => {
                 navigate("/dashboard/iep/generate");
                 if (setActivePage) setActivePage("iep-generation");
+              }}
+            />
+          ) : (
+            <div className="ts-iep-grid">
+              {availableIEPs.map((iep, index) => {
+                const isSelected = selectedIEP?.iepID === iep.iepID;
+                const isLatest = index === 0;
+                return (
+                  <div
+                    key={iep.iepID}
+                    className={`ts-iep-item ${isSelected ? "selected" : ""}`}
+                    onClick={() => handleSelectIEP(iep)}
+                  >
+                    <div className="ts-iep-header">
+                      <div className="ts-iep-title-wrap">
+                        <input
+                          type="radio"
+                          name="selectedIEP"
+                          className="ts-iep-radio"
+                          checked={isSelected}
+                          onChange={() => handleSelectIEP(iep)}
+                        />
+                        <span className="ts-iep-version-title">
+                          {`IEP Version ${iep.version}`}
+                        </span>
+                      </div>
+                      {isLatest && (
+                        <span className="ts-iep-badge-latest">
+                          <span>★</span> Latest
+                        </span>
+                      )}
+                    </div>
+                    <div className="ts-iep-meta">
+                      {iep.createdDate && (
+                        <span className="ts-iep-tag">🗓 {iep.createdDate}</span>
+                      )}
+                      {iep.program_type && (
+                        <span className="ts-iep-tag">📚 {iep.program_type}</span>
+                      )}
+                    </div>
+                    {iep.accommodations && (
+                      <div
+                        className="ts-iep-accommodations"
+                        title={iep.accommodations}
+                      >
+                        <strong>Accommodations:</strong> {iep.accommodations}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Step 3 — Select IEP Goal */}
+      {selectedStudent && selectedIEP && !generated && !loading && (
+        <div className="ts-card">
+          <div className="ts-step-badge">
+            <span className="ts-step-num">3</span>Select an IEP Goal
+          </div>
+          <p className="ts-form-intro">
+            Choose a goal from{" "}
+            <strong style={{ color: "#1a2b40" }}>
+              {`IEP Version ${selectedIEP.version}`}
+            </strong>{" "}
+            for{" "}
+            <strong style={{ color: "#1a2b40" }}>
+              {selectedStudent.studentName}
+            </strong>
+            :
+          </p>
+          {loadingGoals ? (
+            <Loading text="Loading goals for selected IEP…" />
+          ) : selectedStudent.availableGoals.length === 0 ? (
+            <EmptyState
+              icon="🎯"
+              message={`No IEP goals found in Version ${selectedIEP.version}.`}
+              description="This IEP version has no saved goals. Select another version or add goals to this IEP."
+              actionLabel="Manage Goals"
+              actionIcon="✏"
+              onAction={() => {
+                navigate("/dashboard/iep/view");
+                if (setActivePage) setActivePage("view-iep");
               }}
             />
           ) : (
@@ -488,11 +642,11 @@ function GenerateTab({ onSave, setActivePage }) {
         </div>
       )}
 
-      {/* Step 3 — Result */}
+      {/* Step 4 — Result */}
       {generated && !loading && (
         <div className="ts-card">
           <div className="ts-step-badge">
-            <span className="ts-step-num">3</span>Review & Save
+            <span className="ts-step-num">4</span>Review & Save
           </div>
 
           <div className="ts-detail-hero">
