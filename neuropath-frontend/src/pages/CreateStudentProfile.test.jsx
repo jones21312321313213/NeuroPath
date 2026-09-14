@@ -403,4 +403,31 @@ describe("CreateStudentProfile next-step actions", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
   });
+
+  it("blocks advancing from Step 1 if guardian name is empty", async () => {
+    render(
+      <MemoryRouter>
+        <CreateStudentProfile onBack={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Enter student name"), {
+      target: { value: "Juan Dela Cruz" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter age"), {
+      target: { value: "8" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter grade level"), {
+      target: { value: "2" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: /^gender:/i }), {
+      target: { value: "Male" },
+    });
+    fireEvent.click(screen.getByLabelText(/Difficulty in Seeing/i));
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    expect(
+      await screen.findByText(/Guardian name is required/i),
+    ).toBeInTheDocument();
+  });
 });
