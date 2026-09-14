@@ -10,6 +10,7 @@ import {
   useStudentInsights,
   useLessonPlans,
   useVisualAids,
+  useResourceDashboardStats,
   useGenerateStudentInsight,
 } from "./queries";
 import {
@@ -17,6 +18,7 @@ import {
   iepAPI,
   lessonPlansAPI,
   visualAidsAPI,
+  resourcesAPI,
 } from "../api/client";
 
 vi.mock("../api/client", () => ({
@@ -34,6 +36,9 @@ vi.mock("../api/client", () => ({
   },
   visualAidsAPI: {
     list: vi.fn(),
+  },
+  resourcesAPI: {
+    dashboardStats: vi.fn(),
   },
 }));
 
@@ -83,6 +88,10 @@ describe("queryKeys", () => {
     ]);
     expect(queryKeys.visualAids()).toEqual(["visual-aids", "all"]);
     expect(queryKeys.visualAids(null)).toEqual(["visual-aids", "all"]);
+  });
+
+  it("generates correct keys for resourceStats", () => {
+    expect(queryKeys.resourceStats()).toEqual(["resources", "dashboard-stats"]);
   });
 });
 
@@ -345,6 +354,21 @@ describe("useVisualAids", () => {
     expect(result.current.data).toEqual(mockAids);
     const state = queryClient.getQueryState(["visual-aids", "all"]);
     expect(state).toBeDefined();
+  });
+});
+
+describe("useResourceDashboardStats", () => {
+  it("fetches resource dashboard stats", async () => {
+    const mockStats = { total: 4, total_resources: 4, lesson_plans: 2, teaching_strategies: 1, visual_aids: 1 };
+    resourcesAPI.dashboardStats.mockResolvedValueOnce(mockStats);
+
+    const { result } = renderHook(() => useResourceDashboardStats(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(mockStats);
+    expect(resourcesAPI.dashboardStats).toHaveBeenCalledTimes(1);
   });
 });
 
