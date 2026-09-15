@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import { ValidationModal } from "../components/ui";
 
 const difficultyOptions = [
   "Difficulty in Seeing",
@@ -280,23 +279,17 @@ export default function CreateStudentProfile({
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [validationErrors, setValidationErrors] = useState([]);
-  const [showValidationModal, setShowValidationModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdStudent, setCreatedStudent] = useState(null);
 
   const handleBack = () => {
     setError("");
-    setValidationErrors([]);
-    setShowValidationModal(false);
     if (onBack) onBack();
     navigate("/dashboard/students");
   };
 
   const handleStepBack = () => {
     setError("");
-    setValidationErrors([]);
-    setShowValidationModal(false);
     setStep((prev) => Math.max(1, prev - 1));
   };
 
@@ -314,227 +307,158 @@ export default function CreateStudentProfile({
     }));
   };
 
-  const getStepOneIssues = () => {
-    const errors = [];
-
+  const validateStepOne = () => {
     if (!String(form.learnerName || "").trim()) {
-      errors.push({
-        step: 1,
-        field: "Student Name",
-        message: "Student name is required.",
-      });
-    } else if (!/^[a-zA-Z\s.'-]+$/.test(form.learnerName.trim())) {
-      errors.push({
-        step: 1,
-        field: "Student Name",
-        message: "Student name should contain letters only.",
-      });
+      setError("Student name is required.");
+      return false;
+    }
+    if (!/^[a-zA-Z\s.'-]+$/.test(form.learnerName.trim())) {
+      setError("Student name should contain letters only.");
+      return false;
     }
 
     if (!String(form.age || "").trim()) {
-      errors.push({ step: 1, field: "Age", message: "Age is required." });
-    } else {
-      const age = Number(form.age);
-      if (age < 2 || age > 18) {
-        errors.push({
-          step: 1,
-          field: "Age",
-          message: "Age must be between 2 and 18.",
-        });
-      }
+      setError("Age is required.");
+      return false;
+    }
+    const age = Number(form.age);
+    if (age < 2 || age > 18) {
+      setError("Age must be between 2 and 18.");
+      return false;
     }
 
     if (!String(form.gradeLevel || "").trim()) {
-      errors.push({
-        step: 1,
-        field: "Grade Level",
-        message: "Grade level is required.",
-      });
-    } else {
-      const grade = Number(form.gradeLevel);
-      if (grade < 1 || grade > 10) {
-        errors.push({
-          step: 1,
-          field: "Grade Level",
-          message: "Grade level must be between 1 and 10.",
-        });
-      }
+      setError("Grade level is required.");
+      return false;
+    }
+    const grade = Number(form.gradeLevel);
+    if (grade < 1 || grade > 10) {
+      setError("Grade level must be between 1 and 10.");
+      return false;
     }
 
     if (form.age && form.gradeLevel) {
-      const age = Number(form.age);
-      const grade = Number(form.gradeLevel);
       if (age < 4 && grade > 0) {
-        errors.push({
-          step: 1,
-          field: "Grade Level",
-          message:
-            "A student under 4 years old cannot be in a grade higher than Kindergarten.",
-        });
+        setError(
+          "A student under 4 years old cannot be in a grade higher than Kindergarten.",
+        );
+        return false;
       }
       if (age < 6 && grade > 1) {
-        errors.push({
-          step: 1,
-          field: "Grade Level",
-          message: "A student under 6 years old is unlikely to be above Grade 1.",
-        });
+        setError("A student under 6 years old is unlikely to be above Grade 1.");
+        return false;
       }
       if (age > 12 && grade < 4) {
-        errors.push({
-          step: 1,
-          field: "Grade Level",
-          message: "Grade level seems too low for the student's age.",
-        });
+        setError("Grade level seems too low for the student's age.");
+        return false;
       }
     }
 
     if (!String(form.gender || "").trim()) {
-      errors.push({ step: 1, field: "Gender", message: "Gender is required." });
+      setError("Gender is required.");
+      return false;
     }
 
     if (!String(form.disabilityCategory || "").trim()) {
-      errors.push({
-        step: 1,
-        field: "Diagnosis",
-        message: "Diagnosis is required.",
-      });
+      setError("Diagnosis is required.");
+      return false;
     }
 
     if (form.birthdate.trim()) {
       const dateRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])-\d{4}$/;
       if (!dateRegex.test(form.birthdate.trim())) {
-        errors.push({
-          step: 1,
-          field: "Birthdate",
-          message: "Birthdate must be in MM-DD-YYYY format.",
-        });
-      } else {
-        const [month, day, year] = form.birthdate.split("-").map(Number);
-        const birthDate = new Date(year, month - 1, day);
-        if (birthDate >= new Date()) {
-          errors.push({
-            step: 1,
-            field: "Birthdate",
-            message: "Birthdate must be a date in the past.",
-          });
-        }
+        setError("Birthdate must be in MM-DD-YYYY format.");
+        return false;
+      }
+      const [month, day, year] = form.birthdate.split("-").map(Number);
+      const birthDate = new Date(year, month - 1, day);
+      if (birthDate >= new Date()) {
+        setError("Birthdate must be a date in the past.");
+        return false;
       }
     }
 
     if (form.schoolYear.trim()) {
       const syRegex = /^\d{4}\s*-\s*\d{4}$/;
       if (!syRegex.test(form.schoolYear.trim())) {
-        errors.push({
-          step: 1,
-          field: "School Year",
-          message:
-            "School year must be in YYYY - YYYY format (e.g. 2025 - 2026).",
-        });
+        setError(
+          "School year must be in YYYY - YYYY format (e.g. 2025 - 2026).",
+        );
+        return false;
       }
     }
 
     if (!form.difficultyMarkers || form.difficultyMarkers.length === 0) {
-      errors.push({
-        step: 1,
-        field: "Difficulty Markers",
-        message:
-          "Please select at least one difficulty marker (needed before Generate IEP).",
-      });
+      setError(
+        "Please select at least one difficulty marker (needed before Generate IEP).",
+      );
+      return false;
     }
 
     if (!String(form.guardianName || "").trim()) {
-      errors.push({
-        step: 1,
-        field: "Guardian Full Name",
-        message: "Guardian name is required.",
-      });
+      setError("Guardian name is required.");
+      return false;
     }
 
     if (!String(form.guardianRelationship || "").trim()) {
-      errors.push({
-        step: 1,
-        field: "Guardian Relationship",
-        message: "Guardian relationship is required.",
-      });
+      setError("Guardian relationship is required.");
+      return false;
     }
 
     if (!String(form.consentDate || "").trim()) {
-      errors.push({
-        step: 1,
-        field: "Consent Verification Date",
-        message: "Consent date is required.",
-      });
+      setError("Consent date is required.");
+      return false;
     }
 
     if (!form.parentalConsentObtained) {
-      errors.push({
-        step: 1,
-        field: "RA 10173 Consent Agreement",
-        message: "Parental/guardian consent agreement / statement is required.",
-      });
+      setError("Parental/guardian consent agreement / statement is required.");
+      return false;
     }
 
-    return errors;
+    setError("");
+    return true;
   };
 
-  const getStepTwoIssues = () => {
+  const validateStepTwo = () => {
     const requiredFields = [
       [
         "presentEvaluation",
-        "Evaluation Results",
         "Please fill in the evaluation / assessment results before saving.",
       ],
       [
         "academicStrengths",
-        "Learner Strengths",
         "Please fill in the learner strengths before saving.",
       ],
       [
         "academicNeeds",
-        "Learner Needs",
         "Please fill in the learner needs before saving.",
       ],
       [
         "parentalConcerns",
-        "Parental Concerns",
         "Please fill in the parental concerns before saving.",
       ],
       [
         "curriculumImpact",
-        "Curriculum Impact",
         "Please fill in the curriculum impact before saving.",
       ],
     ];
 
-    const errors = [];
-    for (const [field, label, message] of requiredFields) {
+    for (const [field, message] of requiredFields) {
       if (!String(form[field] || "").trim()) {
-        errors.push({ step: 2, field: label, message });
+        setError(message);
+        return false;
       }
     }
-    return errors;
+
+    setError("");
+    return true;
   };
 
   const handleNext = () => {
     setError("");
-    const stepOneErrors = getStepOneIssues();
-
-    if (stepOneErrors.length > 0) {
-      setValidationErrors(stepOneErrors);
-      setShowValidationModal(true);
-      return;
-    }
-
-    setValidationErrors([]);
-    setShowValidationModal(false);
+    if (!validateStepOne()) return;
+    setError("");
     setStep(2);
-  };
-
-  const handleCloseValidationModal = () => {
-    setShowValidationModal(false);
-    if (validationErrors.some((err) => err.step === 1)) {
-      setStep(1);
-    }
   };
 
   const handleSubmit = async (e) => {
@@ -542,16 +466,11 @@ export default function CreateStudentProfile({
 
     if (step !== 2) return;
 
-    const stepOneErrors = getStepOneIssues();
-    const stepTwoErrors = getStepTwoIssues();
-    const allErrors = [...stepOneErrors, ...stepTwoErrors];
-
-    if (allErrors.length > 0) {
-      setError("");
-      setValidationErrors(allErrors);
-      setShowValidationModal(true);
+    if (!validateStepOne()) {
+      setStep(1);
       return;
     }
+    if (!validateStepTwo()) return;
 
     setSaving(true);
     setError("");
@@ -929,14 +848,6 @@ export default function CreateStudentProfile({
           onAddAnother={handleAddAnother}
         />
       )}
-      <ValidationModal
-        isOpen={showValidationModal}
-        onClose={handleCloseValidationModal}
-        title="Incomplete or Invalid Information"
-        subtitle="Please address the following items before proceeding:"
-        errors={validationErrors}
-        confirmLabel="Review & Correct"
-      />
     </div>
   );
 }
