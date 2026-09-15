@@ -546,9 +546,12 @@ function ViewIEPPanel({
         const list = Array.isArray(data)
           ? data
           : data.results || data.data || [];
-        // Filter out the junk "GENERAL" goals auto-created from empty goals text
+        // Filter out placeholder/empty goals while keeping legitimate concise manual goals
         const realGoals = list.filter(
-          (g) => g.subject_category !== "GENERAL" && g.annual_goal?.length > 20,
+          (g) =>
+            g &&
+            g.annual_goal?.trim() &&
+            (g.subject_category !== "GENERAL" || g.annual_goal.trim() !== "GENERAL"),
         );
         if (mounted) setIepGoals(realGoals.map(normalizeDbGoal));
       } catch {
@@ -572,7 +575,6 @@ function ViewIEPPanel({
       setEditSpecialFactorNotes(specialNotes);
       setEditGoals([]);
       setGoalsToDelete([]);
-      setIepGoals([]);
       setDeleteTarget(null);
     });
   }, [selectedIep, details?.specialFactorNotes, details?.special_factor_notes]);
@@ -1310,7 +1312,7 @@ function ViewIEPPanel({
                   <p className="iep-muted">Loading learner goals…</p>
                 ) : goalsToRender.length ? (
                   goalsToRender.map((goal, idx) => (
-                    <div key={goal.type || idx} className="iep-goal-preview">
+                    <div key={goal.goalID || `${goal.type}-${idx}` || idx} className="iep-goal-preview">
                       <InfoBlock title={`${goal.type} — Annual Goal / Long Term`}>
                         {goal.annualGoal}
                       </InfoBlock>
@@ -1908,6 +1910,9 @@ export default function IEPGenerationPage({
         ],
       });
       setShowManualGoal(false);
+      if (queryClient) {
+        queryClient.invalidateQueries({ queryKey: ["iep"] });
+      }
     } catch (err) {
       showError(err.message || "Unknown error", "Failed to Save Custom Goal");
     } finally {

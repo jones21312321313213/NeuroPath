@@ -1294,6 +1294,80 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       });
     });
   });
+
+  describe("Manual Goals Display in View IEP (Issue #176)", () => {
+    it("renders concise manual goals (<= 20 characters) and DB goals in View IEP without filtering them out", async () => {
+      const conciseManualGoal = {
+        goalID: 88,
+        iep: 1,
+        subject_category: "Adaptive Care Skills",
+        annual_goal: "Wash hands.",
+        goalName: "Hand Washing",
+        objective_rows: [
+          {
+            rowID: 1,
+            enroute_objectives: "Turn on faucet",
+            interventions_procedures: "Visual icon prompts",
+            timeline_mins_session: "Daily",
+            individuals_responsible: "Teacher",
+            progress_instructional: "Checklist",
+            remarks: "Achieved step 1",
+          },
+        ],
+      };
+
+      iepAPI.listGoalsByIep.mockResolvedValue([conciseManualGoal]);
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Section C: Learner's Goals")).toBeInTheDocument();
+      });
+
+      // Assert concise manual goal is NOT filtered out and is rendered properly
+      await waitFor(() => {
+        expect(screen.getByText(/Adaptive Care Skills — Annual Goal \/ Long Term/i)).toBeInTheDocument();
+        expect(screen.getByText("Wash hands.")).toBeInTheDocument();
+        expect(screen.getByText("Turn on faucet")).toBeInTheDocument();
+      });
+
+      // Verify "No goals recorded yet" is NOT displayed
+      expect(screen.queryByText("No goals recorded yet")).not.toBeInTheDocument();
+    });
+
+    it("maintains displayed goals across re-renders without microtask state wipes", async () => {
+      const manualGoal = {
+        goalID: 89,
+        iep: 1,
+        subject_category: "Behavioral Skills",
+        annual_goal: "Take deep breaths when overwhelmed.",
+        goalName: "Calming Strategy",
+        objective_rows: [],
+      };
+
+      iepAPI.listGoalsByIep.mockResolvedValue([manualGoal]);
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Behavioral Skills — Annual Goal \/ Long Term/i)).toBeInTheDocument();
+        expect(screen.getByText("Take deep breaths when overwhelmed.")).toBeInTheDocument();
+      });
+
+      // Verify goal persists over time without being wiped out by microtask
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(screen.getByText(/Behavioral Skills — Annual Goal \/ Long Term/i)).toBeInTheDocument();
+      expect(screen.getByText("Take deep breaths when overwhelmed.")).toBeInTheDocument();
+    });
+  });
 });
 
 
