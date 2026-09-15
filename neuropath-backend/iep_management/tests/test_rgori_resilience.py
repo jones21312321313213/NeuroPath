@@ -156,9 +156,10 @@ class RGORIResilienceTestCase(TestCase):
         self.assertIn("interventions_procedures", rows[0])
         self.assertIn("timeline_mins_session", rows[0])
 
-    @patch('iep_management.ai_engine.AIEngineService._call_ollama', side_effect=Exception('Ollama offline'))
+    @patch('iep_management.ai_engine.AIEngineService._call_gemini', side_effect=Exception('Gemini offline'))
     @patch('iep_management.ai_engine.AIEngineService._call_groq', side_effect=Exception('Groq offline'))
-    def test_generate_goals_from_iep_view_offline_cascade(self, mock_groq, mock_ollama):
+    @patch('iep_management.ai_engine.AIEngineService._call_openrouter', side_effect=Exception('OpenRouter offline'))
+    def test_generate_goals_from_iep_view_offline_cascade(self, mock_openrouter, mock_groq, mock_gemini):
         """
         When external LLMs (Ollama & Groq) are completely offline,
         POST /api/iep/generate-goals-from-iep/ MUST return HTTP 200 with valid goals and objective rows.
@@ -201,9 +202,9 @@ class RGORIResilienceTestCase(TestCase):
         self.assertTrue(len(goal["objective_rows"]) >= 1)
         self.assertIn("enroute_objectives", goal["objective_rows"][0])
 
-    @patch('iep_management.ai_engine.AIEngineService._call_ollama', side_effect=Exception('Ollama offline'))
+    @patch('iep_management.ai_engine.AIEngineService._call_gemini', side_effect=Exception('Gemini offline'))
     @patch('iep_management.ai_engine.AIEngineService._call_groq')
-    def test_generate_goals_from_iep_view_online_groq(self, mock_groq, mock_ollama):
+    def test_generate_goals_from_iep_view_online_groq(self, mock_groq, mock_gemini):
         """
         When Groq is online, POST /api/iep/generate-goals-from-iep/ succeeds with LLM output.
         """
@@ -249,9 +250,10 @@ class RGORIResilienceTestCase(TestCase):
         self.assertEqual(goal["_rgori_score"], 88)
         self.assertEqual(len(goal["objective_rows"]), 1)
 
-    @patch('iep_management.ai_engine.AIEngineService._call_ollama', side_effect=Exception('Ollama offline'))
+    @patch('iep_management.ai_engine.AIEngineService._call_gemini', side_effect=Exception('Gemini offline'))
     @patch('iep_management.ai_engine.AIEngineService._call_groq', side_effect=Exception('Groq offline'))
-    def test_generate_iep_goal_api_view_offline_cascade(self, mock_groq, mock_ollama):
+    @patch('iep_management.ai_engine.AIEngineService._call_openrouter', side_effect=Exception('OpenRouter offline'))
+    def test_generate_iep_goal_api_view_offline_cascade(self, mock_openrouter, mock_groq, mock_gemini):
         """
         POST /api/iep/generate-goal/ succeeds with HTTP 200 when LLM providers are offline.
         """
