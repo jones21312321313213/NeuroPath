@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { ValidationModal } from "../components/ui";
 
 const difficultyOptions = [
   "Difficulty in Seeing",
@@ -169,7 +170,21 @@ function SuccessModal({
           className="w-16 h-16 rounded-full flex items-center justify-center mb-4 text-3xl"
           style={{ background: "#e6f7ec", border: "2px solid #b7e4c7" }}
         >
-          ✅
+          <svg
+            className="w-8 h-8 text-emerald-600"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="2.5"
+            stroke="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M4.5 12.75l6 6 9-13.5"
+            />
+          </svg>
         </div>
 
         <h2
@@ -265,12 +280,20 @@ export default function CreateStudentProfile({
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [validationErrors, setValidationErrors] = useState([]);
+  const [showValidationModal, setShowValidationModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdStudent, setCreatedStudent] = useState(null);
 
   const handleBack = () => {
+    setError("");
     if (onBack) onBack();
     navigate("/dashboard/students");
+  };
+
+  const handleStepBack = () => {
+    setError("");
+    setStep((prev) => Math.max(1, prev - 1));
   };
 
   const [form, setForm] = useState(initialFormState);
@@ -288,106 +311,151 @@ export default function CreateStudentProfile({
   };
 
   const validateStepOne = () => {
-    const requiredFields = [
-      ["learnerName", "Student name is required."],
-      ["age", "Age is required."],
-      ["gradeLevel", "Grade level is required."],
-      ["gender", "Gender is required."],
-      ["disabilityCategory", "Diagnosis is required."],
-    ];
+    const errors = [];
 
-    for (const [field, message] of requiredFields) {
-      if (!String(form[field] || "").trim()) {
-        setError(message);
-        return false;
+    if (!String(form.learnerName || "").trim()) {
+      errors.push({
+        field: "Student Name",
+        message: "Student name is required.",
+      });
+    } else if (!/^[a-zA-Z\s.'-]+$/.test(form.learnerName.trim())) {
+      errors.push({
+        field: "Student Name",
+        message: "Student name should contain letters only.",
+      });
+    }
+
+    if (!String(form.age || "").trim()) {
+      errors.push({ field: "Age", message: "Age is required." });
+    } else {
+      const age = Number(form.age);
+      if (age < 2 || age > 18) {
+        errors.push({ field: "Age", message: "Age must be between 2 and 18." });
       }
     }
 
-    if (!/^[a-zA-Z\s.'-]+$/.test(form.learnerName.trim())) {
-      setError("Student name should contain letters only.");
-      return false;
+    if (!String(form.gradeLevel || "").trim()) {
+      errors.push({
+        field: "Grade Level",
+        message: "Grade level is required.",
+      });
+    } else {
+      const grade = Number(form.gradeLevel);
+      if (grade < 1 || grade > 10) {
+        errors.push({
+          field: "Grade Level",
+          message: "Grade level must be between 1 and 10.",
+        });
+      }
     }
 
-    const age = Number(form.age);
-    if (age < 2 || age > 18) {
-      setError("Age must be between 2 and 18.");
-      return false;
+    if (form.age && form.gradeLevel) {
+      const age = Number(form.age);
+      const grade = Number(form.gradeLevel);
+      if (age < 4 && grade > 0) {
+        errors.push({
+          field: "Grade Level",
+          message:
+            "A student under 4 years old cannot be in a grade higher than Kindergarten.",
+        });
+      }
+      if (age < 6 && grade > 1) {
+        errors.push({
+          field: "Grade Level",
+          message: "A student under 6 years old is unlikely to be above Grade 1.",
+        });
+      }
+      if (age > 12 && grade < 4) {
+        errors.push({
+          field: "Grade Level",
+          message: "Grade level seems too low for the student's age.",
+        });
+      }
     }
 
-    const grade = Number(form.gradeLevel);
-    if (grade < 1 || grade > 10) {
-      setError("Grade level must be between 1 and 10.");
-      return false;
+    if (!String(form.gender || "").trim()) {
+      errors.push({ field: "Gender", message: "Gender is required." });
     }
 
-    if (age < 4 && grade > 0) {
-      setError(
-        "A student under 4 years old cannot be in a grade higher than Kindergarten.",
-      );
-      return false;
-    }
-    if (age < 6 && grade > 1) {
-      setError("A student under 6 years old is unlikely to be above Grade 1.");
-      return false;
-    }
-    if (age > 12 && grade < 4) {
-      setError("Grade level seems too low for the student's age.");
-      return false;
+    if (!String(form.disabilityCategory || "").trim()) {
+      errors.push({ field: "Diagnosis", message: "Diagnosis is required." });
     }
 
     if (form.birthdate.trim()) {
       const dateRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])-\d{4}$/;
       if (!dateRegex.test(form.birthdate.trim())) {
-        setError("Birthdate must be in MM-DD-YYYY format.");
-        return false;
-      }
-
-      const [month, day, year] = form.birthdate.split("-").map(Number);
-      const birthDate = new Date(year, month - 1, day);
-      if (birthDate >= new Date()) {
-        setError("Birthdate must be a date in the past.");
-        return false;
+        errors.push({
+          field: "Birthdate",
+          message: "Birthdate must be in MM-DD-YYYY format.",
+        });
+      } else {
+        const [month, day, year] = form.birthdate.split("-").map(Number);
+        const birthDate = new Date(year, month - 1, day);
+        if (birthDate >= new Date()) {
+          errors.push({
+            field: "Birthdate",
+            message: "Birthdate must be a date in the past.",
+          });
+        }
       }
     }
 
     if (form.schoolYear.trim()) {
       const syRegex = /^\d{4}\s*-\s*\d{4}$/;
       if (!syRegex.test(form.schoolYear.trim())) {
-        setError(
-          "School year must be in YYYY - YYYY format (e.g. 2025 - 2026).",
-        );
-        return false;
+        errors.push({
+          field: "School Year",
+          message:
+            "School year must be in YYYY - YYYY format (e.g. 2025 - 2026).",
+        });
       }
     }
 
     if (!form.difficultyMarkers || form.difficultyMarkers.length === 0) {
-      setError(
-        "Please select at least one difficulty marker (needed before Generate IEP).",
-      );
-      return false;
+      errors.push({
+        field: "Difficulty Markers",
+        message:
+          "Please select at least one difficulty marker (needed before Generate IEP).",
+      });
     }
 
     if (!String(form.guardianName || "").trim()) {
-      setError("Guardian name is required.");
-      return false;
+      errors.push({
+        field: "Guardian Full Name",
+        message: "Guardian name is required.",
+      });
     }
 
     if (!String(form.guardianRelationship || "").trim()) {
-      setError("Guardian relationship is required.");
-      return false;
+      errors.push({
+        field: "Guardian Relationship",
+        message: "Guardian relationship is required.",
+      });
     }
 
     if (!String(form.consentDate || "").trim()) {
-      setError("Consent date is required.");
-      return false;
+      errors.push({
+        field: "Consent Verification Date",
+        message: "Consent date is required.",
+      });
     }
 
     if (!form.parentalConsentObtained) {
-      setError("Parental/guardian consent agreement / statement is required.");
+      errors.push({
+        field: "RA 10173 Consent Agreement",
+        message: "Parental/guardian consent agreement / statement is required.",
+      });
+    }
+
+    if (errors.length > 0) {
+      setError("");
+      setValidationErrors(errors);
+      setShowValidationModal(true);
       return false;
     }
 
     setError("");
+    setValidationErrors([]);
     return true;
   };
 
@@ -395,36 +463,53 @@ export default function CreateStudentProfile({
     const requiredFields = [
       [
         "presentEvaluation",
+        "Evaluation Results",
         "Please fill in the evaluation / assessment results before saving.",
       ],
       [
         "academicStrengths",
+        "Learner Strengths",
         "Please fill in the learner strengths before saving.",
       ],
-      ["academicNeeds", "Please fill in the learner needs before saving."],
+      [
+        "academicNeeds",
+        "Learner Needs",
+        "Please fill in the learner needs before saving.",
+      ],
       [
         "parentalConcerns",
+        "Parental Concerns",
         "Please fill in the parental concerns before saving.",
       ],
       [
         "curriculumImpact",
+        "Curriculum Impact",
         "Please fill in the curriculum impact before saving.",
       ],
     ];
 
-    for (const [field, message] of requiredFields) {
+    const errors = [];
+    for (const [field, label, message] of requiredFields) {
       if (!String(form[field] || "").trim()) {
-        setError(message);
-        return false;
+        errors.push({ field: label, message });
       }
     }
 
+    if (errors.length > 0) {
+      setError("");
+      setValidationErrors(errors);
+      setShowValidationModal(true);
+      return false;
+    }
+
     setError("");
+    setValidationErrors([]);
     return true;
   };
 
   const handleNext = () => {
     if (!validateStepOne()) return;
+    setError("");
     setStep(2);
   };
 
@@ -549,7 +634,22 @@ export default function CreateStudentProfile({
         </div>
 
         <div className="iep-form-intro">
-          <span className="iep-form-intro-icon">💡</span>
+          <span className="iep-form-intro-icon" aria-hidden="true">
+            <svg
+              className="w-4 h-4 text-amber-600 inline-block"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="2"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.439v-2.25m-6 2.25v-2.25m6-4.5a4.5 4.5 0 10-6 0m6 0a3.75 3.75 0 01-6 0"
+              />
+            </svg>
+          </span>
           <div>
             <strong>Tip:</strong> NeuroPath uses this form for AI IEP drafts; fuller answers usually mean better drafts.
           </div>
@@ -711,10 +811,12 @@ export default function CreateStudentProfile({
 
           {step === 2 && (
             <section className="form-section">
-              <SectionHeader title="Present Levels of Academic Achievement and/or Functional Performance" />
+              <SectionHeader
+                title="Present Levels of Academic Achievement and/or Functional Performance"
+                subtitle="Present level details are used by the AI engine to draft tailored IEP goals, accommodations, and instructional strategies."
+              />
               <TextAreaField
                 label="Results of initial or most recent evaluation and results of school assessments"
-                helpText="Used by AI when drafting goals"
                 placeholder="Example: The learner fails to finish tasks most of the time, has difficulty in concentrating and paying attention, and may be unable to get what he wants."
                 value={form.presentEvaluation}
                 onChange={setField("presentEvaluation")}
@@ -722,7 +824,6 @@ export default function CreateStudentProfile({
               />
               <TextAreaField
                 label="Description of academic, developmental, and/or functional strengths"
-                helpText="Used by AI when drafting goals"
                 placeholder="Example: The learner can spell random words using alphabet blocks and arranges alphabet sequentially."
                 value={form.academicStrengths}
                 onChange={setField("academicStrengths")}
@@ -730,7 +831,6 @@ export default function CreateStudentProfile({
               />
               <TextAreaField
                 label="Description of academic, developmental, and/or functional needs"
-                helpText="Used by AI when drafting goals"
                 placeholder="Example: Needs structured routines, visual task supports, shortened activities, sensory breaks, and positive reinforcement."
                 value={form.academicNeeds}
                 onChange={setField("academicNeeds")}
@@ -738,7 +838,6 @@ export default function CreateStudentProfile({
               />
               <TextAreaField
                 label="Parental concerns regarding the child’s education"
-                helpText="Used by AI when drafting goals"
                 placeholder="Write concerns shared by the parent or guardian."
                 value={form.parentalConcerns}
                 onChange={setField("parentalConcerns")}
@@ -746,7 +845,6 @@ export default function CreateStudentProfile({
               />
               <TextAreaField
                 label="Impact of the disability on involvement and progress in the general education curriculum"
-                helpText="Used by AI when drafting goals"
                 placeholder="Example: The learner has difficulty concentrating and needs support to listen well."
                 value={form.curriculumImpact}
                 onChange={setField("curriculumImpact")}
@@ -760,7 +858,7 @@ export default function CreateStudentProfile({
               <button
                 type="button"
                 className="btn btn-back"
-                onClick={() => setStep(step - 1)}
+                onClick={handleStepBack}
               >
                 BACK
               </button>
@@ -797,6 +895,14 @@ export default function CreateStudentProfile({
           onAddAnother={handleAddAnother}
         />
       )}
+      <ValidationModal
+        isOpen={showValidationModal}
+        onClose={() => setShowValidationModal(false)}
+        title="Incomplete or Invalid Information"
+        subtitle="Please address the following items before proceeding:"
+        errors={validationErrors}
+        confirmLabel="Review & Correct"
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import CreateStudentProfile from "./CreateStudentProfile";
@@ -78,7 +78,7 @@ describe("CreateStudentProfile Help Text & Difficulty Validation", () => {
     ).toBeInTheDocument();
   });
 
-  it("proceeds to Step 2 when difficulty markers are selected and shows AI goal drafting help texts", async () => {
+  it("proceeds to Step 2 when valid and shows consolidated AI guidance subtitle without repetitive tips", async () => {
     renderComponent();
 
     fireEvent.change(screen.getByPlaceholderText(/Enter student name/i), {
@@ -109,8 +109,76 @@ describe("CreateStudentProfile Help Text & Difficulty Validation", () => {
       await screen.findByText(/Present Levels of Academic Achievement/i),
     ).toBeInTheDocument();
 
-    const aiHelpTexts = screen.getAllByText(/Used by AI when drafting goals/i);
-    expect(aiHelpTexts.length).toBeGreaterThanOrEqual(4);
+    expect(
+      screen.getByText(
+        /Present level details are used by the AI engine to draft tailored IEP goals/i,
+      ),
+    ).toBeInTheDocument();
+
+    // Verify repetitive individual field tips are removed
+    expect(
+      screen.queryByText(/Used by AI when drafting goals/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens clean ValidationModal specifying missing fields when clicking NEXT with incomplete form", async () => {
+    renderComponent();
+
+    fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
+
+    const modal = await screen.findByRole("alertdialog");
+    expect(modal).toBeInTheDocument();
+    expect(
+      within(modal).getByText(/Incomplete or Invalid Information/i),
+    ).toBeInTheDocument();
+    expect(
+      within(modal).getByText(/Please address the following items before proceeding:/i),
+    ).toBeInTheDocument();
+    expect(within(modal).getByText("Student Name")).toBeInTheDocument();
+    expect(within(modal).getByText(/Student name is required\./i)).toBeInTheDocument();
+    expect(within(modal).getByText("Difficulty Markers")).toBeInTheDocument();
+    expect(within(modal).getByText("RA 10173 Consent Agreement")).toBeInTheDocument();
+
+    // Dismiss modal via confirm button
+    fireEvent.click(within(modal).getByRole("button", { name: /Review & Correct/i }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("does not prematurely validate Step 2 upon entering and clears errors on back navigation", async () => {
+    renderComponent();
+
+    // Fill valid Step 1
+    fireEvent.change(screen.getByPlaceholderText(/Enter student name/i), {
+      target: { value: "Juan Dela Cruz" },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Enter age/i), {
+      target: { value: "8" },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Enter grade level/i), {
+      target: { value: "3" },
+    });
+    const selects = screen.getAllByRole("combobox");
+    fireEvent.change(selects[0], {
+      target: { value: "Male" },
+    });
+    fireEvent.click(screen.getByLabelText(/Difficulty in Seeing/i));
+    fireEvent.change(screen.getByPlaceholderText(/Enter parent or guardian name/i), {
+      target: { value: "Maria Dela Cruz" },
+    });
+    fireEvent.click(screen.getByLabelText(/Consent Agreement \/ Statement/i));
+
+    fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
+
+    // On Step 2, no error modal or premature alert should appear
+    expect(
+      await screen.findByText(/Present Levels of Academic Achievement/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+
+    // Navigate back to Step 1
+    fireEvent.click(screen.getByRole("button", { name: /BACK/i }));
+    expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 });
 
