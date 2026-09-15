@@ -460,3 +460,212 @@ describe("ManageTeachingStrategies Multi-IEP Selection", () => {
     expect(generateBtn).not.toBeDisabled();
   });
 });
+
+describe("ManageTeachingStrategies - Unified Manage Interface (Issue #161)", () => {
+  const mockStrategies = [
+    {
+      strategyID: 11,
+      title: "Reading Comprehension Scaffolding",
+      strategyContent: "Use graphic organizers and chunked passages.",
+      formattedDate: "September 12, 2026",
+      goalName: "Reading Fluency",
+      studentID: 101,
+      studentName: "Lucas Vance",
+    },
+    {
+      strategyID: 12,
+      title: "Math Visual Aids",
+      strategyContent: "Utilize manipulatives for multi-digit addition.",
+      formattedDate: "September 14, 2026",
+      goalName: "Math Problem Solving",
+      studentID: 101,
+      studentName: "Lucas Vance",
+    },
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAuth.mockReturnValue({ user: { id: 1, email: "teacher@test.com" } });
+    teachingStrategiesAPI.getDirectory.mockResolvedValue({
+      directory: [
+        {
+          studentID: 101,
+          studentName: "Lucas Vance",
+          grade: 3,
+        },
+        {
+          studentID: 102,
+          studentName: "Maya Lin",
+          grade: 4,
+        },
+      ],
+    });
+    teachingStrategiesAPI.list.mockResolvedValue(mockStrategies);
+    teachingStrategiesAPI.update.mockResolvedValue({ message: "Teaching Strategy updated successfully." });
+    teachingStrategiesAPI.delete.mockResolvedValue({ message: "Teaching Strategy deleted successfully." });
+  });
+
+  function renderComponent() {
+    return render(
+      <MemoryRouter>
+        <ManageTeachingStrategies />
+      </MemoryRouter>
+    );
+  }
+
+  it("switches to Manage tab and displays student selection grid", async () => {
+    renderComponent();
+
+    const manageTabBtn = screen.getByRole("tab", { name: /Manage/i });
+    expect(manageTabBtn).toBeInTheDocument();
+    fireEvent.click(manageTabBtn);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Manage Teaching Strategies").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+      expect(screen.getByText("Maya Lin")).toBeInTheDocument();
+    });
+  });
+
+  it("loads student's teaching strategies with contextual View, Edit, and Delete row actions", async () => {
+    renderComponent();
+
+    fireEvent.click(screen.getByRole("tab", { name: /Manage/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("Lucas Vance"));
+
+    await waitFor(() => {
+      expect(teachingStrategiesAPI.list).toHaveBeenCalledWith(101);
+      expect(screen.getByText("Reading Comprehension Scaffolding")).toBeInTheDocument();
+      expect(screen.getByText("Math Visual Aids")).toBeInTheDocument();
+    });
+
+    // Check contextual action buttons on rows
+    const viewButtons = screen.getAllByRole("button", { name: /View/i });
+    const editButtons = screen.getAllByRole("button", { name: /Edit/i });
+    const deleteButtons = screen.getAllByRole("button", { name: /Delete/i });
+
+    expect(viewButtons.length).toBeGreaterThanOrEqual(2);
+    expect(editButtons.length).toBeGreaterThanOrEqual(2);
+    expect(deleteButtons.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("views full strategy detail and allows navigation back to list", async () => {
+    renderComponent();
+
+    fireEvent.click(screen.getByRole("tab", { name: /Manage/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("Lucas Vance"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Reading Comprehension Scaffolding")).toBeInTheDocument();
+    });
+
+    // Click View on the first strategy
+    const viewButtons = screen.getAllByRole("button", { name: /View/i });
+    fireEvent.click(viewButtons[0]);
+
+    // Detail view should display content and contextual actions
+    await waitFor(() => {
+      expect(screen.getByText("Use graphic organizers and chunked passages.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Edit Strategy/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Delete Strategy/i })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /Export PDF/i })).toBeInTheDocument();
+    });
+
+    // Click Back to List
+    fireEvent.click(screen.getByRole("button", { name: /Back to List/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Reading Comprehension Scaffolding")).toBeInTheDocument();
+      expect(screen.getByText("Math Visual Aids")).toBeInTheDocument();
+    });
+  });
+
+  it("edits strategy title and content in-place and saves updates", async () => {
+    const user = userEvent.setup();
+    renderComponent();
+
+    fireEvent.click(screen.getByRole("tab", { name: /Manage/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("Lucas Vance"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Reading Comprehension Scaffolding")).toBeInTheDocument();
+    });
+
+    // Click Edit on the first strategy row
+    const editButtons = screen.getAllByRole("button", { name: /Edit/i });
+    fireEvent.click(editButtons[0]);
+
+    // Edit form should be open
+    await waitFor(() => {
+      expect(screen.getByText("Edit Teaching Strategy")).toBeInTheDocument();
+    });
+
+    const titleInput = screen.getByLabelText(/Strategy Title/i);
+    await user.clear(titleInput);
+    await user.type(titleInput, "Updated Strategy Title");
+
+    const saveButton = screen.getByRole("button", { name: /Save Changes/i });
+    await user.click(saveButton);
+
+    await waitFor(() => {
+      expect(teachingStrategiesAPI.update).toHaveBeenCalledWith(11, {
+        title: "Updated Strategy Title",
+        strategyContent: "Use graphic organizers and chunked passages.",
+      });
+      expect(screen.getByText(/Teaching strategy saved successfully/i)).toBeInTheDocument();
+    });
+  });
+
+  it("opens delete confirmation modal and confirms deletion", async () => {
+    const user = userEvent.setup();
+    renderComponent();
+
+    fireEvent.click(screen.getByRole("tab", { name: /Manage/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("Lucas Vance"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Reading Comprehension Scaffolding")).toBeInTheDocument();
+    });
+
+    // Click Delete on the first strategy row
+    const deleteButtons = screen.getAllByRole("button", { name: /Delete/i });
+    await user.click(deleteButtons[0]);
+
+    // Modal dialog should appear
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(screen.getByText("Delete Strategy?")).toBeInTheDocument();
+      expect(screen.getByText(/You are about to permanently delete/i)).toBeInTheDocument();
+    });
+
+    // Confirm delete inside modal
+    const confirmBtn = screen.getByRole("button", { name: /Yes, Delete/i });
+    await user.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(teachingStrategiesAPI.delete).toHaveBeenCalledWith(11);
+      expect(screen.getByText(/was deleted/i)).toBeInTheDocument();
+    });
+  });
+});
+

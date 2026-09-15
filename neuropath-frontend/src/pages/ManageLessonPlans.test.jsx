@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import ManageLessonPlans from "./ManageLessonPlans";
-import { lessonPlansAPI, iepAPI } from "../api/client";
+import { lessonPlansAPI, iepAPI, studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
 const mockNavigate = vi.fn();
@@ -317,3 +317,220 @@ describe("ManageLessonPlans Multi-IEP Selection", () => {
   });
 });
 
+describe("ManageLessonPlans Unified Management View (Issue #161)", () => {
+  const mockStudents = [
+    { studentID: 101, name: "Lucas Vance", grade: 3, age: 9 },
+    { studentID: 102, name: "Maya Lin", grade: 4, age: 10 },
+  ];
+
+  const mockPlans = [
+    {
+      lessonID: 501,
+      studentName: "Lucas Vance",
+      title: "Self-Regulation Math Lesson",
+      status: "Active",
+      dateCreated: "2026-09-12T10:00:00Z",
+      goalArea: "Behavioral Skills",
+      lessonContent: JSON.stringify([
+        {
+          objective_focus: "Independent Break Request",
+          introduction: "Review feelings thermometer",
+          core_activity: "Solve 5 math problems and use break card",
+          assessment: "Student signals card before reaching red zone",
+          materials_needed: ["Break card", "Worksheet"],
+        },
+      ]),
+    },
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAuth.mockReturnValue({ user: { id: 1, email: "teacher@test.com" } });
+    lessonPlansAPI.getDirectory.mockResolvedValue({
+      directory: [
+        {
+          studentID: 101,
+          studentName: "Lucas Vance",
+          grade: 3,
+          availableIEPs: [],
+          availableGoals: [],
+        },
+      ],
+    });
+    studentsAPI.list.mockResolvedValue(mockStudents);
+    lessonPlansAPI.list.mockResolvedValue(mockPlans);
+    lessonPlansAPI.update.mockResolvedValue({ message: "Updated" });
+    lessonPlansAPI.delete.mockResolvedValue({ message: "Deleted" });
+  });
+
+  it("switches to Manage tab and displays student selection grid", async () => {
+    render(
+      <MemoryRouter>
+        <ManageLessonPlans />
+      </MemoryRouter>
+    );
+
+    // Click Manage tab
+    const manageTabBtn = screen.getByRole("tab", { name: /Manage/i });
+    expect(manageTabBtn).toBeInTheDocument();
+    fireEvent.click(manageTabBtn);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Manage Lesson Plans").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+      expect(screen.getByText("Maya Lin")).toBeInTheDocument();
+    });
+  });
+
+  it("loads student's lesson plans with contextual View, Edit, and Delete action buttons", async () => {
+    render(
+      <MemoryRouter>
+        <ManageLessonPlans />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: /Manage/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("Lucas Vance"));
+
+    await waitFor(() => {
+      expect(lessonPlansAPI.list).toHaveBeenCalledWith({ studentID: 101 });
+      expect(screen.getByText("Self-Regulation Math Lesson")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /View Self-Regulation Math Lesson/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Edit Self-Regulation Math Lesson/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Delete Self-Regulation Math Lesson/i })).toBeInTheDocument();
+    });
+  });
+
+  it("views full plan detail with phases, and provides Back, Edit, and Delete actions", async () => {
+    render(
+      <MemoryRouter>
+        <ManageLessonPlans />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: /Manage/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Lucas Vance"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Self-Regulation Math Lesson")).toBeInTheDocument();
+    });
+
+    // Click View
+    fireEvent.click(screen.getByRole("button", { name: /View Self-Regulation Math Lesson/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Independent Break Request")).toBeInTheDocument();
+      expect(screen.getByText("Review feelings thermometer")).toBeInTheDocument();
+      expect(screen.getByText("Behavioral Skills")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Back to List/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Edit Plan/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Delete Plan/i })).toBeInTheDocument();
+    });
+
+    // Back to list
+    fireEvent.click(screen.getByRole("button", { name: /Back to List/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Self-Regulation Math Lesson")).toBeInTheDocument();
+    });
+  });
+
+  it("edits a lesson plan title and status and persists via update API", async () => {
+    render(
+      <MemoryRouter>
+        <ManageLessonPlans />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: /Manage/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Lucas Vance"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Edit Self-Regulation Math Lesson/i })).toBeInTheDocument();
+    });
+
+    // Click Edit on row
+    fireEvent.click(screen.getByRole("button", { name: /Edit Self-Regulation Math Lesson/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Edit Lesson Plan")).toBeInTheDocument();
+    });
+
+    const titleInput = screen.getByLabelText(/Plan Title/i);
+    fireEvent.change(titleInput, { target: { value: "Updated Math Protocol" } });
+
+    const statusSelect = screen.getByLabelText(/Status/i);
+    fireEvent.change(statusSelect, { target: { value: "Archived" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    await waitFor(() => {
+      expect(lessonPlansAPI.update).toHaveBeenCalledWith(501, {
+        title: "Updated Math Protocol",
+        status: "Archived",
+      });
+      expect(screen.getByText(/Lesson plan saved successfully/i)).toBeInTheDocument();
+      expect(screen.getByText("Updated Math Protocol")).toBeInTheDocument();
+    });
+  });
+
+  it("deletes a lesson plan with confirmation modal and removes from list", async () => {
+    render(
+      <MemoryRouter>
+        <ManageLessonPlans />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: /Manage/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Lucas Vance"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Delete Self-Regulation Math Lesson/i })).toBeInTheDocument();
+    });
+
+    // Click Delete on row
+    fireEvent.click(screen.getByRole("button", { name: /Delete Self-Regulation Math Lesson/i }));
+
+    // Confirmation modal should appear
+    await waitFor(() => {
+      expect(screen.getByText("Delete Lesson Plan?")).toBeInTheDocument();
+      expect(screen.getByText(/You are about to permanently delete/i)).toBeInTheDocument();
+    });
+
+    // Click Cancel first
+    fireEvent.click(screen.getByRole("button", { name: /Cancel/i }));
+    expect(screen.queryByText("Delete Lesson Plan?")).not.toBeInTheDocument();
+    expect(lessonPlansAPI.delete).not.toHaveBeenCalled();
+
+    // Open delete modal again and confirm
+    fireEvent.click(screen.getByRole("button", { name: /Delete Self-Regulation Math Lesson/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Delete Lesson Plan?")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Yes, Delete/i }));
+
+    await waitFor(() => {
+      expect(lessonPlansAPI.delete).toHaveBeenCalledWith(501);
+      expect(screen.getByText(/was deleted/i)).toBeInTheDocument();
+      expect(screen.queryByText("Self-Regulation Math Lesson")).not.toBeInTheDocument();
+    });
+  });
+});

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/ManageTeachingStrategies.css";
 import { iepAPI, teachingStrategiesAPI } from "../api/client";
@@ -6,9 +6,7 @@ import { useAuth } from "../context/AuthContext";
 
 const TABS = [
   { key: "generate", label: "Generate", icon: "✦" },
-  { key: "view", label: "View", icon: "◎" },
-  { key: "edit", label: "Edit", icon: "✏" },
-  { key: "delete", label: "Delete", icon: "⊘" },
+  { key: "manage", label: "Manage", icon: "◎" },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -175,6 +173,9 @@ function formatSavedIepGoal(goal) {
 // ── Strategy Row List ─────────────────────────────────────────────────────────
 function StrategyRowList({
   strategies,
+  onView,
+  onEdit,
+  onDelete,
   actionLabel,
   onAction,
   actionClass = "ts-btn ts-btn-primary",
@@ -183,15 +184,52 @@ function StrategyRowList({
     <div className="ts-strategies-list">
       {strategies.map((s) => (
         <div key={s.strategyID} className="ts-strategy-row">
-          <div className="ts-strategy-row-icon">📄</div>
+          <div className="ts-strategy-row-icon" aria-hidden="true">📄</div>
           <div className="ts-strategy-row-info">
             <p className="ts-strategy-row-title">{s.title}</p>
-            <p className="ts-strategy-row-date">🗓 {s.formattedDate}</p>
+            <p className="ts-strategy-row-date">{s.formattedDate}</p>
           </div>
           <div className="ts-strategy-row-actions">
-            <button className={actionClass} onClick={() => onAction(s)}>
-              {actionLabel}
-            </button>
+            {onView ? (
+              <>
+                <button
+                  type="button"
+                  className="ts-btn ts-btn-primary"
+                  onClick={() => onView(s)}
+                  aria-label={`View ${s.title}`}
+                >
+                  View
+                </button>
+                {onEdit && (
+                  <button
+                    type="button"
+                    className="ts-btn ts-btn-secondary"
+                    onClick={() => onEdit(s)}
+                    aria-label={`Edit ${s.title}`}
+                  >
+                    Edit
+                  </button>
+                )}
+                {onDelete && (
+                  <button
+                    type="button"
+                    className="ts-btn ts-btn-danger"
+                    onClick={() => onDelete(s)}
+                    aria-label={`Delete ${s.title}`}
+                  >
+                    Delete
+                  </button>
+                )}
+              </>
+            ) : (
+              <button
+                type="button"
+                className={actionClass}
+                onClick={() => onAction && onAction(s)}
+              >
+                {actionLabel}
+              </button>
+            )}
           </div>
         </div>
       ))}
@@ -651,12 +689,12 @@ function GenerateTab({ onSave, setActivePage }) {
 }
 
 // ── Strategy Detail View ──────────────────────────────────────────────────────
-function StrategyDetails({ strategy, onBack }) {
+function StrategyDetails({ strategy, onBack, onEdit, onDelete }) {
   return (
     <div className="ts-card">
       <Breadcrumb
         items={[
-          { label: "All Strategies", onClick: onBack },
+          { label: "All Students", onClick: onBack },
           { label: strategy.title },
         ]}
       />
@@ -684,25 +722,45 @@ function StrategyDetails({ strategy, onBack }) {
       </div>
 
       <div className="ts-actions space-between" style={{ marginTop: 20 }}>
-        <button className="ts-btn ts-btn-ghost" onClick={onBack}>
-          ← Back
+        <button type="button" className="ts-btn ts-btn-ghost" onClick={onBack}>
+          ← Back to List
         </button>
-        <a
-          href={teachingStrategiesAPI.exportUrl(strategy.strategyID)}
-          target="_blank"
-          rel="noreferrer"
-          className="ts-btn ts-btn-primary"
-          style={{ textDecoration: "none" }}
-        >
-          ↗ Export PDF
-        </a>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <a
+            href={teachingStrategiesAPI.exportUrl(strategy.strategyID)}
+            target="_blank"
+            rel="noreferrer"
+            className="ts-btn ts-btn-secondary"
+            style={{ textDecoration: "none" }}
+          >
+            Export PDF
+          </a>
+          {onEdit && (
+            <button
+              type="button"
+              className="ts-btn ts-btn-secondary"
+              onClick={() => onEdit(strategy)}
+            >
+              Edit Strategy
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              className="ts-btn ts-btn-danger"
+              onClick={() => onDelete(strategy)}
+            >
+              Delete Strategy
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-// ── View Tab ──────────────────────────────────────────────────────────────────
-function ViewTab({ setActivePage, onGoToGenerate }) {
+// ── Manage Tab (Unified View, Edit, and Delete) ──────────────────────────────
+function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
@@ -710,49 +768,314 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [strategies, setStrategies] = useState([]);
   const [loadingStrats, setLoadingStrats] = useState(false);
-  const [selected, setSelected] = useState(null);
+  const [viewingStrategy, setViewingStrategy] = useState(null);
+  const [editingStrategy, setEditingStrategy] = useState(null);
+  const [formValue, setFormValue] = useState({
+    title: "",
+    strategyContent: "",
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [toDeleteStrategy, setToDeleteStrategy] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
+    let active = true;
     teachingStrategiesAPI
       .getDirectory(user?.id)
-      .then((data) => setDirectory(data.directory || []))
-      .catch(() => setError("Failed to load students."))
-      .finally(() => setLoadingDir(false));
+      .then((data) => {
+        if (active) setDirectory(data?.directory || []);
+      })
+      .catch(() => {
+        if (active) setError("Failed to load students.");
+      })
+      .finally(() => {
+        if (active) setLoadingDir(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [user?.id]);
+
+  const loadStrategiesForStudent = useCallback(async (student) => {
+    setLoadingStrats(true);
+    setError("");
+    try {
+      const data = await teachingStrategiesAPI.list(student.studentID);
+      const rawStrategies = Array.isArray(data)
+        ? data
+        : data?.results || data?.data || [];
+      setStrategies(rawStrategies);
+    } catch {
+      setError("Failed to load strategies.");
+      setStrategies([]);
+    } finally {
+      setLoadingStrats(false);
+    }
+  }, []);
 
   const handleSelectStudent = (s) => {
     setSelectedStudent(s);
-    setLoadingStrats(true);
-    teachingStrategiesAPI
-      .list(s.studentID)
-      .then(setStrategies)
-      .catch(() => setError("Failed to load strategies."))
-      .finally(() => setLoadingStrats(false));
+    setViewingStrategy(null);
+    setEditingStrategy(null);
+    setToDeleteStrategy(null);
+    setError("");
+    setSuccessMessage("");
+    loadStrategiesForStudent(s);
   };
 
-  if (selected)
-    return (
-      <StrategyDetails strategy={selected} onBack={() => setSelected(null)} />
-    );
+  const handleBackToStudents = () => {
+    setSelectedStudent(null);
+    setStrategies([]);
+    setViewingStrategy(null);
+    setEditingStrategy(null);
+    setToDeleteStrategy(null);
+    setError("");
+    setSuccessMessage("");
+  };
 
+  const handleBackToList = () => {
+    setViewingStrategy(null);
+    setEditingStrategy(null);
+    setError("");
+    setSuccessMessage("");
+  };
+
+  const handleOpenEdit = (strategy) => {
+    setEditingStrategy(strategy);
+    setFormValue({
+      title: strategy.title || "",
+      strategyContent: strategy.strategyContent || "",
+    });
+    setError("");
+    setSuccessMessage("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingStrategy) return;
+    if (!formValue.title.trim() || !formValue.strategyContent.trim()) {
+      setError("Title and strategy content are both required.");
+      return;
+    }
+
+    setSavingEdit(true);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      await teachingStrategiesAPI.update(editingStrategy.strategyID, formValue);
+      const updatedStrategy = { ...editingStrategy, ...formValue };
+
+      setStrategies((prev) =>
+        prev.map((s) =>
+          s.strategyID === editingStrategy.strategyID ? updatedStrategy : s
+        )
+      );
+
+      if (viewingStrategy?.strategyID === editingStrategy.strategyID) {
+        setViewingStrategy(updatedStrategy);
+      }
+
+      setSuccessMessage("Teaching strategy saved successfully.");
+      setEditingStrategy(null);
+    } catch (err) {
+      setError(err.message || "Failed to update strategy.");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!toDeleteStrategy) return;
+    setDeleting(true);
+    setError("");
+
+    try {
+      await teachingStrategiesAPI.delete(toDeleteStrategy.strategyID);
+      setStrategies((prev) =>
+        prev.filter((s) => s.strategyID !== toDeleteStrategy.strategyID)
+      );
+
+      if (viewingStrategy?.strategyID === toDeleteStrategy.strategyID) {
+        setViewingStrategy(null);
+      }
+
+      if (editingStrategy?.strategyID === toDeleteStrategy.strategyID) {
+        setEditingStrategy(null);
+      }
+
+      setSuccessMessage(
+        `Teaching strategy "${toDeleteStrategy.title}" was deleted.`
+      );
+      setToDeleteStrategy(null);
+    } catch (err) {
+      setError(err.message || "Failed to delete strategy.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const filteredStudents = directory.filter((s) =>
+    (s.studentName || "")
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
+
+  // Screen 4: Edit Mode
+  if (editingStrategy) {
+    return (
+      <div className="ts-card">
+        <Breadcrumb
+          items={[
+            { label: "All Students", onClick: handleBackToStudents },
+            {
+              label: selectedStudent?.studentName || "Student",
+              onClick: handleBackToList,
+            },
+            ...(viewingStrategy
+              ? [
+                  {
+                    label: viewingStrategy.title || "Teaching Strategy",
+                    onClick: () => setEditingStrategy(null),
+                  },
+                ]
+              : []),
+            { label: "Edit Strategy" },
+          ]}
+        />
+        <div className="ts-card-header">
+          <div className="ts-card-icon" aria-hidden="true">✏</div>
+          <div>
+            <p className="ts-card-title">Edit Teaching Strategy</p>
+            <p className="ts-card-subtitle">Make changes and save</p>
+          </div>
+        </div>
+        <ErrorBanner message={error} />
+        {successMessage && (
+          <div className="ts-success-msg" role="status">
+            {successMessage}
+          </div>
+        )}
+        <div className="ts-form-group">
+          <label htmlFor="ts-edit-title" className="ts-form-label">
+            Strategy Title
+          </label>
+          <input
+            id="ts-edit-title"
+            className="ts-form-input"
+            value={formValue.title}
+            onChange={(e) =>
+              setFormValue((prev) => ({ ...prev, title: e.target.value }))
+            }
+          />
+        </div>
+        <div className="ts-form-group">
+          <label htmlFor="ts-edit-content" className="ts-form-label">
+            Strategy Content
+          </label>
+          <textarea
+            id="ts-edit-content"
+            className="ts-form-textarea"
+            rows={8}
+            value={formValue.strategyContent}
+            onChange={(e) =>
+              setFormValue((prev) => ({
+                ...prev,
+                strategyContent: e.target.value,
+              }))
+            }
+          />
+        </div>
+        <div className="ts-actions space-between" style={{ marginTop: 24 }}>
+          <button
+            type="button"
+            className="ts-btn ts-btn-ghost"
+            onClick={() => setEditingStrategy(null)}
+            disabled={savingEdit}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="ts-btn ts-btn-primary"
+            onClick={handleSaveEdit}
+            disabled={
+              savingEdit ||
+              !formValue.title.trim() ||
+              !formValue.strategyContent.trim()
+            }
+          >
+            {savingEdit ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Screen 3: Detail View
+  if (viewingStrategy) {
+    return (
+      <>
+        <StrategyDetails
+          strategy={viewingStrategy}
+          onBack={handleBackToList}
+          onEdit={() => handleOpenEdit(viewingStrategy)}
+          onDelete={() => setToDeleteStrategy(viewingStrategy)}
+        />
+        {toDeleteStrategy && (
+          <div
+            className="ts-modal-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ts-modal-title"
+          >
+            <div className="ts-modal">
+              <div className="ts-modal-icon" aria-hidden="true">⊘</div>
+              <p id="ts-modal-title" className="ts-modal-title">Delete Strategy?</p>
+              <p className="ts-modal-body">
+                You are about to permanently delete{" "}
+                <strong>"{toDeleteStrategy?.title}"</strong>. This action cannot
+                be undone.
+              </p>
+              <div className="ts-modal-actions">
+                <button
+                  type="button"
+                  className="ts-btn ts-btn-ghost"
+                  onClick={() => setToDeleteStrategy(null)}
+                  disabled={deleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="ts-btn ts-btn-danger-solid"
+                  onClick={handleConfirmDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting…" : "Yes, Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // Screen 2: Strategies list for student
   if (selectedStudent) {
     return (
       <div className="ts-card">
         <Breadcrumb
           items={[
-            {
-              label: "All Students",
-              onClick: () => {
-                setSelectedStudent(null);
-                setStrategies([]);
-              },
-            },
+            { label: "All Students", onClick: handleBackToStudents },
             { label: selectedStudent.studentName },
           ]}
         />
         <div className="ts-card-header">
-          <div className="ts-card-icon">📚</div>
+          <div className="ts-card-icon" aria-hidden="true">📚</div>
           <div>
             <p className="ts-card-title">Teaching Strategies</p>
             <p className="ts-card-subtitle">
@@ -761,6 +1084,11 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
           </div>
         </div>
         <ErrorBanner message={error} />
+        {successMessage && (
+          <div className="ts-success-msg" role="status">
+            {successMessage}
+          </div>
+        )}
         {loadingStrats ? (
           <Loading text="Loading strategies…" />
         ) : strategies.length === 0 ? (
@@ -775,417 +1103,40 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
         ) : (
           <StrategyRowList
             strategies={strategies}
-            actionLabel="View"
-            onAction={(s) => setSelected(s)}
-            actionClass="ts-btn ts-btn-primary"
+            onView={(s) => setViewingStrategy(s)}
+            onEdit={(s) => handleOpenEdit(s)}
+            onDelete={(s) => setToDeleteStrategy(s)}
           />
         )}
-      </div>
-    );
-  }
 
-  return (
-    <div className="ts-card">
-      <div className="ts-card-header">
-        <div className="ts-card-icon">📚</div>
-        <div>
-          <p className="ts-card-title">Saved Teaching Strategies</p>
-          <p className="ts-card-subtitle">
-            Select a student to view their strategies
-          </p>
-        </div>
-      </div>
-      <ErrorBanner message={error} />
-      {loadingDir ? (
-        <Loading text="Fetching students…" />
-      ) : directory.length === 0 ? (
-        <EmptyState
-          icon="🏫"
-          message="No students found."
-          description="Register a student profile first to view and manage teaching strategies."
-          actionLabel="Create Student Profile"
-          actionIcon="👤"
-          onAction={() => {
-            navigate("/dashboard/students/create");
-            if (setActivePage) setActivePage("create-student-profile");
-          }}
-        />
-      ) : (
-        <div className="ts-student-grid">
-          {directory.map((s) => (
-            <div
-              key={s.studentID}
-              className="ts-student-card"
-              onClick={() => handleSelectStudent(s)}
-            >
-              <div className="ts-avatar">{getInitials(s.studentName)}</div>
-              <div className="ts-student-meta">
-                <div className="ts-student-name">{s.studentName}</div>
-                <span className="ts-student-tag">Student</span>
-              </div>
-              <div className="ts-student-check" />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Edit Tab ──────────────────────────────────────────────────────────────────
-function EditTab({ setActivePage, onGoToGenerate }) {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const [directory, setDirectory] = useState([]);
-  const [loadingDir, setLoadingDir] = useState(true);
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [strategies, setStrategies] = useState([]);
-  const [loadingStrats, setLoadingStrats] = useState(false);
-  const [selected, setSelected] = useState(null);
-  const [form, setForm] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
-
-  useEffect(() => {
-    teachingStrategiesAPI
-      .getDirectory(user?.id)
-      .then((data) => setDirectory(data.directory || []))
-      .catch(() => setError("Failed to load students."))
-      .finally(() => setLoadingDir(false));
-  }, [user?.id]);
-
-  const handleSelectStudent = (s) => {
-    setSelectedStudent(s);
-    setLoadingStrats(true);
-    teachingStrategiesAPI
-      .list(s.studentID)
-      .then(setStrategies)
-      .catch(() => setError("Failed to load strategies."))
-      .finally(() => setLoadingStrats(false));
-  };
-
-  const openEdit = (strategy) => {
-    setSelected(strategy);
-    setForm({
-      title: strategy.title,
-      strategyContent: strategy.strategyContent,
-    });
-    setError("");
-    setSuccess(false);
-  };
-
-  const saveEdit = async () => {
-    if (!form.title || !form.strategyContent) {
-      setError("Please fill out all fields.");
-      return;
-    }
-    setSaving(true);
-    setError("");
-    setSuccess(false);
-
-    try {
-      await teachingStrategiesAPI.update(selected.strategyID, form);
-      setSuccess(true);
-      teachingStrategiesAPI
-        .list(selectedStudent.studentID)
-        .then(setStrategies);
-      setTimeout(() => {
-        setSelected(null);
-        setForm(null);
-      }, 1000);
-    } catch (err) {
-      setError(err.message || "Failed to update strategy.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Edit form
-  if (selected && form) {
-    return (
-      <div className="ts-card">
-        <Breadcrumb
-          items={[
-            {
-              label: "All Strategies",
-              onClick: () => {
-                setSelected(null);
-                setForm(null);
-              },
-            },
-            { label: "Edit Strategy" },
-          ]}
-        />
-        <div className="ts-card-header">
-          <div className="ts-card-icon">✏️</div>
-          <div>
-            <p className="ts-card-title">Edit Teaching Strategy</p>
-            <p className="ts-card-subtitle">Make changes and save</p>
-          </div>
-        </div>
-        <ErrorBanner message={error} />
-        {success && (
-          <div className="ts-success-msg">✅ Strategy saved successfully!</div>
-        )}
-
-        <div className="ts-form-group">
-          <label htmlFor="ts-edit-title" className="ts-form-label">
-            Strategy Title
-          </label>
-          <input
-            id="ts-edit-title"
-            className="ts-form-input"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-          />
-        </div>
-        <div className="ts-form-group">
-          <label htmlFor="ts-edit-content" className="ts-form-label">
-            Strategy Content
-          </label>
-          <textarea
-            id="ts-edit-content"
-            className="ts-form-textarea"
-            value={form.strategyContent}
-            onChange={(e) =>
-              setForm({ ...form, strategyContent: e.target.value })
-            }
-          />
-        </div>
-
-        <div className="ts-actions space-between" style={{ marginTop: 8 }}>
-          <button
-            className="ts-btn ts-btn-ghost"
-            onClick={() => {
-              setSelected(null);
-              setForm(null);
-            }}
+        {toDeleteStrategy && (
+          <div
+            className="ts-modal-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ts-modal-title"
           >
-            ← Back
-          </button>
-          <button
-            className="ts-btn ts-btn-primary"
-            onClick={saveEdit}
-            disabled={saving}
-          >
-            {saving ? "Saving…" : "💾 Save Changes"}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Strategy list for student
-  if (selectedStudent) {
-    return (
-      <div className="ts-card">
-        <Breadcrumb
-          items={[
-            {
-              label: "All Students",
-              onClick: () => {
-                setSelectedStudent(null);
-                setStrategies([]);
-              },
-            },
-            { label: selectedStudent.studentName },
-          ]}
-        />
-        <div className="ts-card-header">
-          <div className="ts-card-icon">✏️</div>
-          <div>
-            <p className="ts-card-title">Teaching Strategies</p>
-            <p className="ts-card-subtitle">
-              For {selectedStudent.studentName}
-            </p>
-          </div>
-        </div>
-        <ErrorBanner message={error} />
-        {loadingStrats ? (
-          <Loading text="Loading strategies…" />
-        ) : strategies.length === 0 ? (
-          <EmptyState
-            icon="📭"
-            message="No teaching strategies found for this student."
-            description="You don't have any strategies to edit for this student yet."
-            actionLabel="Generate Strategy"
-            actionIcon="✦"
-            onAction={onGoToGenerate}
-          />
-        ) : (
-          <StrategyRowList
-            strategies={strategies}
-            actionLabel="Edit"
-            onAction={openEdit}
-            actionClass="ts-btn ts-btn-secondary"
-          />
-        )}
-      </div>
-    );
-  }
-
-  // Student list
-  return (
-    <div className="ts-card">
-      <div className="ts-card-header">
-        <div className="ts-card-icon">✏️</div>
-        <div>
-          <p className="ts-card-title">Edit Teaching Strategies</p>
-          <p className="ts-card-subtitle">
-            Select a student to edit their strategies
-          </p>
-        </div>
-      </div>
-      <ErrorBanner message={error} />
-      {loadingDir ? (
-        <Loading text="Fetching students…" />
-      ) : directory.length === 0 ? (
-        <EmptyState
-          icon="🏫"
-          message="No students found."
-          description="Register a student profile first to manage teaching strategies."
-          actionLabel="Create Student Profile"
-          actionIcon="👤"
-          onAction={() => {
-            navigate("/dashboard/students/create");
-            if (setActivePage) setActivePage("create-student-profile");
-          }}
-        />
-      ) : (
-        <div className="ts-student-grid">
-          {directory.map((s) => (
-            <div
-              key={s.studentID}
-              className="ts-student-card"
-              onClick={() => handleSelectStudent(s)}
-            >
-              <div className="ts-avatar">{getInitials(s.studentName)}</div>
-              <div className="ts-student-meta">
-                <div className="ts-student-name">{s.studentName}</div>
-                <span className="ts-student-tag">Student</span>
-              </div>
-              <div className="ts-student-check" />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Delete Tab ────────────────────────────────────────────────────────────────
-function DeleteTab({ setActivePage, onGoToGenerate }) {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const [directory, setDirectory] = useState([]);
-  const [loadingDir, setLoadingDir] = useState(true);
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [strategies, setStrategies] = useState([]);
-  const [loadingStrats, setLoadingStrats] = useState(false);
-  const [toDelete, setToDelete] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    teachingStrategiesAPI
-      .getDirectory(user?.id)
-      .then((data) => setDirectory(data.directory || []))
-      .catch(() => setError("Failed to load students."))
-      .finally(() => setLoadingDir(false));
-  }, [user?.id]);
-
-  const handleSelectStudent = (s) => {
-    setSelectedStudent(s);
-    setLoadingStrats(true);
-    teachingStrategiesAPI
-      .list(s.studentID)
-      .then(setStrategies)
-      .catch(() => setError("Failed to load strategies."))
-      .finally(() => setLoadingStrats(false));
-  };
-
-  const confirmDelete = async () => {
-    if (!toDelete) return;
-    setDeleting(true);
-    try {
-      await teachingStrategiesAPI.delete(toDelete);
-      setStrategies((prev) => prev.filter((s) => s.strategyID !== toDelete));
-      setToDelete(null);
-    } catch (err) {
-      setError(err.message || "Failed to delete strategy.");
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const item = strategies.find((s) => s.strategyID === toDelete);
-
-  if (selectedStudent) {
-    return (
-      <div className="ts-card">
-        <Breadcrumb
-          items={[
-            {
-              label: "All Students",
-              onClick: () => {
-                setSelectedStudent(null);
-                setStrategies([]);
-              },
-            },
-            { label: selectedStudent.studentName },
-          ]}
-        />
-        <div className="ts-card-header">
-          <div className="ts-card-icon">🗑️</div>
-          <div>
-            <p className="ts-card-title">Delete Teaching Strategies</p>
-            <p className="ts-card-subtitle">
-              For {selectedStudent.studentName}
-            </p>
-          </div>
-        </div>
-        <ErrorBanner message={error} />
-        {loadingStrats ? (
-          <Loading text="Loading strategies…" />
-        ) : strategies.length === 0 ? (
-          <EmptyState
-            icon="📭"
-            message="No teaching strategies to delete for this student."
-            description="There are currently no teaching strategies recorded for this student."
-            actionLabel="Generate Strategy"
-            actionIcon="✦"
-            onAction={onGoToGenerate}
-          />
-        ) : (
-          <StrategyRowList
-            strategies={strategies}
-            actionLabel="Delete"
-            onAction={(s) => setToDelete(s.strategyID)}
-            actionClass="ts-btn ts-btn-danger"
-          />
-        )}
-
-        {toDelete && (
-          <div className="ts-modal-overlay">
             <div className="ts-modal">
-              <div className="ts-modal-icon">🗑️</div>
-              <p className="ts-modal-title">Delete Strategy?</p>
+              <div className="ts-modal-icon" aria-hidden="true">⊘</div>
+              <p id="ts-modal-title" className="ts-modal-title">Delete Strategy?</p>
               <p className="ts-modal-body">
-                You're about to permanently delete{" "}
-                <strong>"{item?.title}"</strong>. This action cannot be undone.
+                You are about to permanently delete{" "}
+                <strong>"{toDeleteStrategy?.title}"</strong>. This action cannot
+                be undone.
               </p>
               <div className="ts-modal-actions">
                 <button
+                  type="button"
                   className="ts-btn ts-btn-ghost"
-                  onClick={() => setToDelete(null)}
+                  onClick={() => setToDeleteStrategy(null)}
                   disabled={deleting}
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
                   className="ts-btn ts-btn-danger-solid"
-                  onClick={confirmDelete}
+                  onClick={handleConfirmDelete}
                   disabled={deleting}
                 >
                   {deleting ? "Deleting…" : "Yes, Delete"}
@@ -1198,35 +1149,60 @@ function DeleteTab({ setActivePage, onGoToGenerate }) {
     );
   }
 
+  // Screen 1: Student selection
   return (
     <div className="ts-card">
       <div className="ts-card-header">
-        <div className="ts-card-icon">🗑️</div>
+        <div className="ts-card-icon" aria-hidden="true">📚</div>
         <div>
-          <p className="ts-card-title">Delete Teaching Strategies</p>
+          <p className="ts-card-title">Manage Teaching Strategies</p>
           <p className="ts-card-subtitle">
-            Select a student to manage their strategies
+            Select a student to view, edit, or delete their strategies
           </p>
         </div>
       </div>
       <ErrorBanner message={error} />
+      {successMessage && (
+        <div className="ts-success-msg" role="status">
+          {successMessage}
+        </div>
+      )}
+
+      <div style={{ marginBottom: 16 }}>
+        <input
+          aria-label="Search students"
+          className="ts-form-input"
+          placeholder="Search students…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
       {loadingDir ? (
         <Loading text="Fetching students…" />
-      ) : directory.length === 0 ? (
+      ) : filteredStudents.length === 0 ? (
         <EmptyState
           icon="🏫"
-          message="No students found."
-          description="Register a student profile first to manage teaching strategies."
-          actionLabel="Create Student Profile"
-          actionIcon="👤"
+          message={search ? "No students match your search." : "No students found."}
+          description={
+            search
+              ? "Try adjusting your search query."
+              : "Register a student profile first to view and manage teaching strategies."
+          }
+          actionLabel={search ? "Clear Search" : "Create Student Profile"}
+          actionIcon={search ? "✕" : "👤"}
           onAction={() => {
-            navigate("/dashboard/students/create");
-            if (setActivePage) setActivePage("create-student-profile");
+            if (search) {
+              setSearch("");
+            } else {
+              navigate("/dashboard/students/create");
+              if (setActivePage) setActivePage("create-student-profile");
+            }
           }}
         />
       ) : (
         <div className="ts-student-grid">
-          {directory.map((s) => (
+          {filteredStudents.map((s) => (
             <div
               key={s.studentID}
               className="ts-student-card"
@@ -1255,6 +1231,12 @@ export default function ManageTeachingStrategies({ setActivePage }) {
     if (strategy) setStrategies((prev) => [strategy, ...prev]);
   };
 
+  const isManageTab =
+    activeTab === "manage" ||
+    activeTab === "view" ||
+    activeTab === "edit" ||
+    activeTab === "delete";
+
   return (
     <div className="page-content ts-page">
       {/* Hero + tabs */}
@@ -1273,17 +1255,24 @@ export default function ManageTeachingStrategies({ setActivePage }) {
           </div>
         </div>
 
-        <div className="ts-tab-bar">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              className={`ts-tab-btn ${activeTab === tab.key ? "active" : ""}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              <span className="ts-tab-icon">{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
+        <div className="ts-tab-bar" role="tablist">
+          {TABS.map((tab) => {
+            const isActive =
+              activeTab === tab.key ||
+              (tab.key === "manage" && isManageTab && activeTab !== "generate");
+            return (
+              <button
+                key={tab.key}
+                role="tab"
+                aria-selected={isActive}
+                className={`ts-tab-btn ${isActive ? "active" : ""}`}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                <span className="ts-tab-icon">{tab.icon}</span>
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -1295,20 +1284,8 @@ export default function ManageTeachingStrategies({ setActivePage }) {
             setActivePage={setActivePage}
           />
         )}
-        {activeTab === "view" && (
-          <ViewTab
-            setActivePage={setActivePage}
-            onGoToGenerate={() => setActiveTab("generate")}
-          />
-        )}
-        {activeTab === "edit" && (
-          <EditTab
-            setActivePage={setActivePage}
-            onGoToGenerate={() => setActiveTab("generate")}
-          />
-        )}
-        {activeTab === "delete" && (
-          <DeleteTab
+        {isManageTab && (
+          <ManageStrategiesTab
             setActivePage={setActivePage}
             onGoToGenerate={() => setActiveTab("generate")}
           />

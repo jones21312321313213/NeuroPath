@@ -7,9 +7,7 @@ import { useAuth } from "../context/AuthContext";
 
 const TABS = [
   { key: "generate", label: "Generate", icon: "✦" },
-  { key: "view", label: "View", icon: "◎" },
-  { key: "edit", label: "Edit", icon: "✏" },
-  { key: "delete", label: "Delete", icon: "⊘" },
+  { key: "manage", label: "Manage", icon: "◎" },
 ];
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -194,9 +192,12 @@ function LessonPhaseBlock({ plan, index, total }) {
   );
 }
 
-// Plan row list (shared between View / Edit / Delete tabs)
+// Plan row list with contextual View, Edit, and Delete actions
 function PlanRowList({
   plans,
+  onView,
+  onEdit,
+  onDelete,
   actionLabel,
   onAction,
   actionClass = "ts-btn ts-btn-primary",
@@ -205,16 +206,16 @@ function PlanRowList({
     <div className="ts-strategies-list">
       {plans.map((plan) => (
         <div key={plan.lessonID} className="ts-strategy-row">
-          <div className="ts-strategy-row-icon">📋</div>
+          <div className="ts-strategy-row-icon" aria-hidden="true">📋</div>
           <div className="ts-strategy-row-info">
             <p className="ts-strategy-row-title">{plan.title}</p>
             <p className="ts-strategy-row-date">
-              👤 {plan.studentName}
+              <span>{plan.studentName}</span>
               {plan.dateCreated && (
                 <>
                   {" "}
-                  &nbsp;·&nbsp; 🗓{" "}
-                  {new Date(plan.dateCreated).toLocaleDateString()}
+                  &nbsp;·&nbsp;{" "}
+                  <span>{new Date(plan.dateCreated).toLocaleDateString()}</span>
                 </>
               )}
               {plan.status && (
@@ -226,9 +227,46 @@ function PlanRowList({
             </p>
           </div>
           <div className="ts-strategy-row-actions">
-            <button className={actionClass} onClick={() => onAction(plan)}>
-              {actionLabel}
-            </button>
+            {onView ? (
+              <>
+                <button
+                  type="button"
+                  className="ts-btn ts-btn-primary"
+                  onClick={() => onView(plan)}
+                  aria-label={`View ${plan.title}`}
+                >
+                  View
+                </button>
+                {onEdit && (
+                  <button
+                    type="button"
+                    className="ts-btn ts-btn-secondary"
+                    onClick={() => onEdit(plan)}
+                    aria-label={`Edit ${plan.title}`}
+                  >
+                    Edit
+                  </button>
+                )}
+                {onDelete && (
+                  <button
+                    type="button"
+                    className="ts-btn ts-btn-danger"
+                    onClick={() => onDelete(plan)}
+                    aria-label={`Delete ${plan.title}`}
+                  >
+                    Delete
+                  </button>
+                )}
+              </>
+            ) : (
+              <button
+                type="button"
+                className={actionClass}
+                onClick={() => onAction && onAction(plan)}
+              >
+                {actionLabel}
+              </button>
+            )}
           </div>
         </div>
       ))}
@@ -760,8 +798,8 @@ function GenerateTab({ onSave, setActivePage }) {
   );
 }
 
-// ── View Tab ──────────────────────────────────────────────────────────────────
-function ViewTab({ setActivePage, onGoToGenerate }) {
+// ── Manage Tab (Unified View, Edit, and Delete) ──────────────────────────────
+function ManagePlansTab({ setActivePage, onGoToGenerate }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [students, setStudents] = useState([]);
@@ -770,41 +808,256 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
   const [plans, setPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [viewingPlan, setViewingPlan] = useState(null);
+  const [editingPlan, setEditingPlan] = useState(null);
+  const [formValue, setFormValue] = useState({ title: "", status: "Draft" });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [toDeletePlan, setToDeletePlan] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [search, setSearch] = useState("");
   const [filterGrade, setFilterGrade] = useState("");
   const [filterAge, setFilterAge] = useState("");
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
+    let active = true;
     studentsAPI
       .list(user?.id)
-      .then(setStudents)
-      .catch(() => setError("Failed to load students."))
-      .finally(() => setLoadingStudents(false));
+      .then((data) => {
+        if (active) {
+          const studentList = Array.isArray(data)
+            ? data
+            : data?.results || data?.data || [];
+          setStudents(studentList);
+        }
+      })
+      .catch(() => {
+        if (active) setError("Failed to load students.");
+      })
+      .finally(() => {
+        if (active) setLoadingStudents(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [user?.id]);
+
+  const loadPlansForStudent = useCallback(async (student) => {
+    setLoadingPlans(true);
+    setError("");
+    try {
+      const res = await lessonPlansAPI.list({ studentID: student.studentID });
+      const rawPlans = Array.isArray(res)
+        ? res
+        : res?.results || res?.data || [];
+      setPlans(rawPlans);
+    } catch {
+      setError("Failed to load lesson plans.");
+      setPlans([]);
+    } finally {
+      setLoadingPlans(false);
+    }
+  }, []);
 
   const handleSelectStudent = (s) => {
     setSelectedStudent(s);
-    setLoadingPlans(true);
-    lessonPlansAPI
-      .list({ studentID: s.studentID })
-      .then(setPlans)
-      .catch(() => setError("Failed to load lesson plans."))
-      .finally(() => setLoadingPlans(false));
+    setViewingPlan(null);
+    setEditingPlan(null);
+    setToDeletePlan(null);
+    setError("");
+    setSuccessMessage("");
+    loadPlansForStudent(s);
+  };
+
+  const handleBackToStudents = () => {
+    setSelectedStudent(null);
+    setPlans([]);
+    setViewingPlan(null);
+    setEditingPlan(null);
+    setToDeletePlan(null);
+    setError("");
+    setSuccessMessage("");
+  };
+
+  const handleBackToList = () => {
+    setViewingPlan(null);
+    setEditingPlan(null);
+    setError("");
+    setSuccessMessage("");
+  };
+
+  const handleOpenEdit = (plan) => {
+    setEditingPlan(plan);
+    setFormValue({
+      title: plan.title || "",
+      status: plan.status || "Draft",
+    });
+    setError("");
+    setSuccessMessage("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingPlan) return;
+    if (!formValue.title.trim()) {
+      setError("Plan title is required.");
+      return;
+    }
+
+    setSavingEdit(true);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      await lessonPlansAPI.update(editingPlan.lessonID, formValue);
+      const updatedPlan = { ...editingPlan, ...formValue };
+
+      setPlans((prev) =>
+        prev.map((p) =>
+          p.lessonID === editingPlan.lessonID ? updatedPlan : p
+        )
+      );
+
+      if (viewingPlan?.lessonID === editingPlan.lessonID) {
+        setViewingPlan(updatedPlan);
+      }
+
+      setSuccessMessage("Lesson plan saved successfully.");
+      setEditingPlan(null);
+    } catch (err) {
+      setError(err.message || "Failed to update lesson plan.");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!toDeletePlan) return;
+    setDeleting(true);
+    setError("");
+
+    try {
+      await lessonPlansAPI.delete(toDeletePlan.lessonID);
+      setPlans((prev) =>
+        prev.filter((p) => p.lessonID !== toDeletePlan.lessonID)
+      );
+
+      if (viewingPlan?.lessonID === toDeletePlan.lessonID) {
+        setViewingPlan(null);
+      }
+
+      if (editingPlan?.lessonID === toDeletePlan.lessonID) {
+        setEditingPlan(null);
+      }
+
+      setSuccessMessage(`Lesson plan "${toDeletePlan.title}" was deleted.`);
+      setToDeletePlan(null);
+    } catch (err) {
+      setError(err.message || "Failed to delete lesson plan.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const filteredStudents = students.filter((s) => {
-    const matchName = (s.name || "")
+    const matchName = (s.name || s.studentName || "")
       .toLowerCase()
       .includes(search.toLowerCase());
-    const matchGrade = filterGrade ? s.grade === parseInt(filterGrade) : true;
-    const matchAge = filterAge ? s.age === parseInt(filterAge) : true;
+    const matchGrade = filterGrade
+      ? Number(s.grade) === Number(filterGrade)
+      : true;
+    const matchAge = filterAge ? Number(s.age) === Number(filterAge) : true;
     return matchName && matchGrade && matchAge;
   });
 
-  // Screen 3: Detail view
+  // Screen 4: Edit Mode
+  if (editingPlan) {
+    return (
+      <div className="ts-card">
+        <Breadcrumb
+          items={[
+            { label: "All Students", onClick: handleBackToStudents },
+            {
+              label: selectedStudent?.name || "Student",
+              onClick: handleBackToList,
+            },
+            ...(viewingPlan
+              ? [
+                  {
+                    label: viewingPlan.title || "Lesson Plan",
+                    onClick: () => setEditingPlan(null),
+                  },
+                ]
+              : []),
+            { label: "Edit Plan" },
+          ]}
+        />
+        <div className="ts-card-header">
+          <div className="ts-card-icon" aria-hidden="true">✏</div>
+          <div>
+            <p className="ts-card-title">Edit Lesson Plan</p>
+            <p className="ts-card-subtitle">Make changes and save</p>
+          </div>
+        </div>
+        <ErrorBanner message={error} />
+        {successMessage && (
+          <div className="ts-success-msg" role="status">
+            {successMessage}
+          </div>
+        )}
+        <div className="ts-form-group">
+          <label htmlFor="lp-edit-title" className="ts-form-label">
+            Plan Title
+          </label>
+          <input
+            id="lp-edit-title"
+            className="ts-form-input"
+            value={formValue.title}
+            onChange={(e) =>
+              setFormValue((prev) => ({ ...prev, title: e.target.value }))
+            }
+          />
+        </div>
+        <div className="ts-form-group">
+          <label htmlFor="lp-edit-status" className="ts-form-label">
+            Status
+          </label>
+          <select
+            id="lp-edit-status"
+            className="ts-form-input"
+            value={formValue.status}
+            onChange={(e) =>
+              setFormValue((prev) => ({ ...prev, status: e.target.value }))
+            }
+          >
+            <option value="Draft">Draft</option>
+            <option value="Active">Active</option>
+            <option value="Archived">Archived</option>
+          </select>
+        </div>
+        <div className="ts-actions space-between" style={{ marginTop: 24 }}>
+          <button
+            type="button"
+            className="ts-btn ts-btn-ghost"
+            onClick={() => setEditingPlan(null)}
+            disabled={savingEdit}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="ts-btn ts-btn-primary"
+            onClick={handleSaveEdit}
+            disabled={savingEdit || !formValue.title.trim()}
+          >
+            {savingEdit ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Screen 3: Detail View
   if (viewingPlan) {
-    // 🎯 Hyper-resilient JSON parser
     let lessonsArray = [];
     try {
       let rawText = viewingPlan.lessonContent || viewingPlan.content || "{}";
@@ -821,31 +1074,27 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
       <div className="ts-card">
         <Breadcrumb
           items={[
-            {
-              label: "All Students",
-              onClick: () => {
-                setViewingPlan(null);
-                setSelectedStudent(null);
-              },
-            },
+            { label: "All Students", onClick: handleBackToStudents },
             {
               label: selectedStudent?.name || "Student",
-              onClick: () => setViewingPlan(null),
+              onClick: handleBackToList,
             },
             { label: viewingPlan.title || "Lesson Plan" },
           ]}
         />
         <div className="ts-card-header">
-          <div className="ts-card-icon">📋</div>
+          <div className="ts-card-icon" aria-hidden="true">📋</div>
           <div>
             <p className="ts-card-title">{viewingPlan.title}</p>
             <p className="ts-card-subtitle">
-              👤 {viewingPlan.studentName}
+              <span>{viewingPlan.studentName || selectedStudent?.name}</span>
               {viewingPlan.dateCreated && (
                 <>
                   {" "}
-                  &nbsp;·&nbsp; 🗓{" "}
-                  {new Date(viewingPlan.dateCreated).toLocaleDateString()}
+                  &nbsp;·&nbsp;{" "}
+                  <span>
+                    {new Date(viewingPlan.dateCreated).toLocaleDateString()}
+                  </span>
                 </>
               )}
               {viewingPlan.status && (
@@ -857,6 +1106,13 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
             </p>
           </div>
         </div>
+
+        <ErrorBanner message={error} />
+        {successMessage && (
+          <div className="ts-success-msg" role="status">
+            {successMessage}
+          </div>
+        )}
 
         <div className="lp-goal-area-display" style={{ marginBottom: 24 }}>
           <span className="lp-goal-area-label">Target IEP Goal Area</span>
@@ -893,40 +1149,95 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
 
         <div className="ts-actions space-between" style={{ marginTop: 20 }}>
           <button
+            type="button"
             className="ts-btn ts-btn-ghost"
-            onClick={() => setViewingPlan(null)}
+            onClick={handleBackToList}
           >
             ← Back to List
           </button>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="ts-btn ts-btn-secondary"
+              onClick={() => handleOpenEdit(viewingPlan)}
+            >
+              Edit Plan
+            </button>
+            <button
+              type="button"
+              className="ts-btn ts-btn-danger"
+              onClick={() => setToDeletePlan(viewingPlan)}
+            >
+              Delete Plan
+            </button>
+          </div>
         </div>
+
+        {toDeletePlan && (
+          <div
+            className="ts-modal-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lp-modal-title"
+          >
+            <div className="ts-modal">
+              <div className="ts-modal-icon" aria-hidden="true">⊘</div>
+              <p id="lp-modal-title" className="ts-modal-title">Delete Lesson Plan?</p>
+              <p className="ts-modal-body">
+                You are about to permanently delete{" "}
+                <strong>"{toDeletePlan?.title}"</strong>. This action cannot be
+                undone.
+              </p>
+              <div className="ts-modal-actions">
+                <button
+                  type="button"
+                  className="ts-btn ts-btn-ghost"
+                  onClick={() => setToDeletePlan(null)}
+                  disabled={deleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="ts-btn ts-btn-danger-solid"
+                  onClick={handleConfirmDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting…" : "Yes, Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  // Screen 2: Plan list for student
+  // Screen 2: Plan list for selected student
   if (selectedStudent) {
     return (
       <div className="ts-card">
         <Breadcrumb
           items={[
-            {
-              label: "All Students",
-              onClick: () => {
-                setSelectedStudent(null);
-                setPlans([]);
-              },
-            },
-            { label: selectedStudent.name },
+            { label: "All Students", onClick: handleBackToStudents },
+            { label: selectedStudent.name || selectedStudent.studentName },
           ]}
         />
         <div className="ts-card-header">
-          <div className="ts-card-icon">📚</div>
+          <div className="ts-card-icon" aria-hidden="true">📚</div>
           <div>
             <p className="ts-card-title">Lesson Plans</p>
-            <p className="ts-card-subtitle">For {selectedStudent.name}</p>
+            <p className="ts-card-subtitle">
+              For {selectedStudent.name || selectedStudent.studentName}
+            </p>
           </div>
         </div>
         <ErrorBanner message={error} />
+        {successMessage && (
+          <div className="ts-success-msg" role="status">
+            {successMessage}
+          </div>
+        )}
         {loadingPlans ? (
           <Loading text="Loading lesson plans…" />
         ) : plans.length === 0 ? (
@@ -941,10 +1252,47 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
         ) : (
           <PlanRowList
             plans={plans}
-            actionLabel="View"
-            onAction={(p) => setViewingPlan(p)}
-            actionClass="ts-btn ts-btn-primary"
+            onView={(p) => setViewingPlan(p)}
+            onEdit={(p) => handleOpenEdit(p)}
+            onDelete={(p) => setToDeletePlan(p)}
           />
+        )}
+
+        {toDeletePlan && (
+          <div
+            className="ts-modal-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lp-modal-title"
+          >
+            <div className="ts-modal">
+              <div className="ts-modal-icon" aria-hidden="true">⊘</div>
+              <p id="lp-modal-title" className="ts-modal-title">Delete Lesson Plan?</p>
+              <p className="ts-modal-body">
+                You are about to permanently delete{" "}
+                <strong>"{toDeletePlan?.title}"</strong>. This action cannot be
+                undone.
+              </p>
+              <div className="ts-modal-actions">
+                <button
+                  type="button"
+                  className="ts-btn ts-btn-ghost"
+                  onClick={() => setToDeletePlan(null)}
+                  disabled={deleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="ts-btn ts-btn-danger-solid"
+                  onClick={handleConfirmDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting…" : "Yes, Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     );
@@ -954,15 +1302,20 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
   return (
     <div className="ts-card">
       <div className="ts-card-header">
-        <div className="ts-card-icon">📚</div>
+        <div className="ts-card-icon" aria-hidden="true">📚</div>
         <div>
-          <p className="ts-card-title">View Lesson Plans</p>
+          <p className="ts-card-title">Manage Lesson Plans</p>
           <p className="ts-card-subtitle">
-            Select a student to view their lesson plans
+            Select a student to view, edit, or delete their lesson plans
           </p>
         </div>
       </div>
       <ErrorBanner message={error} />
+      {successMessage && (
+        <div className="ts-success-msg" role="status">
+          {successMessage}
+        </div>
+      )}
 
       <div className="lp-search-bar" style={{ marginBottom: 16 }}>
         <input
@@ -974,9 +1327,7 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
           onChange={(e) => setSearch(e.target.value)}
         />
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span className="lp-filter-label">
-            Filter:
-          </span>
+          <span className="lp-filter-label">Filter:</span>
           <select
             aria-label="Filter by Grade"
             className="ts-form-input"
@@ -1013,13 +1364,21 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
       ) : filteredStudents.length === 0 ? (
         <EmptyState
           icon="🏫"
-          message={search || filterGrade || filterAge ? "No students match your filter." : "No students found."}
+          message={
+            search || filterGrade || filterAge
+              ? "No students match your filter."
+              : "No students found."
+          }
           description={
             search || filterGrade || filterAge
               ? "Try adjusting your search query or filters."
               : "Register a student profile first to manage and view lesson plans."
           }
-          actionLabel={search || filterGrade || filterAge ? "Clear Filters" : "Create Student Profile"}
+          actionLabel={
+            search || filterGrade || filterAge
+              ? "Clear Filters"
+              : "Create Student Profile"
+          }
           actionIcon={search || filterGrade || filterAge ? "✕" : "👤"}
           onAction={() => {
             if (search || filterGrade || filterAge) {
@@ -1043,257 +1402,6 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
   );
 }
 
-// ── Edit Tab ──────────────────────────────────────────────────────────────────
-function EditTab({ onGoToGenerate }) {
-  const [plans, setPlans] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [editingPlan, setEditingPlan] = useState(null);
-  const [formValue, setFormValue] = useState({ title: "", status: "" });
-  const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState(false);
-
-  const fetchPlans = useCallback(() => {
-    setLoading(true);
-    lessonPlansAPI
-      .list()
-      .then(setPlans)
-      .catch(() => setError("Failed to load lesson plans."))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    queueMicrotask(fetchPlans);
-  }, [fetchPlans]);
-
-  const openEdit = (plan) => {
-    setEditingPlan(plan);
-    setFormValue({ title: plan.title, status: plan.status });
-    setError("");
-    setSuccess(false);
-  };
-
-  const handleSave = async () => {
-    if (!editingPlan) return;
-    setSaving(true);
-    setError("");
-    setSuccess(false);
-
-    try {
-      await lessonPlansAPI.update(editingPlan.lessonID, formValue);
-      setSuccess(true);
-      fetchPlans();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (editingPlan) {
-    return (
-      <div className="ts-card">
-        <Breadcrumb
-          items={[
-            { label: "All Plans", onClick: () => setEditingPlan(null) },
-            { label: "Edit Plan" },
-          ]}
-        />
-        <div className="ts-card-header">
-          <div className="ts-card-icon">✏️</div>
-          <div>
-            <p className="ts-card-title">Edit Lesson Plan</p>
-            <p className="ts-card-subtitle">Make changes and save</p>
-          </div>
-        </div>
-        <ErrorBanner message={error} />
-        {success && (
-          <div className="ts-success-msg">
-            ✅ Lesson plan saved successfully!
-          </div>
-        )}
-        <div className="ts-form-group">
-          <label htmlFor="lp-edit-title" className="ts-form-label">
-            Plan Title
-          </label>
-          <input
-            id="lp-edit-title"
-            className="ts-form-input"
-            value={formValue.title}
-            onChange={(e) =>
-              setFormValue((prev) => ({ ...prev, title: e.target.value }))
-            }
-          />
-        </div>
-        <div className="ts-form-group">
-          <label htmlFor="lp-edit-status" className="ts-form-label">
-            Status
-          </label>
-          <select
-            id="lp-edit-status"
-            className="ts-form-input"
-            value={formValue.status}
-            onChange={(e) =>
-              setFormValue((prev) => ({ ...prev, status: e.target.value }))
-            }
-          >
-            <option value="Draft">Draft</option>
-            <option value="Active">Active</option>
-            <option value="Archived">Archived</option>
-          </select>
-        </div>
-        <div className="ts-actions space-between" style={{ marginTop: 24 }}>
-          <button
-            className="ts-btn ts-btn-ghost"
-            onClick={() => setEditingPlan(null)}
-          >
-            Cancel
-          </button>
-          <button
-            className="ts-btn ts-btn-primary"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? "Saving…" : "💾 Save Changes"}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="ts-card">
-      <div className="ts-card-header">
-        <div className="ts-card-icon">✏️</div>
-        <div>
-          <p className="ts-card-title">Edit Lesson Plans</p>
-          <p className="ts-card-subtitle">Select a plan to edit</p>
-        </div>
-      </div>
-      <ErrorBanner message={error} />
-      {loading ? (
-        <Loading text="Loading lesson plans…" />
-      ) : plans.length === 0 ? (
-        <EmptyState
-          icon="📭"
-          message="No lesson plans found."
-          description="You don't have any lesson plans to edit yet. Generate one first using student IEP goals."
-          actionLabel="Generate Lesson Plan"
-          actionIcon="✦"
-          onAction={onGoToGenerate}
-        />
-      ) : (
-        <PlanRowList
-          plans={plans}
-          actionLabel="Edit"
-          onAction={openEdit}
-          actionClass="ts-btn ts-btn-secondary"
-        />
-      )}
-    </div>
-  );
-}
-
-// ── Delete Tab ────────────────────────────────────────────────────────────────
-function DeleteTab({ onGoToGenerate }) {
-  const [plans, setPlans] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [toDelete, setToDelete] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-
-  const fetchPlans = useCallback(() => {
-    setLoading(true);
-    lessonPlansAPI
-      .list()
-      .then(setPlans)
-      .catch(() => setError("Failed to load lesson plans."))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    queueMicrotask(fetchPlans);
-  }, [fetchPlans]);
-
-  const confirmDelete = async () => {
-    if (!toDelete) return;
-    setDeleting(true);
-    try {
-      await lessonPlansAPI.delete(toDelete);
-      setToDelete(null);
-      fetchPlans();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const itemToDelete = plans.find((p) => p.lessonID === toDelete);
-
-  return (
-    <div className="ts-card">
-      <div className="ts-card-header">
-        <div className="ts-card-icon">🗑️</div>
-        <div>
-          <p className="ts-card-title">Delete Lesson Plans</p>
-          <p className="ts-card-subtitle">Permanently remove a lesson plan</p>
-        </div>
-      </div>
-      <ErrorBanner message={error} />
-      {loading ? (
-        <Loading text="Loading lesson plans…" />
-      ) : plans.length === 0 ? (
-        <EmptyState
-          icon="📭"
-          message="No lesson plans to delete."
-          description="There are currently no lesson plans on file."
-          actionLabel="Generate Lesson Plan"
-          actionIcon="✦"
-          onAction={onGoToGenerate}
-        />
-      ) : (
-        <PlanRowList
-          plans={plans}
-          actionLabel="Delete"
-          onAction={(p) => setToDelete(p.lessonID)}
-          actionClass="ts-btn ts-btn-danger"
-        />
-      )}
-
-      {toDelete && (
-        <div className="ts-modal-overlay">
-          <div className="ts-modal">
-            <div className="ts-modal-icon">🗑️</div>
-            <p className="ts-modal-title">Delete Lesson Plan?</p>
-            <p className="ts-modal-body">
-              You're about to permanently delete{" "}
-              <strong>"{itemToDelete?.title}"</strong>. This action cannot be
-              undone.
-            </p>
-            <div className="ts-modal-actions">
-              <button
-                className="ts-btn ts-btn-ghost"
-                onClick={() => setToDelete(null)}
-                disabled={deleting}
-              >
-                Cancel
-              </button>
-              <button
-                className="ts-btn ts-btn-danger-solid"
-                onClick={confirmDelete}
-                disabled={deleting}
-              >
-                {deleting ? "Deleting…" : "Yes, Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ManageLessonPlans({ setActivePage }) {
   const [activeTab, setActiveTab] = useState("generate");
@@ -1302,6 +1410,12 @@ export default function ManageLessonPlans({ setActivePage }) {
   const saveLessonPlan = (plan) => {
     if (plan) setLessonPlans((prev) => [plan, ...prev]);
   };
+
+  const isManageTab =
+    activeTab === "manage" ||
+    activeTab === "view" ||
+    activeTab === "edit" ||
+    activeTab === "delete";
 
   return (
     <div className="page-content ts-page">
@@ -1319,17 +1433,24 @@ export default function ManageLessonPlans({ setActivePage }) {
             </p>
           </div>
         </div>
-        <div className="ts-tab-bar">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              className={`ts-tab-btn ${activeTab === tab.key ? "active" : ""}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              <span className="ts-tab-icon">{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
+        <div className="ts-tab-bar" role="tablist">
+          {TABS.map((tab) => {
+            const isActive =
+              activeTab === tab.key ||
+              (tab.key === "manage" && isManageTab && activeTab !== "generate");
+            return (
+              <button
+                key={tab.key}
+                role="tab"
+                aria-selected={isActive}
+                className={`ts-tab-btn ${isActive ? "active" : ""}`}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                <span className="ts-tab-icon">{tab.icon}</span>
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -1340,19 +1461,9 @@ export default function ManageLessonPlans({ setActivePage }) {
             setActivePage={setActivePage}
           />
         )}
-        {activeTab === "view" && (
-          <ViewTab
+        {isManageTab && (
+          <ManagePlansTab
             setActivePage={setActivePage}
-            onGoToGenerate={() => setActiveTab("generate")}
-          />
-        )}
-        {activeTab === "edit" && (
-          <EditTab
-            onGoToGenerate={() => setActiveTab("generate")}
-          />
-        )}
-        {activeTab === "delete" && (
-          <DeleteTab
             onGoToGenerate={() => setActiveTab("generate")}
           />
         )}
