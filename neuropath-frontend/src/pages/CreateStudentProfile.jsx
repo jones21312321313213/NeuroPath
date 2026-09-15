@@ -287,12 +287,16 @@ export default function CreateStudentProfile({
 
   const handleBack = () => {
     setError("");
+    setValidationErrors([]);
+    setShowValidationModal(false);
     if (onBack) onBack();
     navigate("/dashboard/students");
   };
 
   const handleStepBack = () => {
     setError("");
+    setValidationErrors([]);
+    setShowValidationModal(false);
     setStep((prev) => Math.max(1, prev - 1));
   };
 
@@ -513,6 +517,16 @@ export default function CreateStudentProfile({
 
   const handleNext = () => {
     setError("");
+    const stepOneErrors = getStepOneIssues();
+
+    if (stepOneErrors.length > 0) {
+      setValidationErrors(stepOneErrors);
+      setShowValidationModal(true);
+      return;
+    }
+
+    setValidationErrors([]);
+    setShowValidationModal(false);
     setStep(2);
   };
 

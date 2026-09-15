@@ -49,7 +49,7 @@ describe("CreateStudentProfile Help Text & Difficulty Validation", () => {
     expect(screen.getByText(/Needed before Generate IEP/i)).toBeInTheDocument();
   });
 
-  it("allows proceeding to Step 2 on clicking NEXT and validates difficulty markers upon SUBMIT", async () => {
+  it("opens clean ValidationModal on clicking NEXT if Step 1 fields are missing", async () => {
     renderComponent();
 
     fireEvent.change(screen.getByPlaceholderText(/Enter student name/i), {
@@ -66,16 +66,8 @@ describe("CreateStudentProfile Help Text & Difficulty Validation", () => {
       target: { value: "Male" },
     });
 
-    // Clicking NEXT should advance to Step 2 without modal or error
+    // Clicking NEXT should trigger the ValidationModal listing Step 1 missing fields
     fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
-
-    expect(
-      await screen.findByText(/Present Levels of Academic Achievement/i),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-
-    // Clicking SUBMIT should trigger the ValidationModal listing the missing Difficulty Markers
-    fireEvent.click(screen.getByRole("button", { name: /SUBMIT/i }));
 
     const modal = await screen.findByRole("alertdialog");
     expect(modal).toBeInTheDocument();
@@ -84,6 +76,8 @@ describe("CreateStudentProfile Help Text & Difficulty Validation", () => {
         /Please select at least one difficulty marker \(needed before Generate IEP\)\./i,
       ),
     ).toBeInTheDocument();
+    // Step 2 fields must NOT appear in this modal
+    expect(within(modal).queryByText("Evaluation Results")).not.toBeInTheDocument();
   });
 
   it("proceeds to Step 2 when valid and shows consolidated AI guidance subtitle without repetitive tips", async () => {
@@ -129,10 +123,30 @@ describe("CreateStudentProfile Help Text & Difficulty Validation", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("does not trigger validation modal when clicking NEXT, but opens clean ValidationModal on SUBMIT if fields are missing", async () => {
+  it("opens clean ValidationModal on SUBMIT if Step 2 fields are missing, but does not prematurely validate Step 2 on NEXT", async () => {
     renderComponent();
 
-    // Clicking NEXT with empty fields should advance to Step 2 without showing validation modal
+    // Fill valid Step 1
+    fireEvent.change(screen.getByPlaceholderText(/Enter student name/i), {
+      target: { value: "Juan Dela Cruz" },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Enter age/i), {
+      target: { value: "8" },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Enter grade level/i), {
+      target: { value: "3" },
+    });
+    const selects = screen.getAllByRole("combobox");
+    fireEvent.change(selects[0], {
+      target: { value: "Male" },
+    });
+    fireEvent.click(screen.getByLabelText(/Difficulty in Seeing/i));
+    fireEvent.change(screen.getByPlaceholderText(/Enter parent or guardian name/i), {
+      target: { value: "Maria Dela Cruz" },
+    });
+    fireEvent.click(screen.getByLabelText(/Consent Agreement \/ Statement/i));
+
+    // Clicking NEXT should advance to Step 2 smoothly without showing validation modal
     fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
 
     expect(
@@ -140,7 +154,7 @@ describe("CreateStudentProfile Help Text & Difficulty Validation", () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
 
-    // Clicking SUBMIT on Step 2 with missing fields triggers the ValidationModal
+    // Clicking SUBMIT on Step 2 with missing Step 2 fields triggers the ValidationModal
     fireEvent.click(screen.getByRole("button", { name: /SUBMIT/i }));
 
     const modal = await screen.findByRole("alertdialog");
@@ -151,16 +165,16 @@ describe("CreateStudentProfile Help Text & Difficulty Validation", () => {
     expect(
       within(modal).getByText(/Please address the following items before proceeding:/i),
     ).toBeInTheDocument();
-    expect(within(modal).getByText("Student Name")).toBeInTheDocument();
-    expect(within(modal).getByText(/Student name is required\./i)).toBeInTheDocument();
-    expect(within(modal).getByText("Difficulty Markers")).toBeInTheDocument();
-    expect(within(modal).getByText("RA 10173 Consent Agreement")).toBeInTheDocument();
     expect(within(modal).getByText("Evaluation Results")).toBeInTheDocument();
+    expect(within(modal).getByText("Learner Strengths")).toBeInTheDocument();
+    expect(within(modal).getByText("Learner Needs")).toBeInTheDocument();
+    expect(within(modal).getByText("Parental Concerns")).toBeInTheDocument();
+    expect(within(modal).getByText("Curriculum Impact")).toBeInTheDocument();
 
-    // Dismiss modal via confirm button - redirects user to Step 1 to review & correct Step 1 fields
+    // Dismiss modal via confirm button - remains on Step 2 since errors are Step 2
     fireEvent.click(within(modal).getByRole("button", { name: /Review & Correct/i }));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
+    expect(screen.getByText(/Present Levels of Academic Achievement/i)).toBeInTheDocument();
   });
 
   it("does not prematurely validate Step 2 upon entering and clears errors on back navigation", async () => {
@@ -467,7 +481,7 @@ describe("CreateStudentProfile next-step actions", () => {
     expect(sentPayload.consent_date).toBeTruthy();
   });
 
-  it("shows validation modal on SUBMIT if guardian name is empty", async () => {
+  it("blocks advancing from Step 1 and shows validation modal if guardian name is empty", async () => {
     render(
       <MemoryRouter>
         <CreateStudentProfile onBack={vi.fn()} />
@@ -489,17 +503,15 @@ describe("CreateStudentProfile next-step actions", () => {
     fireEvent.click(screen.getByLabelText(/Difficulty in Seeing/i));
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
-    // Click submit on Step 2
-    fireEvent.click(screen.getByRole("button", { name: /submit/i }));
-
     const modal = await screen.findByRole("alertdialog");
     expect(modal).toBeInTheDocument();
     expect(
       within(modal).getByText(/Guardian name is required/i),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
   });
 
-  it("shows validation modal on SUBMIT if guardian relationship is empty", async () => {
+  it("blocks advancing from Step 1 and shows validation modal if guardian relationship is empty", async () => {
     render(
       <MemoryRouter>
         <CreateStudentProfile onBack={vi.fn()} />
@@ -527,17 +539,15 @@ describe("CreateStudentProfile next-step actions", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
-    // Click submit on Step 2
-    fireEvent.click(screen.getByRole("button", { name: /submit/i }));
-
     const modal = await screen.findByRole("alertdialog");
     expect(modal).toBeInTheDocument();
     expect(
       within(modal).getByText(/Guardian relationship is required/i),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
   });
 
-  it("shows validation modal on SUBMIT if consent date is empty", async () => {
+  it("blocks advancing from Step 1 and shows validation modal if consent date is empty", async () => {
     render(
       <MemoryRouter>
         <CreateStudentProfile onBack={vi.fn()} />
@@ -565,17 +575,15 @@ describe("CreateStudentProfile next-step actions", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
-    // Click submit on Step 2
-    fireEvent.click(screen.getByRole("button", { name: /submit/i }));
-
     const modal = await screen.findByRole("alertdialog");
     expect(modal).toBeInTheDocument();
     expect(
       within(modal).getByText(/Consent date is required/i),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
   });
 
-  it("shows validation modal on SUBMIT if consent agreement / statement is not confirmed", async () => {
+  it("blocks advancing from Step 1 and shows validation modal if consent agreement / statement is not confirmed", async () => {
     render(
       <MemoryRouter>
         <CreateStudentProfile onBack={vi.fn()} />
@@ -601,13 +609,11 @@ describe("CreateStudentProfile next-step actions", () => {
     // Consent Agreement checkbox is left unchecked
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
-    // Click submit on Step 2
-    fireEvent.click(screen.getByRole("button", { name: /submit/i }));
-
     const modal = await screen.findByRole("alertdialog");
     expect(modal).toBeInTheDocument();
     expect(
       within(modal).getByText(/Parental\/guardian consent agreement \/ statement is required/i),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
   });
 });
