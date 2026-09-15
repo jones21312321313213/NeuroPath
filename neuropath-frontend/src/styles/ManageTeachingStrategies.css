@@ -695,8 +695,15 @@
 
 .ts-strategy-row-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.ts-strategy-row-actions .ts-btn {
+  padding: 8px 14px;
+  font-size: 13px;
 }
 
 /* ── Strategy detail page ───────────────────────────── */
