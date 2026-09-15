@@ -33,6 +33,9 @@ vi.mock("./api/client", () => ({
   teachingStrategiesAPI: {
     getDirectory: vi.fn().mockResolvedValue([]),
   },
+  resourcesAPI: {
+    dashboardStats: vi.fn().mockResolvedValue({ total: 0, total_resources: 0, lesson_plans: 0, visual_aids: 0, teaching_strategies: 0 }),
+  },
   trackingAPI: {
     getProgressDashboard: vi.fn().mockResolvedValue({}),
   },

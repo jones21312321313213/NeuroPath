@@ -367,15 +367,24 @@ export default function CreateStudentProfile({
       return false;
     }
 
-    if (form.parentalConsentObtained) {
-      if (!String(form.guardianName || "").trim()) {
-        setError("Guardian name is required when parental consent is obtained.");
-        return false;
-      }
-      if (!String(form.consentDate || "").trim()) {
-        setError("Consent date is required when parental consent is obtained.");
-        return false;
-      }
+    if (!String(form.guardianName || "").trim()) {
+      setError("Guardian name is required.");
+      return false;
+    }
+
+    if (!String(form.guardianRelationship || "").trim()) {
+      setError("Guardian relationship is required.");
+      return false;
+    }
+
+    if (!String(form.consentDate || "").trim()) {
+      setError("Consent date is required.");
+      return false;
+    }
+
+    if (!form.parentalConsentObtained) {
+      setError("Parental/guardian consent agreement / statement is required.");
+      return false;
     }
 
     setError("");
@@ -442,6 +451,11 @@ export default function CreateStudentProfile({
       academicNeeds: form.academicNeeds,
       parentalConcerns: form.parentalConcerns,
       curriculumImpact: form.curriculumImpact,
+      guardianName: form.guardianName.trim(),
+      guardianRelationship: form.guardianRelationship || "Parent",
+      consentDate: form.consentDate,
+      parentalConsentObtained: true,
+      consentAgreement: true,
     };
 
     const payload = {
@@ -459,10 +473,10 @@ export default function CreateStudentProfile({
       interests: "",
       sensory_preferences: "",
       teacher_user_id: user?.id,
-      parental_consent_obtained: Boolean(form.parentalConsentObtained),
-      consent_date: form.parentalConsentObtained ? form.consentDate : null,
-      guardian_name: form.parentalConsentObtained ? form.guardianName.trim() : "",
-      guardian_relationship: form.parentalConsentObtained ? form.guardianRelationship : "Parent",
+      parental_consent_obtained: true,
+      consent_date: form.consentDate,
+      guardian_name: form.guardianName.trim(),
+      guardian_relationship: form.guardianRelationship || "Parent",
     };
 
     try {
@@ -659,41 +673,38 @@ export default function CreateStudentProfile({
                 >
                   In compliance with Philippine RA 10173, processing sensitive personal information and automated AI analysis for minors require explicit parental or guardian consent.
                 </p>
-                <CheckOption
-                  label="Parental/Guardian Consent has been verified and obtained for this learner."
-                  checked={Boolean(form.parentalConsentObtained)}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      parentalConsentObtained: e.target.checked,
-                    }))
-                  }
-                />
-                {form.parentalConsentObtained && (
-                  <div
-                    className="form-grid-2"
-                    style={{ marginTop: "1rem" }}
-                  >
-                    <FormField
-                      label="Guardian Full Name"
-                      placeholder="Enter parent or guardian name"
-                      value={form.guardianName}
-                      onChange={setField("guardianName")}
-                    />
-                    <SelectField
-                      label="Guardian Relationship"
-                      value={form.guardianRelationship}
-                      onChange={setField("guardianRelationship")}
-                      options={["Parent", "Mother", "Father", "Legal Guardian", "Other"]}
-                    />
-                    <FormField
-                      label="Consent Verification Date"
-                      type="date"
-                      value={form.consentDate}
-                      onChange={setField("consentDate")}
-                    />
-                  </div>
-                )}
+                <div className="form-grid-2">
+                  <FormField
+                    label="Guardian Full Name"
+                    placeholder="Enter parent or guardian name"
+                    value={form.guardianName}
+                    onChange={setField("guardianName")}
+                  />
+                  <SelectField
+                    label="Guardian Relationship"
+                    value={form.guardianRelationship}
+                    onChange={setField("guardianRelationship")}
+                    options={["Parent", "Mother", "Father", "Legal Guardian", "Other"]}
+                  />
+                  <FormField
+                    label="Consent Verification Date"
+                    type="date"
+                    value={form.consentDate}
+                    onChange={setField("consentDate")}
+                  />
+                </div>
+                <div style={{ marginTop: "1rem" }}>
+                  <CheckOption
+                    label="Consent Agreement / Statement: I confirm that parental/guardian consent has been verified and obtained for this learner in compliance with Republic Act 10173."
+                    checked={Boolean(form.parentalConsentObtained)}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        parentalConsentObtained: e.target.checked,
+                      }))
+                    }
+                  />
+                </div>
               </div>
             </section>
           )}

@@ -98,6 +98,11 @@ describe("CreateStudentProfile Help Text & Difficulty Validation", () => {
     const diffCheckbox = screen.getByLabelText(/Difficulty in Seeing/i);
     fireEvent.click(diffCheckbox);
 
+    fireEvent.change(screen.getByPlaceholderText(/Enter parent or guardian name/i), {
+      target: { value: "Maria Dela Cruz" },
+    });
+    fireEvent.click(screen.getByLabelText(/Consent Agreement \/ Statement/i));
+
     fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
 
     expect(
@@ -134,6 +139,10 @@ describe("CreateStudentProfile next-step actions", () => {
       target: { value: "Male" },
     });
     fireEvent.click(screen.getByLabelText(/Difficulty in Seeing/i));
+    fireEvent.change(screen.getByPlaceholderText("Enter parent or guardian name"), {
+      target: { value: "Jane Smith" },
+    });
+    fireEvent.click(screen.getByLabelText(/Consent Agreement \/ Statement/i));
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
     // Step 2 fields
@@ -327,15 +336,15 @@ describe("CreateStudentProfile next-step actions", () => {
     });
     fireEvent.click(screen.getByLabelText(/Difficulty in Seeing/i));
 
-    // Check RA 10173 consent checkbox
-    const consentCheckbox = screen.getByLabelText(/Parental\/Guardian Consent has been verified and obtained/i);
-    expect(consentCheckbox).toBeInTheDocument();
-    fireEvent.click(consentCheckbox);
-
-    // Conditional inputs should now appear
+    // Guardian fields are always rendered unconditionally (no toggle required)
     const guardianInput = screen.getByPlaceholderText(/Enter parent or guardian name/i);
     expect(guardianInput).toBeInTheDocument();
     fireEvent.change(guardianInput, { target: { value: "Maria Dela Cruz" } });
+
+    // Check RA 10173 consent agreement checkbox
+    const consentCheckbox = screen.getByLabelText(/Consent Agreement \/ Statement/i);
+    expect(consentCheckbox).toBeInTheDocument();
+    fireEvent.click(consentCheckbox);
 
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
@@ -371,7 +380,7 @@ describe("CreateStudentProfile next-step actions", () => {
     expect(sentPayload.consent_date).toBeTruthy();
   });
 
-  it("blocks advancing from Step 1 if consent is checked but guardian name is empty", async () => {
+  it("blocks advancing from Step 1 if guardian name is empty", async () => {
     render(
       <MemoryRouter>
         <CreateStudentProfile onBack={vi.fn()} />
@@ -391,15 +400,110 @@ describe("CreateStudentProfile next-step actions", () => {
       target: { value: "Male" },
     });
     fireEvent.click(screen.getByLabelText(/Difficulty in Seeing/i));
-
-    // Check consent checkbox without filling guardian name
-    const consentCheckbox = screen.getByLabelText(/Parental\/Guardian Consent has been verified and obtained/i);
-    fireEvent.click(consentCheckbox);
-
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
     expect(
-      await screen.findByText(/Guardian name is required when parental consent is obtained/i),
+      await screen.findByText(/Guardian name is required/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
+  });
+
+  it("blocks advancing from Step 1 if guardian relationship is empty", async () => {
+    render(
+      <MemoryRouter>
+        <CreateStudentProfile onBack={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Enter student name"), {
+      target: { value: "Juan Dela Cruz" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter age"), {
+      target: { value: "8" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter grade level"), {
+      target: { value: "2" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: /^gender:/i }), {
+      target: { value: "Male" },
+    });
+    fireEvent.click(screen.getByLabelText(/Difficulty in Seeing/i));
+    fireEvent.change(screen.getByPlaceholderText(/Enter parent or guardian name/i), {
+      target: { value: "Maria Dela Cruz" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: /^guardian relationship:/i }), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    expect(
+      await screen.findByText(/Guardian relationship is required/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
+  });
+
+  it("blocks advancing from Step 1 if consent date is empty", async () => {
+    render(
+      <MemoryRouter>
+        <CreateStudentProfile onBack={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Enter student name"), {
+      target: { value: "Juan Dela Cruz" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter age"), {
+      target: { value: "8" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter grade level"), {
+      target: { value: "2" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: /^gender:/i }), {
+      target: { value: "Male" },
+    });
+    fireEvent.click(screen.getByLabelText(/Difficulty in Seeing/i));
+    fireEvent.change(screen.getByPlaceholderText(/Enter parent or guardian name/i), {
+      target: { value: "Maria Dela Cruz" },
+    });
+    fireEvent.change(screen.getByLabelText(/Consent Verification Date:/i), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    expect(
+      await screen.findByText(/Consent date is required/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
+  });
+
+  it("blocks advancing from Step 1 if consent agreement / statement is not confirmed", async () => {
+    render(
+      <MemoryRouter>
+        <CreateStudentProfile onBack={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Enter student name"), {
+      target: { value: "Juan Dela Cruz" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter age"), {
+      target: { value: "8" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter grade level"), {
+      target: { value: "2" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: /^gender:/i }), {
+      target: { value: "Male" },
+    });
+    fireEvent.click(screen.getByLabelText(/Difficulty in Seeing/i));
+    fireEvent.change(screen.getByPlaceholderText(/Enter parent or guardian name/i), {
+      target: { value: "Maria Dela Cruz" },
+    });
+    // Consent Agreement checkbox is left unchecked
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    expect(
+      await screen.findByText(/Parental\/guardian consent agreement \/ statement is required/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
   });

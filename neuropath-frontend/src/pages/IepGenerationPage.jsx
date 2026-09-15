@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { iepAPI, studentsAPI } from "../api/client";
-import { Callout } from "../components/ui";
+import { Callout, ErrorModal } from "../components/ui";
 import { queryClient } from "../queryClient";
 import { queryKeys } from "../hooks/queries";
 import { sanitizeDifficulties } from "../utils/difficultyUtils";
@@ -1400,6 +1400,25 @@ export default function IEPGenerationPage({
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [loadingIeps, setLoadingIeps] = useState(false);
   const [viewError, setViewError] = useState("");
+  const [errorModal, setErrorModal] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    details: null,
+  });
+
+  const showError = (message, title = "Action Required", details = null) => {
+    setErrorModal({
+      isOpen: true,
+      title,
+      message,
+      details,
+    });
+  };
+
+  const closeError = () => {
+    setErrorModal((prev) => ({ ...prev, isOpen: false }));
+  };
 
   // Section C
   const [selectedGoalCategory, setSelectedGoalCategory] = useState("");
@@ -1814,16 +1833,16 @@ export default function IEPGenerationPage({
 
   const handleSaveManualGoal = async () => {
     if (!getStudentId(selectedStudent)) {
-      alert("Please select a student first.");
+      showError("Please select a student first.", "Student Required");
       return;
     }
     const goalCategory = manualGoal.type.trim() || selectedGoalCategory;
     if (!goalCategory) {
-      alert("Please enter or select a goal area.");
+      showError("Please enter or select a goal area.", "Goal Area Required");
       return;
     }
     if (!manualGoal.annualGoal.trim()) {
-      alert("Please enter the annual goal text.");
+      showError("Please enter the annual goal text.", "Goal Text Required");
       return;
     }
 
@@ -1884,7 +1903,7 @@ export default function IEPGenerationPage({
       });
       setShowManualGoal(false);
     } catch (err) {
-      alert("Failed to save custom goal: " + (err.message || "Unknown error"));
+      showError(err.message || "Unknown error", "Failed to Save Custom Goal");
     } finally {
       setSavingManualGoal(false);
     }
@@ -1894,20 +1913,24 @@ export default function IEPGenerationPage({
 
   const handleGenerateFinalIep = async () => {
     if (!getStudentId(selectedStudent)) {
-      alert("Please select a student first.");
+      showError("Please select a student first.", "Student Required");
       return;
     }
     if (selectedStudent && selectedStudent.parental_consent_obtained === false) {
-      alert("RA 10173 Parental Consent Pending: Generating AI goals requires verified parental consent. Please update the student profile with parental consent or manually author goals below.");
+      showError(
+        "RA 10173 Parental Consent Pending: Generating AI goals requires verified parental consent. Please update the student profile with parental consent or manually author goals below.",
+        "Parental Consent Required",
+      );
       return;
     }
     if (!selectedGoalCategory) {
-      alert("Please select a learner goal area.");
+      showError("Please select a learner goal area.", "Goal Area Required");
       return;
     }
     if (form.barrierRows.every((r) => !r.difficulty.trim())) {
-      alert(
+      showError(
         "No difficulties were found in this student profile. Please update the student profile difficulties first before generating an IEP.",
+        "Student Profile Incomplete",
       );
       return;
     }
@@ -1972,7 +1995,7 @@ export default function IEPGenerationPage({
         });
       }
     } catch (err) {
-      alert("Failed to save IEP document: " + (err.message || "Unknown error"));
+      showError(err.message || "Unknown error", "Failed to Save IEP Document");
       setGeneratingFinalIep(false);
       return;
     }
@@ -2060,7 +2083,7 @@ export default function IEPGenerationPage({
         200,
       );
     } catch (err) {
-      alert("Failed to generate AI goals: " + (err.message || "Unknown error"));
+      showError(err.message || "Unknown error", "Failed to Generate AI Goals");
       setGenerationDone(false);
     } finally {
       setGeneratingFinalIep(false);
@@ -2994,6 +3017,16 @@ export default function IEPGenerationPage({
           onUpdateIep={handleUpdateIep}
           totalStudents={students.length}
           setActivePage={setActivePage}
+        />
+      )}
+
+      {errorModal.isOpen && (
+        <ErrorModal
+          isOpen={errorModal.isOpen}
+          title={errorModal.title}
+          message={errorModal.message}
+          details={errorModal.details}
+          onClose={closeError}
         />
       )}
     </div>

@@ -106,10 +106,14 @@ export const studentsAPI = {
 
 // ── Lesson Plans ───────────────────────────────────────────────────────────────
 export const lessonPlansAPI = {
-  getDirectory: (teacherId) =>
-    request(
-      `/resources/generate-lesson/${teacherId ? `?teacher_id=${teacherId}` : ""}`,
-    ),
+  getDirectory: (teacherId, studentId, iepId) => {
+    const params = new URLSearchParams();
+    if (teacherId) params.append("teacher_id", teacherId);
+    if (studentId) params.append("student_id", studentId);
+    if (iepId) params.append("iep_id", iepId);
+    const qs = params.toString();
+    return request(`/resources/generate-lesson/${qs ? `?${qs}` : ""}`);
+  },
   generate: (payload) =>
     request("/resources/generate-lesson/", {
       method: "POST",
@@ -162,10 +166,14 @@ export const visualAidsAPI = {
 
 // ── Teaching Strategies ────────────────────────────────────────────────────────
 export const teachingStrategiesAPI = {
-  getDirectory: (teacherId) =>
-    request(
-      `/resources/generate-strategy/${teacherId ? `?teacher_id=${teacherId}` : ""}`,
-    ),
+  getDirectory: (teacherId, studentId, iepId) => {
+    const params = new URLSearchParams();
+    if (teacherId) params.append("teacher_id", teacherId);
+    if (studentId) params.append("student_id", studentId);
+    if (iepId) params.append("iep_id", iepId);
+    const qs = params.toString();
+    return request(`/resources/generate-strategy/${qs ? `?${qs}` : ""}`);
+  },
   generate: (payload) =>
     request("/resources/generate-strategy/", {
       method: "POST",
@@ -322,5 +330,11 @@ export const trackingAPI = {
 
     return await response.blob();
   },
+};
+
+// ── Resources Overview Stats ───────────────────────────────────────────────────
+export const resourcesAPI = {
+  dashboardStats: () => request("/resources/dashboard-stats/"),
+  stats: () => request("/resources/dashboard-stats/"),
 };
 

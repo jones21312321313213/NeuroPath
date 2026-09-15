@@ -1,5 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { authAPI, studentsAPI, usersAPI, trackingAPI, lessonPlansAPI, teachingStrategiesAPI } from "./client";
+import {
+  authAPI,
+  studentsAPI,
+  usersAPI,
+  trackingAPI,
+  lessonPlansAPI,
+  teachingStrategiesAPI,
+  resourcesAPI,
+} from "./client";
+
 
 
 function jsonResponse(body, { ok = true, status } = {}) {
@@ -395,5 +404,32 @@ describe("api client", () => {
       );
     });
   });
-});
 
+  describe("resourcesAPI", () => {
+    it("fetches resource dashboard stats", async () => {
+      fetch.mockResolvedValueOnce(
+        jsonResponse({
+          total: 5,
+          total_resources: 5,
+          lesson_plans: 2,
+          teaching_strategies: 2,
+          visual_aids: 1,
+        }),
+      );
+
+      const result = await resourcesAPI.dashboardStats();
+
+      expect(result).toEqual({
+        total: 5,
+        total_resources: 5,
+        lesson_plans: 2,
+        teaching_strategies: 2,
+        visual_aids: 1,
+      });
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/resources/dashboard-stats/",
+        expect.any(Object),
+      );
+    });
+  });
+});

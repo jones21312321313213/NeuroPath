@@ -116,6 +116,83 @@ class InstructionalAIServiceTestCase(TestCase):
         self.assertIn('data', response.data)
         self.assertIn('lesson_plans', response.data['data'])
 
+    def test_directory_lists_multiple_ieps_and_scopes_goals_to_selected_iep(self):
+        from rest_framework.test import APIClient
+        from common_test_utils import create_teacher_with_login, create_student
+        from resources.views import _saved_ieps_for_student, _goal_options_for_student
+
+        user, teacher, token = create_teacher_with_login('multi_iep_teacher@example.com')
+        student = create_student(teacher, name='Multi IEP Student', parental_consent_obtained=True)
+
+        # Create IEP Version 1
+        iep_v1 = IEPModel.objects.create(
+            studentID=student,
+            version=1,
+            accommodations='Visual schedule',
+            difficulties='Reading'
+        )
+        goal_v1 = IEPGoal.objects.create(
+            iep=iep_v1,
+            subject_category='Reading',
+            annual_goal='Improve reading comprehension to 80%'
+        )
+
+        # Create IEP Version 2
+        iep_v2 = IEPModel.objects.create(
+            studentID=student,
+            version=2,
+            accommodations='Noise-canceling headphones and frequent breaks',
+            difficulties='Sensory overload'
+        )
+        goal_v2 = IEPGoal.objects.create(
+            iep=iep_v2,
+            subject_category='Sensory Regulation',
+            annual_goal='Utilize sensory breaks independently'
+        )
+
+        # Test helper functions
+        saved_ieps = list(_saved_ieps_for_student(student))
+        self.assertEqual(len(saved_ieps), 2)
+        self.assertEqual(saved_ieps[0].pk, iep_v2.pk)
+
+        # Default options should return latest IEP (v2)
+        latest_goals = _goal_options_for_student(student)
+        self.assertEqual(len(latest_goals), 1)
+        self.assertEqual(latest_goals[0]['goalID'], goal_v2.pk)
+
+        # Explicit iep_id options should return goals for v1
+        v1_goals = _goal_options_for_student(student, iep_id=iep_v1.pk)
+        self.assertEqual(len(v1_goals), 1)
+        self.assertEqual(v1_goals[0]['goalID'], goal_v1.pk)
+
+        # Test GenerateLessonPlanAPIView GET with multiple IEPs
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+        response = client.get('/api/resources/generate-lesson/')
+        self.assertEqual(response.status_code, 200)
+        dir_entry = next((s for s in response.data['directory'] if s['studentID'] == student.pk), None)
+        self.assertIsNotNone(dir_entry)
+        self.assertIn('availableIEPs', dir_entry)
+        self.assertEqual(len(dir_entry['availableIEPs']), 2)
+        self.assertEqual(dir_entry['availableIEPs'][0]['version'], 2)
+        self.assertEqual(dir_entry['availableIEPs'][1]['version'], 1)
+        self.assertEqual(dir_entry['availableGoals'][0]['goalID'], goal_v2.pk)
+
+        # Request specific iep_id=iep_v1.pk
+        response_v1 = client.get(f'/api/resources/generate-lesson/?student_id={student.pk}&iep_id={iep_v1.pk}')
+        self.assertEqual(response_v1.status_code, 200)
+        dir_entry_v1 = next((s for s in response_v1.data['directory'] if s['studentID'] == student.pk), None)
+        self.assertEqual(dir_entry_v1['selectedIEPID'], iep_v1.pk)
+        self.assertEqual(dir_entry_v1['availableGoals'][0]['goalID'], goal_v1.pk)
+
+        # Test TeachingStrategyGenerationController GET with multiple IEPs
+        strat_resp = client.get(f'/api/resources/generate-strategy/?student_id={student.pk}&iep_id={iep_v1.pk}')
+        self.assertEqual(strat_resp.status_code, 200)
+        strat_entry = next((s for s in strat_resp.data['directory'] if s['studentID'] == student.pk), None)
+        self.assertEqual(strat_entry['selectedIEPID'], iep_v1.pk)
+        self.assertEqual(strat_entry['availableGoals'][0]['goalID'], goal_v1.pk)
+
 
 class TeachingStrategyAPITestCase(TestCase):
     def setUp(self):
