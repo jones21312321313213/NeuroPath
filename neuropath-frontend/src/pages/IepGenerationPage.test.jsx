@@ -1177,6 +1177,123 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       expect(secondCallArgs.teacher_prompt).toBe("Focus on tactile learning manipulatives.");
     });
   });
+
+  describe("Multi-Goal Generation per IEP Version (Issue #175)", () => {
+    const mathGoal = {
+      subject_category: "Mathematical Skills",
+      goalName: "Mathematical Skills",
+      annual_goal: "Learner will add two single-digit numbers with 90% accuracy.",
+      target_metric: "90% accuracy",
+      _rgori_score: 95,
+      _rgori_feedback: "Well defined.",
+      objective_rows: [
+        {
+          objective: "Single-digit addition",
+          interventions: "Visual flashcards",
+          timeline: "Month 1",
+        },
+      ],
+    };
+
+    const commGoal = {
+      subject_category: "Communication Skills",
+      goalName: "Communication Skills",
+      annual_goal: "Learner will use picture exchange cards to request water.",
+      target_metric: "4 out of 5 opportunities",
+      _rgori_score: 90,
+      _rgori_feedback: "Appropriate functional communication.",
+      objective_rows: [
+        {
+          objective: "Point to communication card",
+          interventions: "PECS board",
+          timeline: "Month 1",
+        },
+      ],
+    };
+
+    it("allows adding another goal to the active IEP version without duplicating the document", async () => {
+      const user = userEvent.setup();
+      iepAPI.save.mockResolvedValue({ iepID: 303, studentID: 1 });
+      iepAPI.update.mockResolvedValue({ iepID: 303, studentID: 1 });
+      iepAPI.generateGoalsFromIep
+        .mockResolvedValueOnce({ goals: [mathGoal] })
+        .mockResolvedValueOnce({ goals: [commGoal] });
+      iepAPI.saveGoal
+        .mockResolvedValueOnce({ goalID: 101 })
+        .mockResolvedValueOnce({ goalID: 102 });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+      });
+
+      // Advance to Step 2
+      await user.click(screen.getByText("NEXT"));
+
+      // 1. Generate First Goal (Math)
+      const goalSelect = screen.getByRole("combobox");
+      await user.selectOptions(goalSelect, "Mathematical Skills");
+
+      const generateBtn = screen.getByRole("button", {
+        name: /generate final iep/i,
+      });
+      await user.click(generateBtn);
+
+      await screen.findByText("Review Generated IEP Draft");
+      const acceptBtn = screen.getByRole("button", { name: /accept & save iep/i });
+      await user.click(acceptBtn);
+
+      // Verify success banner & initial goal display
+      await waitFor(() => {
+        expect(screen.getByText("IEP Generated Successfully!")).toBeInTheDocument();
+        expect(screen.getByText(/Mathematical Skills — Annual Goal/i)).toBeInTheDocument();
+      });
+
+      // Verify iepAPI.save called once to establish IEP 303
+      expect(iepAPI.save).toHaveBeenCalledTimes(1);
+
+      // Verify Add Another Goal button is rendered
+      const addAnotherBtn = screen.getByTestId("add-another-goal-btn");
+      expect(addAnotherBtn).toBeInTheDocument();
+      await user.click(addAnotherBtn);
+
+      // Returns to Step 2 with active goals summary badge
+      await waitFor(() => {
+        expect(screen.getByTestId("iep-active-goals-summary")).toBeInTheDocument();
+        expect(screen.getByText(/Goals already added to this IEP \(1\):/i)).toBeInTheDocument();
+      });
+
+      // 2. Select Second Goal (Communication Skills)
+      await user.selectOptions(screen.getByRole("combobox"), "Communication Skills");
+      const generateBtn2 = screen.getByRole("button", {
+        name: /generate final iep/i,
+      });
+      await user.click(generateBtn2);
+
+      await screen.findByText("Review Generated IEP Draft");
+      const acceptBtn2 = screen.getByRole("button", { name: /accept & save iep/i });
+      await user.click(acceptBtn2);
+
+      // Verify iepAPI.save was NOT called again (prevented duplicate IEP version!)
+      expect(iepAPI.save).toHaveBeenCalledTimes(1);
+      // Verify iepAPI.update was called on the existing IEP ID
+      expect(iepAPI.update).toHaveBeenCalledWith(
+        303,
+        expect.any(Object),
+      );
+
+      // Verify both goals are displayed together in the result view
+      await waitFor(() => {
+        expect(screen.getByText(/Mathematical Skills — Annual Goal/i)).toBeInTheDocument();
+        expect(screen.getByText(/Communication Skills — Annual Goal/i)).toBeInTheDocument();
+      });
+    });
+  });
 });
 
 

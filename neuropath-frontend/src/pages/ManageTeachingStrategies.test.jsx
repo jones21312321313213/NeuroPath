@@ -397,11 +397,11 @@ describe("ManageTeachingStrategies Multi-IEP Selection", () => {
       expect(screen.getByText(/Behavioral Skills/i)).toBeInTheDocument();
     });
 
-    // Select the goal
-    const goalItem = screen.getByText(/Behavioral Skills/i).closest(".ts-goal-item");
-    fireEvent.click(goalItem);
+    // Auto-selected badge is rendered since Version 2 has only 1 goal
+    expect(screen.getByTestId("goal-auto-selected-badge")).toBeInTheDocument();
+    expect(screen.getByText(/Goal automatically selected from Version 2/i)).toBeInTheDocument();
 
-    // Click Generate Teaching Strategy
+    // Click Generate Teaching Strategy directly without needing to click the goal item
     const generateBtn = screen.getByRole("button", { name: /Generate Teaching Strategy/i });
     expect(generateBtn).not.toBeDisabled();
     fireEvent.click(generateBtn);
@@ -413,5 +413,50 @@ describe("ManageTeachingStrategies Multi-IEP Selection", () => {
         })
       );
     });
+  });
+
+  it("does not auto-select when an IEP version has multiple goals, requiring manual selection", async () => {
+    const mockMultiGoals = [
+      {
+        goalID: 501,
+        goalName: "Social Turn-Taking",
+        subject_category: "Social / Interpersonal Skills",
+        annual_goal: "Lucas will take turns during board games.",
+      },
+      {
+        goalID: 502,
+        goalName: "Emotional Regulation",
+        subject_category: "Behavioral Skills",
+        annual_goal: "Lucas will identify emotions using visual cards.",
+      },
+    ];
+    iepAPI.listGoalsByIep.mockResolvedValue(mockMultiGoals);
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("Lucas Vance").closest(".ts-student-card"));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Social \/ Interpersonal Skills/i)).toBeInTheDocument();
+      expect(screen.getByText(/Behavioral Skills/i)).toBeInTheDocument();
+    });
+
+    // Auto-selected badge should NOT appear
+    expect(screen.queryByTestId("goal-auto-selected-badge")).not.toBeInTheDocument();
+
+    // Generate button should be disabled initially
+    const generateBtn = screen.getByRole("button", { name: /Generate Teaching Strategy/i });
+    expect(generateBtn).toBeDisabled();
+
+    // Select the second goal
+    const goalItem = screen.getByText(/Social \/ Interpersonal Skills/i).closest(".ts-goal-item");
+    fireEvent.click(goalItem);
+
+    // Button should now be enabled
+    expect(generateBtn).not.toBeDisabled();
   });
 });
