@@ -123,12 +123,15 @@ OUTPUT FORMAT (return this exact JSON, no other text):
   "compliant": <true or false>
 }}"""
 
-        raw_evaluation, _ = AIEngineService.generate_text(
-            prompt=user_prompt,
-            system_prompt=system_prompt,
-            max_tokens=300,
-            json_mode=True,
-        )
+        try:
+            raw_evaluation, _ = AIEngineService.generate_text(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                max_tokens=300,
+                json_mode=True,
+            )
+        except Exception:
+            return RGORICheckerService._fallback_evaluation()
 
         return RGORICheckerService._parse_evaluation(raw_evaluation)
 
