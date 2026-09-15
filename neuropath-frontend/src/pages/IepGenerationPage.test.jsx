@@ -911,5 +911,44 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       expect(savedMarkers).toEqual(["test"]);
     });
   });
+
+  describe("ErrorModal Integration in IEPGenerationPage", () => {
+    it("renders ErrorModal dialog when validation fails instead of alert", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+      });
+
+      // Advance to step 2
+      await user.click(screen.getByText("NEXT"));
+
+      // Try generating final IEP without selecting a goal category
+      const generateBtn = screen.getByRole("button", {
+        name: /generate final iep/i,
+      });
+      await user.click(generateBtn);
+
+      // Verify ErrorModal is displayed with alertdialog role and appropriate message
+      const modal = await screen.findByRole("alertdialog");
+      expect(modal).toBeInTheDocument();
+      expect(screen.getByText("Goal Area Required")).toBeInTheDocument();
+      expect(screen.getByText("Please select a learner goal area.")).toBeInTheDocument();
+
+      // Dismiss modal
+      const dismissBtn = screen.getByRole("button", { name: /dismiss/i });
+      await user.click(dismissBtn);
+
+      await waitFor(() => {
+        expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      });
+    });
+  });
 });
+
 
