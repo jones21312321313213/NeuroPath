@@ -216,6 +216,61 @@ describe("ManageLessonPlans Multi-IEP Selection", () => {
     });
   });
 
+  it("displays teacher-friendly loading indicator without technical AI jargon while generating", async () => {
+    let resolveGenerate;
+    const generatePromise = new Promise((resolve) => {
+      resolveGenerate = resolve;
+    });
+    lessonPlansAPI.generate.mockReturnValue(generatePromise);
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("Lucas Vance").closest(".ts-student-card"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Behavioral Skills")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("Behavioral Skills").closest(".ts-goal-item"));
+
+    const generateBtn = screen.getByRole("button", { name: /Generate Lesson Plan/i });
+    fireEvent.click(generateBtn);
+
+    // Verify accessible loading card is displayed with pedagogical phrasing
+    const loadingCard = screen.getByRole("status");
+    expect(loadingCard).toBeInTheDocument();
+    expect(screen.getByText("Creating Personalized Lesson Plan…")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Structuring instructional sequence and learning activities based on the IEP goal area",
+      ),
+    ).toBeInTheDocument();
+
+    // Verify technical AI jargon is NOT displayed
+    expect(screen.queryByText(/Invoking Llama AI Pipeline/i)).not.toBeInTheDocument();
+
+    // Complete generation
+    resolveGenerate({
+      lesson_plans: [
+        {
+          objective_focus: "Break Request",
+          introduction: "Demonstrate break cards",
+          core_activity: "Practice break request during math",
+          assessment: "Self-check",
+          materials_needed: ["Cards"],
+        },
+      ],
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    });
+  });
+
   it("does not auto-select when an IEP version has multiple goals, requiring manual selection", async () => {
     const mockMultiGoals = [
       {
@@ -261,3 +316,4 @@ describe("ManageLessonPlans Multi-IEP Selection", () => {
     expect(generateBtn).not.toBeDisabled();
   });
 });
+
