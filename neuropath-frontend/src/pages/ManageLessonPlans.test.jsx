@@ -196,11 +196,11 @@ describe("ManageLessonPlans Multi-IEP Selection", () => {
       expect(screen.getByText("Behavioral Skills")).toBeInTheDocument();
     });
 
-    // Select the goal
-    const goalItem = screen.getByText("Behavioral Skills").closest(".ts-goal-item");
-    fireEvent.click(goalItem);
+    // Auto-selected badge is rendered since Version 2 has only 1 goal
+    expect(screen.getByTestId("goal-auto-selected-badge")).toBeInTheDocument();
+    expect(screen.getByText(/Goal automatically selected from Version 2/i)).toBeInTheDocument();
 
-    // Click Generate Lesson Plan
+    // Click Generate Lesson Plan directly without needing to click the goal item
     const generateBtn = screen.getByRole("button", { name: /Generate Lesson Plan/i });
     expect(generateBtn).not.toBeDisabled();
     fireEvent.click(generateBtn);
@@ -269,6 +269,51 @@ describe("ManageLessonPlans Multi-IEP Selection", () => {
     await waitFor(() => {
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
     });
+  });
+
+  it("does not auto-select when an IEP version has multiple goals, requiring manual selection", async () => {
+    const mockMultiGoals = [
+      {
+        goalID: 401,
+        goalName: "Math Problem Solving",
+        subject_category: "Mathematical Skills",
+        annual_goal: "Lucas will solve 2-digit addition problems.",
+      },
+      {
+        goalID: 402,
+        goalName: "Verbal Greetings",
+        subject_category: "Communication Skills",
+        annual_goal: "Lucas will greet peers independently.",
+      },
+    ];
+    iepAPI.listGoalsByIep.mockResolvedValue(mockMultiGoals);
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("Lucas Vance").closest(".ts-student-card"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Mathematical Skills")).toBeInTheDocument();
+      expect(screen.getByText("Communication Skills")).toBeInTheDocument();
+    });
+
+    // Auto-selected badge should NOT appear
+    expect(screen.queryByTestId("goal-auto-selected-badge")).not.toBeInTheDocument();
+
+    // Generate button should be disabled initially
+    const generateBtn = screen.getByRole("button", { name: /Generate Lesson Plan/i });
+    expect(generateBtn).toBeDisabled();
+
+    // Select the second goal
+    const goalItem = screen.getByText("Communication Skills").closest(".ts-goal-item");
+    fireEvent.click(goalItem);
+
+    // Button should now be enabled
+    expect(generateBtn).not.toBeDisabled();
   });
 });
 

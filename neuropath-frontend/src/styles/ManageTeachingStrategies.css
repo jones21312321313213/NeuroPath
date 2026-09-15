@@ -352,6 +352,20 @@
   cursor: pointer;
 }
 
+.ts-goal-auto-selected-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  color: #15803d;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
 .ts-form-intro {
   font-size: 14.5px;
   color: #475569;

@@ -233,23 +233,37 @@ function GenerateTab({ onSave, setActivePage }) {
     try {
       const rawGoals = await iepAPI.listGoalsByIep(iep.iepID);
       const goalList = Array.isArray(rawGoals) ? rawGoals : rawGoals?.results || rawGoals?.data || [];
+      const parsedGoals = goalList.map(formatSavedIepGoal);
       setSelectedStudent((prev) => ({
         ...(prev || student),
-        availableGoals: goalList.map(formatSavedIepGoal),
+        availableGoals: parsedGoals,
       }));
+      if (parsedGoals.length === 1) {
+        setSelectedGoal(parsedGoals[0]);
+      } else {
+        setSelectedGoal(null);
+      }
     } catch {
       try {
         const fallbackGoals = await iepAPI.listLatestGoalsByStudent((student || selectedStudent)?.studentID);
         const goalList = Array.isArray(fallbackGoals) ? fallbackGoals : fallbackGoals?.results || fallbackGoals?.data || [];
+        const parsed = goalList.map(formatSavedIepGoal);
         setSelectedStudent((prev) => ({
           ...(prev || student),
-          availableGoals: goalList.map(formatSavedIepGoal),
+          availableGoals: parsed,
         }));
+        if (parsed.length === 1) {
+          setSelectedGoal(parsed[0]);
+        }
       } catch {
+        const fallbackList = Array.isArray(student?.availableGoals) ? student.availableGoals : [];
         setSelectedStudent((prev) => ({
           ...(prev || student),
-          availableGoals: Array.isArray(student?.availableGoals) ? student.availableGoals : [],
+          availableGoals: fallbackList,
         }));
+        if (fallbackList.length === 1) {
+          setSelectedGoal(fallbackList[0]);
+        }
       }
     } finally {
       setLoadingGoals(false);
@@ -518,27 +532,34 @@ function GenerateTab({ onSave, setActivePage }) {
               }}
             />
           ) : (
-            <div className="ts-goal-grid">
-              {selectedStudent.availableGoals.map((goal) => {
-                const isSelected = selectedGoal?.goalID === goal.goalID;
-                return (
-                  <label
-                    key={goal.goalID}
-                    className={`ts-goal-item ${isSelected ? "selected" : ""}`}
-                    onClick={() => setSelectedGoal(goal)}
-                  >
-                    <input
-                      type="radio"
-                      name="iepGoal"
-                      className="ts-goal-radio"
-                      checked={isSelected}
-                      onChange={() => setSelectedGoal(goal)}
-                    />
-                    <span className="ts-goal-text">{goal.label}</span>
-                  </label>
-                );
-              })}
-            </div>
+            <>
+              {selectedStudent.availableGoals.length === 1 && (
+                <div className="ts-goal-auto-selected-badge" data-testid="goal-auto-selected-badge">
+                  <span>✓</span> Goal automatically selected from Version {selectedIEP.version}
+                </div>
+              )}
+              <div className="ts-goal-grid">
+                {selectedStudent.availableGoals.map((goal) => {
+                  const isSelected = selectedGoal?.goalID === goal.goalID;
+                  return (
+                    <label
+                      key={goal.goalID}
+                      className={`ts-goal-item ${isSelected ? "selected" : ""}`}
+                      onClick={() => setSelectedGoal(goal)}
+                    >
+                      <input
+                        type="radio"
+                        name="iepGoal"
+                        className="ts-goal-radio"
+                        checked={isSelected}
+                        onChange={() => setSelectedGoal(goal)}
+                      />
+                      <span className="ts-goal-text">{goal.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </>
           )}
           <div className="ts-actions" style={{ marginTop: 22 }}>
             <button

@@ -307,6 +307,11 @@ function GenerateTab({ onSave, setActivePage }) {
         ...(prev || student),
         availableGoals: parsedGoals,
       }));
+      if (parsedGoals.length === 1) {
+        setSelectedGoal(parsedGoals[0]);
+      } else {
+        setSelectedGoal(null);
+      }
     } catch {
       try {
         const fallbackGoals = await iepAPI.listLatestGoalsByStudent((student || selectedStudent)?.studentID);
@@ -317,11 +322,18 @@ function GenerateTab({ onSave, setActivePage }) {
           ...(prev || student),
           availableGoals: parsed,
         }));
+        if (parsed.length === 1) {
+          setSelectedGoal(parsed[0]);
+        }
       } catch {
+        const fallbackList = Array.isArray(student?.availableGoals) ? student.availableGoals : [];
         setSelectedStudent((prev) => ({
           ...(prev || student),
-          availableGoals: Array.isArray(student?.availableGoals) ? student.availableGoals : [],
+          availableGoals: fallbackList,
         }));
+        if (fallbackList.length === 1) {
+          setSelectedGoal(fallbackList[0]);
+        }
       }
     } finally {
       setLoadingGoals(false);
@@ -578,6 +590,11 @@ function GenerateTab({ onSave, setActivePage }) {
             />
           ) : (
             <>
+              {selectedStudent.availableGoals.length === 1 && (
+                <div className="ts-goal-auto-selected-badge" data-testid="goal-auto-selected-badge">
+                  <span>✓</span> Goal automatically selected from Version {selectedIEP.version}
+                </div>
+              )}
               <div className="ts-goal-grid">
                 {selectedStudent.availableGoals.map((goal) => {
                   const isSelected = selectedGoal?.goalID === goal.goalID;

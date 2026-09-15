@@ -546,9 +546,12 @@ function ViewIEPPanel({
         const list = Array.isArray(data)
           ? data
           : data.results || data.data || [];
-        // Filter out the junk "GENERAL" goals auto-created from empty goals text
+        // Filter out placeholder/empty goals while keeping legitimate concise manual goals
         const realGoals = list.filter(
-          (g) => g.subject_category !== "GENERAL" && g.annual_goal?.length > 20,
+          (g) =>
+            g &&
+            g.annual_goal?.trim() &&
+            (g.subject_category !== "GENERAL" || g.annual_goal.trim() !== "GENERAL"),
         );
         if (mounted) setIepGoals(realGoals.map(normalizeDbGoal));
       } catch {
@@ -572,7 +575,6 @@ function ViewIEPPanel({
       setEditSpecialFactorNotes(specialNotes);
       setEditGoals([]);
       setGoalsToDelete([]);
-      setIepGoals([]);
       setDeleteTarget(null);
     });
   }, [selectedIep, details?.specialFactorNotes, details?.special_factor_notes]);
@@ -1310,7 +1312,7 @@ function ViewIEPPanel({
                   <p className="iep-muted">Loading learner goals…</p>
                 ) : goalsToRender.length ? (
                   goalsToRender.map((goal, idx) => (
-                    <div key={goal.type || idx} className="iep-goal-preview">
+                    <div key={goal.goalID || `${goal.type}-${idx}` || idx} className="iep-goal-preview">
                       <InfoBlock title={`${goal.type} — Annual Goal / Long Term`}>
                         {goal.annualGoal}
                       </InfoBlock>
@@ -1908,6 +1910,9 @@ export default function IEPGenerationPage({
         ],
       });
       setShowManualGoal(false);
+      if (queryClient) {
+        queryClient.invalidateQueries({ queryKey: ["iep"] });
+      }
     } catch (err) {
       showError(err.message || "Unknown error", "Failed to Save Custom Goal");
     } finally {
@@ -1943,7 +1948,6 @@ export default function IEPGenerationPage({
 
     setGeneratingFinalIep(true);
     setGenerationDone(false);
-    setAiGeneratedGoals([]);
     setPendingGeneratedGoals([]);
     setGoalSaveStatus("");
 
@@ -2097,7 +2101,7 @@ export default function IEPGenerationPage({
       }
     }
 
-    setAiGeneratedGoals(pendingGeneratedGoals);
+    setAiGeneratedGoals((prev) => [...prev, ...pendingGeneratedGoals]);
     setGoalSaveStatus(allSaved ? "saved" : "error");
     setGenerationDone(true);
     setSavingGoals(false);
@@ -2112,6 +2116,13 @@ export default function IEPGenerationPage({
         }),
       200,
     );
+  };
+
+  const handleAddAnotherGoal = () => {
+    setGenerationDone(false);
+    setSelectedGoalCategory("");
+    setTeacherPrompt("");
+    setStep(2);
   };
 
   const handleRegenerateFromModal = async (customPrompt) => {
@@ -2605,6 +2616,46 @@ export default function IEPGenerationPage({
                     </Callout>
                   )}
 
+                  {aiGeneratedGoals.length > 0 && (
+                    <div
+                      className="iep-active-goals-summary"
+                      data-testid="iep-active-goals-summary"
+                      style={{
+                        marginBottom: 16,
+                        padding: "12px 16px",
+                        background: "#f0fdf4",
+                        border: "1px solid #bbf7d0",
+                        borderRadius: 8,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <strong style={{ color: "#166534", fontSize: "0.88rem" }}>
+                          Goals already added to this IEP ({aiGeneratedGoals.length}):
+                        </strong>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                        {aiGeneratedGoals.map((g, idx) => (
+                          <span
+                            key={idx}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              padding: "3px 10px",
+                              background: "#dcfce7",
+                              color: "#15803d",
+                              border: "1px solid #86efac",
+                              borderRadius: 14,
+                              fontSize: "0.78rem",
+                              fontWeight: 600,
+                            }}
+                          >
+                            ✓ {g.subject_category || g.goalName || `Goal ${idx + 1}`}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="iep-ai-goal-toolbar multi">
                     <div className="form-group">
                       <label className="form-label">Goal Area:</label>
@@ -2617,7 +2668,6 @@ export default function IEPGenerationPage({
                           setGeneratedAccommodations("");
                           setGoalSaveStatus("");
                           setGenerationDone(false);
-                          setAiGeneratedGoals([]);
                         }}
                       >
                         <option value="">Select a goal area</option>
@@ -2835,6 +2885,21 @@ export default function IEPGenerationPage({
                             record on the View IEP page, or proceed to Classroom Tools.
                           </p>
                           <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              data-testid="add-another-goal-btn"
+                              style={{
+                                padding: "6px 14px",
+                                fontSize: 12,
+                                background: "#0284c7",
+                                color: "#ffffff",
+                                borderColor: "#0284c7",
+                              }}
+                              onClick={handleAddAnotherGoal}
+                            >
+                              ➕ Add Another Goal to this IEP
+                            </button>
                             <button
                               type="button"
                               className="btn btn-submit"
