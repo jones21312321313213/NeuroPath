@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { iepAPI, studentsAPI } from "../api/client";
-import { Callout, ErrorModal } from "../components/ui";
+import { Callout, ErrorModal, IepLoadingModal } from "../components/ui";
 import { queryClient } from "../queryClient";
 import { queryKeys } from "../hooks/queries";
 import { sanitizeDifficulties } from "../utils/difficultyUtils";
@@ -3019,6 +3019,12 @@ export default function IEPGenerationPage({
           setActivePage={setActivePage}
         />
       )}
+
+      <IepLoadingModal
+        isOpen={generatingFinalIep}
+        studentName={form.learnerName || getStudentName(selectedStudent) || ""}
+        goalArea={selectedGoalCategory || ""}
+      />
 
       {errorModal.isOpen && (
         <ErrorModal

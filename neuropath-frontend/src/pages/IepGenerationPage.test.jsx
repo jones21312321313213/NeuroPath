@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import IEPGenerationPage from "./IepGenerationPage";
@@ -946,6 +946,69 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
 
       await waitFor(() => {
         expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("IepLoadingModal Integration in IEPGenerationPage (Issue #156)", () => {
+    it("displays dedicated loading modal during final IEP generation and closes on completion", async () => {
+      const user = userEvent.setup();
+      let resolveGenerate;
+      const generatePromise = new Promise((resolve) => {
+        resolveGenerate = resolve;
+      });
+      iepAPI.save.mockResolvedValue({ iepID: 202, studentID: 1 });
+      iepAPI.generateGoalsFromIep.mockReturnValue(generatePromise);
+      iepAPI.saveGoal.mockResolvedValue({ goalID: 10 });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+      });
+
+      // Advance to step 2
+      await user.click(screen.getByText("NEXT"));
+
+      // Select a goal area
+      const goalSelect = screen.getByRole("combobox");
+      await user.selectOptions(goalSelect, "Functional Academic Skills");
+
+      // Click Generate Final IEP
+      const generateBtn = screen.getByRole("button", {
+        name: /generate final iep/i,
+      });
+      await user.click(generateBtn);
+
+      // Verify IepLoadingModal is displayed
+      const modal = await screen.findByRole("dialog");
+      expect(modal).toBeInTheDocument();
+      expect(within(modal).getByRole("progressbar")).toBeInTheDocument();
+      expect(within(modal).getByText("Alex Doe")).toBeInTheDocument();
+      expect(within(modal).getByText("Functional Academic Skills")).toBeInTheDocument();
+
+      // Complete the promise
+      resolveGenerate({
+        goals: [
+          {
+            subject_category: "Functional Academic Skills",
+            annual_goal: "Learner will complete daily tasks.",
+            _rgori_score: 90,
+            _rgori_feedback: "Good",
+            objective_rows: [],
+          },
+        ],
+      });
+
+      // Modal should disappear
+      await waitFor(() => {
+        expect(
+          screen.queryByText("Generating Individualized Education Plan"),
+        ).not.toBeInTheDocument();
       });
     });
   });
