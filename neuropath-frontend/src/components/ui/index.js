@@ -10,3 +10,4 @@ export { default as CountUp } from "./CountUp";
 export { default as GlareHover } from "./GlareHover";
 export { default as ClickSpark } from "./ClickSpark";
 export { default as RotatingText } from "./RotatingText";
+export { IepPostGenerationModal, default as IepPostGenerationModalDefault } from "./IepPostGenerationModal";

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { iepAPI, studentsAPI } from "../api/client";
-import { Callout, ErrorModal, IepLoadingModal } from "../components/ui";
+import { Callout, ErrorModal, IepLoadingModal, IepPostGenerationModal } from "../components/ui";
 import { queryClient } from "../queryClient";
 import { queryKeys } from "../hooks/queries";
 import { sanitizeDifficulties } from "../utils/difficultyUtils";
@@ -1435,6 +1435,12 @@ export default function IEPGenerationPage({
   const [generationDone, setGenerationDone] = useState(false);
   const resultRef = useRef(null);
 
+  // Post-generation preview modal (Issue #157)
+  const [showPostGenModal, setShowPostGenModal] = useState(false);
+  const [pendingGeneratedGoals, setPendingGeneratedGoals] = useState([]);
+  const [isSavingPendingGoals, setIsSavingPendingGoals] = useState(false);
+  const [pendingIepId, setPendingIepId] = useState(null);
+
   // Manual goal state in Section C
   const [showManualGoal, setShowManualGoal] = useState(false);
   const [savingManualGoal, setSavingManualGoal] = useState(false);
@@ -1911,7 +1917,7 @@ export default function IEPGenerationPage({
 
   // ── Generate Final IEP ────────────────────────────────────────────────────
 
-  const handleGenerateFinalIep = async () => {
+  const handleGenerateFinalIep = async (overrideTeacherPrompt) => {
     if (!getStudentId(selectedStudent)) {
       showError("Please select a student first.", "Student Required");
       return;
@@ -1938,6 +1944,7 @@ export default function IEPGenerationPage({
     setGeneratingFinalIep(true);
     setGenerationDone(false);
     setAiGeneratedGoals([]);
+    setPendingGeneratedGoals([]);
     setGoalSaveStatus("");
 
     // Step 1: Save the IEP document once for this generation session.
@@ -2012,11 +2019,16 @@ export default function IEPGenerationPage({
             "",
         }));
 
+      const effectiveTeacherPrompt =
+        typeof overrideTeacherPrompt === "string"
+          ? overrideTeacherPrompt
+          : teacherPrompt;
+
       const result = await iepAPI.generateGoalsFromIep({
         iep_id: savedIepId,
         student_name: form.learnerName || getStudentName(selectedStudent) || "",
         goal_area: selectedGoalCategory,
-        teacher_prompt: teacherPrompt,
+        teacher_prompt: effectiveTeacherPrompt,
         special_factor_notes: form.specialFactorNotes,
         accommodations: form.barrierRows
           .map((r) => r.accommodation)
@@ -2042,52 +2054,73 @@ export default function IEPGenerationPage({
       });
 
       const goals = result?.goals || [];
-      setAiGeneratedGoals(goals);
-      setGenerationDone(true);
-
-      // Step 3: Auto-save each goal to /api/iep/goals/
-      if (goals.length > 0) {
-        setSavingGoals(true);
-        setGoalSaveStatus("saving");
-        let allSaved = true;
-        for (const goal of goals) {
-          try {
-            const {
-              _rgori_score,
-              _rgori_feedback,
-              _attempts,
-              _rgori_warning,
-              ...goalPayload
-            } = goal;
-            await iepAPI.saveGoal({
-              ...goalPayload,
-              iep: savedIepId,
-              goalName:
-                goalPayload.goalName || goalPayload.subject_category || "Goal",
-              target_metric: goalPayload.target_metric || "Standard IEP Metric",
-            });
-          } catch {
-            allSaved = false;
-          }
-        }
-        setGoalSaveStatus(allSaved ? "saved" : "error");
-        setSavingGoals(false);
-      }
-
-      setTimeout(
-        () =>
-          resultRef.current?.scrollIntoView?.({
-            behavior: "smooth",
-            block: "start",
-          }),
-        200,
-      );
+      setPendingGeneratedGoals(goals);
+      setPendingIepId(savedIepId);
+      setShowPostGenModal(true);
     } catch (err) {
       showError(err.message || "Unknown error", "Failed to Generate AI Goals");
       setGenerationDone(false);
     } finally {
       setGeneratingFinalIep(false);
     }
+  };
+
+  const handleAcceptAndSaveGoals = async () => {
+    if (!pendingGeneratedGoals.length || !pendingIepId) {
+      setShowPostGenModal(false);
+      return;
+    }
+
+    setIsSavingPendingGoals(true);
+    setSavingGoals(true);
+    setGoalSaveStatus("saving");
+    let allSaved = true;
+
+    for (const goal of pendingGeneratedGoals) {
+      try {
+        const {
+          _rgori_score,
+          _rgori_feedback,
+          _attempts,
+          _rgori_warning,
+          ...goalPayload
+        } = goal;
+        await iepAPI.saveGoal({
+          ...goalPayload,
+          iep: pendingIepId,
+          goalName:
+            goalPayload.goalName || goalPayload.subject_category || "Goal",
+          target_metric: goalPayload.target_metric || "Standard IEP Metric",
+        });
+      } catch {
+        allSaved = false;
+      }
+    }
+
+    setAiGeneratedGoals(pendingGeneratedGoals);
+    setGoalSaveStatus(allSaved ? "saved" : "error");
+    setGenerationDone(true);
+    setSavingGoals(false);
+    setIsSavingPendingGoals(false);
+    setShowPostGenModal(false);
+
+    setTimeout(
+      () =>
+        resultRef.current?.scrollIntoView?.({
+          behavior: "smooth",
+          block: "start",
+        }),
+      200,
+    );
+  };
+
+  const handleRegenerateFromModal = async (customPrompt) => {
+    setShowPostGenModal(false);
+    setPendingGeneratedGoals([]);
+    if (typeof customPrompt === "string" && customPrompt.trim()) {
+      setTeacherPrompt(customPrompt);
+    }
+    await handleGenerateFinalIep(customPrompt);
   };
 
   // ── IEP CRUD ──────────────────────────────────────────────────────────────
@@ -3024,6 +3057,19 @@ export default function IEPGenerationPage({
         isOpen={generatingFinalIep}
         studentName={form.learnerName || getStudentName(selectedStudent) || ""}
         goalArea={selectedGoalCategory || ""}
+      />
+
+      <IepPostGenerationModal
+        isOpen={showPostGenModal}
+        onClose={() => setShowPostGenModal(false)}
+        goals={pendingGeneratedGoals}
+        accommodations={generatedAccommodations || buildGeneratedAccommodations()}
+        studentName={form.learnerName || getStudentName(selectedStudent) || ""}
+        goalArea={selectedGoalCategory || ""}
+        onAcceptAndSave={handleAcceptAndSaveGoals}
+        onRegenerate={handleRegenerateFromModal}
+        isSaving={isSavingPendingGoals}
+        isRegenerating={generatingFinalIep}
       />
 
       {errorModal.isOpen && (
