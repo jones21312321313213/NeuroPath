@@ -187,6 +187,7 @@ class StrategyRetrievalSerializer(serializers.ModelSerializer):
     # 🚀 REWIRED: Complete data lineage traversal
     studentName = serializers.CharField(source='iep_goal.iep.studentID.name', read_only=True)
     studentID = serializers.IntegerField(source='iep_goal.iep.studentID.pk', read_only=True)
+    goalID = serializers.IntegerField(source='iep_goal.pk', read_only=True)
     goalName = serializers.CharField(source='iep_goal.annual_goal', read_only=True)
     formattedDate = serializers.DateTimeField(source='dateCreated', format="%B %d, %Y", read_only=True)
 
@@ -196,6 +197,7 @@ class StrategyRetrievalSerializer(serializers.ModelSerializer):
             'strategyID', 
             'studentName', 
             'studentID', 
+            'goalID',
             'goalName', 
             'title', 
             'strategyContent', 

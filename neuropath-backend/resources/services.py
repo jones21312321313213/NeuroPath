@@ -13,9 +13,9 @@ from iep_management.privacy_utils import (
 class TeachingStrategyGenerationService:
     
     @staticmethod
-    def generate_and_save_strategy(goal_instance, teacher_instance):
+    def generate_strategy(goal_instance, teacher_instance):
         """
-        Generates a practical teaching strategy and SAVES it directly to the database.
+        Generates a practical teaching strategy draft WITHOUT saving it to the database.
         """
         # 1. Safely traverse the database relationships to gather context
         iep = getattr(goal_instance, 'iep', None) or getattr(goal_instance, 'parent_iep', None)
@@ -88,17 +88,35 @@ Strict Rules:
             goal_name = getattr(goal_instance, 'goalName', None) or getattr(goal_instance, 'annual_goal', 'Target Goal')
             strategy_title = f"Strategy for: {goal_name}"
             
-            # 6. SAVE to the database automatically using the correct relational column
-            new_strategy = TeachingStrategy.objects.create(
-                iep_goal=goal_instance,
-                title=strategy_title,
-                strategyContent=strategy_content
-            )
+            goal_id = getattr(goal_instance, 'goalID', None) or getattr(goal_instance, 'pk', None)
+            student_id = getattr(student, 'pk', None) if student else None
+            student_name = getattr(student, 'name', 'Unknown Student') if student else 'Unknown Student'
             
-            return new_strategy
+            return {
+                "title": strategy_title,
+                "strategyContent": strategy_content,
+                "goalID": goal_id,
+                "goalName": goal_name,
+                "studentName": student_name,
+                "studentID": student_id,
+            }
             
         except Exception as e:
             raise Exception(f"Teaching Strategy Generation failed: {str(e)}")
+
+    @staticmethod
+    def generate_and_save_strategy(goal_instance, teacher_instance):
+        """
+        Generates a practical teaching strategy and SAVES it directly to the database.
+        Retained for backward compatibility.
+        """
+        draft = TeachingStrategyGenerationService.generate_strategy(goal_instance, teacher_instance)
+        new_strategy = TeachingStrategy.objects.create(
+            iep_goal=goal_instance,
+            title=draft["title"],
+            strategyContent=draft["strategyContent"]
+        )
+        return new_strategy
         
 
 # =====================================================================

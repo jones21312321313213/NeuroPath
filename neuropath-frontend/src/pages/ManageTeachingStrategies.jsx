@@ -215,6 +215,7 @@ function GenerateTab({ onSave, setActivePage }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     teachingStrategiesAPI
@@ -333,10 +334,26 @@ function GenerateTab({ onSave, setActivePage }) {
     }
   };
 
-  const handleSave = () => {
-    if (!generated) return;
-    onSave(generated.data);
-    setSaved(true);
+  const handleSave = async () => {
+    if (!generated || !selectedGoal || saving || saved) return;
+    setSaving(true);
+    setError("");
+    try {
+      const payload = {
+        iep_goal: selectedGoal.goalID,
+        title: generated.data?.title || `Strategy for: ${selectedGoal.label || "IEP Goal"}`,
+        strategyContent: generated.data?.strategyContent || "",
+      };
+      const response = await teachingStrategiesAPI.save(payload);
+      setSaved(true);
+      if (onSave) {
+        onSave(response?.data || generated.data);
+      }
+    } catch (err) {
+      setError(err.message || "Failed to save teaching strategy.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -594,16 +611,16 @@ function GenerateTab({ onSave, setActivePage }) {
             <button
               className="ts-btn ts-btn-secondary"
               onClick={handleGenerate}
-              disabled={loading}
+              disabled={loading || saving}
             >
               🔄 Regenerate
             </button>
             <button
               className="ts-btn ts-btn-primary"
               onClick={handleSave}
-              disabled={loading || saved}
+              disabled={loading || saving || saved}
             >
-              💾 Confirm & Save Strategy
+              {saving ? "Saving…" : saved ? "✓ Saved" : "💾 Confirm & Save Strategy"}
             </button>
           </div>
         </div>

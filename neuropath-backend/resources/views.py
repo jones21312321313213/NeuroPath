@@ -990,7 +990,10 @@ class TeachingStrategyViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """Matches Sequence Diagram: [Strategy Route Option = "Generate Teaching Strategy" Tab]"""
-        serializer = self.get_serializer(data=request.data)
+        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        if 'iep_goal' not in data and 'goalID' in data:
+            data['iep_goal'] = data['goalID']
+        serializer = self.get_serializer(data=data)
 
         if serializer.is_valid():
             teacher = get_teacher_for_user(request.user)
@@ -1012,9 +1015,10 @@ class TeachingStrategyViewSet(viewsets.ModelViewSet):
             
             self.perform_create(serializer)
             
+            res_serializer = StrategyRetrievalSerializer(serializer.instance)
             return Response({
-                "message": "Teaching Strategy successfully generated and securely saved.",
-                "data": serializer.data
+                "message": "Teaching Strategy successfully saved.",
+                "data": res_serializer.data
             }, status=status.HTTP_201_CREATED)
             
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1096,21 +1100,17 @@ class TeachingStrategyGenerationController(APIView):
                 )
 
             try:
-                # 2. Trigger the AI Generation & Database Save via our new Service
+                # 2. Trigger the AI Generation without saving to the database
                 # request.user contains the teacher automatically due to your auth middleware
-                saved_strategy = TeachingStrategyGenerationService.generate_and_save_strategy(
+                draft_strategy = TeachingStrategyGenerationService.generate_strategy(
                     goal_instance=target_goal,
                     teacher_instance=request.user
                 )
                 
-                # 3. Route the new database record through your existing UI serializer
-                # This ensures the React frontend gets the exact schema it expects
-                res_serializer = StrategyRetrievalSerializer(saved_strategy)
-                
                 return Response({
-                    "message": "Teaching strategy successfully generated and saved.",
-                    "data": res_serializer.data
-                }, status=status.HTTP_201_CREATED)
+                    "message": "Teaching strategy successfully generated.",
+                    "data": draft_strategy
+                }, status=status.HTTP_200_OK)
                 
             except ConsentRequiredException as e:
                 return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
