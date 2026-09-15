@@ -4,6 +4,7 @@ export { Badge, default as BadgeDefault } from "./Badge";
 export { Callout, default as CalloutDefault } from "./Callout";
 export { Modal, default as ModalDefault } from "./Modal";
 export { ErrorModal, default as ErrorModalDefault } from "./ErrorModal";
+export { IepLoadingModal, default as IepLoadingModalDefault } from "./IepLoadingModal";
 export { EmptyState, default as EmptyStateDefault } from "./EmptyState";
 export { default as CountUp } from "./CountUp";
 export { default as GlareHover } from "./GlareHover";
