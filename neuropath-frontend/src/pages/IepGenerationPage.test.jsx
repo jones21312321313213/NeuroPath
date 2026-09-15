@@ -1004,12 +1004,177 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         ],
       });
 
-      // Modal should disappear
+      // Loading Modal should disappear
       await waitFor(() => {
         expect(
           screen.queryByText("Generating Individualized Education Plan"),
         ).not.toBeInTheDocument();
       });
+    });
+  });
+
+  describe("IepPostGenerationModal Integration (Issue #157)", () => {
+    const draftGoal = {
+      subject_category: "Functional Academic Skills",
+      goalName: "Functional Academic Skills",
+      annual_goal: "Learner will complete daily arithmetic tasks with 80% accuracy.",
+      target_metric: "80% accuracy across 3 trials",
+      _rgori_score: 92,
+      _rgori_feedback: "Exemplary SMART goal with rigorous timeline.",
+      objective_rows: [
+        {
+          objective: "Complete single-digit addition exercises",
+          interventions: "Visual counter manipulatives",
+          timeline: "Month 1",
+        },
+      ],
+    };
+
+    it("displays post-generation preview modal upon successful generation without saving goals immediately", async () => {
+      const user = userEvent.setup();
+      iepAPI.save.mockResolvedValue({ iepID: 202, studentID: 1 });
+      iepAPI.generateGoalsFromIep.mockResolvedValue({
+        goals: [draftGoal],
+      });
+      iepAPI.saveGoal.mockResolvedValue({ goalID: 10 });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+      });
+
+      // Advance to Step 2
+      await user.click(screen.getByText("NEXT"));
+
+      // Select goal category
+      const goalSelect = screen.getByRole("combobox");
+      await user.selectOptions(goalSelect, "Functional Academic Skills");
+
+      // Click Generate Final IEP
+      const generateBtn = screen.getByRole("button", {
+        name: /generate final iep/i,
+      });
+      await user.click(generateBtn);
+
+      // Verify preview modal is displayed
+      const modal = await screen.findByRole("dialog");
+      expect(modal).toBeInTheDocument();
+      expect(screen.getByText("Review Generated IEP Draft")).toBeInTheDocument();
+      expect(
+        screen.getByText("Learner will complete daily arithmetic tasks with 80% accuracy."),
+      ).toBeInTheDocument();
+      expect(screen.getByText("R-GORI: 92/100 (Exemplary)")).toBeInTheDocument();
+
+      // Goals should NOT be saved to backend yet
+      expect(iepAPI.saveGoal).not.toHaveBeenCalled();
+    });
+
+    it("persists goals to backend and displays success banner when Accept & Save IEP is clicked in preview modal", async () => {
+      const user = userEvent.setup();
+      iepAPI.save.mockResolvedValue({ iepID: 202, studentID: 1 });
+      iepAPI.generateGoalsFromIep.mockResolvedValue({
+        goals: [draftGoal],
+      });
+      iepAPI.saveGoal.mockResolvedValue({ goalID: 10 });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("NEXT"));
+      const goalSelect = screen.getByRole("combobox");
+      await user.selectOptions(goalSelect, "Functional Academic Skills");
+
+      const generateBtn = screen.getByRole("button", {
+        name: /generate final iep/i,
+      });
+      await user.click(generateBtn);
+
+      await screen.findByText("Review Generated IEP Draft");
+
+      // Click Accept & Save IEP
+      const acceptBtn = screen.getByRole("button", { name: /accept & save iep/i });
+      await user.click(acceptBtn);
+
+      // Verify saveGoal was called with the draft goal payload
+      await waitFor(() => {
+        expect(iepAPI.saveGoal).toHaveBeenCalledWith(
+          expect.objectContaining({
+            annual_goal: "Learner will complete daily arithmetic tasks with 80% accuracy.",
+            goalName: "Functional Academic Skills",
+            iep: 202,
+          }),
+        );
+      });
+
+      // Verify modal is dismissed and success banner is displayed
+      await waitFor(() => {
+        expect(screen.queryByText("Review Generated IEP Draft")).not.toBeInTheDocument();
+        expect(screen.getByText("IEP Generated Successfully!")).toBeInTheDocument();
+      });
+    });
+
+    it("triggers fresh generation and does not save rejected goals when Regenerate is clicked", async () => {
+      const user = userEvent.setup();
+      iepAPI.save.mockResolvedValue({ iepID: 202, studentID: 1 });
+      iepAPI.generateGoalsFromIep.mockResolvedValue({
+        goals: [draftGoal],
+      });
+      iepAPI.saveGoal.mockResolvedValue({ goalID: 10 });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("NEXT"));
+      const goalSelect = screen.getByRole("combobox");
+      await user.selectOptions(goalSelect, "Functional Academic Skills");
+
+      const generateBtn = screen.getByRole("button", {
+        name: /generate final iep/i,
+      });
+      await user.click(generateBtn);
+
+      await screen.findByText("Review Generated IEP Draft");
+      expect(iepAPI.generateGoalsFromIep).toHaveBeenCalledTimes(1);
+
+      // Expand optional guidance accordion
+      const toggleGuidance = screen.getByText(/guidance for regeneration/i);
+      await user.click(toggleGuidance);
+
+      const promptInput = screen.getByLabelText(/provide specific guidance/i);
+      await user.type(promptInput, "Focus on tactile learning manipulatives.");
+
+      // Click Regenerate
+      const regenBtn = screen.getByRole("button", { name: /^regenerate$/i });
+      await user.click(regenBtn);
+
+      // Verify saveGoal was NEVER called
+      expect(iepAPI.saveGoal).not.toHaveBeenCalled();
+
+      // Verify generateGoalsFromIep was invoked a second time with the custom guidance
+      await waitFor(() => {
+        expect(iepAPI.generateGoalsFromIep).toHaveBeenCalledTimes(2);
+      });
+      const secondCallArgs = iepAPI.generateGoalsFromIep.mock.calls[1][0];
+      expect(secondCallArgs.teacher_prompt).toBe("Focus on tactile learning manipulatives.");
     });
   });
 });
