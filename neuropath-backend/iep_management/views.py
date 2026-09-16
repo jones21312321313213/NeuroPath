@@ -837,8 +837,12 @@ class GenerateIEPGoalsFromIEPView(APIView):
 
         fallback_rows = [{
             "enroute_objectives": f"Student will demonstrate an initial sub-skill toward: {annual_goal[:120]}",
+            "objective": f"Student will demonstrate an initial sub-skill toward: {annual_goal[:120]}",
             "interventions_procedures": f"Use {assistive_tech or 'visual supports'} and structured practice to support {goal_area or 'the goal area'}.",
+            "interventions": f"Use {assistive_tech or 'visual supports'} and structured practice to support {goal_area or 'the goal area'}.",
+            "intervention": f"Use {assistive_tech or 'visual supports'} and structured practice to support {goal_area or 'the goal area'}.",
             "timeline_mins_session": "15-20 minutes every day",
+            "timeline": "15-20 minutes every day",
             "individuals_responsible": facilitators or "SNED Teacher",
             "progress_instructional": "Monitor weekly progress through teacher observation and skill checklists.",
             "remarks": "To be updated based on actual learning outcomes."
@@ -870,13 +874,23 @@ class GenerateIEPGoalsFromIEPView(APIView):
                 validated_rows = []
                 for row in parsed:
                     if isinstance(row, dict) and (row.get("enroute_objectives") or row.get("objective")):
+                        obj_text = str(row.get("enroute_objectives") or row.get("objective", "")).strip()
+                        int_text = str(row.get("interventions_procedures") or row.get("interventions") or row.get("intervention", f"Use {assistive_tech or 'visual supports'}")).strip()
+                        time_text = str(row.get("timeline_mins_session") or row.get("timeline", "15-20 minutes every day")).strip()
+                        resp_text = str(row.get("individuals_responsible") or row.get("responsible", facilitators or "SNED Teacher")).strip()
+                        prog_text = str(row.get("progress_instructional") or row.get("progress", "Weekly skill mastery checklist.")).strip()
+                        rem_text = str(row.get("remarks", "Targeted for ongoing observation.")).strip()
                         validated_rows.append({
-                            "enroute_objectives": str(row.get("enroute_objectives") or row.get("objective", "")).strip(),
-                            "interventions_procedures": str(row.get("interventions_procedures") or row.get("intervention", f"Use {assistive_tech or 'visual supports'}")).strip(),
-                            "timeline_mins_session": str(row.get("timeline_mins_session") or row.get("timeline", "15-20 minutes every day")).strip(),
-                            "individuals_responsible": str(row.get("individuals_responsible") or row.get("responsible", facilitators or "SNED Teacher")).strip(),
-                            "progress_instructional": str(row.get("progress_instructional") or row.get("progress", "Weekly skill mastery checklist.")).strip(),
-                            "remarks": str(row.get("remarks", "Targeted for ongoing observation.")).strip(),
+                            "enroute_objectives": obj_text,
+                            "objective": obj_text,
+                            "interventions_procedures": int_text,
+                            "interventions": int_text,
+                            "intervention": int_text,
+                            "timeline_mins_session": time_text,
+                            "timeline": time_text,
+                            "individuals_responsible": resp_text,
+                            "progress_instructional": prog_text,
+                            "remarks": rem_text,
                         })
                 if validated_rows:
                     return validated_rows

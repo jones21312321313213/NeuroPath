@@ -218,4 +218,33 @@ describe("IepPostGenerationModal", () => {
     await user.click(cancelBtn);
     expect(handleClose).toHaveBeenCalledTimes(1);
   });
+
+  it("renders objective rows formatted with backend snake_case keys correctly", () => {
+    const goalsWithBackendKeys = [
+      {
+        subject_category: "Mathematical Skills",
+        goalName: "Mathematical Skills",
+        annual_goal: "Solve two-step word problems.",
+        objective_rows: [
+          {
+            enroute_objectives: "Identify operation sign",
+            interventions_procedures: "Color-coded word problems",
+            timeline_mins_session: "15 minutes per session",
+          },
+        ],
+      },
+    ];
+
+    render(
+      <IepPostGenerationModal
+        isOpen={true}
+        goals={goalsWithBackendKeys}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Identify operation sign")).toBeInTheDocument();
+    expect(screen.getByText("Color-coded word problems")).toBeInTheDocument();
+    expect(screen.getByText("15 minutes per session")).toBeInTheDocument();
+  });
 });

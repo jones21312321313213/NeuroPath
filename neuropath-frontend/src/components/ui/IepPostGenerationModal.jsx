@@ -254,13 +254,13 @@ export function IepPostGenerationModal({
                             {objectiveRows.map((row, rIdx) => (
                               <tr key={rIdx} className="hover:bg-slate-50/50 transition-colors">
                                 <td className="px-3 py-2 align-top font-medium text-slate-900">
-                                  {row.objective || row.procedure || "—"}
+                                  {row.enroute_objectives || row.objective || row.procedure || "—"}
                                 </td>
                                 <td className="px-3 py-2 align-top text-slate-600">
-                                  {row.interventions || row.intervention || "—"}
+                                  {row.interventions_procedures || row.interventions || row.intervention || "—"}
                                 </td>
                                 <td className="px-3 py-2 align-top text-slate-500 whitespace-nowrap">
-                                  {row.timeline || "Ongoing"}
+                                  {row.timeline_mins_session || row.timeline || "Ongoing"}
                                 </td>
                               </tr>
                             ))}
