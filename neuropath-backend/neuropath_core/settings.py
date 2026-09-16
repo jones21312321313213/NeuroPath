@@ -184,7 +184,7 @@ GROQ_API_KEY = env('GROQ_API_KEY', default='MISSING_KEY')
 GROQ_MODEL = env('GROQ_MODEL', default='llama-3.3-70b-versatile')
 
 GEMINI_API_KEY = env('GEMINI_API_KEY', default='MISSING_KEY')
-GEMINI_MODEL = env('GEMINI_MODEL', default='gemini-1.5-flash')
+GEMINI_MODEL = env('GEMINI_MODEL', default='gemini-2.5-flash')
 
 OPENROUTER_API_KEY = env('OPENROUTER_API_KEY', default='MISSING_KEY')
 OPENROUTER_MODEL = env('OPENROUTER_MODEL', default='meta-llama/llama-3.3-70b-instruct:free')

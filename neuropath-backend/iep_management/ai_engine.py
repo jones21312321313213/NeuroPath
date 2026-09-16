@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class AIEngineService:
-    GEMINI_MODEL = 'gemini-1.5-flash'
+    GEMINI_MODEL = 'gemini-2.5-flash'
     GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
 
     GROQ_MODEL = 'llama-3.3-70b-versatile'
@@ -24,8 +24,15 @@ class AIEngineService:
         if not api_key or api_key in ('MISSING_KEY', ''):
             raise ValueError('Valid GEMINI_API_KEY not configured.')
 
-        model = getattr(settings, 'GEMINI_MODEL', cls.GEMINI_MODEL)
-        url = f"{cls.GEMINI_API_URL}/{model}:generateContent?key={api_key}"
+        primary_model = getattr(settings, 'GEMINI_MODEL', cls.GEMINI_MODEL)
+        models_to_try = [primary_model]
+        for fb in ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-1.5-flash']:
+            if fb not in models_to_try:
+                models_to_try.append(fb)
+
+        headers = {
+            "Content-Type": "application/json"
+        }
 
         payload = {
             "contents": [
@@ -47,13 +54,22 @@ class AIEngineService:
         if json_mode:
             payload["generationConfig"]["responseMimeType"] = "application/json"
 
-        headers = {
-            "Content-Type": "application/json"
-        }
+        last_res = None
+        for model in models_to_try:
+            url = f"{cls.GEMINI_API_URL}/{model}:generateContent?key={api_key}"
+            res = requests.post(url, headers=headers, json=payload, timeout=20)
+            if res.status_code == 404 and len(models_to_try) > 1:
+                last_res = res
+                continue
+            res.raise_for_status()
+            last_res = res
+            break
+        else:
+            if last_res is not None:
+                last_res.raise_for_status()
+            raise ValueError("No valid Gemini model available.")
 
-        res = requests.post(url, headers=headers, json=payload, timeout=20)
-        res.raise_for_status()
-        data = res.json()
+        data = last_res.json()
 
         try:
             candidates = data.get("candidates", [])
@@ -75,7 +91,12 @@ class AIEngineService:
         if not api_key or api_key in ('MISSING_KEY', ''):
             raise ValueError('Valid GROQ_API_KEY not configured.')
 
-        model = getattr(settings, 'GROQ_MODEL', cls.GROQ_MODEL)
+        primary_model = getattr(settings, 'GROQ_MODEL', cls.GROQ_MODEL)
+        models_to_try = [primary_model]
+        for fb in ['qwen/qwen3.8-27b', 'openai/gpt-oss-120b', 'llama-3.3-70b-versatile']:
+            if fb not in models_to_try:
+                models_to_try.append(fb)
+
         messages = []
         if system_prompt:
             messages.append({'role': 'system', 'content': system_prompt})
@@ -86,7 +107,7 @@ class AIEngineService:
             'Content-Type': 'application/json',
         }
         payload = {
-            'model': model,
+            'model': primary_model,
             'messages': messages,
             'max_tokens': max_tokens,
             'temperature': 0.3,
@@ -94,9 +115,22 @@ class AIEngineService:
         if json_mode:
             payload['response_format'] = {'type': 'json_object'}
 
-        res = requests.post(cls.GROQ_API_URL, headers=headers, json=payload, timeout=20)
-        res.raise_for_status()
-        data = res.json()
+        last_res = None
+        for model in models_to_try:
+            payload['model'] = model
+            res = requests.post(cls.GROQ_API_URL, headers=headers, json=payload, timeout=20)
+            if res.status_code == 404 and len(models_to_try) > 1:
+                last_res = res
+                continue
+            res.raise_for_status()
+            last_res = res
+            break
+        else:
+            if last_res is not None:
+                last_res.raise_for_status()
+            raise ValueError("No valid Groq model available.")
+
+        data = last_res.json()
         return data['choices'][0]['message']['content'].strip()
 
     @classmethod
@@ -105,7 +139,12 @@ class AIEngineService:
         if not api_key or api_key in ('MISSING_KEY', ''):
             raise ValueError('Valid OPENROUTER_API_KEY not configured.')
 
-        model = getattr(settings, 'OPENROUTER_MODEL', cls.OPENROUTER_MODEL)
+        primary_model = getattr(settings, 'OPENROUTER_MODEL', cls.OPENROUTER_MODEL)
+        models_to_try = [primary_model]
+        for fb in ['google/gemma-4-26b-a4b-it:free', 'nvidia/nemotron-3.5-lightning:free', 'meta-llama/llama-3.3-70b-instruct:free']:
+            if fb not in models_to_try:
+                models_to_try.append(fb)
+
         messages = []
         if system_prompt:
             messages.append({'role': 'system', 'content': system_prompt})
@@ -118,7 +157,7 @@ class AIEngineService:
             'X-Title': 'NeuroPath',
         }
         payload = {
-            'model': model,
+            'model': primary_model,
             'messages': messages,
             'max_tokens': max_tokens,
             'temperature': 0.3,
@@ -126,9 +165,22 @@ class AIEngineService:
         if json_mode:
             payload['response_format'] = {'type': 'json_object'}
 
-        res = requests.post(cls.OPENROUTER_API_URL, headers=headers, json=payload, timeout=20)
-        res.raise_for_status()
-        data = res.json()
+        last_res = None
+        for model in models_to_try:
+            payload['model'] = model
+            res = requests.post(cls.OPENROUTER_API_URL, headers=headers, json=payload, timeout=20)
+            if res.status_code == 404 and len(models_to_try) > 1:
+                last_res = res
+                continue
+            res.raise_for_status()
+            last_res = res
+            break
+        else:
+            if last_res is not None:
+                last_res.raise_for_status()
+            raise ValueError("No valid OpenRouter model available.")
+
+        data = last_res.json()
         return data['choices'][0]['message']['content'].strip()
 
     @classmethod

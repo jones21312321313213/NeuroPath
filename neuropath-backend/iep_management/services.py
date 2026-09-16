@@ -43,11 +43,15 @@ class AIGenerationService:
                     user = User.objects.create(username=username, email=email)
                 teacher_instance = user
 
-            generated_summary, _ = AIEngineService.generate_text(
-                prompt=prompt,
-                system_prompt='You output only the requested summary paragraph. No conversational filler.',
-                max_tokens=350
-            )
+            try:
+                generated_summary, _ = AIEngineService.generate_text(
+                    prompt=prompt,
+                    system_prompt='You output only the requested summary paragraph. No conversational filler.',
+                    max_tokens=600
+                )
+            except Exception:
+                generated_summary = AIEngineService._deterministic_fallback(prompt)
+
             new_insight = GeneratedAIInsight.objects.create(
                 student=student_instance,
                 teacher=teacher_instance, 
