@@ -18,10 +18,15 @@ from .privacy_utils import (
     scrub_pii_from_text,
     verify_ra10173_consent,
     ConsentRequiredException,
+    PIIScrubberService,
 )
+from .retriever_service import SemanticRetrieverService
 import time
 import json
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 class IEPGeneratorService:
     @staticmethod
@@ -526,7 +531,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
     generatedDetails.special_factors_considerations) plus the iep_id.
  
     For each difficulty/special factor, generates one IEP Goal payload
-    (validated to R-GORI >= 65) ready to POST directly to /api/iep/goals/.
+    (validated to R-GORI >= 80) ready to POST directly to /api/iep/goals/.
  
     Example request body:
     {
@@ -583,67 +588,103 @@ class GenerateIEPGoalsFromIEPView(APIView):
         except ConsentRequiredException as e:
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
  
-        # --- 2. Extract IEP context fields ---
+        # --- 2. Extract IEP context fields & Learner Profile ---
+        student = iep.studentID
+        student_name_input = data.get('student_name', '').strip()
+        real_name = getattr(student, 'name', '').strip() or student_name_input
+        first_name = real_name.split()[0] if real_name else ''
+        guardian_name = getattr(student, 'guardian_name', '').strip()
+
+        student_profile = {
+            'full_name': real_name,
+            'name': real_name,
+            'first_name': first_name,
+            'guardian_name': guardian_name,
+            'age': getattr(student, 'age', None),
+            'grade': getattr(student, 'grade', None),
+        }
+
+        # Derive target developmental age group for vector search
+        target_age_group = SemanticRetrieverService.derive_age_group(
+            age=getattr(student, 'age', None),
+            grade=getattr(student, 'grade', None)
+        )
+
         goal_area           = data.get('goal_area', '')          # e.g. "Mathematical Skills"
-        accommodations      = data.get('accommodations', '')
-        difficulties        = data.get('difficulties', '')
-        learning_barriers   = data.get('learning_barriers', '')
-        barrier_qualifiers  = data.get('barrier_qualifiers', '')
-        facilitators        = data.get('learning_facilitators', '')
-        fac_qualifiers      = data.get('facilitator_qualifiers', '')
         generated_details   = data.get('generatedDetails', {})
         special_factors     = generated_details.get('special_factors_considerations', [])
-        
-        # Anonymize student descriptor and scrub PII from free-text notes
-        student_desc = anonymize_student_context(iep.studentID)
-        pii_tokens = [
-            getattr(iep.studentID, 'name', ''),
-            getattr(iep.studentID, 'guardian_name', ''),
-            data.get('student_name', '')
-        ]
-        special_factor_notes = scrub_pii_from_text(
-            data.get('special_factor_notes') or generated_details.get('specialFactorNotes', ''),
-            pii_tokens
-        )
-        teacher_prompt = scrub_pii_from_text(data.get('teacher_prompt', ''), pii_tokens)
- 
+
         if not special_factors:
             return Response(
                 {"error": "generatedDetails.special_factors_considerations is required and cannot be empty."},
                 status=status.HTTP_400_BAD_REQUEST
             )
- 
-        # Build a shared student context string for R-GORI evaluation
-        student_context = (
-            f"Student: {student_desc}. "
+
+        # Build comprehensive PII token list to prevent data egress under RA 10173
+        student_desc = anonymize_student_context(student)
+        pii_tokens = [real_name, guardian_name, student_name_input]
+        if real_name:
+            pii_tokens.extend(real_name.split())
+        if student_name_input and student_name_input != real_name:
+            pii_tokens.extend(student_name_input.split())
+        if guardian_name:
+            pii_tokens.extend(guardian_name.split())
+
+        # Scrub all Section B inputs prior to retrieval or AI processing
+        accommodations      = scrub_pii_from_text(data.get('accommodations', ''), pii_tokens)
+        difficulties        = scrub_pii_from_text(data.get('difficulties', ''), pii_tokens)
+        learning_barriers   = scrub_pii_from_text(data.get('learning_barriers', ''), pii_tokens)
+        barrier_qualifiers  = scrub_pii_from_text(data.get('barrier_qualifiers', ''), pii_tokens)
+        facilitators        = scrub_pii_from_text(data.get('learning_facilitators', ''), pii_tokens)
+        fac_qualifiers      = scrub_pii_from_text(data.get('facilitator_qualifiers', ''), pii_tokens)
+        special_factor_notes = scrub_pii_from_text(
+            data.get('special_factor_notes') or generated_details.get('specialFactorNotes', ''),
+            pii_tokens
+        )
+        teacher_prompt = scrub_pii_from_text(data.get('teacher_prompt', ''), pii_tokens)
+
+        # --- 3. Consolidate ALL difficulties into one single goal + table ---
+        raw_diffs = " | ".join(
+            f.get('difficulty', '') for f in special_factors if f.get('difficulty', '').strip()
+        ) or difficulties
+        all_difficulties = scrub_pii_from_text(raw_diffs, pii_tokens)
+
+        raw_tech = " | ".join(
+            f.get('assistive_technology', '') for f in special_factors if f.get('assistive_technology', '').strip()
+        )
+        all_assistive_tech = scrub_pii_from_text(raw_tech, pii_tokens)
+
+        # Build raw student context and sanitize via PIIScrubberService surrogate tokens
+        raw_student_context = (
+            f"Student: {real_name or student_desc}. "
             f"Goal Area: {goal_area}. "
-            f"Difficulties: {difficulties}. "
+            f"Difficulties: {all_difficulties}. "
             f"Learning Barriers: {learning_barriers} ({barrier_qualifiers}). "
             f"Facilitators: {facilitators} ({fac_qualifiers}). "
             f"Accommodations: {accommodations}."
             + (f" Special Factors: {special_factor_notes}." if special_factor_notes else "")
             + (f" Teacher Instructions: {teacher_prompt}." if teacher_prompt else "")
         )
- 
-        # --- 3. Consolidate ALL difficulties into one single goal + table ---
-        all_difficulties = " | ".join(
-            f.get('difficulty', '') for f in special_factors if f.get('difficulty', '').strip()
+        sanitized_context, surrogate_map = PIIScrubberService.sanitize_plaafp(
+            raw_student_context,
+            student_profile
         )
-        all_assistive_tech = " | ".join(
-            f.get('assistive_technology', '') for f in special_factors if f.get('assistive_technology', '').strip()
-        )
+        if '[STUDENT_A]' not in surrogate_map:
+            surrogate_map['[STUDENT_A]'] = real_name or student_desc
 
         goal_payload, error = self._generate_validated_goal(
             iep_id=iep_id,
-            student_name=student_desc,
+            student_name='[STUDENT_A]',
             difficulty=all_difficulties,
             assistive_tech=all_assistive_tech,
             accommodations=accommodations,
             facilitators=facilitators,
-            student_context=student_context,
+            student_context=sanitized_context,
             goal_area=goal_area,
             teacher_prompt=teacher_prompt,
             special_factor_notes=special_factor_notes,
+            target_age_group=target_age_group,
+            surrogate_map=surrogate_map,
         )
 
         if error:
@@ -663,88 +704,135 @@ class GenerateIEPGoalsFromIEPView(APIView):
     def _generate_validated_goal(
         self, iep_id, student_name, difficulty, assistive_tech,
         accommodations, facilitators, student_context,
-        goal_area='', teacher_prompt='', special_factor_notes=''
+        goal_area='', teacher_prompt='', special_factor_notes='',
+        target_age_group='All_Elementary', surrogate_map=None
     ):
         """
-        Runs the R-GORI generation loop for a single difficulty area.
-        Returns (goal_payload_dict, None) on success or (None, error_string) on failure.
+        Runs the RAG-grounded R-GORI generation loop for a single difficulty area.
+        Retrieves authoritative DepEd & ASD knowledge chunks and validates against R-GORI >= 80%.
         """
         best_payload = None
         best_score   = -1
         last_error   = None
- 
+        surr_map     = surrogate_map or {}
+
+        # 1. Retrieve RAG Pedagogical Context
+        rag_query = f"Goal Area: {goal_area}. Difficulties: {difficulty}. Notes: {special_factor_notes}"
+        retrieved_chunks = SemanticRetrieverService.retrieve_context(
+            domain=goal_area or difficulty,
+            query_text=rag_query,
+            target_age_group=target_age_group,
+            top_k=4
+        )
+        rag_context_text = SemanticRetrieverService.format_context_for_prompt(retrieved_chunks)
+
         for attempt in range(self.MAX_ATTEMPTS):
             try:
-                # --- Step A: Generate annual goal ---
+                # --- Step A: Generate annual goal with RAG context ---
                 annual_goal = self._generate_annual_goal(
                     student_name, difficulty, assistive_tech, accommodations,
                     facilitators, goal_area, teacher_prompt,
-                    special_factor_notes=special_factor_notes
+                    special_factor_notes=special_factor_notes,
+                    rag_context=rag_context_text
                 )
- 
-                # --- Step B: Validate with R-GORI ---
+
+                # --- Step B: Validate with R-GORI (Threshold >= 80) ---
                 evaluation   = RGORICheckerService.evaluate_goal(annual_goal, student_context)
                 score        = evaluation.get('total_score', 0)
                 feedback     = evaluation.get('feedback', '')
                 is_compliant = evaluation.get('compliant', False)
- 
+
+                # --- Step B.1: Automated 1-Cycle Rubric Repair Loop if score < 80 ---
+                if not is_compliant and attempt == 0:
+                    try:
+                        repaired_goal = RGORICheckerService.repair_goal(annual_goal, evaluation, student_context)
+                        repaired_eval = RGORICheckerService.evaluate_goal(repaired_goal, student_context)
+                        if repaired_eval.get('total_score', 0) > score:
+                            annual_goal = repaired_goal
+                            evaluation = repaired_eval
+                            score = evaluation.get('total_score', 0)
+                            feedback = evaluation.get('feedback', '')
+                            is_compliant = evaluation.get('compliant', False)
+                    except Exception as repair_err:
+                        logger.warning("Automated R-GORI repair attempt failed: %s", repair_err)
+
                 # --- Step C: Generate objective rows for this goal ---
                 objective_rows = self._generate_objective_rows(
                     student_name, difficulty, assistive_tech,
                     annual_goal, facilitators, goal_area,
                     special_factor_notes=special_factor_notes
                 )
- 
+
+                # --- Step D: In-Memory Rehydration of Surrogate Tokens for Authenticated Session ---
+                rehydrated_annual_goal = PIIScrubberService.rehydrate_text(annual_goal, surr_map)
+                rehydrated_goal_name = PIIScrubberService.rehydrate_text(
+                    self._derive_goal_name(difficulty, goal_area), surr_map
+                )
+                rehydrated_target_metric = PIIScrubberService.rehydrate_text(
+                    self._derive_target_metric(difficulty, assistive_tech), surr_map
+                )
+                rehydrated_objective_rows = []
+                for row in objective_rows:
+                    rehydrated_row = {}
+                    for k, v in row.items():
+                        if isinstance(v, str):
+                            rehydrated_row[k] = PIIScrubberService.rehydrate_text(v, surr_map)
+                        else:
+                            rehydrated_row[k] = v
+                    rehydrated_objective_rows.append(rehydrated_row)
+
                 # Use the teacher-selected goal_area as the authoritative subject category;
                 # fall back to difficulty-based mapping only when no area was chosen.
                 subject_category = (
                     goal_area if goal_area
                     else self._map_difficulty_to_category(difficulty)
                 )
- 
+
                 # Build the full goal payload (ready for POST /api/iep/goals/)
                 payload = {
                     "iep": iep_id,
                     "subject_category": subject_category,
-                    "annual_goal": annual_goal,
-                    "goalName": self._derive_goal_name(difficulty, goal_area),
-                    "target_metric": self._derive_target_metric(difficulty, assistive_tech),
-                    "objective_rows": objective_rows,
+                    "annual_goal": rehydrated_annual_goal,
+                    "goalName": rehydrated_goal_name,
+                    "target_metric": rehydrated_target_metric,
+                    "objective_rows": rehydrated_objective_rows,
                     # Meta info (not sent to /goals/ but useful for the frontend)
                     "_rgori_score": score,
                     "_rgori_feedback": feedback,
                     "_attempts": attempt + 1,
+                    "_retrieved_chunks": [c.get('subcategory') for c in retrieved_chunks],
                 }
- 
+
                 # Track best so far
                 if best_payload is None or score > best_score:
                     best_score   = score
                     best_payload = payload
- 
+
                 if is_compliant:
                     return best_payload, None
- 
+
                 time.sleep(0.5)
- 
+
             except Exception as e:
                 last_error = str(e)
                 time.sleep(1)
- 
-        # Return best attempt even if never hit 65%
+
+        # Return best attempt even if never hit 80%
         if best_payload:
-            if not best_payload.get('_rgori_score', 0) >= 65:
+            if not best_payload.get('_rgori_score', 0) >= 80:
                 best_payload["_rgori_warning"] = (
-                    f"Best score was {best_score}/100 (below 65 threshold). "
+                    f"Best score was {best_score}/100 (below 80 threshold). "
                     "Manual review recommended."
                 )
             return best_payload, None
- 
+
         return None, last_error or "Generation failed after max attempts."
- 
- 
+
+
     def _generate_annual_goal(
         self, student_name, difficulty, assistive_tech, accommodations,
-        facilitators, goal_area='', teacher_prompt='', special_factor_notes=''
+        facilitators, goal_area='', teacher_prompt='', special_factor_notes='',
+        rag_context=''
     ):
         teacher_instructions = (
             f"Additional teacher instructions: {teacher_prompt}\n"
@@ -758,13 +846,22 @@ class GenerateIEPGoalsFromIEPView(APIView):
             f"PRIMARY Goal Area (this MUST be the focus of the goal): {goal_area}\n"
             if goal_area else ""
         )
+        rag_grounding_block = (
+            f"PEDAGOGICAL KNOWLEDGE BASE (GROUNDING CONTEXT):\n"
+            f"----------------------------------------\n"
+            f"{rag_context}\n"
+            f"----------------------------------------\n"
+            if rag_context else ""
+        )
         prompt = (
             f"☁️system☁️"
-            f"You are an expert Special Education teacher writing IEP goals. "
-            f"Write ONE specific, measurable, achievable, relevant, and time-bound (SMART) annual IEP goal. "
+            f"You are an expert Special Education teacher and Curriculum Specialist for DepEd Region VII writing IEP goals. "
+            f"Write ONE specific, measurable, achievable, relevant, and time-bound (SMART) annual IEP goal strictly grounded in the pedagogical context below. "
             f"The goal MUST directly address the PRIMARY Goal Area specified below. "
+            f"Strictly adhere to R-GORI criteria: use observable action verbs (e.g., identifies, selects, communicates, follows, requests) and explicit measurable criteria (accuracy %, trials, latency). "
             f"Do NOT write a goal for a different domain. "
-            f"Output ONLY the goal sentence. No explanations, no bullet points, no preamble."
+            f"Output ONLY the goal sentence. No explanations, no bullet points, no preamble.\n"
+            f"{rag_grounding_block}"
             f"☁️/system☁️"
             f"☁️user☁️"
             f"Student: {student_name}\n"

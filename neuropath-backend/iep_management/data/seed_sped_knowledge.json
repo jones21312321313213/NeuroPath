@@ -1,0 +1,1382 @@
+[
+  {
+    "domain": "Communication",
+    "category": "ASD_Intervention",
+    "subcategory": "PECS_Phase_1",
+    "target_age_group": "Early_Childhood",
+    "content": "[DOMAIN: Communication] [CATEGORY: ASD_Intervention] [SUBCATEGORY: PECS_Phase_1] [TARGET: Early_Childhood]\nPicture Exchange Communication System (PECS) Phase I: Physical Exchange. Upon presentation of a preferred reinforcing item, the learner will reach for a picture symbol of that item, pick up the symbol, and release it into the open hand of a communicative partner across 4 out of 5 consecutive trials with physical prompting faded to independent exchange.",
+    "metadata": {
+      "framework": "PECS",
+      "evidence_tier": "EBP_High",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-ASD-COMM-P1"
+      },
+      "rgori_mapping": {
+        "observable_verb": "picks up and releases",
+        "measurable_criterion": "4 out of 5 consecutive trials",
+        "functionality_indicator": "Functional requesting to fulfill basic wants",
+        "generality_indicator": "Across 2 communicative partners and 3 preferred items",
+        "context_indicator": "Natural snack and free-play routines"
+      }
+    }
+  },
+  {
+    "domain": "Communication",
+    "category": "ASD_Intervention",
+    "subcategory": "PECS_Phase_2",
+    "target_age_group": "Elementary_Primary",
+    "content": "[DOMAIN: Communication] [CATEGORY: ASD_Intervention] [SUBCATEGORY: PECS_Phase_2] [TARGET: Elementary_Primary]\nPicture Exchange Communication System (PECS) Phase II: Distance and Persistence. The learner navigates to a communication book located at least 3 meters away, retrieves a single picture icon, and travels to hand it to a communicative partner across 80% of observed opportunities across 4 consecutive classroom sessions.",
+    "metadata": {
+      "framework": "PECS",
+      "evidence_tier": "EBP_High",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-ASD-COMM-P2"
+      },
+      "rgori_mapping": {
+        "observable_verb": "navigates, retrieves, and hands",
+        "measurable_criterion": "80% of observed opportunities across 4 consecutive classroom sessions",
+        "functionality_indicator": "Persistent self-advocacy without proximity dependence",
+        "generality_indicator": "Across classroom and learning center workstations",
+        "context_indicator": "Daily independent work routines"
+      }
+    }
+  },
+  {
+    "domain": "Communication",
+    "category": "ASD_Intervention",
+    "subcategory": "PECS_Phase_3",
+    "target_age_group": "Elementary_Primary",
+    "content": "[DOMAIN: Communication] [CATEGORY: ASD_Intervention] [SUBCATEGORY: PECS_Phase_3] [TARGET: Elementary_Primary]\nPicture Exchange Communication System (PECS) Phase III: Visual Discrimination. When presented with a communication board displaying an array of 4 distinct icons (2 preferred items and 2 non-preferred distractors), the learner will discriminate and select the target item icon and hand it to the partner with 85% accuracy across 5 consecutive sessions.",
+    "metadata": {
+      "framework": "PECS",
+      "evidence_tier": "EBP_High",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-ASD-COMM-P3"
+      },
+      "rgori_mapping": {
+        "observable_verb": "discriminates, selects, and hands",
+        "measurable_criterion": "85% accuracy across 5 consecutive sessions",
+        "functionality_indicator": "Accurate discrimination between desired and neutral items",
+        "generality_indicator": "Using varied array configurations and teacher/aide partners",
+        "context_indicator": "Classroom instruction and leisure choice periods"
+      }
+    }
+  },
+  {
+    "domain": "Communication",
+    "category": "ASD_Intervention",
+    "subcategory": "PECS_Phase_4",
+    "target_age_group": "Elementary_Primary",
+    "content": "[DOMAIN: Communication] [CATEGORY: ASD_Intervention] [SUBCATEGORY: PECS_Phase_4] [TARGET: Elementary_Primary]\nPicture Exchange Communication System (PECS) Phase IV: Sentence Structure. The student requests desired items using a multi-word phrase by constructing a sentence strip featuring an 'I want' icon followed by an item picture icon, detaching the strip, and handing it to the communicative partner with 80% independent accuracy across 4 consecutive classroom sessions.",
+    "metadata": {
+      "framework": "PECS",
+      "evidence_tier": "EBP_High",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-ASD-COMM-P4"
+      },
+      "rgori_mapping": {
+        "observable_verb": "detaches and hands",
+        "measurable_criterion": "80% independent accuracy across 4 consecutive classroom sessions",
+        "functionality_indicator": "Independent expression of structured wants and needs",
+        "generality_indicator": "Multi-item vocabulary across classroom sessions",
+        "context_indicator": "Natural classroom communication routines"
+      }
+    }
+  },
+  {
+    "domain": "Communication",
+    "category": "DepEd_Competency",
+    "subcategory": "Functional_Receptive_Language",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Communication] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Functional_Receptive_Language] [TARGET: All_Elementary]\nDepEd Elementary SPED Receptive Communication: Following Functional 2-Step Directives. When given a verbal and visual instruction (e.g., 'Take your notebook and sit at your desk'), the learner will follow the two-step directive within 15 seconds without physical prompting in 4 out of 5 daily trials.",
+    "metadata": {
+      "framework": "DepEd_SPED_Curriculum",
+      "evidence_tier": "EBP_Moderate",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_2_Academic_Readiness",
+        "competency_code": "SPED-RECEP-2STEP"
+      },
+      "rgori_mapping": {
+        "observable_verb": "follows",
+        "measurable_criterion": "within 15 seconds across 4 out of 5 daily trials",
+        "functionality_indicator": "Classroom navigation and instructional task execution",
+        "generality_indicator": "Across morning arrival, subject transitions, and dismissal",
+        "context_indicator": "General classroom teacher directives"
+      }
+    }
+  },
+  {
+    "domain": "Communication",
+    "category": "Accommodation_Strategy",
+    "subcategory": "Visual_Communication_Board",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Communication] [CATEGORY: Accommodation_Strategy] [SUBCATEGORY: Visual_Communication_Board] [TARGET: All_Elementary]\nVisual Choice Board Accommodation. Position a 6-icon high-contrast communication board (laminated with Velcro backing) directly within the learner's visual field during structured academic periods. Icons must represent: Drink Water, Restroom, Help, Sensory Break, Yes, and No to provide instant non-verbal communicative access.",
+    "metadata": {
+      "framework": "Assistive_Technology_Scaffolding",
+      "evidence_tier": "EBP_High",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-ACC-COMM-BOARD"
+      },
+      "rgori_mapping": {
+        "observable_verb": "points to or hands",
+        "measurable_criterion": "100% availability during seated instruction",
+        "functionality_indicator": "Immediate prevention of frustration-induced behaviors",
+        "generality_indicator": "Accessible at student desk, therapy corner, and cafeteria",
+        "context_indicator": "Continuous environmental support"
+      }
+    }
+  },
+  {
+    "domain": "Communication",
+    "category": "DepEd_Competency",
+    "subcategory": "Verbal_Functional_Requesting",
+    "target_age_group": "Elementary_Primary",
+    "content": "[DOMAIN: Communication] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Verbal_Functional_Requesting] [TARGET: Elementary_Primary]\nDepEd Early Language Competency: One-Word Spoken Requests. When wanting an out-of-reach item during instructional periods, the emerging verbal learner will vocalize an intelligible one-word approximation (e.g., 'open', 'more', 'water') within 10 seconds across 80% of opportunities over 3 consecutive school days.",
+    "metadata": {
+      "framework": "DepEd_MATATAG_Language",
+      "evidence_tier": "EBP_Moderate",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-COMM-VERBAL-REQ"
+      },
+      "rgori_mapping": {
+        "observable_verb": "vocalizes",
+        "measurable_criterion": "within 10 seconds across 80% of opportunities over 3 days",
+        "functionality_indicator": "Self-advocacy through functional speech",
+        "generality_indicator": "With classroom teacher, SPED aide, and speech clinician",
+        "context_indicator": "Daily snack time and learning station activities"
+      }
+    }
+  },
+  {
+    "domain": "Communication",
+    "category": "RGORI_Rubric",
+    "subcategory": "Exemplar_Communication_Goal",
+    "target_age_group": "Elementary_Primary",
+    "content": "[DOMAIN: Communication] [CATEGORY: RGORI_Rubric] [SUBCATEGORY: Exemplar_Communication_Goal] [TARGET: Elementary_Primary]\nR-GORI Exemplar Annual Goal for Communication: By the end of the school year, when given an array of 4 visual symbols during daily classroom and cafeteria routines, the student will select and hand the symbol representing their choice to a teacher or peer with 80% accuracy across 4 out of 5 consecutive days.",
+    "metadata": {
+      "framework": "R_GORI_Exemplar",
+      "evidence_tier": "Rubric_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "RGORI-EX-COMM-01"
+      },
+      "rgori_mapping": {
+        "observable_verb": "selects and hands",
+        "measurable_criterion": "80% accuracy across 4 out of 5 consecutive days",
+        "functionality_indicator": "Autonomous communication in school settings",
+        "generality_indicator": "Across classroom and cafeteria with teachers and peers",
+        "context_indicator": "Natural instructional and mealtime routines"
+      }
+    }
+  },
+  {
+    "domain": "Socialization",
+    "category": "ASD_Intervention",
+    "subcategory": "Joint_Attention_Initiation",
+    "target_age_group": "Early_Childhood",
+    "content": "[DOMAIN: Socialization] [CATEGORY: ASD_Intervention] [SUBCATEGORY: Joint_Attention_Initiation] [TARGET: Early_Childhood]\nJoint Attention and Shared Regard Protocol. When an unfamiliar sensory stimulus (e.g., musical toy, bubble wand) is activated during guided circle time, the learner will shift gaze between the item and the teacher's eyes, establishing sustained eye contact for at least 3 seconds in 4 out of 5 opportunities.",
+    "metadata": {
+      "framework": "ESDM_Social_Reciprocity",
+      "evidence_tier": "EBP_High",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-SOC-JOINT-ATTN"
+      },
+      "rgori_mapping": {
+        "observable_verb": "shifts gaze and establishes eye contact",
+        "measurable_criterion": "for at least 3 seconds in 4 out of 5 opportunities",
+        "functionality_indicator": "Foundational social orienting necessary for learning",
+        "generality_indicator": "Across circle time and individual sensory engagement",
+        "context_indicator": "Natural morning sensory integration period"
+      }
+    }
+  },
+  {
+    "domain": "Socialization",
+    "category": "ASD_Intervention",
+    "subcategory": "Peer_Turn_Taking",
+    "target_age_group": "Elementary_Primary",
+    "content": "[DOMAIN: Socialization] [CATEGORY: ASD_Intervention] [SUBCATEGORY: Peer_Turn_Taking] [TARGET: Elementary_Primary]\nStructured Turn-Taking with Visual Timer Scaffolding. During a 2-player educational game (e.g., stacking blocks, simple matching board), the learner will wait for their peer to complete their turn and take their own turn within 10 seconds of receiving the 'My Turn' visual paddle, maintaining this sequence for 4 consecutive turns across 3 consecutive sessions.",
+    "metadata": {
+      "framework": "TEACCH_Peer_Interaction",
+      "evidence_tier": "EBP_High",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_3_Social_Integration",
+        "competency_code": "SPED-SOC-TURN-TAKING"
+      },
+      "rgori_mapping": {
+        "observable_verb": "waits and takes turn",
+        "measurable_criterion": "for 4 consecutive turns across 3 consecutive sessions",
+        "functionality_indicator": "Cooperative play and peer tolerance",
+        "generality_indicator": "With varied peer partners using multiple board games",
+        "context_indicator": "Scheduled indoor play and social skills center"
+      }
+    }
+  },
+  {
+    "domain": "Socialization",
+    "category": "DepEd_Competency",
+    "subcategory": "Social_Greetings_Reciprocity",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Socialization] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Social_Greetings_Reciprocity] [TARGET: All_Elementary]\nDepEd SPED Social Integration: Reciprocal Greetings. Upon arriving at the classroom door in the morning and departing at dismissal, when greeted by a teacher or peer ('Good morning / Goodbye'), the learner will respond with a physical wave, vocal greeting, or communication card exchange within 5 seconds in 4 out of 5 school days.",
+    "metadata": {
+      "framework": "DepEd_SPED_Transition",
+      "evidence_tier": "EBP_Moderate",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_3_Social_Integration",
+        "competency_code": "SPED-SOC-GREETING"
+      },
+      "rgori_mapping": {
+        "observable_verb": "waves, vocalizes, or exchanges card",
+        "measurable_criterion": "within 5 seconds in 4 out of 5 school days",
+        "functionality_indicator": "Basic cultural and school inclusion courtesy",
+        "generality_indicator": "At arrival and departure with multiple school staff",
+        "context_indicator": "Classroom threshold daily routine"
+      }
+    }
+  },
+  {
+    "domain": "Socialization",
+    "category": "ASD_Intervention",
+    "subcategory": "Parallel_Play_Toleration",
+    "target_age_group": "Early_Childhood",
+    "content": "[DOMAIN: Socialization] [CATEGORY: ASD_Intervention] [SUBCATEGORY: Parallel_Play_Toleration] [TARGET: Early_Childhood]\nParallel Play and Shared Space Tolerance. During free-play center time, the learner will remain seated within 1 meter of a peer engaged with similar manipulatives (e.g., playdough, train tracks) for at least 8 consecutive minutes without elopement, screaming, or snatching toys across 4 consecutive days.",
+    "metadata": {
+      "framework": "PBIS_Play_Acquisition",
+      "evidence_tier": "EBP_High",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_3_Social_Integration",
+        "competency_code": "SPED-SOC-PARALLEL"
+      },
+      "rgori_mapping": {
+        "observable_verb": "remains seated and manipulates materials",
+        "measurable_criterion": "for at least 8 consecutive minutes across 4 consecutive days",
+        "functionality_indicator": "Toleration of peer presence without aggression or flight",
+        "generality_indicator": "Across sensory table and carpet building centers",
+        "context_indicator": "Unstructured classroom learning play blocks"
+      }
+    }
+  },
+  {
+    "domain": "Socialization",
+    "category": "RGORI_Rubric",
+    "subcategory": "Exemplar_Socialization_Goal",
+    "target_age_group": "Elementary_Intermediate",
+    "content": "[DOMAIN: Socialization] [CATEGORY: RGORI_Rubric] [SUBCATEGORY: Exemplar_Socialization_Goal] [TARGET: Elementary_Intermediate]\nR-GORI Exemplar Annual Goal for Socialization: By the end of the IEP cycle, during 15-minute small group collaborative learning sessions, the student will share shared instructional materials (passing scissors, markers, or glue sticks) upon peer verbal or gestural request across 80% of opportunities in 3 out of 4 weekly sessions.",
+    "metadata": {
+      "framework": "R_GORI_Exemplar",
+      "evidence_tier": "Rubric_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_3_Social_Integration",
+        "competency_code": "RGORI-EX-SOC-02"
+      },
+      "rgori_mapping": {
+        "observable_verb": "passes materials",
+        "measurable_criterion": "80% of opportunities in 3 out of 4 weekly sessions",
+        "functionality_indicator": "Cooperative academic task participation",
+        "generality_indicator": "With varied classmates in art, science, and math activities",
+        "context_indicator": "General education inclusion collaborative tables"
+      }
+    }
+  },
+  {
+    "domain": "Sensory_Motor",
+    "category": "ASD_Intervention",
+    "subcategory": "Sensory_Diet_Break_Request",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Sensory_Motor] [CATEGORY: ASD_Intervention] [SUBCATEGORY: Sensory_Diet_Break_Request] [TARGET: All_Elementary]\nSensory Diet Self-Advocacy Protocol. When experiencing sensory overstimulation (indicated by restlessness, hand-flapping, or auditory covering), the learner will independently hand a 'Sensory Break' visual card to the teacher and transition to the designated calm-down space before disruptive escalation occurs across 85% of documented episodes.",
+    "metadata": {
+      "framework": "Sensory_Integration_Diet",
+      "evidence_tier": "EBP_High",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-SEN-BREAK-REQ"
+      },
+      "rgori_mapping": {
+        "observable_verb": "hands card and transitions",
+        "measurable_criterion": "across 85% of documented episodes over 4 weeks",
+        "functionality_indicator": "Autonomous sensory self-regulation avoiding crisis",
+        "generality_indicator": "Applicable during high-noise gym, cafeteria, and art classes",
+        "context_indicator": "School-wide classroom settings"
+      }
+    }
+  },
+  {
+    "domain": "Sensory_Motor",
+    "category": "Accommodation_Strategy",
+    "subcategory": "Proprioceptive_Deep_Pressure",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Sensory_Motor] [CATEGORY: Accommodation_Strategy] [SUBCATEGORY: Proprioceptive_Deep_Pressure] [TARGET: All_Elementary]\nProprioceptive Accommodation: Weighted Lap Pad and Chair Resistance Band. Provide a 3-pound weighted lap pad during seated tabletop tasks exceeding 10 minutes, accompanied by a dynamic elastic resistance band installed across the front chair legs for lower-extremity sensory feedback, enhancing sustained seated posture.",
+    "metadata": {
+      "framework": "Sensory_Accommodations",
+      "evidence_tier": "EBP_High",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-ACC-SENSORY-WEIGHT"
+      },
+      "rgori_mapping": {
+        "observable_verb": "maintains seated posture",
+        "measurable_criterion": "100% adherence during structured seatwork",
+        "functionality_indicator": "Sustaining attention without tactile discomfort",
+        "generality_indicator": "Transferred across SPED room and general education desks",
+        "context_indicator": "Direct classroom work time"
+      }
+    }
+  },
+  {
+    "domain": "Sensory_Motor",
+    "category": "DepEd_Competency",
+    "subcategory": "Fine_Motor_Tool_Manipulation",
+    "target_age_group": "Elementary_Primary",
+    "content": "[DOMAIN: Sensory_Motor] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Fine_Motor_Tool_Manipulation] [TARGET: Elementary_Primary]\nDepEd Elementary SPED Fine Motor Competency: Adapted Scissor Cutting. Given a 1-centimeter wide solid black straight line on heavy cardstock, the student will hold adapted loop scissors using a functional grasp and cut continuously along the line for 15 centimeters within 3 millimeters of deviation in 4 out of 5 attempts.",
+    "metadata": {
+      "framework": "DepEd_SPED_Motor_Skills",
+      "evidence_tier": "EBP_Moderate",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_2_Academic_Readiness",
+        "competency_code": "SPED-MOTOR-SCISSORS"
+      },
+      "rgori_mapping": {
+        "observable_verb": "holds and cuts",
+        "measurable_criterion": "within 3mm deviation in 4 out of 5 attempts",
+        "functionality_indicator": "Classroom arts, crafts, and assembly participation",
+        "generality_indicator": "Using varied paper textures and templates",
+        "context_indicator": "Regular arts and crafts instructional period"
+      }
+    }
+  },
+  {
+    "domain": "Sensory_Motor",
+    "category": "DepEd_Competency",
+    "subcategory": "Gross_Motor_Line_Navigation",
+    "target_age_group": "Early_Childhood",
+    "content": "[DOMAIN: Sensory_Motor] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Gross_Motor_Line_Navigation] [TARGET: Early_Childhood]\nGross Motor Mobility: Hallway Line Transition. During whole-class transitions between classroom and outdoor playground, the learner will walk in line maintaining an arm's distance behind the preceding peer for 20 meters without running out of bounds or laying on the floor across 4 consecutive days.",
+    "metadata": {
+      "framework": "DepEd_Physical_Education_Scaffolding",
+      "evidence_tier": "EBP_Moderate",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-MOTOR-LINE-TRANS"
+      },
+      "rgori_mapping": {
+        "observable_verb": "walks in line",
+        "measurable_criterion": "for 20 meters without deviation across 4 consecutive days",
+        "functionality_indicator": "Safe physical mobility in school environment",
+        "generality_indicator": "To playground, library, canteen, and clinic",
+        "context_indicator": "Daily school transition routines"
+      }
+    }
+  },
+  {
+    "domain": "Sensory_Motor",
+    "category": "RGORI_Rubric",
+    "subcategory": "Exemplar_Sensory_Motor_Goal",
+    "target_age_group": "Elementary_Primary",
+    "content": "[DOMAIN: Sensory_Motor] [CATEGORY: RGORI_Rubric] [SUBCATEGORY: Exemplar_Sensory_Motor_Goal] [TARGET: Elementary_Primary]\nR-GORI Exemplar Annual Goal for Sensory/Motor: By the end of the second quarter, when writing or tracing academic worksheets, the student will hold a triangular adapted pencil grip and trace 10 upper-case letters within 2 millimeters of designated boundary lines with 80% accuracy across 3 consecutive sessions.",
+    "metadata": {
+      "framework": "R_GORI_Exemplar",
+      "evidence_tier": "Rubric_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_2_Academic_Readiness",
+        "competency_code": "RGORI-EX-SEN-03"
+      },
+      "rgori_mapping": {
+        "observable_verb": "holds and traces",
+        "measurable_criterion": "within 2mm accuracy across 3 consecutive sessions",
+        "functionality_indicator": "Foundational handwriting and functional literacy",
+        "generality_indicator": "Across morning English and Filipino writing tasks",
+        "context_indicator": "Standard classroom seatwork desk"
+      }
+    }
+  },
+  {
+    "domain": "Adaptive_Daily_Living",
+    "category": "DepEd_Competency",
+    "subcategory": "Toileting_Routine_Sequence",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Adaptive_Daily_Living] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Toileting_Routine_Sequence] [TARGET: All_Elementary]\nDepEd Transition Curriculum Package 1: Toileting Hygiene Sequence. Upon recognizing physiological need or scheduled visual prompt, the student will independently enter the restroom, pull clothing down, use the toilet, pull clothing up, flush, and wash/dry hands with liquid soap following a 6-step visual chart with 100% step completion across 5 consecutive school days.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020_Package1",
+      "evidence_tier": "EBP_High",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-LIFE-TOILET-SEQ"
+      },
+      "rgori_mapping": {
+        "observable_verb": "pulls, flushes, and washes",
+        "measurable_criterion": "100% step completion across 5 consecutive school days",
+        "functionality_indicator": "Essential physiological self-care eliminating dependence",
+        "generality_indicator": "In school restroom and home environment",
+        "context_indicator": "Natural restroom breaks throughout the day"
+      }
+    }
+  },
+  {
+    "domain": "Adaptive_Daily_Living",
+    "category": "DepEd_Competency",
+    "subcategory": "Classroom_Unpacking_Routine",
+    "target_age_group": "Elementary_Primary",
+    "content": "[DOMAIN: Adaptive_Daily_Living] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Classroom_Unpacking_Routine] [TARGET: Elementary_Primary]\nDepEd Daily Living Skills: Morning Arrival Unpacking. Upon entering the classroom, the learner will independently unzip their backpack, place their water tumbler and assignment notebook on their desk, and hang the backpack on their assigned cubby hook within 3 minutes of arrival in 4 out of 5 school mornings.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020_Package1",
+      "evidence_tier": "EBP_High",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-LIFE-UNPACK"
+      },
+      "rgori_mapping": {
+        "observable_verb": "unzips, places, and hangs",
+        "measurable_criterion": "within 3 minutes across 4 out of 5 school mornings",
+        "functionality_indicator": "Personal autonomy and responsibility for school belongings",
+        "generality_indicator": "Executed with varying seasonal outerwear and gear",
+        "context_indicator": "Standard morning bell arrival period"
+      }
+    }
+  },
+  {
+    "domain": "Adaptive_Daily_Living",
+    "category": "ASD_Intervention",
+    "subcategory": "Mealtime_Independence_TEACCH",
+    "target_age_group": "Elementary_Primary",
+    "content": "[DOMAIN: Adaptive_Daily_Living] [CATEGORY: ASD_Intervention] [SUBCATEGORY: Mealtime_Independence_TEACCH] [TARGET: Elementary_Primary]\nTEACCH Structured Mealtime Routine. During lunch period, guided by a color-coded placemat, the student will unseal food containers, use a spoon/fork to consume food without spilling more than twice, and wipe their mouth with a napkin upon completion in 4 out of 5 lunch sessions.",
+    "metadata": {
+      "framework": "TEACCH_Daily_Routines",
+      "evidence_tier": "EBP_High",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-LIFE-MEAL-TEACCH"
+      },
+      "rgori_mapping": {
+        "observable_verb": "unseals, uses utensil, and wipes",
+        "measurable_criterion": "without excessive spillage in 4 out of 5 lunch sessions",
+        "functionality_indicator": "Dignified and independent nutritional self-care",
+        "generality_indicator": "In classroom cafeteria and dining hall settings",
+        "context_indicator": "Daily lunch period"
+      }
+    }
+  },
+  {
+    "domain": "Adaptive_Daily_Living",
+    "category": "RGORI_Rubric",
+    "subcategory": "Exemplar_Life_Skills_Goal",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Adaptive_Daily_Living] [CATEGORY: RGORI_Rubric] [SUBCATEGORY: Exemplar_Life_Skills_Goal] [TARGET: All_Elementary]\nR-GORI Exemplar Annual Goal for Adaptive Living: By the end of the school year, following messy tactile activities or before meals, the learner will execute proper hand hygiene (pump soap, rub hands together for 20 seconds, rinse thoroughly, and dry with a clean towel) without physical prompting in 9 out of 10 opportunities.",
+    "metadata": {
+      "framework": "R_GORI_Exemplar",
+      "evidence_tier": "Rubric_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "RGORI-EX-LIFE-04"
+      },
+      "rgori_mapping": {
+        "observable_verb": "pumps, rubs, rinses, and dries",
+        "measurable_criterion": "for 20 seconds without prompting in 9 out of 10 opportunities",
+        "functionality_indicator": "Health and infection prevention autonomy",
+        "generality_indicator": "Across classroom sink and central school restrooms",
+        "context_indicator": "Pre-meal and post-art natural clean-up moments"
+      }
+    }
+  },
+  {
+    "domain": "Behavioral",
+    "category": "ASD_Intervention",
+    "subcategory": "PBIS_Token_Reinforcement",
+    "target_age_group": "Elementary_Primary",
+    "content": "[DOMAIN: Behavioral] [CATEGORY: ASD_Intervention] [SUBCATEGORY: PBIS_Token_Reinforcement] [TARGET: Elementary_Primary]\nPositive Behavioral Interventions and Supports (PBIS) Token Economy. Using a 5-token visual board, the learner will remain in their assigned workstation seat and attend to teacher-directed tasks for 10-minute intervals, earning 1 token per completed interval to exchange for 3 minutes of preferred iPad access in 4 out of 5 instructional periods.",
+    "metadata": {
+      "framework": "PBIS_Tier_1",
+      "evidence_tier": "EBP_High",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-BEH-PBIS-TOKEN"
+      },
+      "rgori_mapping": {
+        "observable_verb": "remains seated and attends",
+        "measurable_criterion": "10-minute intervals earning tokens in 4 out of 5 periods",
+        "functionality_indicator": "Sustained academic engagement and reduction of elopement",
+        "generality_indicator": "In individual instruction and small group lessons",
+        "context_indicator": "Scheduled morning academic blocks"
+      }
+    }
+  },
+  {
+    "domain": "Behavioral",
+    "category": "ASD_Intervention",
+    "subcategory": "Visual_Antecedent_Timer",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Behavioral] [CATEGORY: ASD_Intervention] [SUBCATEGORY: Visual_Antecedent_Timer] [TARGET: All_Elementary]\nAntecedent Transition Scaffolding: Time Timer Protocol. Prior to concluding high-preference activities, when shown a 2-minute red visual countdown timer with the verbal cue '2 more minutes, then clean up', the learner will stop activity and place toys into the bin upon buzzer sounding without aggressive resistance in 80% of transitions.",
+    "metadata": {
+      "framework": "TEACCH_Antecedent_Transitions",
+      "evidence_tier": "EBP_High",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-BEH-TIME-TRANS"
+      },
+      "rgori_mapping": {
+        "observable_verb": "stops and places toys in bin",
+        "measurable_criterion": "within 30 seconds of buzzer in 80% of transitions",
+        "functionality_indicator": "Peaceful transitions between preferred and non-preferred tasks",
+        "generality_indicator": "Transitions from recess, computer lab, and free play",
+        "context_indicator": "Scheduled school transition intervals"
+      }
+    }
+  },
+  {
+    "domain": "Behavioral",
+    "category": "DepEd_Competency",
+    "subcategory": "Emotional_Zones_Identification",
+    "target_age_group": "Elementary_Intermediate",
+    "content": "[DOMAIN: Behavioral] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Emotional_Zones_Identification] [TARGET: Elementary_Intermediate]\nDepEd Emotional Self-Regulation: Zones of Regulation Chart. When feeling emotionally dysregulated (frustration, anger, fatigue), the student will point to the corresponding emotion face/zone (Blue, Green, Yellow, Red) on a visual desk strip and choose 1 verified coping tool (deep breathing card or sensory squeeze ball) in 4 out of 5 recorded instances.",
+    "metadata": {
+      "framework": "Zones_of_Regulation",
+      "evidence_tier": "EBP_High",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-BEH-ZONES"
+      },
+      "rgori_mapping": {
+        "observable_verb": "points to zone and selects tool",
+        "measurable_criterion": "in 4 out of 5 recorded instances over 6 weeks",
+        "functionality_indicator": "Emotional self-awareness preventing disruptive meltdowns",
+        "generality_indicator": "In stressful testing, noisy group, or peer conflict moments",
+        "context_indicator": "Immediate emotional escalation occurrences"
+      }
+    }
+  },
+  {
+    "domain": "Behavioral",
+    "category": "RGORI_Rubric",
+    "subcategory": "Exemplar_Behavior_Goal",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Behavioral] [CATEGORY: RGORI_Rubric] [SUBCATEGORY: Exemplar_Behavior_Goal] [TARGET: All_Elementary]\nR-GORI Exemplar Annual Goal for Behavior: By the end of the school year, during frustrating non-preferred academic tasks, the learner will refrain from hand-biting or throwing objects and instead hand a 'Need Help' card to the teacher within 10 seconds of distress across 90% of observed situations over 4 consecutive weeks.",
+    "metadata": {
+      "framework": "R_GORI_Exemplar",
+      "evidence_tier": "Rubric_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "RGORI-EX-BEH-05"
+      },
+      "rgori_mapping": {
+        "observable_verb": "refrains and hands card",
+        "measurable_criterion": "within 10 seconds across 90% of situations over 4 weeks",
+        "functionality_indicator": "Replacement of self-injurious behavior with functional request",
+        "generality_indicator": "Across math, writing, and gross-motor drills",
+        "context_indicator": "Direct challenging instructional conditions"
+      }
+    }
+  },
+  {
+    "domain": "Cognitive",
+    "category": "DepEd_Competency",
+    "subcategory": "Functional_Environmental_Survival_Signs",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Cognitive] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Functional_Environmental_Survival_Signs] [TARGET: All_Elementary]\nDepEd MATATAG Adapted SPED Literacy: Environmental Survival Symbols. When shown flashcards or community realia of 6 primary safety symbols (STOP, DANGER, EXIT, RESTROOM / CR, POISON, DO NOT ENTER), the learner will point to or name the correct symbol upon teacher verbal request with 90% accuracy across 4 out of 5 trials.",
+    "metadata": {
+      "framework": "DepEd_MATATAG_Functional_Literacy",
+      "evidence_tier": "EBP_High",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_2_Academic_Readiness",
+        "competency_code": "SPED-COG-SURVIVAL-SIGNS"
+      },
+      "rgori_mapping": {
+        "observable_verb": "points to or names",
+        "measurable_criterion": "90% accuracy across 4 out of 5 trials",
+        "functionality_indicator": "Community and school physical survival and safety",
+        "generality_indicator": "On flashcards, school doorways, and community posters",
+        "context_indicator": "Daily functional reading and community outings"
+      }
+    }
+  },
+  {
+    "domain": "Cognitive",
+    "category": "DepEd_Competency",
+    "subcategory": "Functional_Currency_Recognition_Philippine_Peso",
+    "target_age_group": "Elementary_Intermediate",
+    "content": "[DOMAIN: Cognitive] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Functional_Currency_Recognition_Philippine_Peso] [TARGET: Elementary_Intermediate]\nDepEd SPED Transition Package 2 Functional Numeracy: Philippine Peso Identification. Given clean realia of Philippine currency coins and bills (\u20b11, \u20b15, \u20b110, \u20b120 bill), the learner will match each denomination to its corresponding numerical price tag on a simulation school canteen shelf with 85% accuracy across 4 consecutive classroom sessions.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020_Package2",
+      "evidence_tier": "EBP_Moderate",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_2_Academic_Readiness",
+        "competency_code": "SPED-COG-CURRENCY-PESO"
+      },
+      "rgori_mapping": {
+        "observable_verb": "matches",
+        "measurable_criterion": "85% accuracy across 4 consecutive classroom sessions",
+        "functionality_indicator": "Pre-vocational and independent community purchasing",
+        "generality_indicator": "With coins, paper bills, and digital mock money",
+        "context_indicator": "Weekly simulated school canteen store"
+      }
+    }
+  },
+  {
+    "domain": "Cognitive",
+    "category": "ASD_Intervention",
+    "subcategory": "TEACCH_Workstation_Left_To_Right",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Cognitive] [CATEGORY: ASD_Intervention] [SUBCATEGORY: TEACCH_Workstation_Left_To_Right] [TARGET: All_Elementary]\nTEACCH Structured Workstation Assembly. At an independent workstation with 3 left-hand task bins and 1 right-hand finished bin, the student will sequentially complete all three manipulative tasks (sorting pegs by color, matching letter tiles, assembling pens) moving items from left to right without adult prompting in 4 out of 5 sessions.",
+    "metadata": {
+      "framework": "TEACCH_Structured_Teaching",
+      "evidence_tier": "EBP_High",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_2_Academic_Readiness",
+        "competency_code": "SPED-COG-TEACCH-WORKSTATION"
+      },
+      "rgori_mapping": {
+        "observable_verb": "sorts, matches, assembles, and places",
+        "measurable_criterion": "completing all 3 bins in 4 out of 5 sessions",
+        "functionality_indicator": "Autonomous independent work habits and task completion",
+        "generality_indicator": "With assorted pre-vocational and academic task sets",
+        "context_indicator": "Daily 20-minute independent work period"
+      }
+    }
+  },
+  {
+    "domain": "Cognitive",
+    "category": "RGORI_Rubric",
+    "subcategory": "Exemplar_Cognitive_Goal",
+    "target_age_group": "Elementary_Primary",
+    "content": "[DOMAIN: Cognitive] [CATEGORY: RGORI_Rubric] [SUBCATEGORY: Exemplar_Cognitive_Goal] [TARGET: Elementary_Primary]\nR-GORI Exemplar Annual Goal for Cognitive: By the end of the school year, when presented with sets of concrete manipulatives (counting cubes, erasers, buttons) from 1 to 10, the learner will count and hand the exact requested quantity to the teacher with 80% accuracy across 4 out of 5 trials over 3 consecutive weeks.",
+    "metadata": {
+      "framework": "R_GORI_Exemplar",
+      "evidence_tier": "Rubric_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_2_Academic_Readiness",
+        "competency_code": "RGORI-EX-COG-06"
+      },
+      "rgori_mapping": {
+        "observable_verb": "counts and hands",
+        "measurable_criterion": "80% accuracy across 4 out of 5 trials over 3 weeks",
+        "functionality_indicator": "Functional one-to-one correspondence numeracy",
+        "generality_indicator": "Using varied items (cubes, erasers, snacks)",
+        "context_indicator": "Daily math circle and snack distribution"
+      }
+    }
+  },
+  {
+    "domain": "Communication",
+    "category": "ASD_Intervention",
+    "subcategory": "PECS_Phase_5",
+    "target_age_group": "Elementary_Primary",
+    "content": "[DOMAIN: Communication] [CATEGORY: ASD_Intervention] [SUBCATEGORY: PECS_Phase_5] [TARGET: Elementary_Primary]\nDepEd SPED and Evidence-Based Practice Directive for Communication: Responsive Requesting ('What do you want?') using sentence strip and pointing. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-COMM-P5"
+      },
+      "rgori_mapping": {
+        "observable_verb": "hands sentence strip",
+        "measurable_criterion": "80% accuracy across 5 sessions",
+        "functionality_indicator": "Essential competency in Communication",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Communication",
+    "category": "ASD_Intervention",
+    "subcategory": "PECS_Phase_6",
+    "target_age_group": "Elementary_Intermediate",
+    "content": "[DOMAIN: Communication] [CATEGORY: ASD_Intervention] [SUBCATEGORY: PECS_Phase_6] [TARGET: Elementary_Intermediate]\nDepEd SPED and Evidence-Based Practice Directive for Communication: Spontaneous Commenting ('I see ___', 'I hear ___') with dual-attribute picture icons. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-COMM-P6"
+      },
+      "rgori_mapping": {
+        "observable_verb": "constructs strip and vocalizes",
+        "measurable_criterion": "75% accuracy across 4 sessions",
+        "functionality_indicator": "Essential competency in Communication",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Communication",
+    "category": "DepEd_Competency",
+    "subcategory": "Expressive_Name_Identification",
+    "target_age_group": "Early_Childhood",
+    "content": "[DOMAIN: Communication] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Expressive_Name_Identification] [TARGET: Early_Childhood]\nDepEd SPED and Evidence-Based Practice Directive for Communication: Identifying printed personal first name from an array of 5 peer name cards. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-COMM-NAME"
+      },
+      "rgori_mapping": {
+        "observable_verb": "selects and points",
+        "measurable_criterion": "100% accuracy over 4 consecutive days",
+        "functionality_indicator": "Essential competency in Communication",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Communication",
+    "category": "Accommodation_Strategy",
+    "subcategory": "Visual_Schedule_First_Then",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Communication] [CATEGORY: Accommodation_Strategy] [SUBCATEGORY: Visual_Schedule_First_Then] [TARGET: All_Elementary]\nDepEd SPED and Evidence-Based Practice Directive for Communication: First-Then visual board sequencing non-preferred instructional task before reinforcing activity. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-ACC-FIRST-THEN"
+      },
+      "rgori_mapping": {
+        "observable_verb": "complies and transitions",
+        "measurable_criterion": "90% of transitions",
+        "functionality_indicator": "Essential competency in Communication",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Communication",
+    "category": "DepEd_Competency",
+    "subcategory": "Functional_Yes_No_Responding",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Communication] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Functional_Yes_No_Responding] [TARGET: All_Elementary]\nDepEd SPED and Evidence-Based Practice Directive for Communication: Answering functional Yes/No questions regarding basic physical needs using gestures or cards. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-COMM-YES-NO"
+      },
+      "rgori_mapping": {
+        "observable_verb": "gestures or vocalizes",
+        "measurable_criterion": "85% accuracy in 4 of 5 sessions",
+        "functionality_indicator": "Essential competency in Communication",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Socialization",
+    "category": "ASD_Intervention",
+    "subcategory": "Social_Story_Intervention",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Socialization] [CATEGORY: ASD_Intervention] [SUBCATEGORY: Social_Story_Intervention] [TARGET: All_Elementary]\nDepEd SPED and Evidence-Based Practice Directive for Socialization: Social Story reading protocol before whole-school assemblies to outline expected sitting behaviors. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-SOC-STORY"
+      },
+      "rgori_mapping": {
+        "observable_verb": "reads and sits",
+        "measurable_criterion": "throughout 20-minute assembly",
+        "functionality_indicator": "Essential competency in Socialization",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Socialization",
+    "category": "DepEd_Competency",
+    "subcategory": "Classroom_Chore_Cooperation",
+    "target_age_group": "Elementary_Intermediate",
+    "content": "[DOMAIN: Socialization] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Classroom_Chore_Cooperation] [TARGET: Elementary_Intermediate]\nDepEd SPED and Evidence-Based Practice Directive for Socialization: Pairing with a peer buddy to wipe cafeteria tables or collect classroom workbooks. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-SOC-CHORE"
+      },
+      "rgori_mapping": {
+        "observable_verb": "wipes and collects",
+        "measurable_criterion": "in 4 out of 5 assigned chore periods",
+        "functionality_indicator": "Essential competency in Socialization",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Socialization",
+    "category": "Accommodation_Strategy",
+    "subcategory": "Peer_Buddy_Visual_Prompting",
+    "target_age_group": "Elementary_Primary",
+    "content": "[DOMAIN: Socialization] [CATEGORY: Accommodation_Strategy] [SUBCATEGORY: Peer_Buddy_Visual_Prompting] [TARGET: Elementary_Primary]\nDepEd SPED and Evidence-Based Practice Directive for Socialization: Peer buddy modeling of expected instructional postures and hand-raising in general education inclusion. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-ACC-PEER-BUDDY"
+      },
+      "rgori_mapping": {
+        "observable_verb": "imitates and raises hand",
+        "measurable_criterion": "4 out of 5 opportunities",
+        "functionality_indicator": "Essential competency in Socialization",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Socialization",
+    "category": "DepEd_Competency",
+    "subcategory": "Personal_Space_Boundary",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Socialization] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Personal_Space_Boundary] [TARGET: All_Elementary]\nDepEd SPED and Evidence-Based Practice Directive for Socialization: Maintaining an arm-length physical boundary during classroom circle discussions and line formations. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-SOC-SPACE"
+      },
+      "rgori_mapping": {
+        "observable_verb": "stands within boundary",
+        "measurable_criterion": "for 10 consecutive minutes across 4 days",
+        "functionality_indicator": "Essential competency in Socialization",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Socialization",
+    "category": "ASD_Intervention",
+    "subcategory": "Emotional_Reciprocity_Mirroring",
+    "target_age_group": "Early_Childhood",
+    "content": "[DOMAIN: Socialization] [CATEGORY: ASD_Intervention] [SUBCATEGORY: Emotional_Reciprocity_Mirroring] [TARGET: Early_Childhood]\nDepEd SPED and Evidence-Based Practice Directive for Socialization: Mirroring simple peer expressions (smile, wave, thumbs-up) during social greeting games. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-SOC-RECIP-MIRROR"
+      },
+      "rgori_mapping": {
+        "observable_verb": "smiles and mimics",
+        "measurable_criterion": "in 4 of 5 turns",
+        "functionality_indicator": "Essential competency in Socialization",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Sensory_Motor",
+    "category": "ASD_Intervention",
+    "subcategory": "Auditory_Noise_Dampening_Headphones",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Sensory_Motor] [CATEGORY: ASD_Intervention] [SUBCATEGORY: Auditory_Noise_Dampening_Headphones] [TARGET: All_Elementary]\nDepEd SPED and Evidence-Based Practice Directive for Sensory_Motor: Noise-canceling headphone accommodation during high-decibel fire drills, band rehearsals, and recess. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-ACC-HEADPHONES"
+      },
+      "rgori_mapping": {
+        "observable_verb": "wears headphones",
+        "measurable_criterion": "100% of high-noise events without flight",
+        "functionality_indicator": "Essential competency in Sensory_Motor",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Sensory_Motor",
+    "category": "DepEd_Competency",
+    "subcategory": "Gross_Motor_Balance_Beam",
+    "target_age_group": "Elementary_Primary",
+    "content": "[DOMAIN: Sensory_Motor] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Gross_Motor_Balance_Beam] [TARGET: Elementary_Primary]\nDepEd SPED and Evidence-Based Practice Directive for Sensory_Motor: Walking heel-to-toe along a low balance beam for 3 meters with arms extended for equilibrium. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-MOTOR-BEAM"
+      },
+      "rgori_mapping": {
+        "observable_verb": "walks without stepping off",
+        "measurable_criterion": "4 out of 5 trials",
+        "functionality_indicator": "Essential competency in Sensory_Motor",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Sensory_Motor",
+    "category": "Accommodation_Strategy",
+    "subcategory": "Tactile_Fidget_Tool_Protocol",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Sensory_Motor] [CATEGORY: Accommodation_Strategy] [SUBCATEGORY: Tactile_Fidget_Tool_Protocol] [TARGET: All_Elementary]\nDepEd SPED and Evidence-Based Practice Directive for Sensory_Motor: Discrete hand fidget manipulation (textured putty, sensory squeeze ring) to sustain visual focus on teacher. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-ACC-FIDGET"
+      },
+      "rgori_mapping": {
+        "observable_verb": "manipulates beneath desk",
+        "measurable_criterion": "during 15-minute instructional lectures",
+        "functionality_indicator": "Essential competency in Sensory_Motor",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Sensory_Motor",
+    "category": "DepEd_Competency",
+    "subcategory": "Fine_Motor_Buttoning_Zipping",
+    "target_age_group": "Early_Childhood",
+    "content": "[DOMAIN: Sensory_Motor] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Fine_Motor_Buttoning_Zipping] [TARGET: Early_Childhood]\nDepEd SPED and Evidence-Based Practice Directive for Sensory_Motor: Manipulating adapted garment fasteners (large wooden buttons, ring-pull zipper) independently. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-MOTOR-FASTENERS"
+      },
+      "rgori_mapping": {
+        "observable_verb": "buttons and zips",
+        "measurable_criterion": "within 60 seconds across 3 consecutive trials",
+        "functionality_indicator": "Essential competency in Sensory_Motor",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Sensory_Motor",
+    "category": "ASD_Intervention",
+    "subcategory": "Vestibular_Linear_Swinging",
+    "target_age_group": "Early_Childhood",
+    "content": "[DOMAIN: Sensory_Motor] [CATEGORY: ASD_Intervention] [SUBCATEGORY: Vestibular_Linear_Swinging] [TARGET: Early_Childhood]\nDepEd SPED and Evidence-Based Practice Directive for Sensory_Motor: Scheduled 5-minute linear sensory swing breaks prior to challenging cognitive tasks to enhance alertness. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-SEN-SWING"
+      },
+      "rgori_mapping": {
+        "observable_verb": "swings and transitions to seat",
+        "measurable_criterion": "within 2 minutes of cue across 4 days",
+        "functionality_indicator": "Essential competency in Sensory_Motor",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Adaptive_Daily_Living",
+    "category": "DepEd_Competency",
+    "subcategory": "Shoe_Fastening_Velcro",
+    "target_age_group": "Early_Childhood",
+    "content": "[DOMAIN: Adaptive_Daily_Living] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Shoe_Fastening_Velcro] [TARGET: Early_Childhood]\nDepEd SPED and Evidence-Based Practice Directive for Adaptive_Daily_Living: Fastening and unfastening Velcro straps on athletic shoes for physical education class transitions. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-LIFE-SHOES"
+      },
+      "rgori_mapping": {
+        "observable_verb": "fastens and unfastens",
+        "measurable_criterion": "within 30 seconds independently",
+        "functionality_indicator": "Essential competency in Adaptive_Daily_Living",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Adaptive_Daily_Living",
+    "category": "DepEd_Competency",
+    "subcategory": "Water_Bottle_Hydration",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Adaptive_Daily_Living] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Water_Bottle_Hydration] [TARGET: All_Elementary]\nDepEd SPED and Evidence-Based Practice Directive for Adaptive_Daily_Living: Opening screw-top water bottle, drinking without spilling, and re-tightening cap upon desk return. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-LIFE-WATER"
+      },
+      "rgori_mapping": {
+        "observable_verb": "opens, drinks, and seals",
+        "measurable_criterion": "4 out of 5 daily opportunities",
+        "functionality_indicator": "Essential competency in Adaptive_Daily_Living",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Adaptive_Daily_Living",
+    "category": "ASD_Intervention",
+    "subcategory": "Visual_Locker_Organization",
+    "target_age_group": "Elementary_Intermediate",
+    "content": "[DOMAIN: Adaptive_Daily_Living] [CATEGORY: ASD_Intervention] [SUBCATEGORY: Visual_Locker_Organization] [TARGET: Elementary_Intermediate]\nDepEd SPED and Evidence-Based Practice Directive for Adaptive_Daily_Living: Following 3-step visual icon sequence to place jacket, lunchbox, and PE kit in assigned locker slots. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-LIFE-LOCKER"
+      },
+      "rgori_mapping": {
+        "observable_verb": "places in designated slots",
+        "measurable_criterion": "100% accuracy over 5 days",
+        "functionality_indicator": "Essential competency in Adaptive_Daily_Living",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Adaptive_Daily_Living",
+    "category": "Accommodation_Strategy",
+    "subcategory": "Adaptive_Eating_Utensils",
+    "target_age_group": "Early_Childhood",
+    "content": "[DOMAIN: Adaptive_Daily_Living] [CATEGORY: Accommodation_Strategy] [SUBCATEGORY: Adaptive_Eating_Utensils] [TARGET: Early_Childhood]\nDepEd SPED and Evidence-Based Practice Directive for Adaptive_Daily_Living: Weighted handle curved spoon accommodation providing enhanced grip stability during self-feeding. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-ACC-SPOON"
+      },
+      "rgori_mapping": {
+        "observable_verb": "grasps and feeds",
+        "measurable_criterion": "90% of meal consumed independently",
+        "functionality_indicator": "Essential competency in Adaptive_Daily_Living",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Adaptive_Daily_Living",
+    "category": "DepEd_Competency",
+    "subcategory": "Classroom_Trash_Disposal",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Adaptive_Daily_Living] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Classroom_Trash_Disposal] [TARGET: All_Elementary]\nDepEd SPED and Evidence-Based Practice Directive for Adaptive_Daily_Living: Identifying and depositing disposable food wrappers and paper into correct recycling/compost bins. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-LIFE-TRASH"
+      },
+      "rgori_mapping": {
+        "observable_verb": "deposits into bin",
+        "measurable_criterion": "4 out of 5 lunch clean-up periods",
+        "functionality_indicator": "Essential competency in Adaptive_Daily_Living",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Behavioral",
+    "category": "ASD_Intervention",
+    "subcategory": "Functional_Communication_Training_Break",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Behavioral] [CATEGORY: ASD_Intervention] [SUBCATEGORY: Functional_Communication_Training_Break] [TARGET: All_Elementary]\nDepEd SPED and Evidence-Based Practice Directive for Behavioral: Functional Communication Training (FCT): Replacing scream/elopement with verbal/iconic 'Break please'. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-BEH-FCT-BREAK"
+      },
+      "rgori_mapping": {
+        "observable_verb": "requests break using icon",
+        "measurable_criterion": "in 85% of high-demand tasks",
+        "functionality_indicator": "Essential competency in Behavioral",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Behavioral",
+    "category": "DepEd_Competency",
+    "subcategory": "Independent_Seatwork_Focus",
+    "target_age_group": "Elementary_Intermediate",
+    "content": "[DOMAIN: Behavioral] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Independent_Seatwork_Focus] [TARGET: Elementary_Intermediate]\nDepEd SPED and Evidence-Based Practice Directive for Behavioral: Remaining on task during silent independent reading or worksheets for 12 uninterrupted minutes. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-BEH-SEATWORK"
+      },
+      "rgori_mapping": {
+        "observable_verb": "remains seated and looks at work",
+        "measurable_criterion": "across 4 consecutive school days",
+        "functionality_indicator": "Essential competency in Behavioral",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Behavioral",
+    "category": "Accommodation_Strategy",
+    "subcategory": "Visual_Boundary_Tape",
+    "target_age_group": "Early_Childhood",
+    "content": "[DOMAIN: Behavioral] [CATEGORY: Accommodation_Strategy] [SUBCATEGORY: Visual_Boundary_Tape] [TARGET: Early_Childhood]\nDepEd SPED and Evidence-Based Practice Directive for Behavioral: Applying bright green masking tape perimeter to define student personal work territory on shared tables. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-ACC-BOUND-TAPE"
+      },
+      "rgori_mapping": {
+        "observable_verb": "keeps belongings within tape",
+        "measurable_criterion": "during 100% of tabletop activities",
+        "functionality_indicator": "Essential competency in Behavioral",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Behavioral",
+    "category": "ASD_Intervention",
+    "subcategory": "Deep_Breathing_Visual_Pinwheel",
+    "target_age_group": "Elementary_Primary",
+    "content": "[DOMAIN: Behavioral] [CATEGORY: ASD_Intervention] [SUBCATEGORY: Deep_Breathing_Visual_Pinwheel] [TARGET: Elementary_Primary]\nDepEd SPED and Evidence-Based Practice Directive for Behavioral: Blowing on a hand-held pinwheel 5 times sequentially to execute somatic regulation during anxiety. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-BEH-PINWHEEL"
+      },
+      "rgori_mapping": {
+        "observable_verb": "inhales and blows",
+        "measurable_criterion": "5 repetitions in 4 out of 5 anxiety episodes",
+        "functionality_indicator": "Essential competency in Behavioral",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Behavioral",
+    "category": "DepEd_Competency",
+    "subcategory": "Safe_Hands_Body_Posture",
+    "target_age_group": "Elementary_Primary",
+    "content": "[DOMAIN: Behavioral] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Safe_Hands_Body_Posture] [TARGET: Elementary_Primary]\nDepEd SPED and Evidence-Based Practice Directive for Behavioral: Maintaining 'safe hands' (hands on lap or desk) during carpet instruction without touching peers. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-BEH-SAFE-HANDS"
+      },
+      "rgori_mapping": {
+        "observable_verb": "maintains safe hands",
+        "measurable_criterion": "for 15 consecutive minutes across 4 days",
+        "functionality_indicator": "Essential competency in Behavioral",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Cognitive",
+    "category": "DepEd_Competency",
+    "subcategory": "Clock_Time_Daily_Routine_Matching",
+    "target_age_group": "Elementary_Intermediate",
+    "content": "[DOMAIN: Cognitive] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Clock_Time_Daily_Routine_Matching] [TARGET: Elementary_Intermediate]\nDepEd SPED and Evidence-Based Practice Directive for Cognitive: Matching visual schedule analog/digital clock cards (e.g., 9:00 Snack, 11:30 Lunch) to classroom wall clock. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-COG-CLOCK"
+      },
+      "rgori_mapping": {
+        "observable_verb": "matches card to clock",
+        "measurable_criterion": "with 85% accuracy over 5 days",
+        "functionality_indicator": "Essential competency in Cognitive",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Cognitive",
+    "category": "DepEd_Competency",
+    "subcategory": "Functional_Personal_Data_Copying",
+    "target_age_group": "Elementary_Intermediate",
+    "content": "[DOMAIN: Cognitive] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Functional_Personal_Data_Copying] [TARGET: Elementary_Intermediate]\nDepEd SPED and Evidence-Based Practice Directive for Cognitive: Writing or copying personal phone number and home barangay onto an emergency contact form. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-COG-EMERGENCY-FORM"
+      },
+      "rgori_mapping": {
+        "observable_verb": "writes legibly",
+        "measurable_criterion": "100% accuracy across 3 sessions",
+        "functionality_indicator": "Essential competency in Cognitive",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Cognitive",
+    "category": "ASD_Intervention",
+    "subcategory": "Visual_Recipe_Sequencing",
+    "target_age_group": "Elementary_Intermediate",
+    "content": "[DOMAIN: Cognitive] [CATEGORY: ASD_Intervention] [SUBCATEGORY: Visual_Recipe_Sequencing] [TARGET: Elementary_Intermediate]\nDepEd SPED and Evidence-Based Practice Directive for Cognitive: Arranging 4 photo sequence cards showing steps for making a peanut butter sandwich in chronological order. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-COG-RECIPE-SEQ"
+      },
+      "rgori_mapping": {
+        "observable_verb": "sequences cards left-to-right",
+        "measurable_criterion": "in 4 out of 5 trials",
+        "functionality_indicator": "Essential competency in Cognitive",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Cognitive",
+    "category": "DepEd_Competency",
+    "subcategory": "Color_and_Shape_Sorting_Functional",
+    "target_age_group": "Early_Childhood",
+    "content": "[DOMAIN: Cognitive] [CATEGORY: DepEd_Competency] [SUBCATEGORY: Color_and_Shape_Sorting_Functional] [TARGET: Early_Childhood]\nDepEd SPED and Evidence-Based Practice Directive for Cognitive: Sorting a mixed bin of 20 classroom geometric objects by both color (red, blue, yellow) and shape (circle, square). The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-COG-SORT-2ATTR"
+      },
+      "rgori_mapping": {
+        "observable_verb": "sorts into designated trays",
+        "measurable_criterion": "90% accuracy in 3 consecutive trials",
+        "functionality_indicator": "Essential competency in Cognitive",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  },
+  {
+    "domain": "Cognitive",
+    "category": "Accommodation_Strategy",
+    "subcategory": "Color_Coded_Subject_Folders",
+    "target_age_group": "All_Elementary",
+    "content": "[DOMAIN: Cognitive] [CATEGORY: Accommodation_Strategy] [SUBCATEGORY: Color_Coded_Subject_Folders] [TARGET: All_Elementary]\nDepEd SPED and Evidence-Based Practice Directive for Cognitive: Color-coded binder folders (Blue for Math, Red for Reading, Green for Science) for rapid workbook retrieval. The learner executes the target educational intervention under standard classroom supervision, demonstrating verified pedagogical gains.",
+    "metadata": {
+      "framework": "DepEd_DO21_s2020",
+      "evidence_tier": "EBP_Standard",
+      "deped_alignment": {
+        "policy_order": "DO_021_s2020",
+        "package": "Package_1_Care_and_Daily_Living",
+        "competency_code": "SPED-ACC-COLOR-FOLDERS"
+      },
+      "rgori_mapping": {
+        "observable_verb": "retrieves matching folder",
+        "measurable_criterion": "within 15 seconds of subject announcement",
+        "functionality_indicator": "Essential competency in Cognitive",
+        "generality_indicator": "Across school learning stations",
+        "context_indicator": "Standard school instructional periods"
+      }
+    }
+  }
+]

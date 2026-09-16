@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.postgres',
     'corsheaders',
     'rest_framework',
     'users',
@@ -181,3 +182,4 @@ REST_FRAMEWORK = {
 # HUGGING FACE API CONFIGURATION
 HF_TOKEN = env('HF_TOKEN', default='MISSING_TOKEN')
 GROQ_API_KEY = env('GROQ_API_KEY', default='MISSING_KEY')
+OPENAI_API_KEY = env('OPENAI_API_KEY', default='MISSING_KEY')
