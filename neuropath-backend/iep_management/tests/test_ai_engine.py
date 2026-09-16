@@ -1,4 +1,3 @@
-import json
 from unittest.mock import MagicMock, patch
 from django.test import TestCase, override_settings
 from iep_management.ai_engine import AIEngineService
@@ -93,10 +92,11 @@ class AIEngineServiceTestCase(TestCase):
 
         url = mock_post.call_args[0][0]
         self.assertIn('gemini-1.5-flash:generateContent', url)
-        self.assertIn('key=test-gemini-key', url)
+        self.assertNotIn('key=', url)
 
         call_kwargs = mock_post.call_args[1]
         self.assertEqual(call_kwargs['headers']['Content-Type'], 'application/json')
+        self.assertEqual(call_kwargs['headers']['x-goog-api-key'], 'test-gemini-key')
         payload = call_kwargs['json']
         self.assertEqual(payload['contents'][0]['parts'][0]['text'], 'Test prompt')
         self.assertEqual(payload['system_instruction']['parts'][0]['text'], 'You are a SPED teacher')
@@ -219,20 +219,8 @@ class AIEngineServiceTestCase(TestCase):
 
     # ── Helper & Compatibility Tests ────────────────────────────────────
 
-    def test_deterministic_fallback_text(self):
-        content = AIEngineService._deterministic_fallback('Test prompt')
-        self.assertIsInstance(content, str)
-        self.assertIn('The learner demonstrates steady progress', content)
-
-    def test_deterministic_fallback_json_mode(self):
-        content = AIEngineService._deterministic_fallback('Test prompt', json_mode=True)
-        parsed = json.loads(content)
-        self.assertIn('lesson_plans', parsed)
-        self.assertIsInstance(parsed['lesson_plans'], list)
-        self.assertGreater(len(parsed['lesson_plans']), 0)
-        first_plan = parsed['lesson_plans'][0]
-        self.assertIn('objective_focus', first_plan)
-        self.assertIn('core_activity', first_plan)
+    def test_deterministic_fallback_is_completely_removed(self):
+        self.assertFalse(hasattr(AIEngineService, '_deterministic_fallback'))
 
     @patch('ollama.chat')
     def test_call_ollama_compatibility(self, mock_ollama_chat):

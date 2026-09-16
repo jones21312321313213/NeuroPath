@@ -188,19 +188,9 @@ class RGORIResilienceTestCase(TestCase):
         }
 
         response = self.client.post(url, payload, format='json')
-        self.assertEqual(response.status_code, 200, f"Expected 200 OK, got {response.status_code}: {response.data}")
+        self.assertEqual(response.status_code, 503, f"Expected 503 Service Unavailable, got {response.status_code}: {response.data}")
         data = response.json()
-        self.assertEqual(data["iep_id"], self.iep.pk)
-        self.assertEqual(data["total_goals_generated"], 1)
-        self.assertEqual(len(data["goals"]), 1)
-
-        goal = data["goals"][0]
-        self.assertEqual(goal["iep"], self.iep.pk)
-        self.assertEqual(goal["subject_category"], "Communication Skills")
-        self.assertTrue(len(goal["annual_goal"]) > 0)
-        self.assertGreaterEqual(goal["_rgori_score"], 65)
-        self.assertTrue(len(goal["objective_rows"]) >= 1)
-        self.assertIn("enroute_objectives", goal["objective_rows"][0])
+        self.assertIn("temporarily unavailable", data["error"])
 
     @patch('iep_management.ai_engine.AIEngineService._call_gemini', side_effect=Exception('Gemini offline'))
     @patch('iep_management.ai_engine.AIEngineService._call_groq')
@@ -255,7 +245,7 @@ class RGORIResilienceTestCase(TestCase):
     @patch('iep_management.ai_engine.AIEngineService._call_openrouter', side_effect=Exception('OpenRouter offline'))
     def test_generate_iep_goal_api_view_offline_cascade(self, mock_openrouter, mock_groq, mock_gemini):
         """
-        POST /api/iep/generate-goal/ succeeds with HTTP 200 when LLM providers are offline.
+        POST /api/iep/generate-goal/ returns HTTP 503 when LLM providers are offline.
         """
         url = '/api/iep/generate-goal/'
         payload = {
@@ -266,8 +256,6 @@ class RGORIResilienceTestCase(TestCase):
         }
 
         response = self.client.post(url, payload, format='json')
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 503)
         data = response.json()
-        self.assertIn("generated_goal", data)
-        self.assertTrue(len(data["generated_goal"]) > 0)
-        self.assertGreaterEqual(data["rgori_score"], 65)
+        self.assertIn("temporarily unavailable", data["error"])

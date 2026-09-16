@@ -388,7 +388,12 @@ def generate_ai_insight(request, student_id):
     except ConsentRequiredException as e:
         return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
     except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        status_code = (
+            status.HTTP_503_SERVICE_UNAVAILABLE
+            if ("AI Generation failed" in str(e) or "temporarily unavailable" in str(e) or "503" in str(e))
+            else status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+        return Response({"error": str(e)}, status=status_code)
 
 # 2. FETCH INSIGHTS SECURELY ENDPOINT (This answers your exact question!)
 @api_view(['GET'])
@@ -503,17 +508,17 @@ class GenerateIEPGoalAPIView(APIView):
                 if evaluation.get('compliant') is True:
                     break
                     
-                time.sleep(0.5)
-                
-            except Exception:
+            except Exception as e:
+                last_error = str(e)
                 if best_goal:
                     break
-                fallback_goal = AIEngineService._deterministic_fallback(generation_prompt)
-                fallback_eval = RGORICheckerService.evaluate_goal(fallback_goal, student_context)
-                best_goal = fallback_goal
-                best_score = max(65, fallback_eval.get('total_score', 70))
-                final_feedback = fallback_eval.get('feedback', 'Pedagogical template applied.')
-                break
+                time.sleep(0.5)
+
+        if not best_goal:
+            return Response(
+                {"error": "AI generation service is temporarily unavailable. Please try again shortly.", "details": last_error},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
 
         # 4. Send the final, audited result back to React
         return Response({
@@ -653,8 +658,8 @@ class GenerateIEPGoalsFromIEPView(APIView):
 
         if error:
             return Response(
-                {"error": "Goal generation failed.", "details": error},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "AI generation service is temporarily unavailable. Please try again shortly.", "details": error},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
         return Response({
@@ -783,11 +788,8 @@ class GenerateIEPGoalsFromIEPView(APIView):
             f"Write the annual IEP goal for this student. It MUST target the PRIMARY Goal Area above."
             f"☁️/user☁️"
         )
-        try:
-            goal_text, _ = AIEngineService.generate_text(prompt, max_tokens=200)
-            return goal_text.strip()
-        except Exception:
-            return AIEngineService._deterministic_fallback(prompt)
+        goal_text, _ = AIEngineService.generate_text(prompt, max_tokens=200)
+        return goal_text.strip()
  
  
     def _generate_objective_rows(

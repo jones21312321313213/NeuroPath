@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class AIEngineService:
-    GEMINI_MODEL = 'gemini-2.5-flash'
+    GEMINI_MODEL = 'gemini-1.5-flash'
     GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
 
     GROQ_MODEL = 'llama-3.3-70b-versatile'
@@ -31,7 +31,8 @@ class AIEngineService:
                 models_to_try.append(fb)
 
         headers = {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "x-goog-api-key": api_key,
         }
 
         generation_config = {
@@ -64,7 +65,7 @@ class AIEngineService:
                 # maxOutputTokens. Setting thinkingBudget to 0 gives full budget to the output.
                 current_payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}
 
-            url = f"{cls.GEMINI_API_URL}/{model}:generateContent?key={api_key}"
+            url = f"{cls.GEMINI_API_URL}/{model}:generateContent"
             res = requests.post(url, headers=headers, json=current_payload, timeout=20)
             if res.status_code == 404 and len(models_to_try) > 1:
                 last_res = res
@@ -205,26 +206,6 @@ class AIEngineService:
 
         response = ollama.chat(**kwargs)
         return response['message']['content'].strip()
-
-    @classmethod
-    def _deterministic_fallback(cls, prompt, json_mode=False):
-        if json_mode:
-            return json.dumps({
-                'lesson_plans': [
-                    {
-                        'objective_focus': 'Foundational Skill Acquisition and Guided Practice',
-                        'introduction': 'Orient the student using visual schedule cards and set clear behavioral expectations.',
-                        'core_activity': 'Provide multi-sensory hands-on practice with structured teacher modeling and tactile manipulatives.',
-                        'assessment': 'Check for 4 out of 5 correct independent trials with positive reinforcement.',
-                        'materials_needed': ['Visual schedule board', 'Token reinforcement chart', 'Manipulative work kit']
-                    }
-                ]
-            })
-        return (
-            'The learner demonstrates steady progress when provided with structured routines, '
-            'visual prompts, and individualized pacing. Continuing with multimodal instructional strategies, '
-            'frequent positive reinforcement, and planned sensory breaks will best support mastery across key learning targets.'
-        )
 
     @classmethod
     def generate_text(cls, prompt, system_prompt='', max_tokens=500, json_mode=False):

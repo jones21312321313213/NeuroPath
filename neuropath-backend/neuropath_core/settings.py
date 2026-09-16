@@ -181,10 +181,10 @@ REST_FRAMEWORK = {
 # AI SERVICES CONFIGURATION
 HF_TOKEN = env('HF_TOKEN', default='MISSING_TOKEN')
 GROQ_API_KEY = env('GROQ_API_KEY', default='MISSING_KEY')
-GROQ_MODEL = env('GROQ_MODEL', default='qwen/qwen3.8-27b')
- 
+GROQ_MODEL = env('GROQ_MODEL', default='llama-3.3-70b-versatile')
+
 GEMINI_API_KEY = env('GEMINI_API_KEY', default='MISSING_KEY')
-GEMINI_MODEL = env('GEMINI_MODEL', default='gemini-2.5-flash')
+GEMINI_MODEL = env('GEMINI_MODEL', default='gemini-1.5-flash')
 
 OPENROUTER_API_KEY = env('OPENROUTER_API_KEY', default='MISSING_KEY')
-OPENROUTER_MODEL = env('OPENROUTER_MODEL', default='google/gemma-4-26b-a4b-it:free')
+OPENROUTER_MODEL = env('OPENROUTER_MODEL', default='meta-llama/llama-3.3-70b-instruct:free')
