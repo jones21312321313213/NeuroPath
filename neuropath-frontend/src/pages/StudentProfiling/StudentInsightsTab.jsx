@@ -6,6 +6,7 @@ import {
   useGenerateStudentInsight,
 } from "../../hooks/queries";
 import { Callout, Button, EmptyState } from "../../components/ui";
+import { InfoIcon, WarningIcon } from "../../components/ui/icons";
 
 const USE_MOCK_INSIGHTS = import.meta.env.VITE_USE_MOCK_INSIGHTS === "true";
 
@@ -96,7 +97,7 @@ export default function StudentInsightsTab({ studentId, setActivePage, student }
         <div className="summary-disclaimer-box">
           <div className="summary-disclaimer-content">
             <span className="summary-disclaimer-icon" aria-hidden="true">
-              ℹ️
+              <InfoIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
             </span>
             <div>
               <p className="summary-disclaimer-text">
@@ -104,8 +105,8 @@ export default function StudentInsightsTab({ studentId, setActivePage, student }
                 AI-assisted profile overview of student strengths, needs, and
                 accommodations for quick reference.
               </p>
-              <p className="summary-disclaimer-sub">
-                ⚠️{" "}
+              <p className="summary-disclaimer-sub flex items-start gap-1.5">
+                <WarningIcon className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
                 <em>
                   Note: This is not a full Individualized Education Program
                   (IEP). To create comprehensive annual goals, accommodations,

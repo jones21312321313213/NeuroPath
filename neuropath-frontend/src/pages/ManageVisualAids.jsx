@@ -3,11 +3,38 @@ import { useNavigate } from "react-router-dom";
 import "../styles/ManageVisualAids.css";
 import { visualAidsAPI, studentsAPI, iepAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import {
+  PhotoIcon,
+  EyeIcon,
+  TrashIcon,
+  InboxIcon,
+  WarningIcon,
+  CheckIcon,
+  UserIcon,
+  CalendarIcon,
+  SchoolIcon,
+  ClipboardIcon,
+  SparklesIcon,
+  DiskIcon,
+  ArrowPathIcon,
+} from "../components/ui/icons";
 
 const TABS = [
-  { key: "generate", label: "Generate", icon: "🖼" },
-  { key: "view", label: "View", icon: "◎" },
-  { key: "delete", label: "Delete", icon: "⊘" },
+  {
+    key: "generate",
+    label: "Generate",
+    icon: <PhotoIcon className="w-4 h-4" aria-hidden="true" />,
+  },
+  {
+    key: "view",
+    label: "View",
+    icon: <EyeIcon className="w-4 h-4" aria-hidden="true" />,
+  },
+  {
+    key: "delete",
+    label: "Delete",
+    icon: <TrashIcon className="w-4 h-4" aria-hidden="true" />,
+  },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -36,7 +63,7 @@ function Loading({ text = "Loading…" }) {
 }
 
 function EmptyState({
-  icon = "📭",
+  icon = <InboxIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />,
   message = "No records found.",
   description,
   actionLabel,
@@ -45,7 +72,9 @@ function EmptyState({
 }) {
   return (
     <div className="va-empty-state">
-      <span className="va-empty-icon">{icon}</span>
+      <span className="va-empty-icon flex items-center justify-center">
+        {icon}
+      </span>
       <p className="va-empty-text">{message}</p>
       {description && <p className="va-empty-desc">{description}</p>}
       {actionLabel && onAction && (
@@ -55,7 +84,7 @@ function EmptyState({
           style={{ marginTop: 16 }}
           onClick={onAction}
         >
-          {actionIcon && <span>{actionIcon}</span>}
+          {actionIcon && <span className="inline-flex items-center">{actionIcon}</span>}
           {actionLabel}
         </button>
       )}
@@ -67,7 +96,7 @@ function ErrorBanner({ message }) {
   if (!message) return null;
   return (
     <div className="va-error-banner">
-      <span>⚠️</span>
+      <WarningIcon className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
       <span>{message}</span>
     </div>
   );
@@ -92,7 +121,11 @@ function StudentSelector({ students, selectedStudent, onSelect }) {
                 {s.grade ? `Grade ${s.grade}` : "Student"}
               </span>
             </div>
-            <div className="va-student-check">{isSelected && "✓"}</div>
+            <div className="va-student-check">
+              {isSelected && (
+                <CheckIcon className="w-3.5 h-3.5 text-white" aria-hidden="true" />
+              )}
+            </div>
           </div>
         );
       })}
@@ -125,9 +158,16 @@ function AidRowList({
           )}
           <div className="va-aid-row-info">
             <p className="va-aid-row-title">{aid.title}</p>
-            <p className="va-aid-row-meta">
-              👤 {aid.studentName} &nbsp;·&nbsp; 🗓{" "}
-              {new Date(aid.dateCreated).toLocaleDateString()}
+            <p className="va-aid-row-meta flex items-center gap-1.5 flex-wrap">
+              <span className="inline-flex items-center gap-1">
+                <UserIcon className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+                {aid.studentName}
+              </span>
+              <span>·</span>
+              <span className="inline-flex items-center gap-1">
+                <CalendarIcon className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+                {new Date(aid.dateCreated).toLocaleDateString()}
+              </span>
             </p>
           </div>
           <div className="va-aid-row-actions">
@@ -142,7 +182,7 @@ function AidRowList({
                 className="va-btn va-btn-ghost"
                 style={{ textDecoration: "none" }}
               >
-                ⬇ PDF
+                PDF
               </a>
             )}
           </div>
@@ -246,18 +286,21 @@ function GenerateTab({ setActivePage }) {
         <div className="va-step-badge">
           <span className="va-step-num">1</span>Choose a Student
           {selectedStudent && (
-            <span className="va-step-done-chip">✓ {selectedStudent.name}</span>
+            <span className="va-step-done-chip">
+              <CheckIcon className="w-3 h-3 text-emerald-600 inline mr-1" aria-hidden="true" />
+              {selectedStudent.name}
+            </span>
           )}
         </div>
         {loadingStudents ? (
           <Loading text="Fetching students…" />
         ) : students.length === 0 ? (
           <EmptyState
-            icon="🏫"
+            icon={<SchoolIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
             message="No students found."
             description="You need at least one registered student profile before generating a visual aid."
             actionLabel="Create Student Profile"
-            actionIcon="👤"
+            actionIcon={<UserIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />}
             onAction={() => {
               navigate("/dashboard/students/create");
               if (setActivePage) setActivePage("create-student-profile");
@@ -278,7 +321,10 @@ function GenerateTab({ setActivePage }) {
           <div className="va-step-badge">
             <span className="va-step-num">2</span>IEP Goal &amp; Prompt
             {selectedGoal && (
-              <span className="va-step-done-chip">✓ Goal selected</span>
+              <span className="va-step-done-chip">
+                <CheckIcon className="w-3 h-3 text-emerald-600 inline mr-1" aria-hidden="true" />
+                Goal selected
+              </span>
             )}
           </div>
           <p className="va-form-intro">
@@ -291,11 +337,11 @@ function GenerateTab({ setActivePage }) {
             <Loading text="Loading IEP goals…" />
           ) : goals.length === 0 ? (
             <EmptyState
-              icon="📋"
+              icon={<ClipboardIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
               message="No IEP goals found for this student."
               description="Visual aids are generated directly from saved IEP goals. Generate and save an IEP with goals for this student first."
               actionLabel="Generate IEP"
-              actionIcon="✦"
+              actionIcon={<SparklesIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />}
               onAction={() => {
                 navigate("/dashboard/iep/generate");
                 if (setActivePage) setActivePage("iep-generation");
@@ -356,7 +402,7 @@ function GenerateTab({ setActivePage }) {
 
           <div className="va-actions" style={{ marginTop: 16 }}>
             <button className="va-btn va-btn-ghost" onClick={handleReset}>
-              ↩ Reset
+              Reset
             </button>
             <button
               className="va-generate-btn"
@@ -364,7 +410,7 @@ function GenerateTab({ setActivePage }) {
               disabled={!selectedGoal}
               style={{ maxWidth: 260, opacity: selectedGoal ? 1 : 0.5 }}
             >
-              <span>🖼️</span>
+              <PhotoIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />
               Generate Visual Aid
             </button>
           </div>
@@ -375,7 +421,9 @@ function GenerateTab({ setActivePage }) {
       {generating && (
         <div className="va-card">
           <div className="va-ai-generating">
-            <div className="va-ai-orb">🎨</div>
+            <div className="va-ai-orb flex items-center justify-center">
+              <PhotoIcon className="w-8 h-8 text-white animate-pulse" aria-hidden="true" />
+            </div>
             <p className="va-ai-label">Generating Visual Aid…</p>
             <p className="va-ai-sub">
               The AI is crafting your image — this usually takes 15–30 seconds
@@ -388,18 +436,19 @@ function GenerateTab({ setActivePage }) {
       {result && !generating && (
         <div className="va-card">
           <div className="va-step-badge">
-            <span className="va-step-num">3</span>Generated &amp; Saved ✓
+            <span className="va-step-num">3</span>Generated &amp; Saved
+            <CheckIcon className="w-3.5 h-3.5 ml-1 inline text-emerald-300" aria-hidden="true" />
           </div>
 
           <div className="va-detail-hero">
             <h2 className="va-detail-title">{result.title}</h2>
             <div className="va-detail-meta">
               <div className="va-meta-chip">
-                <span>👤</span>
+                <UserIcon className="w-4 h-4 text-slate-500 mr-1" aria-hidden="true" />
                 {result.studentName}
               </div>
               <div className="va-meta-chip">
-                <span>💾</span>Saved to database (ID #{result.visualAidID})
+                <DiskIcon className="w-4 h-4 text-slate-500 mr-1" aria-hidden="true" />Saved to database (ID #{result.visualAidID})
               </div>
             </div>
           </div>
@@ -423,7 +472,9 @@ function GenerateTab({ setActivePage }) {
                 className="va-preview-placeholder"
                 style={{ display: "none" }}
               >
-                <span className="va-preview-placeholder-icon">⚠️</span>
+                <span className="va-preview-placeholder-icon">
+                  <WarningIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />
+                </span>
                 <span className="va-preview-placeholder-text">
                   Image preview unavailable, but it has been saved to the
                   database.
@@ -434,7 +485,7 @@ function GenerateTab({ setActivePage }) {
 
           <div className="va-actions space-between" style={{ marginTop: 20 }}>
             <button className="va-btn va-btn-ghost" onClick={handleReset}>
-              🔄 Generate Another
+              <ArrowPathIcon className="w-4 h-4 mr-1.5" aria-hidden="true" /> Generate Another
             </button>
             <a
               href={result.imageUrl}
@@ -448,10 +499,10 @@ function GenerateTab({ setActivePage }) {
                 gap: 6,
               }}
             >
-              ↗ Open Image
+              Open Image
             </a>
             <button className="va-btn va-btn-primary" onClick={handleReset}>
-              ✓ Done
+              <CheckIcon className="w-4 h-4 mr-1.5" aria-hidden="true" /> Done
             </button>
           </div>
         </div>
@@ -503,7 +554,9 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
   return (
     <div className="va-card">
       <div className="va-card-header">
-        <div className="va-card-icon">🖼️</div>
+        <div className="va-card-icon">
+          <PhotoIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+        </div>
         <div>
           <p className="va-card-title">Saved Visual Aids</p>
           <p className="va-card-subtitle">
@@ -516,7 +569,10 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
       <div className="va-step-badge" style={{ marginBottom: 14 }}>
         <span className="va-step-num">1</span>Choose a Student
         {selectedStudent && (
-          <span className="va-step-done-chip">✓ {selectedStudent.name}</span>
+          <span className="va-step-done-chip">
+            <CheckIcon className="w-3 h-3 text-emerald-600 inline mr-1" aria-hidden="true" />
+            {selectedStudent.name}
+          </span>
         )}
       </div>
 
@@ -524,11 +580,11 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
         <Loading text="Fetching students…" />
       ) : students.length === 0 ? (
         <EmptyState
-          icon="🏫"
+          icon={<SchoolIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
           message="No students found."
           description="Register a student profile first to view and manage visual aids."
           actionLabel="Create Student Profile"
-          actionIcon="👤"
+          actionIcon={<UserIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />}
           onAction={() => {
             navigate("/dashboard/students/create");
             if (setActivePage) setActivePage("create-student-profile");
@@ -553,17 +609,17 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
             <Loading text="Loading visual aids…" />
           ) : aids.length === 0 ? (
             <EmptyState
-              icon="🖼️"
+              icon={<PhotoIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
               message="No visual aids saved for this student yet."
               description="Create an AI-generated visual aid based on this student's IEP goals."
               actionLabel="Generate Visual Aid"
-              actionIcon="✦"
+              actionIcon={<SparklesIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />}
               onAction={onGoToGenerate}
             />
           ) : (
             <AidRowList
               aids={aids}
-              actionLabel="↗ View"
+              actionLabel="View"
               onAction={(aid) => window.open(aid.imageUrl, "_blank")}
               actionClass="va-btn va-btn-primary"
               showDownload={true}
@@ -636,7 +692,9 @@ function DeleteTab({ setActivePage, onGoToGenerate }) {
   return (
     <div className="va-card">
       <div className="va-card-header">
-        <div className="va-card-icon">🗑️</div>
+        <div className="va-card-icon">
+          <TrashIcon className="w-5 h-5 text-red-600" aria-hidden="true" />
+        </div>
         <div>
           <p className="va-card-title">Delete Visual Aids</p>
           <p className="va-card-subtitle">
@@ -649,7 +707,10 @@ function DeleteTab({ setActivePage, onGoToGenerate }) {
       <div className="va-step-badge" style={{ marginBottom: 14 }}>
         <span className="va-step-num">1</span>Choose a Student
         {selectedStudent && (
-          <span className="va-step-done-chip">✓ {selectedStudent.name}</span>
+          <span className="va-step-done-chip">
+            <CheckIcon className="w-3 h-3 text-emerald-600 inline mr-1" aria-hidden="true" />
+            {selectedStudent.name}
+          </span>
         )}
       </div>
 
@@ -657,11 +718,11 @@ function DeleteTab({ setActivePage, onGoToGenerate }) {
         <Loading text="Fetching students…" />
       ) : students.length === 0 ? (
         <EmptyState
-          icon="🏫"
+          icon={<SchoolIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
           message="No students found."
           description="Register a student profile first to manage visual aids."
           actionLabel="Create Student Profile"
-          actionIcon="👤"
+          actionIcon={<UserIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />}
           onAction={() => {
             navigate("/dashboard/students/create");
             if (setActivePage) setActivePage("create-student-profile");
@@ -686,11 +747,11 @@ function DeleteTab({ setActivePage, onGoToGenerate }) {
             <Loading text="Loading visual aids…" />
           ) : aids.length === 0 ? (
             <EmptyState
-              icon="📭"
+              icon={<InboxIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
               message="No visual aids saved for this student."
               description="There are currently no visual aids to delete for this student."
               actionLabel="Generate Visual Aid"
-              actionIcon="✦"
+              actionIcon={<SparklesIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />}
               onAction={onGoToGenerate}
             />
           ) : (
@@ -707,7 +768,9 @@ function DeleteTab({ setActivePage, onGoToGenerate }) {
       {toDelete && (
         <div className="va-modal-overlay">
           <div className="va-modal">
-            <div className="va-modal-icon">🗑️</div>
+            <div className="va-modal-icon">
+              <TrashIcon className="w-6 h-6 text-red-600" aria-hidden="true" />
+            </div>
             <p className="va-modal-title">Delete Visual Aid?</p>
             <p className="va-modal-body">
               You're about to permanently delete{" "}

@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { CloseIcon } from "./icons";
 
 const sizeClasses = {
   sm: "max-w-sm",
@@ -71,7 +72,7 @@ export function Modal({
                 aria-label="Close dialog"
                 className="text-slate-400 hover:text-slate-600 rounded-lg p-1.5 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 cursor-pointer"
               >
-                ✕
+                <CloseIcon className="w-4 h-4" aria-hidden="true" />
               </button>
             )}
           </div>

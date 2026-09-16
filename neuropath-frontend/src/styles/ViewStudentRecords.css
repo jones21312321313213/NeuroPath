@@ -263,21 +263,12 @@
 
 /* ── AI Accommodations box ──────────────────────────────── */
 .vsr-ai-box {
-  background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
-  border: 1.5px solid #bae6fd;
-  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #0284c7;
+  border-radius: 8px;
   padding: 18px 22px;
   position: relative;
-  overflow: hidden;
-}
-
-.vsr-ai-box::before {
-  content: "✦";
-  position: absolute;
-  right: 18px;
-  top: 14px;
-  font-size: 24px;
-  color: rgba(2, 132, 199, 0.25);
 }
 
 .vsr-ai-title {

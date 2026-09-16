@@ -5,6 +5,7 @@ import "../styles/ViewStudentRecords.css";
 import { iepAPI, studentsAPI, trackingAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import StudentShimmer from "../components/StudentShimmer";
+import { InboxIcon, CheckIcon, WarningIcon } from "../components/ui/icons";
 
 // ── Placeholder data shown when backend fields are missing ─────────────────
 const PLACEHOLDER = {
@@ -38,8 +39,8 @@ const PLACEHOLDER = {
 function EmptyState({ message, description, actionLabel, onAction }) {
   return (
     <div className="om-empty">
-      <span className="om-empty-icon">
-        📭
+      <span className="om-empty-icon flex items-center justify-center">
+        <InboxIcon className="w-8 h-8 text-slate-400" aria-hidden="true" />
       </span>
       <p className="om-empty-title">{message}</p>
       {description && (
@@ -165,7 +166,13 @@ function StepIndicator({ step }) {
           key={i}
           className={`vsr-step ${i + 1 === step ? "vsr-step-active" : i + 1 < step ? "vsr-step-done" : ""}`}
         >
-          <div className="vsr-step-circle">{i + 1 < step ? "✓" : i + 1}</div>
+          <div className="vsr-step-circle">
+            {i + 1 < step ? (
+              <CheckIcon className="w-4 h-4 text-white" aria-hidden="true" />
+            ) : (
+              i + 1
+            )}
+          </div>
           <span className="vsr-step-label">{label}</span>
           {i < steps.length - 1 && <div className="vsr-step-line" />}
         </div>
@@ -373,8 +380,9 @@ function PageSectionBC({ d, studentId, studentName, onBack, setActivePage }) {
         </button>
       </div>
       {exportError && (
-        <div role="alert" className="vsr-export-error">
-          ⚠️ {exportError}
+        <div role="alert" className="vsr-export-error flex items-center gap-2">
+          <WarningIcon className="w-4 h-4 text-red-600 flex-shrink-0" aria-hidden="true" />
+          <span>{exportError}</span>
         </div>
       )}
     </div>
@@ -550,8 +558,9 @@ export default function ViewStudentRecords({ setActivePage }) {
         <div className="om-card">
           <h2 className="om-list-title">List of Students</h2>
           {error && (
-            <div role="alert" className="om-error-banner">
-              ⚠️ {error}
+            <div role="alert" className="om-error-banner flex items-center gap-2">
+              <WarningIcon className="w-4 h-4 text-red-600 flex-shrink-0" aria-hidden="true" />
+              <span>{error}</span>
             </div>
           )}
           <div className="om-search-bar">

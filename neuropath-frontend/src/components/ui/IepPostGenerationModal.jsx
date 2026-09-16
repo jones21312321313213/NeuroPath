@@ -2,6 +2,18 @@ import { useState } from "react";
 import { Modal } from "./Modal";
 import { Button } from "./Button";
 import { Badge } from "./Badge";
+import {
+  ArrowPathIcon,
+  ClockIcon,
+  DiskIcon,
+  UserIcon,
+  TargetIcon,
+  LightBulbIcon,
+  DocumentIcon,
+  WrenchIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+} from "./icons";
 
 /**
  * IepPostGenerationModal (Issue #157)
@@ -86,12 +98,12 @@ export function IepPostGenerationModal({
             >
               {isRegenerating ? (
                 <span className="flex items-center gap-1.5">
-                  <span className="animate-spin text-sm inline-block">🔄</span>
+                  <ArrowPathIcon className="w-4 h-4 animate-spin text-slate-500" aria-hidden="true" />
                   Regenerating...
                 </span>
               ) : (
                 <span className="flex items-center gap-1.5">
-                  <span aria-hidden="true">🔄</span>
+                  <ArrowPathIcon className="w-4 h-4" aria-hidden="true" />
                   Regenerate
                 </span>
               )}
@@ -106,12 +118,12 @@ export function IepPostGenerationModal({
             >
               {isSaving ? (
                 <span className="flex items-center gap-1.5">
-                  <span className="animate-spin text-sm inline-block">⏳</span>
+                  <ClockIcon className="w-4 h-4 animate-spin text-white" aria-hidden="true" />
                   Saving Goals...
                 </span>
               ) : (
                 <span className="flex items-center gap-1.5">
-                  <span aria-hidden="true">💾</span>
+                  <DiskIcon className="w-4 h-4 text-white" aria-hidden="true" />
                   Accept &amp; Save IEP
                 </span>
               )}
@@ -126,13 +138,13 @@ export function IepPostGenerationModal({
           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
             {studentName && (
               <span className="inline-flex items-center gap-1 font-semibold text-slate-800 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
-                <span aria-hidden="true">👤</span>
+                <UserIcon className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
                 {studentName}
               </span>
             )}
             {goalArea && (
               <span className="inline-flex items-center gap-1 font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200/60">
-                <span aria-hidden="true">🎯</span>
+                <TargetIcon className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
                 {goalArea}
               </span>
             )}
@@ -148,7 +160,7 @@ export function IepPostGenerationModal({
 
         {/* Informational Guidance Callout */}
         <div className="p-3 bg-blue-50/60 border border-blue-200/80 rounded-xl flex items-start gap-2.5 text-xs text-blue-900 leading-relaxed">
-          <span className="text-base select-none" aria-hidden="true">💡</span>
+          <LightBulbIcon className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" aria-hidden="true" />
           <div>
             <strong>Pedagogical Review Check:</strong> Inspect the proposed annual goal,
             enroute objectives, and R-GORI rigor evaluation. Click <strong>Accept &amp; Save</strong> to
@@ -210,8 +222,9 @@ export function IepPostGenerationModal({
 
                   {/* Annual Goal Statement */}
                   <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                    <div className="text-xs font-semibold text-slate-600 mb-1 flex items-center gap-1">
-                      <span aria-hidden="true">🎯</span> Annual Measurable Goal:
+                    <div className="text-xs font-semibold text-slate-600 mb-1 flex items-center gap-1.5">
+                      <TargetIcon className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
+                      <span>Annual Measurable Goal:</span>
                     </div>
                     <p className="text-sm font-medium text-slate-900 m-0 leading-relaxed">
                       {goal.annual_goal || goal.annualGoal || "No annual goal statement provided."}
@@ -228,7 +241,7 @@ export function IepPostGenerationModal({
                   {/* RGORI Feedback Note */}
                   {rgoriFeedback && (
                     <div className="p-2.5 bg-amber-50/50 border border-amber-200/60 rounded-lg text-xs text-amber-900 flex items-start gap-1.5">
-                      <span aria-hidden="true">📝</span>
+                      <DocumentIcon className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
                       <div>
                         <strong>R-GORI Feedback:</strong> {rgoriFeedback}
                       </div>
@@ -279,7 +292,8 @@ export function IepPostGenerationModal({
         {formattedAccommodations.length > 0 && (
           <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
             <div className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-              <span aria-hidden="true">🛠️</span> Configured Accommodations:
+              <WrenchIcon className="w-3.5 h-3.5 text-slate-600" aria-hidden="true" />
+              <span>Configured Accommodations:</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {formattedAccommodations.map((acc, aIdx) => (
@@ -302,7 +316,11 @@ export function IepPostGenerationModal({
               onClick={() => setShowRegenPrompt((prev) => !prev)}
               className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors cursor-pointer"
             >
-              <span>{showRegenPrompt ? "▼ Hide" : "▶ Add"}</span>
+              {showRegenPrompt ? (
+                <ChevronDownIcon className="w-3.5 h-3.5" aria-hidden="true" />
+              ) : (
+                <ChevronRightIcon className="w-3.5 h-3.5" aria-hidden="true" />
+              )}
               <span>Guidance for Regeneration (Optional)</span>
             </button>
             {regenerationNotes.trim() && (

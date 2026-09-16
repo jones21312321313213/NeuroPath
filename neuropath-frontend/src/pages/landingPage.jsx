@@ -1,34 +1,44 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import RotatingText from "../components/ui/RotatingText";
+import {
+  BoltIcon,
+  TargetIcon,
+  ClipboardIcon,
+  LightBulbIcon,
+  BookOpenIcon,
+  PhotoIcon,
+  ChartBarIcon,
+} from "../components/ui/icons";
+
 const features = [
   {
-    icon: "🎯",
+    icon: <TargetIcon className="w-5 h-5 text-[#1a6fa8]" aria-hidden="true" />,
     title: "Personalized Goals",
     desc: "Set, track, and adapt learning objectives tailored to each student's unique needs and abilities.",
   },
   {
-    icon: "📋",
+    icon: <ClipboardIcon className="w-5 h-5 text-[#1a6fa8]" aria-hidden="true" />,
     title: "IEP Generation",
     desc: "Generate compliant Individualized Education Plans powered by AI, tailored to each student's unique needs and goals.",
   },
   {
-    icon: "🧠",
+    icon: <LightBulbIcon className="w-5 h-5 text-[#1a6fa8]" aria-hidden="true" />,
     title: "AI Insights",
     desc: "Leverage AI to analyze student data and surface actionable recommendations for educators and specialists.",
   },
   {
-    icon: "📚",
+    icon: <BookOpenIcon className="w-5 h-5 text-[#1a6fa8]" aria-hidden="true" />,
     title: "Lesson Plan Management",
     desc: "Create, organize, and manage lesson plans designed around each student's IEP goals and learning preferences.",
   },
   {
-    icon: "🎨",
+    icon: <PhotoIcon className="w-5 h-5 text-[#1a6fa8]" aria-hidden="true" />,
     title: "Visual Aid Management",
     desc: "Generate and manage visual aids tailored to ASD learners, supporting communication and comprehension in the classroom.",
   },
   {
-    icon: "📈",
+    icon: <ChartBarIcon className="w-5 h-5 text-[#1a6fa8]" aria-hidden="true" />,
     title: "Outcome Monitoring",
     desc: "Track student progress over time with detailed records and visual dashboards that keep the whole team aligned.",
   },
@@ -106,7 +116,7 @@ export default function LandingPage({ onGetStarted }) {
           ${scrolled ? "px-2" : "max-w-7xl px-4 sm:px-6 lg:px-8"}`}
         >
           <div className="flex items-center gap-2 select-none">
-            <span className="text-2xl animate-pulse text-[#2589c7]">⚡</span>
+            <BoltIcon className="w-6 h-6 text-[#2589c7]" aria-hidden="true" />
             <span className="text-xl font-bold tracking-tight text-[#1a6fa8]">
               NeuroPath
             </span>
@@ -496,9 +506,7 @@ export default function LandingPage({ onGetStarted }) {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 opacity-80">
-            <span className="text-xl" style={{ color: "#2589c7" }}>
-              ⚡
-            </span>
+            <BoltIcon className="w-5 h-5 text-[#2589c7]" aria-hidden="true" />
             <span
               className="text-md font-bold tracking-tight"
               style={{ color: "#1a6fa8" }}

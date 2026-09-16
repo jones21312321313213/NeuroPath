@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { trackingAPI } from "../api/client";
+import { ChartBarIcon, WarningIcon, CloseIcon } from "./ui/icons";
 
 const PRESET_DOMAINS = [
   "Communication",
@@ -91,8 +92,9 @@ function RecordProgressForm({
   return (
     <form onSubmit={handleSubmit} noValidate className="rpm-modal-body">
       {errorMessage && (
-        <div className="rpm-error-alert" role="alert">
-          ⚠️ {errorMessage}
+        <div className="rpm-error-alert flex items-center gap-1.5" role="alert">
+          <WarningIcon className="w-4 h-4 shrink-0" aria-hidden="true" />
+          <span>{errorMessage}</span>
         </div>
       )}
 
@@ -245,8 +247,9 @@ export default function RecordProgressModal({
         {/* Header */}
         <div className="rpm-modal-header">
           <div>
-            <h2 id="rpm-modal-title" className="rpm-modal-title">
-              📈 Log Student Progress
+            <h2 id="rpm-modal-title" className="rpm-modal-title flex items-center gap-2">
+              <ChartBarIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+              <span>Log Student Progress</span>
             </h2>
             <p className="rpm-modal-subtitle">
               Record evaluation scores and observations for{" "}
@@ -259,7 +262,7 @@ export default function RecordProgressModal({
             onClick={onClose}
             aria-label="Close dialog"
           >
-            ✕
+            <CloseIcon className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
 

@@ -4,6 +4,7 @@ import "../../styles/ViewSelectedStudentProfile.css";
 import StudentInsightsTab from "./StudentInsightsTab";
 import { useStudent } from "../../hooks/queries";
 import { Badge } from "../../components/ui";
+import { CheckIcon, WarningIcon } from "../../components/ui/icons";
 
 function getProfileDetails(student) {
   const record = student?.data || student;
@@ -123,12 +124,14 @@ export default function ViewSelectedStudentProfile({ studentId: propStudentId, s
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
                 <h2 className="form-section-title" style={{ margin: 0 }}>Section A: Personal Information</h2>
                 {student?.parental_consent_obtained ? (
-                  <Badge variant="success">
-                    ✅ RA 10173 Consent Verified (Guardian: {student.guardian_name || "Parent/Guardian"})
+                  <Badge variant="success" className="inline-flex items-center gap-1.5">
+                    <CheckIcon className="w-4 h-4 text-emerald-700" aria-hidden="true" />
+                    <span>RA 10173 Consent Verified (Guardian: {student.guardian_name || "Parent/Guardian"})</span>
                   </Badge>
                 ) : (
-                  <Badge variant="warning">
-                    ⚠️ RA 10173 Consent Pending — AI Processing Restricted
+                  <Badge variant="warning" className="inline-flex items-center gap-1.5">
+                    <WarningIcon className="w-4 h-4 text-amber-700" aria-hidden="true" />
+                    <span>RA 10173 Consent Pending — AI Processing Restricted</span>
                   </Badge>
                 )}
               </div>

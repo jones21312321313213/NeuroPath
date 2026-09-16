@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { CheckIcon, LightBulbIcon } from "../components/ui/icons";
 
 const difficultyOptions = [
   "Difficulty in Seeing",
@@ -166,10 +167,10 @@ function SuccessModal({
       >
         {/* Icon */}
         <div
-          className="w-16 h-16 rounded-full flex items-center justify-center mb-4 text-3xl"
+          className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
           style={{ background: "#e6f7ec", border: "2px solid #b7e4c7" }}
         >
-          ✅
+          <CheckIcon className="w-8 h-8 text-emerald-600" aria-hidden="true" />
         </div>
 
         <h2
@@ -549,7 +550,9 @@ export default function CreateStudentProfile({
         </div>
 
         <div className="iep-form-intro">
-          <span className="iep-form-intro-icon">💡</span>
+          <span className="iep-form-intro-icon">
+            <LightBulbIcon className="w-5 h-5 text-amber-500" aria-hidden="true" />
+          </span>
           <div>
             <strong>Tip:</strong> NeuroPath uses this form for AI IEP drafts; fuller answers usually mean better drafts.
           </div>

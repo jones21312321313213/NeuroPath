@@ -2,6 +2,7 @@ import { useEffect, useState, useId } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { studentsAPI } from "../../api/client";
 import { Modal, Button } from "../../components/ui";
+import { CheckIcon, LightBulbIcon } from "../../components/ui/icons";
 import "../../styles/UpdateStudentProfile.css";
 
 const difficultyOptions = [
@@ -142,7 +143,9 @@ function SuccessModal({ studentName, onClose }) {
       }
     >
       <div className="text-center py-2">
-        <div className="usp-modal-icon" aria-hidden="true">✓</div>
+        <div className="usp-modal-icon" aria-hidden="true">
+          <CheckIcon className="w-7 h-7 text-blue-600" aria-hidden="true" />
+        </div>
         <p className="usp-modal-body">
           <strong>{studentName}</strong>'s profile has been saved successfully.
         </p>
@@ -403,7 +406,9 @@ export default function UpdateStudentProfile({ studentId: propStudentId, onBack 
         </div>
 
         <div className="iep-form-intro">
-          <span className="iep-form-intro-icon">💡</span>
+          <span className="iep-form-intro-icon">
+            <LightBulbIcon className="w-5 h-5 text-amber-500" aria-hidden="true" />
+          </span>
           <div>
             <strong>Tip:</strong> NeuroPath uses this form for AI IEP drafts; fuller answers usually mean better drafts.
           </div>

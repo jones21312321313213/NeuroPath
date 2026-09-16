@@ -19,7 +19,7 @@ describe("EmptyState component", () => {
   it("renders custom icon and action CTA button", () => {
     render(
       <EmptyState
-        icon={<span data-testid="empty-icon">📁</span>}
+        icon={<svg data-testid="empty-icon" className="w-5 h-5" viewBox="0 0 24 24" />}
         title="No Records"
         description="Create your first record to get started."
         action={<Button>Create Record</Button>}

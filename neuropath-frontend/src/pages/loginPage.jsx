@@ -1,6 +1,15 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import {
+  BoltIcon,
+  LockIcon,
+  ClockIcon,
+  CheckIcon,
+  WarningIcon,
+  EyeIcon,
+  EyeSlashIcon,
+} from "../components/ui/icons";
 
 export default function LoginPage({
   onNavigateRegister,
@@ -52,7 +61,7 @@ export default function LoginPage({
   const handleSubmit = async (e) => {
       e.preventDefault();
       setLoading(true);
-      setError(""); // 📑 Fixed spelling: removed the "s"
+      setError(""); // Fixed spelling: removed the "s"
 
       try {
         // pulling email and password safely out of your form state object
@@ -63,7 +72,7 @@ export default function LoginPage({
       } catch (err) {
         // Catch-all for incorrect passwords or unmapped profiles
         const errorMsg = err.message || "Invalid email or password.";
-        setError(errorMsg); // 📑 Fixed spelling: removed the "s"
+        setError(errorMsg); // Fixed spelling: removed the "s"
       } finally {
         setLoading(false);
       }
@@ -107,7 +116,7 @@ export default function LoginPage({
         >
           {/* Logo inside card */}
           <div className="flex items-center gap-2 select-none mb-6">
-            <span className="text-2xl">⚡</span>
+            <BoltIcon className="w-6 h-6 text-white" aria-hidden="true" />
             <span className="text-xl font-bold tracking-tight text-white">
               NeuroPath
             </span>
@@ -138,10 +147,11 @@ export default function LoginPage({
 
           {/* Footer note inside card */}
           <p
-            className="text-xs mt-6"
-            style={{ color: "rgba(255,255,255,0.5)" }}
+            className="text-xs mt-6 flex items-center gap-1.5"
+            style={{ color: "rgba(255,255,255,0.7)" }}
           >
-            🔒 FERPA Compliant Documentation Platform
+            <LockIcon className="w-3.5 h-3.5 text-white/70" aria-hidden="true" />
+            <span>FERPA Compliant Documentation Platform</span>
           </p>
         </div>
       </div>
@@ -176,7 +186,7 @@ export default function LoginPage({
               }}
               role="alert"
             >
-              <span className="text-base" aria-hidden="true">⏱️</span>
+              <ClockIcon className="w-4 h-4 text-amber-700 shrink-0" aria-hidden="true" />
               <p className="font-medium">{notice}</p>
             </div>
           )}
@@ -191,7 +201,7 @@ export default function LoginPage({
                 color: "#276749",
               }}
             >
-              <span className="text-base">✅</span>
+              <CheckIcon className="w-4 h-4 text-emerald-700 shrink-0" aria-hidden="true" />
               <p className="font-medium">{successMessage}</p>
             </div>
           )}
@@ -206,7 +216,7 @@ export default function LoginPage({
                 color: "#c0392b",
               }}
             >
-              <span className="text-base">⚠️</span>
+              <WarningIcon className="w-4 h-4 text-rose-700 shrink-0" aria-hidden="true" />
               <p className="font-medium">{error}</p>
             </div>
           )}
@@ -288,7 +298,11 @@ export default function LoginPage({
                   onClick={() => setShowPass(!showPass)}
                   aria-label={showPass ? "Hide password" : "Show password"}
                 >
-                  {showPass ? "🙈" : "👁️"}
+                  {showPass ? (
+                    <EyeSlashIcon className="w-4 h-4 text-slate-500" aria-hidden="true" />
+                  ) : (
+                    <EyeIcon className="w-4 h-4 text-slate-500" aria-hidden="true" />
+                  )}
                 </button>
               </div>
             </div>
