@@ -34,16 +34,21 @@ class AIEngineService:
             "Content-Type": "application/json"
         }
 
+        generation_config = {
+            "maxOutputTokens": max_tokens,
+            "temperature": 0.3,
+        }
+
+        if json_mode:
+            generation_config["responseMimeType"] = "application/json"
+
         payload = {
             "contents": [
                 {
                     "parts": [{"text": prompt}]
                 }
             ],
-            "generationConfig": {
-                "maxOutputTokens": max_tokens,
-                "temperature": 0.3,
-            }
+            "generationConfig": generation_config,
         }
 
         if system_prompt:
@@ -51,13 +56,16 @@ class AIEngineService:
                 "parts": [{"text": system_prompt}]
             }
 
-        if json_mode:
-            payload["generationConfig"]["responseMimeType"] = "application/json"
-
         last_res = None
         for model in models_to_try:
+            current_payload = json.loads(json.dumps(payload))
+            if "2.5" in model:
+                # Gemini 2.5 allocates reasoning/thinking tokens by default which consume
+                # maxOutputTokens. Setting thinkingBudget to 0 gives full budget to the output.
+                current_payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}
+
             url = f"{cls.GEMINI_API_URL}/{model}:generateContent?key={api_key}"
-            res = requests.post(url, headers=headers, json=payload, timeout=20)
+            res = requests.post(url, headers=headers, json=current_payload, timeout=20)
             if res.status_code == 404 and len(models_to_try) > 1:
                 last_res = res
                 continue
