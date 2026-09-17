@@ -3,10 +3,38 @@ import { useNavigate } from "react-router-dom";
 import "../styles/ManageTeachingStrategies.css";
 import { iepAPI, teachingStrategiesAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import {
+  SparklesIcon,
+  FolderIcon,
+  InboxIcon,
+  WarningIcon,
+  DocumentTextIcon,
+  SchoolIcon,
+  UserIcon,
+  CheckIcon,
+  ClipboardIcon,
+  StarIcon,
+  CalendarIcon,
+  BookOpenIcon,
+  TargetIcon,
+  PencilIcon,
+  ArrowPathIcon,
+  DiskIcon,
+  TrashIcon,
+  CloseIcon,
+} from "../components/ui/icons";
 
 const TABS = [
-  { key: "generate", label: "Generate", icon: "✦" },
-  { key: "manage", label: "Manage", icon: "◎" },
+  {
+    key: "generate",
+    label: "Generate",
+    icon: <SparklesIcon className="w-4 h-4" aria-hidden="true" />,
+  },
+  {
+    key: "manage",
+    label: "Manage",
+    icon: <FolderIcon className="w-4 h-4" aria-hidden="true" />,
+  },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -25,7 +53,7 @@ function Loading({ text = "Loading…" }) {
 }
 
 function EmptyState({
-  icon = "📭",
+  icon = <InboxIcon className="w-8 h-8 text-slate-400" aria-hidden="true" />,
   message = "No records found.",
   description,
   actionLabel,
@@ -34,13 +62,13 @@ function EmptyState({
 }) {
   return (
     <div className="ts-empty">
-      <span className="ts-empty-icon">{icon}</span>
+      <span className="ts-empty-icon flex items-center justify-center">{icon}</span>
       <p className="ts-empty-text">{message}</p>
       {description && <p className="ts-empty-desc">{description}</p>}
       {actionLabel && onAction && (
         <button
           type="button"
-          className="ts-btn ts-btn-primary"
+          className="ts-btn ts-btn-primary flex items-center gap-1.5"
           style={{ marginTop: 16 }}
           onClick={onAction}
         >
@@ -55,8 +83,8 @@ function EmptyState({
 function ErrorBanner({ message }) {
   if (!message) return null;
   return (
-    <div className="ts-error-banner">
-      <span>⚠️</span>
+    <div className="ts-error-banner flex items-center gap-2">
+      <WarningIcon className="w-4 h-4 text-red-600 flex-shrink-0" aria-hidden="true" />
       <span>{message}</span>
     </div>
   );
@@ -184,7 +212,9 @@ function StrategyRowList({
     <div className="ts-strategies-list">
       {strategies.map((s) => (
         <div key={s.strategyID} className="ts-strategy-row">
-          <div className="ts-strategy-row-icon" aria-hidden="true">📄</div>
+          <div className="ts-strategy-row-icon flex items-center justify-center" aria-hidden="true">
+            <DocumentTextIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+          </div>
           <div className="ts-strategy-row-info">
             <p className="ts-strategy-row-title">{s.title}</p>
             <p className="ts-strategy-row-date">{s.formattedDate}</p>
@@ -421,11 +451,11 @@ function GenerateTab({ onSave, setActivePage }) {
           <Loading text="Fetching students…" />
         ) : directory.length === 0 ? (
           <EmptyState
-            icon="🏫"
+            icon={<SchoolIcon className="w-8 h-8 text-slate-400" aria-hidden="true" />}
             message="No students found."
             description="You need at least one registered student profile before generating a teaching strategy."
             actionLabel="Create Student Profile"
-            actionIcon="👤"
+            actionIcon={<UserIcon className="w-4 h-4" aria-hidden="true" />}
             onAction={() => {
               navigate("/dashboard/students/create");
               if (setActivePage) setActivePage("create-student-profile");
@@ -449,7 +479,9 @@ function GenerateTab({ onSave, setActivePage }) {
                     <div className="ts-student-name">{student.studentName}</div>
                     <span className="ts-student-tag">Student</span>
                   </div>
-                  <div className="ts-student-check">{isSelected && "✓"}</div>
+                  <div className="ts-student-check">
+                    {isSelected && <CheckIcon className="w-4 h-4 text-blue-600" aria-hidden="true" />}
+                  </div>
                 </div>
               );
             })}
@@ -474,11 +506,11 @@ function GenerateTab({ onSave, setActivePage }) {
             <Loading text="Fetching created IEPs…" />
           ) : availableIEPs.length === 0 ? (
             <EmptyState
-              icon="📋"
+              icon={<ClipboardIcon className="w-8 h-8 text-slate-400" aria-hidden="true" />}
               message="No IEP records found for this student."
               description="Teaching strategies require a created IEP. Generate and save an IEP for this student first."
               actionLabel="Generate IEP"
-              actionIcon="✦"
+              actionIcon={<SparklesIcon className="w-4 h-4" aria-hidden="true" />}
               onAction={() => {
                 navigate("/dashboard/iep/generate");
                 if (setActivePage) setActivePage("iep-generation");
@@ -509,17 +541,24 @@ function GenerateTab({ onSave, setActivePage }) {
                         </span>
                       </div>
                       {isLatest && (
-                        <span className="ts-iep-badge-latest">
-                          <span>★</span> Latest
+                        <span className="ts-iep-badge-latest flex items-center gap-1">
+                          <StarIcon className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
+                          <span>Latest</span>
                         </span>
                       )}
                     </div>
                     <div className="ts-iep-meta">
                       {iep.createdDate && (
-                        <span className="ts-iep-tag">🗓 {iep.createdDate}</span>
+                        <span className="ts-iep-tag flex items-center gap-1">
+                          <CalendarIcon className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+                          <span>{iep.createdDate}</span>
+                        </span>
                       )}
                       {iep.program_type && (
-                        <span className="ts-iep-tag">📚 {iep.program_type}</span>
+                        <span className="ts-iep-tag flex items-center gap-1">
+                          <BookOpenIcon className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+                          <span>{iep.program_type}</span>
+                        </span>
                       )}
                     </div>
                     {iep.accommodations && (
@@ -559,11 +598,11 @@ function GenerateTab({ onSave, setActivePage }) {
             <Loading text="Loading goals for selected IEP…" />
           ) : selectedStudent.availableGoals.length === 0 ? (
             <EmptyState
-              icon="🎯"
+              icon={<TargetIcon className="w-8 h-8 text-slate-400" aria-hidden="true" />}
               message={`No IEP goals found in Version ${selectedIEP.version}.`}
               description="Teaching strategies are generated directly from saved IEP goals. Generate and save an IEP with goals for this student first."
               actionLabel="Manage Goals"
-              actionIcon="✏"
+              actionIcon={<PencilIcon className="w-4 h-4" aria-hidden="true" />}
               onAction={() => {
                 navigate("/dashboard/iep/view");
                 if (setActivePage) setActivePage("view-iep");
@@ -572,8 +611,9 @@ function GenerateTab({ onSave, setActivePage }) {
           ) : (
             <>
               {selectedStudent.availableGoals.length === 1 && (
-                <div className="ts-goal-auto-selected-badge" data-testid="goal-auto-selected-badge">
-                  <span>✓</span> Goal automatically selected from Version {selectedIEP.version}
+                <div className="ts-goal-auto-selected-badge flex items-center gap-1.5" data-testid="goal-auto-selected-badge">
+                  <CheckIcon className="w-4 h-4 text-emerald-600" aria-hidden="true" />
+                  <span>Goal automatically selected from Version {selectedIEP.version}</span>
                 </div>
               )}
               <div className="ts-goal-grid">
@@ -601,12 +641,12 @@ function GenerateTab({ onSave, setActivePage }) {
           )}
           <div className="ts-actions" style={{ marginTop: 22 }}>
             <button
-              className="ts-generate-btn"
+              className="ts-generate-btn flex items-center justify-center gap-2"
               onClick={handleGenerate}
               disabled={!selectedGoal}
             >
-              <span className="ts-btn-icon">✦</span>
-              Generate Teaching Strategy
+              <SparklesIcon className="w-4 h-4" aria-hidden="true" />
+              <span>Generate Teaching Strategy</span>
             </button>
           </div>
         </div>
@@ -616,7 +656,9 @@ function GenerateTab({ onSave, setActivePage }) {
       {loading && (
         <div className="ts-card">
           <div className="ts-ai-generating">
-            <div className="ts-ai-orb">🧠</div>
+            <div className="ts-ai-orb flex items-center justify-center">
+              <SparklesIcon className="w-7 h-7 text-blue-600 animate-pulse" aria-hidden="true" />
+            </div>
             <p className="ts-ai-label">Invoking Llama AI Pipeline…</p>
             <p className="ts-ai-sub">
               Crafting a personalised teaching strategy based on the IEP goal
@@ -636,14 +678,16 @@ function GenerateTab({ onSave, setActivePage }) {
               {generated.data?.title || "AI-Generated Teaching Strategy"}
             </h2>
             <div className="ts-detail-meta">
-              <div className="ts-meta-chip">
-                <span className="ts-meta-chip-icon">👤</span>
-                {selectedStudent?.studentName}
+              <div className="ts-meta-chip flex items-center gap-1.5">
+                <UserIcon className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+                <span>{selectedStudent?.studentName}</span>
               </div>
-              <div className="ts-meta-chip">
-                <span className="ts-meta-chip-icon">🎯</span>
-                {selectedGoal?.label?.slice(0, 48)}
-                {selectedGoal?.label?.length > 48 ? "…" : ""}
+              <div className="ts-meta-chip flex items-center gap-1.5">
+                <TargetIcon className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+                <span>
+                  {selectedGoal?.label?.slice(0, 48)}
+                  {selectedGoal?.label?.length > 48 ? "…" : ""}
+                </span>
               </div>
             </div>
           </div>
@@ -657,29 +701,46 @@ function GenerateTab({ onSave, setActivePage }) {
           </div>
 
           {generated.message && (
-            <div className="ts-success-msg">✅ {generated.message}</div>
+            <div className="ts-success-msg flex items-center gap-1.5">
+              <CheckIcon className="w-4 h-4 text-emerald-600 flex-shrink-0" aria-hidden="true" />
+              <span>{generated.message}</span>
+            </div>
           )}
 
           {saved && (
-            <div className="ts-success-msg" style={{ marginTop: 8 }}>
-              💾 Strategy saved successfully to student profile.
+            <div className="ts-success-msg flex items-center gap-1.5" style={{ marginTop: 8 }}>
+              <CheckIcon className="w-4 h-4 text-emerald-600 flex-shrink-0" aria-hidden="true" />
+              <span>Strategy saved successfully to student profile.</span>
             </div>
           )}
 
           <div className="ts-actions" style={{ marginTop: 20 }}>
             <button
-              className="ts-btn ts-btn-secondary"
+              className="ts-btn ts-btn-secondary flex items-center gap-1.5"
               onClick={handleGenerate}
               disabled={loading || saving}
             >
-              🔄 Regenerate
+              <ArrowPathIcon className="w-4 h-4" aria-hidden="true" />
+              <span>Regenerate</span>
             </button>
             <button
-              className="ts-btn ts-btn-primary"
+              className="ts-btn ts-btn-primary flex items-center gap-1.5"
               onClick={handleSave}
               disabled={loading || saving || saved}
             >
-              {saving ? "Saving…" : saved ? "✓ Saved" : "💾 Confirm & Save Strategy"}
+              {saving ? (
+                "Saving…"
+              ) : saved ? (
+                <>
+                  <CheckIcon className="w-4 h-4" aria-hidden="true" />
+                  <span>Saved</span>
+                </>
+              ) : (
+                <>
+                  <DiskIcon className="w-4 h-4" aria-hidden="true" />
+                  <span>Confirm & Save Strategy</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -702,13 +763,13 @@ function StrategyDetails({ strategy, onBack, onEdit, onDelete }) {
       <div className="ts-detail-hero">
         <h2 className="ts-detail-title">{strategy.title}</h2>
         <div className="ts-detail-meta">
-          <div className="ts-meta-chip">
-            <span className="ts-meta-chip-icon">👤</span>
-            {strategy.studentName}
+          <div className="ts-meta-chip flex items-center gap-1.5">
+            <UserIcon className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+            <span>{strategy.studentName}</span>
           </div>
-          <div className="ts-meta-chip">
-            <span className="ts-meta-chip-icon">🗓</span>
-            {strategy.formattedDate}
+          <div className="ts-meta-chip flex items-center gap-1.5">
+            <CalendarIcon className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+            <span>{strategy.formattedDate}</span>
           </div>
         </div>
       </div>
@@ -946,7 +1007,9 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
           ]}
         />
         <div className="ts-card-header">
-          <div className="ts-card-icon" aria-hidden="true">✏</div>
+          <div className="ts-card-icon flex items-center justify-center" aria-hidden="true">
+            <PencilIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+          </div>
           <div>
             <p className="ts-card-title">Edit Teaching Strategy</p>
             <p className="ts-card-subtitle">Make changes and save</p>
@@ -973,12 +1036,12 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
         </div>
         <div className="ts-form-group">
           <label htmlFor="ts-edit-content" className="ts-form-label">
-            Strategy Content
+            Strategy Content (Markdown supported)
           </label>
           <textarea
             id="ts-edit-content"
             className="ts-form-textarea"
-            rows={8}
+            rows={12}
             value={formValue.strategyContent}
             onChange={(e) =>
               setFormValue((prev) => ({
@@ -988,7 +1051,7 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
             }
           />
         </div>
-        <div className="ts-actions space-between" style={{ marginTop: 24 }}>
+        <div className="ts-actions space-between" style={{ marginTop: 16 }}>
           <button
             type="button"
             className="ts-btn ts-btn-ghost"
@@ -1032,7 +1095,9 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
             aria-labelledby="ts-modal-title"
           >
             <div className="ts-modal">
-              <div className="ts-modal-icon" aria-hidden="true">⊘</div>
+              <div className="ts-modal-icon flex items-center justify-center" aria-hidden="true">
+                <TrashIcon className="w-6 h-6 text-red-600" aria-hidden="true" />
+              </div>
               <p id="ts-modal-title" className="ts-modal-title">Delete Strategy?</p>
               <p className="ts-modal-body">
                 You are about to permanently delete{" "}
@@ -1075,7 +1140,9 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
           ]}
         />
         <div className="ts-card-header">
-          <div className="ts-card-icon" aria-hidden="true">📚</div>
+          <div className="ts-card-icon flex items-center justify-center" aria-hidden="true">
+            <BookOpenIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+          </div>
           <div>
             <p className="ts-card-title">Teaching Strategies</p>
             <p className="ts-card-subtitle">
@@ -1093,11 +1160,11 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
           <Loading text="Loading strategies…" />
         ) : strategies.length === 0 ? (
           <EmptyState
-            icon="📭"
+            icon={<InboxIcon className="w-8 h-8 text-slate-400" aria-hidden="true" />}
             message="No teaching strategies found for this student."
             description="Generate an AI-powered teaching strategy tailored to this student's IEP goals."
             actionLabel="Generate Strategy"
-            actionIcon="✦"
+            actionIcon={<SparklesIcon className="w-4 h-4" aria-hidden="true" />}
             onAction={onGoToGenerate}
           />
         ) : (
@@ -1117,7 +1184,9 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
             aria-labelledby="ts-modal-title"
           >
             <div className="ts-modal">
-              <div className="ts-modal-icon" aria-hidden="true">⊘</div>
+              <div className="ts-modal-icon flex items-center justify-center" aria-hidden="true">
+                <TrashIcon className="w-6 h-6 text-red-600" aria-hidden="true" />
+              </div>
               <p id="ts-modal-title" className="ts-modal-title">Delete Strategy?</p>
               <p className="ts-modal-body">
                 You are about to permanently delete{" "}
@@ -1153,7 +1222,9 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
   return (
     <div className="ts-card">
       <div className="ts-card-header">
-        <div className="ts-card-icon" aria-hidden="true">📚</div>
+        <div className="ts-card-icon flex items-center justify-center" aria-hidden="true">
+          <BookOpenIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+        </div>
         <div>
           <p className="ts-card-title">Manage Teaching Strategies</p>
           <p className="ts-card-subtitle">
@@ -1182,7 +1253,7 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
         <Loading text="Fetching students…" />
       ) : filteredStudents.length === 0 ? (
         <EmptyState
-          icon="🏫"
+          icon={<SchoolIcon className="w-8 h-8 text-slate-400" aria-hidden="true" />}
           message={search ? "No students match your search." : "No students found."}
           description={
             search
@@ -1190,7 +1261,13 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
               : "Register a student profile first to view and manage teaching strategies."
           }
           actionLabel={search ? "Clear Search" : "Create Student Profile"}
-          actionIcon={search ? "✕" : "👤"}
+          actionIcon={
+            search ? (
+              <CloseIcon className="w-4 h-4" aria-hidden="true" />
+            ) : (
+              <UserIcon className="w-4 h-4" aria-hidden="true" />
+            )
+          }
           onAction={() => {
             if (search) {
               setSearch("");

@@ -1,5 +1,13 @@
 import { useState, useRef } from "react";
 import { useFocusTrap } from "../hooks/useFocusTrap";
+import {
+  SparklesIcon,
+  UserIcon,
+  ClipboardIcon,
+  PhotoIcon,
+  ChartBarIcon,
+  CheckIcon,
+} from "./ui/icons";
 
 const TUTORIAL_STEPS = [
   {
@@ -9,7 +17,7 @@ const TUTORIAL_STEPS = [
     subtitle: "Empowering SPED teachers with purposeful instructional planning",
     description:
       "NeuroPath connects each stage of your special education workflow into a cohesive pedagogical path: from comprehensive student profiling, to individualized IEP goal creation, differentiated classroom resources, and longitudinal progress tracking.",
-    icon: "🌟",
+    icon: SparklesIcon,
     highlights: [
       "Teacher-centered, individualized workflow",
       "Designed specifically for Special Education classrooms",
@@ -23,7 +31,7 @@ const TUTORIAL_STEPS = [
     subtitle: "Capture learning strengths, sensory needs, and accommodations",
     description:
       "Begin by creating or reviewing student profiles. Record foundational assessment data, functional strengths, behavioral needs, and parental input. This rich profile serves as the single source of truth for all downstream tools.",
-    icon: "👤",
+    icon: UserIcon,
     highlights: [
       "Document present levels of academic & functional performance",
       "Detail environmental and sensory accommodations",
@@ -37,7 +45,7 @@ const TUTORIAL_STEPS = [
     subtitle: "Draft SMART goals aligned with student present levels",
     description:
       "Transform profile data into targeted, measurable IEP goals and objective benchmarks. Review and refine AI-drafted goals to match each student's specific curriculum grade standards and individualized needs.",
-    icon: "📋",
+    icon: ClipboardIcon,
     highlights: [
       "Generates SMART (Specific, Measurable, Attainable, Relevant, Time-bound) goals",
       "Aligned with Section A profile data and present performance levels",
@@ -51,7 +59,7 @@ const TUTORIAL_STEPS = [
     subtitle: "Generate differentiated lesson plans, visual aids, & strategies",
     description:
       "Put IEP accommodations into practice immediately. Generate adapted lesson plans, visual schedules, communication boards, and evidence-based teaching strategies tailored to your students.",
-    icon: "🎨",
+    icon: PhotoIcon,
     highlights: [
       "Customized lesson plans with accommodations built in",
       "Visual schedules and choice boards ready to export",
@@ -65,7 +73,7 @@ const TUTORIAL_STEPS = [
     subtitle: "Track goal mastery and celebrate student growth",
     description:
       "Log observations, trial data, and assessment results over time. Visualize progress toward annual IEP goals to make data-informed instructional adjustments and prepare for review meetings.",
-    icon: "📈",
+    icon: ChartBarIcon,
     highlights: [
       "Ongoing mastery tracking for each active IEP goal",
       "Visual progress charts and trends across subjects",
@@ -145,7 +153,11 @@ export default function TeacherTutorialModal({ onComplete }) {
         {/* Step Content */}
         <div className="tutorial-modal-body">
           <div className="tutorial-icon-wrapper" aria-hidden="true">
-            <span className="tutorial-icon">{currentStep.icon}</span>
+            {typeof currentStep.icon === "function" ? (
+              <currentStep.icon className="w-8 h-8 text-blue-600" aria-hidden="true" />
+            ) : (
+              <span className="tutorial-icon">{currentStep.icon}</span>
+            )}
           </div>
 
           <h2 id="tutorial-modal-title" className="tutorial-title">
@@ -160,7 +172,7 @@ export default function TeacherTutorialModal({ onComplete }) {
             <ul className="tutorial-highlights-list">
               {currentStep.highlights.map((highlight, idx) => (
                 <li key={idx} className="tutorial-highlight-item">
-                  <span className="tutorial-check-icon">✓</span>
+                  <CheckIcon className="tutorial-check-icon w-4 h-4 text-emerald-600 inline shrink-0" aria-hidden="true" />
                   <span>{highlight}</span>
                 </li>
               ))}

@@ -102,7 +102,7 @@ describe("Button component", () => {
   });
 
   it("renders with an icon prefix", () => {
-    render(<Button icon={<span data-testid="test-icon">⭐</span>}>With Icon</Button>);
+    render(<Button icon={<svg data-testid="test-icon" className="w-4 h-4" viewBox="0 0 24 24" />}>With Icon</Button>);
     expect(screen.getByTestId("test-icon")).toBeInTheDocument();
   });
 

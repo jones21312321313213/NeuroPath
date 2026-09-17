@@ -171,7 +171,7 @@ describe("ManageTeachingStrategies - Issue #158 Decoupled Save", () => {
     });
 
     // Click Regenerate
-    const regenBtn = screen.getByRole("button", { name: /🔄 Regenerate/i });
+    const regenBtn = screen.getByRole("button", { name: /Regenerate/i });
     await user.click(regenBtn);
 
     await waitFor(() => {
@@ -237,7 +237,7 @@ describe("ManageTeachingStrategies - Issue #158 Decoupled Save", () => {
         strategyContent: "Tactical reading aloud in 5-minute sprints.",
       });
       expect(screen.getByText(/Strategy saved successfully to student profile/i)).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /✓ Saved/i })).toBeDisabled();
+      expect(screen.getByRole("button", { name: /Saved/i })).toBeDisabled();
     });
   });
 });

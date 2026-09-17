@@ -1,4 +1,4 @@
-import { Modal, Button } from "../ui";
+import { Modal, Button, ClockIcon } from "../ui";
 
 /**
  * Session Timeout Warning Modal
@@ -42,7 +42,7 @@ export default function SessionTimeoutModal({
     >
       <div className="space-y-4 text-slate-700">
         <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900">
-          <span className="text-2xl" aria-hidden="true">⏱️</span>
+          <ClockIcon className="w-6 h-6 text-amber-600 shrink-0" aria-hidden="true" />
           <div>
             <p className="font-semibold text-sm">
               Your session will terminate in{" "}

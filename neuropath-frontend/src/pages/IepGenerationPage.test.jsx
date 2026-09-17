@@ -415,7 +415,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       expect(screen.getAllByText(/Maximum 5 reached/i).length).toBeGreaterThanOrEqual(1);
 
       // Remove the first item
-      const removeButtons = screen.getAllByRole("button", { name: /✕|Remove technology/i });
+      const removeButtons = screen.getAllByRole("button", { name: /Remove technology/i });
       await user.click(removeButtons[0]);
 
       // Verify re-enabled state

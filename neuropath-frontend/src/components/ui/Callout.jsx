@@ -1,24 +1,25 @@
+import { LightBulbIcon, CheckIcon, WarningIcon, ErrorIcon } from "./icons";
 
 const variantClasses = {
   info: {
     container: "bg-blue-50/70 border-blue-200 text-blue-900",
     iconColor: "text-blue-600",
-    defaultIcon: "💡",
+    defaultIcon: LightBulbIcon,
   },
   success: {
     container: "bg-emerald-50/80 border-emerald-200 text-emerald-900",
     iconColor: "text-emerald-600",
-    defaultIcon: "✅",
+    defaultIcon: CheckIcon,
   },
   warning: {
     container: "bg-amber-50/80 border-amber-200 text-amber-900",
     iconColor: "text-amber-600",
-    defaultIcon: "⚠️",
+    defaultIcon: WarningIcon,
   },
   error: {
     container: "bg-red-50/80 border-red-200 text-red-900",
     iconColor: "text-red-600",
-    defaultIcon: "⚠️",
+    defaultIcon: ErrorIcon,
   },
 };
 
@@ -35,6 +36,15 @@ export function Callout({
   const role = variant === "error" ? "alert" : "region";
   const displayedIcon = icon !== undefined ? icon : config.defaultIcon;
 
+  const renderIcon = () => {
+    if (!displayedIcon) return null;
+    if (typeof displayedIcon === "function") {
+      const IconComponent = displayedIcon;
+      return <IconComponent className="w-5 h-5" aria-hidden="true" />;
+    }
+    return displayedIcon;
+  };
+
   return (
     <aside
       role={role}
@@ -42,8 +52,8 @@ export function Callout({
       {...props}
     >
       {displayedIcon && (
-        <span className={`shrink-0 text-base select-none mt-0.5 ${config.iconColor}`}>
-          {displayedIcon}
+        <span className={`shrink-0 flex items-center justify-center select-none mt-0.5 ${config.iconColor}`}>
+          {renderIcon()}
         </span>
       )}
       <div className="flex-1 min-w-0">

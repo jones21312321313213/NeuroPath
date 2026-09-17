@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Modal } from "./Modal";
 import { Button } from "./Button";
+import { WarningIcon, ChevronDownIcon, ChevronRightIcon } from "./icons";
 
 /**
  * Universal Error Modal (Issue #154)
@@ -69,10 +70,10 @@ export function ErrorModal({
       <div className="space-y-4">
         <div className="flex items-start gap-3.5">
           <div
-            className="shrink-0 w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 text-xl font-bold shadow-xs select-none"
+            className="shrink-0 w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shadow-xs select-none"
             aria-hidden="true"
           >
-            ⚠️
+            <WarningIcon className="w-5 h-5 text-rose-600" aria-hidden="true" />
           </div>
           <div className="flex-1 min-w-0 pt-0.5">
             <p
@@ -92,7 +93,11 @@ export function ErrorModal({
               className="text-xs font-medium text-slate-500 hover:text-slate-700 flex items-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:underline"
               aria-expanded={showDetails}
             >
-              <span>{showDetails ? "▼" : "▶"}</span>
+              {showDetails ? (
+                <ChevronDownIcon className="w-3.5 h-3.5" aria-hidden="true" />
+              ) : (
+                <ChevronRightIcon className="w-3.5 h-3.5" aria-hidden="true" />
+              )}
               <span>{showDetails ? "Hide technical details" : "Show technical details"}</span>
             </button>
             {showDetails && (

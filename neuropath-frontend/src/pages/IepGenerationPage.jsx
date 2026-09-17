@@ -5,6 +5,24 @@ import { Callout, ErrorModal, IepLoadingModal, IepPostGenerationModal } from "..
 import { queryClient } from "../queryClient";
 import { queryKeys } from "../hooks/queries";
 import { sanitizeDifficulties } from "../utils/difficultyUtils";
+import {
+  SearchIcon,
+  ClockIcon,
+  DocumentIcon,
+  SparklesIcon,
+  PencilIcon,
+  LightBulbIcon,
+  BookOpenIcon,
+  PhotoIcon,
+  TargetIcon,
+  HomeIcon,
+  TrashIcon,
+  CloseIcon,
+  CheckIcon,
+  PlusIcon,
+  RocketIcon,
+  WarningIcon,
+} from "../components/ui/icons";
 
 
 
@@ -153,7 +171,8 @@ function SpecialFactorNotesField({
             onClick={handleClear}
             aria-label="Clear notes"
           >
-            ✕ Clear notes
+            <CloseIcon className="w-3.5 h-3.5 inline mr-1" aria-hidden="true" />
+            Clear notes
           </button>
         )}
       </div>
@@ -836,7 +855,9 @@ function ViewIEPPanel({
 
       {!selectedStudent ? (
         <div className="iep-empty-state">
-          <div>⌕</div>
+          <div className="flex items-center justify-center text-slate-400 mb-2">
+            <SearchIcon className="w-8 h-8" aria-hidden="true" />
+          </div>
           <strong>Search and select a student</strong>
           <span>
             {totalStudents === 0
@@ -859,13 +880,17 @@ function ViewIEPPanel({
         </div>
       ) : loadingIeps ? (
         <div className="iep-empty-state">
-          <div style={{ fontSize: 28 }}>⏳</div>
+          <div className="flex items-center justify-center text-blue-600 mb-2">
+            <ClockIcon className="w-8 h-8 animate-spin" aria-hidden="true" />
+          </div>
           <strong>Loading IEP records…</strong>
           <span>Please wait while we fetch this student's IEP history.</span>
         </div>
       ) : studentIeps.length === 0 ? (
         <div className="iep-empty-state">
-          <div>📄</div>
+          <div className="flex items-center justify-center text-slate-400 mb-2">
+            <DocumentIcon className="w-8 h-8" aria-hidden="true" />
+          </div>
           <strong>No IEP records found</strong>
           <span>
             No saved IEP records were found for this student. Use Generate IEP to
@@ -880,12 +905,15 @@ function ViewIEPPanel({
               if (setActivePage) setActivePage("generate-iep");
             }}
           >
-            ✦ GENERATE IEP
+            <SparklesIcon className="w-4 h-4 mr-1.5 inline" aria-hidden="true" />
+            GENERATE IEP
           </button>
         </div>
       ) : !selectedIep ? (
         <div className="iep-empty-state">
-          <div>📄</div>
+          <div className="flex items-center justify-center text-slate-400 mb-2">
+            <DocumentIcon className="w-8 h-8" aria-hidden="true" />
+          </div>
           <strong>No IEP selected</strong>
           <span>Choose an IEP version from the dropdown above.</span>
         </div>
@@ -907,7 +935,8 @@ function ViewIEPPanel({
                     role="status"
                     aria-label="Editing IEP Mode"
                   >
-                    ✏️ Editing IEP
+                    <PencilIcon className="w-3.5 h-3.5 inline mr-1" aria-hidden="true" />
+                    Editing IEP
                   </span>
                 )}
               </div>
@@ -948,7 +977,9 @@ function ViewIEPPanel({
               aria-label="Instructional Support Next Steps"
             >
               <header className="iep-next-steps-header">
-                <span className="iep-next-steps-icon" aria-hidden="true">💡</span>
+                <span className="iep-next-steps-icon" aria-hidden="true">
+                  <LightBulbIcon className="w-5 h-5 text-amber-500" aria-hidden="true" />
+                </span>
                 <div>
                   <h4>Instructional Support: Use this IEP in the Classroom</h4>
                   <p>
@@ -968,7 +999,8 @@ function ViewIEPPanel({
                     if (setActivePage) setActivePage("manage-lesson-plans");
                   }}
                 >
-                  <span>📚</span> Create Lesson Plan
+                  <BookOpenIcon className="w-4 h-4 mr-1.5 inline text-blue-600" aria-hidden="true" />
+                  Create Lesson Plan
                 </button>
                 <button
                   type="button"
@@ -978,7 +1010,8 @@ function ViewIEPPanel({
                     if (setActivePage) setActivePage("manage-visual-aids");
                   }}
                 >
-                  <span>🖼️</span> Create Visual Aid
+                  <PhotoIcon className="w-4 h-4 mr-1.5 inline text-purple-600" aria-hidden="true" />
+                  Create Visual Aid
                 </button>
                 <button
                   type="button"
@@ -988,7 +1021,8 @@ function ViewIEPPanel({
                     if (setActivePage) setActivePage("manage-teaching-strategies");
                   }}
                 >
-                  <span>🎯</span> Teaching Strategies
+                  <TargetIcon className="w-4 h-4 mr-1.5 inline text-emerald-600" aria-hidden="true" />
+                  Teaching Strategies
                 </button>
                 <button
                   type="button"
@@ -998,7 +1032,8 @@ function ViewIEPPanel({
                     if (setActivePage) setActivePage("overview");
                   }}
                 >
-                  <span>🏠</span> Back to Overview
+                  <HomeIcon className="w-4 h-4 mr-1.5 inline text-slate-600" aria-hidden="true" />
+                  Back to Overview
                 </button>
               </nav>
             </section>
@@ -1321,7 +1356,9 @@ function ViewIEPPanel({
                   ))
                 ) : (
                   <div className="iep-empty-state compact">
-                    <div>🎯</div>
+                    <div className="flex items-center justify-center text-slate-400 mb-2">
+                      <TargetIcon className="w-8 h-8" aria-hidden="true" />
+                    </div>
                     <strong>No goals recorded yet</strong>
                     <span>
                       Goals are generated by the AI when you create an IEP. They
@@ -1338,7 +1375,9 @@ function ViewIEPPanel({
       {deleteTarget && (
         <div className="ts-modal-overlay">
           <div className="ts-modal">
-            <div className="ts-modal-icon">🗑️</div>
+            <div className="ts-modal-icon">
+              <TrashIcon className="w-6 h-6 text-red-600" aria-hidden="true" />
+            </div>
             <p className="ts-modal-title">Delete IEP?</p>
             <p className="ts-modal-body">
               You're about to permanently delete{" "}
@@ -2356,7 +2395,9 @@ export default function IEPGenerationPage({
 
           {!selectedStudent ? (
             <div className="iep-empty-state compact">
-              <div>⌕</div>
+              <div className="flex items-center justify-center text-slate-400 mb-2">
+                <SearchIcon className="w-8 h-8" aria-hidden="true" />
+              </div>
               <strong>
                 {students.length === 0
                   ? "No students registered"
@@ -2464,11 +2505,11 @@ export default function IEPGenerationPage({
                             />
                             <button
                               type="button"
-                              className="iep-link-danger"
+                              className="iep-link-danger flex items-center justify-center"
                               onClick={() => removeAssistiveTechRow(i)}
                               aria-label={`Remove technology ${i + 1}`}
                             >
-                              ✕
+                              <CloseIcon className="w-4 h-4" aria-hidden="true" />
                             </button>
                           </div>
                         ))}
@@ -2649,7 +2690,8 @@ export default function IEPGenerationPage({
                               fontWeight: 600,
                             }}
                           >
-                            ✓ {g.subject_category || g.goalName || `Goal ${idx + 1}`}
+                            <CheckIcon className="w-3.5 h-3.5 mr-1 text-emerald-600 inline" aria-hidden="true" />
+                            {g.subject_category || g.goalName || `Goal ${idx + 1}`}
                           </span>
                         ))}
                       </div>
@@ -2682,7 +2724,9 @@ export default function IEPGenerationPage({
 
                   {!selectedGoalCategory ? (
                     <div className="iep-empty-state compact">
-                      <div>🤖</div>
+                      <div className="flex items-center justify-center text-slate-400 mb-2">
+                        <SparklesIcon className="w-8 h-8" aria-hidden="true" />
+                      </div>
                       <strong>No learner goal area selected yet</strong>
                       <span>
                         Select a goal area above. The AI will generate learner
@@ -2876,7 +2920,9 @@ export default function IEPGenerationPage({
                   {generationDone && (
                     <div ref={resultRef} className="iep-generation-result">
                       <div className="iep-result-banner">
-                        <span className="iep-result-icon">✅</span>
+                        <span className="iep-result-icon">
+                          <CheckIcon className="w-6 h-6 text-emerald-600" aria-hidden="true" />
+                        </span>
                         <div>
                           <strong>IEP Generated Successfully!</strong>
                           <p>
@@ -2898,7 +2944,8 @@ export default function IEPGenerationPage({
                               }}
                               onClick={handleAddAnotherGoal}
                             >
-                              ➕ Add Another Goal to this IEP
+                              <PlusIcon className="w-3.5 h-3.5 mr-1 inline" aria-hidden="true" />
+                              Add Another Goal to this IEP
                             </button>
                             <button
                               type="button"
@@ -2909,7 +2956,8 @@ export default function IEPGenerationPage({
                                 if (setActivePage) setActivePage("manage-lesson-plans");
                               }}
                             >
-                              📚 Open Classroom Tools
+                              <BookOpenIcon className="w-3.5 h-3.5 mr-1 inline" aria-hidden="true" />
+                              Open Classroom Tools
                             </button>
                             <button
                               type="button"
@@ -2932,7 +2980,9 @@ export default function IEPGenerationPage({
                         aria-label="Post-IEP Next Steps"
                       >
                         <header className="iep-next-steps-header">
-                          <span className="iep-next-steps-icon" aria-hidden="true">🚀</span>
+                          <span className="iep-next-steps-icon" aria-hidden="true">
+                            <RocketIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+                          </span>
                           <div>
                             <h4>Next Steps: Classroom Tools & Instructional Support</h4>
                             <p>
@@ -2952,7 +3002,8 @@ export default function IEPGenerationPage({
                               if (setActivePage) setActivePage("manage-lesson-plans");
                             }}
                           >
-                            <span>📚</span> Create Lesson Plan
+                            <BookOpenIcon className="w-4 h-4 mr-1.5 inline text-blue-600" aria-hidden="true" />
+                            Create Lesson Plan
                           </button>
                           <button
                             type="button"
@@ -2962,7 +3013,8 @@ export default function IEPGenerationPage({
                               if (setActivePage) setActivePage("manage-visual-aids");
                             }}
                           >
-                            <span>🖼️</span> Create Visual Aid
+                            <PhotoIcon className="w-4 h-4 mr-1.5 inline text-purple-600" aria-hidden="true" />
+                            Create Visual Aid
                           </button>
                           <button
                             type="button"
@@ -2972,7 +3024,8 @@ export default function IEPGenerationPage({
                               if (setActivePage) setActivePage("manage-teaching-strategies");
                             }}
                           >
-                            <span>🎯</span> Teaching Strategies
+                            <TargetIcon className="w-4 h-4 mr-1.5 inline text-emerald-600" aria-hidden="true" />
+                            Teaching Strategies
                           </button>
                           <button
                             type="button"
@@ -2982,24 +3035,34 @@ export default function IEPGenerationPage({
                               if (setActivePage) setActivePage("overview");
                             }}
                           >
-                            <span>🏠</span> Back to Overview
+                            <HomeIcon className="w-4 h-4 mr-1.5 inline text-slate-600" aria-hidden="true" />
+                            Back to Overview
                           </button>
                         </nav>
                       </section>
 
                       {goalSaveStatus === "saving" && (
                         <p className="iep-muted" style={{ marginBottom: 12 }}>
-                          💾 Saving goals to IEP record...
+                          <span className="inline-flex items-center gap-1.5">
+                            <ClockIcon className="w-4 h-4 inline animate-spin text-slate-500" aria-hidden="true" />
+                            Saving goals to IEP record...
+                          </span>
                         </p>
                       )}
                       {goalSaveStatus === "saved" && (
                         <p className="iep-save-ok">
-                          ✅ All goals saved successfully to the IEP.
+                          <span className="inline-flex items-center gap-1.5">
+                            <CheckIcon className="w-4 h-4 inline text-emerald-600" aria-hidden="true" />
+                            All goals saved successfully to the IEP.
+                          </span>
                         </p>
                       )}
                       {goalSaveStatus === "error" && (
                         <p className="iep-save-error">
-                          ⚠ Some goals could not be saved. Please try again.
+                          <span className="inline-flex items-center gap-1.5">
+                            <WarningIcon className="w-4 h-4 inline text-amber-600" aria-hidden="true" />
+                            Some goals could not be saved. Please try again.
+                          </span>
                         </p>
                       )}
 
@@ -3033,7 +3096,8 @@ export default function IEPGenerationPage({
                                   {goal._rgori_warning && (
                                     <span style={{ color: "orange" }}>
                                       {" "}
-                                      ⚠ {goal._rgori_warning}
+                                      <WarningIcon className="w-3.5 h-3.5 inline mr-1 text-amber-600" aria-hidden="true" />
+                                      {goal._rgori_warning}
                                     </span>
                                   )}
                                 </small>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Modal } from "./Modal";
 import { IEP_STAGES } from "../../constants/iepLoadingStages";
+import { SparklesIcon, CheckIcon, ClockIcon } from "./icons";
 
 /**
  * Dedicated Loading Modal during IEP Generation (Issue #156)
@@ -82,10 +83,10 @@ export function IepLoadingModal({
         {/* Header with animated AI Badge */}
         <div className="flex items-start gap-4">
           <div
-            className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 text-2xl font-bold shadow-xs select-none shrink-0 relative"
+            className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs select-none shrink-0 relative"
             aria-hidden="true"
           >
-            <span className="relative z-10 animate-pulse">✦</span>
+            <SparklesIcon className="w-6 h-6 text-indigo-600 relative z-10" aria-hidden="true" />
             <span className="absolute inset-0 rounded-2xl bg-indigo-400/20 animate-ping opacity-60 pointer-events-none" />
           </div>
           <div className="flex-1 min-w-0">
@@ -127,7 +128,8 @@ export function IepLoadingModal({
             <span className="font-semibold text-slate-700 flex items-center gap-1.5">
               {isAlmostDone ? (
                 <span className="text-emerald-700 font-bold flex items-center gap-1">
-                  <span>⚡</span> Almost done! Finalizing IEP document...
+                  <CheckIcon className="w-4 h-4 text-emerald-600 inline-block" aria-hidden="true" />
+                  <span>Almost done! Finalizing IEP document...</span>
                 </span>
               ) : (
                 <span className="text-slate-700">
@@ -154,9 +156,7 @@ export function IepLoadingModal({
           >
             <div
               className={`h-full rounded-full transition-all duration-300 ease-out ${
-                isAlmostDone
-                  ? "bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500"
-                  : "bg-gradient-to-r from-indigo-500 to-blue-500"
+                isAlmostDone ? "bg-emerald-600" : "bg-blue-600"
               }`}
               style={{ width: `${roundedProgress}%` }}
             />
@@ -192,7 +192,11 @@ export function IepLoadingModal({
                   }`}
                   aria-hidden="true"
                 >
-                  {isCompleted ? "✓" : stage.id}
+                  {isCompleted ? (
+                    <CheckIcon className="w-3.5 h-3.5 text-white" aria-hidden="true" />
+                  ) : (
+                    stage.id
+                  )}
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -235,9 +239,7 @@ export function IepLoadingModal({
 
         {/* Helpful reassurance footnote */}
         <div className="flex items-center gap-2.5 p-3 rounded-xl bg-amber-50/80 border border-amber-200/60 text-xs text-amber-900">
-          <span className="text-base shrink-0 select-none" aria-hidden="true">
-            ⏳
-          </span>
+          <ClockIcon className="w-4 h-4 text-amber-700 shrink-0 select-none" aria-hidden="true" />
           <p className="m-0 leading-relaxed font-normal">
             Please keep this window open while AI crafts goals and checks rubric compliance. This typically takes 5 to 15 seconds.
           </p>

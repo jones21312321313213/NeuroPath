@@ -1,5 +1,12 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import {
+  BoltIcon,
+  LockIcon,
+  WarningIcon,
+  EyeIcon,
+  EyeSlashIcon,
+} from "../components/ui/icons";
 
 export default function RegisterPage({ onNavigateLogin }) {
   const { register } = useAuth();
@@ -126,7 +133,7 @@ export default function RegisterPage({ onNavigateLogin }) {
         >
           {/* Logo inside card */}
           <div className="flex items-center gap-2 select-none mb-6">
-            <span className="text-2xl">⚡</span>
+            <BoltIcon className="w-6 h-6 text-white" aria-hidden="true" />
             <span className="text-xl font-bold tracking-tight text-white">
               NeuroPath
             </span>
@@ -198,10 +205,11 @@ export default function RegisterPage({ onNavigateLogin }) {
 
           {/* Footer note inside card */}
           <p
-            className="text-xs mt-6"
-            style={{ color: "rgba(255,255,255,0.5)" }}
+            className="text-xs mt-6 flex items-center gap-1.5"
+            style={{ color: "rgba(255,255,255,0.7)" }}
           >
-            🔒 FERPA Compliant Documentation Platform
+            <LockIcon className="w-3.5 h-3.5 text-white/70" aria-hidden="true" />
+            <span>FERPA Compliant Documentation Platform</span>
           </p>
         </div>
       </div>
@@ -233,7 +241,7 @@ export default function RegisterPage({ onNavigateLogin }) {
                 color: "#c0392b",
               }}
             >
-              <span className="text-base">⚠️</span>
+              <WarningIcon className="w-4 h-4 text-rose-700 shrink-0" aria-hidden="true" />
               <p className="font-medium">{errors.general}</p>
             </div>
           )}
@@ -358,7 +366,11 @@ export default function RegisterPage({ onNavigateLogin }) {
                   onClick={() => setShowPass(!showPass)}
                   aria-label={showPass ? "Hide password" : "Show password"}
                 >
-                  {showPass ? "🙈" : "👁️"}
+                  {showPass ? (
+                    <EyeSlashIcon className="w-4 h-4 text-slate-500" aria-hidden="true" />
+                  ) : (
+                    <EyeIcon className="w-4 h-4 text-slate-500" aria-hidden="true" />
+                  )}
                 </button>
               </div>
               {errors.password && (

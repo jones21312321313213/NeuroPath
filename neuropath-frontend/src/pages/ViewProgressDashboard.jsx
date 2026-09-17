@@ -4,12 +4,19 @@ import { studentsAPI, trackingAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import StudentShimmer from "../components/StudentShimmer";
 import RecordProgressModal from "../components/RecordProgressModal";
+import {
+  InboxIcon,
+  ChartBarIcon,
+  TargetIcon,
+  WarningIcon,
+  CalendarIcon,
+} from "../components/ui/icons";
 
 function EmptyState({ message }) {
   return (
     <div className="om-empty">
-      <span className="om-empty-icon">
-        📭
+      <span className="om-empty-icon flex items-center justify-center">
+        <InboxIcon className="w-8 h-8 text-slate-400" aria-hidden="true" />
       </span>
       <p className="om-empty-title">{message}</p>
     </div>
@@ -341,7 +348,9 @@ export default function ViewProgressDashboard() {
               <div className="om-kpi-card">
                 <div className="om-kpi-header">
                   <span className="om-kpi-title">Overall Mastery Rate</span>
-                  <span className="om-kpi-icon">📈</span>
+                  <span className="om-kpi-icon">
+                    <ChartBarIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+                  </span>
                 </div>
                 <span className="om-kpi-value">
                   {totalSubjectsCount > 0 ? `${overallMasteryRate}%` : "0%"}
@@ -354,7 +363,9 @@ export default function ViewProgressDashboard() {
               <div className="om-kpi-card">
                 <div className="om-kpi-header">
                   <span className="om-kpi-title">Goals on Track</span>
-                  <span className="om-kpi-icon">🎯</span>
+                  <span className="om-kpi-icon">
+                    <TargetIcon className="w-5 h-5 text-emerald-600" aria-hidden="true" />
+                  </span>
                 </div>
                 <span className="om-kpi-value" style={{ color: "#16a34a" }}>
                   {goalsOnTrackCount}
@@ -365,7 +376,9 @@ export default function ViewProgressDashboard() {
               <div className="om-kpi-card">
                 <div className="om-kpi-header">
                   <span className="om-kpi-title">Needs Support</span>
-                  <span className="om-kpi-icon">⚠️</span>
+                  <span className="om-kpi-icon">
+                    <WarningIcon className="w-5 h-5 text-amber-600" aria-hidden="true" />
+                  </span>
                 </div>
                 <span
                   className="om-kpi-value"
@@ -379,7 +392,9 @@ export default function ViewProgressDashboard() {
               <div className="om-kpi-card">
                 <div className="om-kpi-header">
                   <span className="om-kpi-title">Last Evaluated</span>
-                  <span className="om-kpi-icon">📅</span>
+                  <span className="om-kpi-icon">
+                    <CalendarIcon className="w-5 h-5 text-slate-500" aria-hidden="true" />
+                  </span>
                 </div>
                 <span className="om-kpi-value om-kpi-date-value">
                   {lastEvaluatedDate}
@@ -391,8 +406,9 @@ export default function ViewProgressDashboard() {
             {subjectsLoading ? (
               <StudentShimmer />
             ) : subjectsError ? (
-              <div role="alert" className="om-error-banner">
-                ⚠️ {subjectsError}
+              <div role="alert" className="om-error-banner flex items-center gap-2">
+                <WarningIcon className="w-4 h-4 text-red-600 flex-shrink-0" aria-hidden="true" />
+                <span>{subjectsError}</span>
               </div>
             ) : subjects.length === 0 ? (
               <EmptyState message="No progress data found for this student." />
@@ -450,8 +466,9 @@ export default function ViewProgressDashboard() {
         <div className="om-card">
           <h2 className="om-list-title">List of Students</h2>
           {error && (
-            <div role="alert" className="om-error-banner">
-              ⚠️ {error}
+            <div role="alert" className="om-error-banner flex items-center gap-2">
+              <WarningIcon className="w-4 h-4 text-red-600 flex-shrink-0" aria-hidden="true" />
+              <span>{error}</span>
             </div>
           )}
           <div className="om-search-bar">

@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { UserIcon } from "../ui/icons";
 import "../../styles/Topbar.css";
 
 export default function Topbar({ breadcrumb, setActivePage }) {
@@ -27,7 +28,7 @@ export default function Topbar({ breadcrumb, setActivePage }) {
           aria-label={`View user profile for ${teacherName}`}
         >
           <div className="topbar-pill-avatar" aria-hidden="true">
-            {initials || "👤"}
+            {initials || <UserIcon className="w-4 h-4 text-slate-500" aria-hidden="true" />}
           </div>
           <span className="topbar-pill-name">{teacherName}</span>
         </button>

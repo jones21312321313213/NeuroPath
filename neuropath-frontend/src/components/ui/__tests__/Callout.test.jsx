@@ -15,7 +15,7 @@ describe("Callout component", () => {
     render(
       <Callout
         title="Notice Title"
-        icon={<span data-testid="custom-icon">ℹ️</span>}
+        icon={<span data-testid="custom-icon" aria-hidden="true"><svg className="w-5 h-5" viewBox="0 0 24 24" /></span>}
         action={<button>Review</button>}
       >
         Detailed explanation text

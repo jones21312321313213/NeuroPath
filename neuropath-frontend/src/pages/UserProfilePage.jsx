@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import ClickSpark from "../components/ui/ClickSpark";
 import { Card, CardHeader, CardBody, Button, Callout } from "../components/ui";
+import {
+  UserIcon,
+  CogIcon,
+  CameraIcon,
+  EyeIcon,
+  EyeSlashIcon,
+} from "../components/ui/icons";
 import "../styles/UserProfilePage.css";
 import { useAuth } from "../context/AuthContext";
 
@@ -145,8 +152,18 @@ export default function MyProfile() {
 
             {/* Card header */}
             <CardHeader as="header" className="up-card-header">
-              <span className="up-card-title">
-                {isEditing ? "⚙️ Edit Profile" : "👤 My Profile"}
+              <span className="up-card-title flex items-center gap-2">
+                {isEditing ? (
+                  <>
+                    <CogIcon className="w-5 h-5 text-slate-500" aria-hidden="true" />
+                    <span>Edit Profile</span>
+                  </>
+                ) : (
+                  <>
+                    <UserIcon className="w-5 h-5 text-slate-500" aria-hidden="true" />
+                    <span>My Profile</span>
+                  </>
+                )}
               </span>
               <Button
                 type="button"
@@ -195,7 +212,7 @@ export default function MyProfile() {
                   )}
                   {isEditing && (
                     <div className="up-avatar-overlay">
-                      <span>📸</span>
+                      <CameraIcon className="w-4 h-4 text-white" aria-hidden="true" />
                       <span>Change</span>
                     </div>
                   )}
@@ -295,11 +312,15 @@ export default function MyProfile() {
                       />
                       <button
                         type="button"
-                        className="up-pass-toggle"
+                        className="up-pass-toggle flex items-center justify-center"
                         onClick={() => setShowPass(!showPass)}
                         aria-label={showPass ? "Hide password" : "Show password"}
                       >
-                        {showPass ? "🙈" : "👁️"}
+                        {showPass ? (
+                          <EyeSlashIcon className="w-4 h-4 text-slate-500" aria-hidden="true" />
+                        ) : (
+                          <EyeIcon className="w-4 h-4 text-slate-500" aria-hidden="true" />
+                        )}
                       </button>
                     </div>
                     {errors.password && (
