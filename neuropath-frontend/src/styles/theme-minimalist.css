@@ -70,6 +70,8 @@
 }
 
 /* ── Global Layout & Body Breathing Room ───────────────────────── */
+body,
+.app-layout,
 [data-theme="minimalist"] body,
 body[data-theme="minimalist"],
 [data-theme="minimalist"] .app-layout {
@@ -78,16 +80,24 @@ body[data-theme="minimalist"],
   font-family: var(--font-sans);
 }
 
+.main-area,
 [data-theme="minimalist"] .main-area {
   background-color: var(--color-page-bg);
 }
 
+.page-content,
 [data-theme="minimalist"] .page-content {
   background-color: var(--color-page-bg);
   padding: var(--space-content-padding);
 }
 
 /* ── Typography Hierarchy ──────────────────────────────────────── */
+h1,
+h2,
+h3,
+h4,
+.heading-primary,
+.form-section-title,
 [data-theme="minimalist"] h1,
 [data-theme="minimalist"] h2,
 [data-theme="minimalist"] h3,
@@ -99,6 +109,11 @@ body[data-theme="minimalist"],
   font-weight: 700;
 }
 
+p.caption,
+.text-caption,
+.form-help-text,
+.form-desc,
+.subtext,
 [data-theme="minimalist"] p.caption,
 [data-theme="minimalist"] .text-caption,
 [data-theme="minimalist"] .form-help-text,
@@ -140,6 +155,7 @@ svg.sidebar-chevron,
   opacity: 0.85;
 }
 
+.sidebar,
 [data-theme="minimalist"] .sidebar {
   background-color: var(--color-brand-primary);
   border-right: 1px solid rgba(255, 255, 255, 0.2);
@@ -147,11 +163,13 @@ svg.sidebar-chevron,
   padding: var(--space-card-padding) 0;
 }
 
+.sidebar-divider,
 [data-theme="minimalist"] .sidebar-divider {
   border-top: 1px solid rgba(255, 255, 255, 0.3);
   margin: 0 16px 14px;
 }
 
+.sidebar-nav-item,
 [data-theme="minimalist"] .sidebar-nav-item {
   display: flex;
   align-items: center;
@@ -164,6 +182,7 @@ svg.sidebar-chevron,
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
+.sidebar.collapsed .sidebar-nav-item,
 [data-theme="minimalist"] .sidebar.collapsed .sidebar-nav-item {
   width: 44px;
   height: 44px;
@@ -173,6 +192,7 @@ svg.sidebar-chevron,
   align-items: center;
 }
 
+.sidebar-label,
 [data-theme="minimalist"] .sidebar-label {
   flex: 1;
   white-space: nowrap;
@@ -183,38 +203,45 @@ svg.sidebar-chevron,
   color: #ffffff;
 }
 
+.sidebar-nav-item:hover,
 [data-theme="minimalist"] .sidebar-nav-item:hover {
   background-color: rgba(255, 255, 255, 0.18);
 }
 
 /* Functional Brand Accent for Active State */
+.sidebar-nav-item.active,
 [data-theme="minimalist"] .sidebar-nav-item.active {
   background-color: var(--color-brand-action);
   color: #ffffff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+.sidebar-subnav-item,
 [data-theme="minimalist"] .sidebar-subnav-item {
   border-radius: var(--radius-sm);
   padding: 8px 12px;
   font-weight: 500;
 }
 
+.sidebar-subnav-item:hover,
 [data-theme="minimalist"] .sidebar-subnav-item:hover {
   background-color: rgba(255, 255, 255, 0.18);
 }
 
+.sidebar-subnav-item.active,
 [data-theme="minimalist"] .sidebar-subnav-item.active {
   background-color: rgba(255, 255, 255, 0.25);
   font-weight: 600;
 }
 
+.sidebar-logout-btn,
 [data-theme="minimalist"] .sidebar-logout-btn {
   border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: var(--radius-md);
   padding: 9px 14px;
 }
 
+.sidebar.collapsed .sidebar-logout-btn,
 [data-theme="minimalist"] .sidebar.collapsed .sidebar-logout-btn {
   width: 44px;
   height: 44px;
@@ -225,12 +252,16 @@ svg.sidebar-chevron,
   justify-content: center;
 }
 
+.sidebar-logout-btn:hover,
 [data-theme="minimalist"] .sidebar-logout-btn:hover {
   background-color: rgba(255, 255, 255, 0.2);
   border-color: #ffffff;
 }
 
 /* Sidebar focus rings: White on blue landmark for WCAG AA contrast */
+.sidebar button:focus-visible,
+.sidebar [role="button"]:focus-visible,
+.sidebar a:focus-visible,
 [data-theme="minimalist"] .sidebar button:focus-visible,
 [data-theme="minimalist"] .sidebar [role="button"]:focus-visible,
 [data-theme="minimalist"] .sidebar a:focus-visible {
@@ -238,8 +269,8 @@ svg.sidebar-chevron,
   outline-offset: 2px !important;
 }
 
-
 /* ── 2. Core Layout: Topbar Landmark ───────────────────────────── */
+.topbar,
 [data-theme="minimalist"] .topbar {
   background-color: var(--color-card-surface);
   border-bottom: 1px solid var(--color-border-subtle);
@@ -247,6 +278,7 @@ svg.sidebar-chevron,
   padding: 12px var(--space-content-padding);
 }
 
+.topbar-breadcrumb,
 [data-theme="minimalist"] .topbar-breadcrumb {
   color: var(--color-text-primary);
   font-weight: 600;
@@ -254,6 +286,7 @@ svg.sidebar-chevron,
   letter-spacing: 0.2px;
 }
 
+.topbar-pill,
 [data-theme="minimalist"] .topbar-pill {
   background-color: #ffffff;
   border: 1px solid var(--color-border-subtle);
@@ -263,37 +296,17 @@ svg.sidebar-chevron,
   transition: all 0.15s ease;
 }
 
+.topbar-pill:hover,
 [data-theme="minimalist"] .topbar-pill:hover {
   background-color: var(--color-page-bg);
   border-color: var(--color-border-strong);
 }
 
+.topbar-pill-name,
 [data-theme="minimalist"] .topbar-pill-name {
   color: var(--color-text-primary);
   font-weight: 600;
   font-size: 13px;
-}
-
-/* Theme Toggle in Topbar */
-.topbar-theme-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  background-color: #ffffff;
-  border: 1px solid var(--color-border-subtle, #e2e8f0);
-  border-radius: var(--radius-md, 8px);
-  padding: 6px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text-primary, #1e293b);
-  cursor: pointer;
-  box-shadow: var(--shadow-subtle, 0 1px 2px rgba(0, 0, 0, 0.04));
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-}
-
-.topbar-theme-toggle:hover {
-  background-color: var(--surface-hover, #f8fafc);
-  border-color: var(--color-border-strong, #cbd5e1);
 }
 
 .topbar-actions {
@@ -303,6 +316,10 @@ svg.sidebar-chevron,
 }
 
 /* ── 3. Standard Card Components ───────────────────────────────── */
+.ui-card,
+.form-card,
+[data-testid="card-root"],
+section.rounded-xl.border,
 [data-theme="minimalist"] .ui-card,
 [data-theme="minimalist"] .form-card,
 [data-theme="minimalist"] [data-testid="card-root"],
@@ -313,6 +330,8 @@ svg.sidebar-chevron,
   box-shadow: var(--shadow-subtle);
 }
 
+.ui-card-header,
+[data-testid="card-header"],
 [data-theme="minimalist"] .ui-card-header,
 [data-theme="minimalist"] [data-testid="card-header"] {
   border-bottom: 1px solid var(--color-border-subtle);
@@ -321,11 +340,15 @@ svg.sidebar-chevron,
   font-weight: 700;
 }
 
+.ui-card-body,
+[data-testid="card-body"],
 [data-theme="minimalist"] .ui-card-body,
 [data-theme="minimalist"] [data-testid="card-body"] {
   padding: var(--space-card-padding);
 }
 
+.ui-card-footer,
+[data-testid="card-footer"],
 [data-theme="minimalist"] .ui-card-footer,
 [data-theme="minimalist"] [data-testid="card-footer"] {
   border-top: 1px solid var(--color-border-subtle);
@@ -336,6 +359,7 @@ svg.sidebar-chevron,
 }
 
 /* ── 4. Standard Form Components ───────────────────────────────── */
+.form-card,
 [data-theme="minimalist"] .form-card {
   padding: var(--space-card-padding);
   display: flex;
@@ -343,6 +367,8 @@ svg.sidebar-chevron,
   gap: var(--space-form-gap);
 }
 
+.form-label,
+label,
 [data-theme="minimalist"] .form-label,
 [data-theme="minimalist"] label {
   color: var(--color-text-primary);
@@ -351,6 +377,14 @@ svg.sidebar-chevron,
   line-height: 1.4;
 }
 
+.form-input,
+.form-select,
+.form-textarea,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
 [data-theme="minimalist"] .form-input,
 [data-theme="minimalist"] .form-select,
 [data-theme="minimalist"] .form-textarea,
@@ -368,6 +402,12 @@ svg.sidebar-chevron,
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus,
+input:focus,
+select:focus,
+textarea:focus,
 [data-theme="minimalist"] .form-input:focus,
 [data-theme="minimalist"] .form-select:focus,
 [data-theme="minimalist"] .form-textarea:focus,
@@ -379,6 +419,8 @@ svg.sidebar-chevron,
   box-shadow: 0 0 0 3px rgba(61, 157, 232, 0.15);
 }
 
+.form-input[readonly],
+.form-textarea[readonly],
 [data-theme="minimalist"] .form-input[readonly],
 [data-theme="minimalist"] .form-textarea[readonly] {
   background-color: var(--surface-input-readonly);
@@ -387,6 +429,9 @@ svg.sidebar-chevron,
 }
 
 /* Form Buttons */
+.btn-submit,
+.btn-primary,
+button.btn-submit,
 [data-theme="minimalist"] .btn-submit,
 [data-theme="minimalist"] .btn-primary,
 [data-theme="minimalist"] button.btn-submit {
@@ -401,6 +446,9 @@ svg.sidebar-chevron,
   transition: background-color 0.15s ease, opacity 0.15s ease;
 }
 
+.btn-submit:hover,
+.btn-primary:hover,
+button.btn-submit:hover,
 [data-theme="minimalist"] .btn-submit:hover,
 [data-theme="minimalist"] .btn-primary:hover,
 [data-theme="minimalist"] button.btn-submit:hover {
@@ -408,6 +456,8 @@ svg.sidebar-chevron,
   opacity: 1;
 }
 
+.btn-back,
+button.btn-back,
 [data-theme="minimalist"] .btn-back,
 [data-theme="minimalist"] button.btn-back {
   background-color: var(--color-brand-primary);
@@ -421,6 +471,8 @@ svg.sidebar-chevron,
   transition: background-color 0.15s ease, opacity 0.15s ease;
 }
 
+.btn-back:hover,
+button.btn-back:hover,
 [data-theme="minimalist"] .btn-back:hover,
 [data-theme="minimalist"] button.btn-back:hover {
   background-color: #489ce4;
@@ -451,6 +503,7 @@ textarea:focus-visible {
 }
 
 /* ── 6. Overview Page Minimalist Refinement ─────────────────────── */
+.overview-welcome,
 [data-theme="minimalist"] .overview-welcome {
   background: var(--color-card-surface, #ffffff) !important;
   border: 1px solid var(--color-border-subtle, #e2e8f0);
@@ -460,6 +513,7 @@ textarea:focus-visible {
   box-shadow: var(--shadow-subtle, 0 1px 2px rgba(0, 0, 0, 0.04)) !important;
 }
 
+.overview-title,
 [data-theme="minimalist"] .overview-title {
   color: var(--color-text-primary, #1e293b) !important;
   font-size: 22px;
@@ -468,12 +522,14 @@ textarea:focus-visible {
   margin-bottom: 6px;
 }
 
+.overview-subtitle,
 [data-theme="minimalist"] .overview-subtitle {
   color: var(--color-text-secondary, #64748b) !important;
   font-size: 14px;
   line-height: 1.55;
 }
 
+.hero-time-text,
 [data-theme="minimalist"] .hero-time-text {
   color: var(--color-text-primary, #1e293b) !important;
   font-size: 24px;
@@ -481,12 +537,14 @@ textarea:focus-visible {
   letter-spacing: -0.02em;
 }
 
+.hero-date-text,
 [data-theme="minimalist"] .hero-date-text {
   color: var(--color-text-secondary, #64748b) !important;
   font-size: 13px;
   font-weight: 500;
 }
 
+.overview-glance-strip,
 [data-theme="minimalist"] .overview-glance-strip {
   background: var(--color-card-surface, #ffffff);
   border: 1px solid var(--color-border-subtle, #e2e8f0);
@@ -495,18 +553,21 @@ textarea:focus-visible {
   padding: 20px 24px;
 }
 
+.glance-stat-label,
 [data-theme="minimalist"] .glance-stat-label {
   color: var(--color-text-secondary, #64748b);
   font-size: 13px;
   font-weight: 600;
 }
 
+.glance-stat-value,
 [data-theme="minimalist"] .glance-stat-value {
   color: var(--color-text-primary, #1e293b);
   font-size: 28px;
   font-weight: 700;
 }
 
+.overview-section-label,
 [data-theme="minimalist"] .overview-section-label {
   color: var(--color-text-primary, #1e293b);
   font-size: 12px;
@@ -514,11 +575,13 @@ textarea:focus-visible {
   letter-spacing: 0.06em;
 }
 
+.overview-getting-started-hint,
 [data-theme="minimalist"] .overview-getting-started-hint {
   color: var(--color-text-secondary, #64748b);
   font-size: 13px;
 }
 
+.workflow-timeline-card,
 [data-theme="minimalist"] .workflow-timeline-card {
   background: var(--color-card-surface, #ffffff);
   border: 1px solid var(--color-border-subtle, #e2e8f0);
@@ -527,6 +590,7 @@ textarea:focus-visible {
   padding: 28px 24px;
 }
 
+.quick-action-card,
 [data-theme="minimalist"] .quick-action-card {
   background: var(--color-card-surface, #ffffff);
   border: 1px solid var(--color-border-subtle, #e2e8f0);
@@ -535,21 +599,23 @@ textarea:focus-visible {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.quick-action-card:hover,
 [data-theme="minimalist"] .quick-action-card:hover {
   border-color: var(--color-border-strong, #cbd5e1);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
   transform: translateY(-1px);
 }
 
+.quick-action-label,
 [data-theme="minimalist"] .quick-action-label {
   color: var(--color-text-primary, #1e293b);
   font-size: 14.5px;
   font-weight: 600;
 }
 
+.quick-action-desc,
 [data-theme="minimalist"] .quick-action-desc {
   color: var(--color-text-secondary, #64748b);
   font-size: 13px;
   line-height: 1.45;
 }
-

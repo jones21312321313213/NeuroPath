@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import Topbar from "../components/layout/Topbar";
 import Sidebar from "../components/layout/Sidebar";
@@ -67,8 +66,8 @@ describe("Minimalist Style System Spike (Issue #184)", () => {
     });
   });
 
-  describe("Topbar minimalist theme toggle", () => {
-    it("renders theme toggle button with clean SVG icon and accessible label", () => {
+  describe("Topbar minimalist layout without toggle", () => {
+    it("renders clean Topbar with breadcrumb and user profile, without any toggle button", () => {
       render(
         <ThemeProvider>
           <MemoryRouter>
@@ -77,30 +76,15 @@ describe("Minimalist Style System Spike (Issue #184)", () => {
         </ThemeProvider>
       );
 
-      const toggleBtn = screen.getByRole("button", { name: /toggle theme: minimalist/i });
-      expect(toggleBtn).toBeInTheDocument();
-      expect(toggleBtn).toHaveAttribute("aria-pressed", "true");
-      expect(toggleBtn.querySelector("svg")).toBeInTheDocument();
-    });
-
-    it("toggles minimalist theme state on click", async () => {
-      const user = userEvent.setup();
-      render(
-        <ThemeProvider>
-          <MemoryRouter>
-            <Topbar breadcrumb="DASHBOARD / Home" />
-          </MemoryRouter>
-        </ThemeProvider>
-      );
-
-      const toggleBtn = screen.getByRole("button", { name: /toggle theme: minimalist/i });
-      expect(toggleBtn).toHaveAttribute("aria-pressed", "true");
-
-      await user.click(toggleBtn);
-
-      const defaultBtn = screen.getByRole("button", { name: /toggle theme: default/i });
-      expect(defaultBtn).toHaveAttribute("aria-pressed", "false");
-      expect(document.documentElement.getAttribute("data-theme")).toBe("default");
+      // Breadcrumb is displayed
+      expect(screen.getByText("DASHBOARD / Home")).toBeInTheDocument();
+      // Profile pill is displayed
+      expect(
+        screen.getByRole("button", { name: /view user profile for teacher jane/i })
+      ).toBeInTheDocument();
+      // No theme toggle button exists
+      expect(screen.queryByRole("button", { name: /toggle theme/i })).not.toBeInTheDocument();
+      expect(screen.queryByText(/minimalist/i)).not.toBeInTheDocument();
     });
   });
 
