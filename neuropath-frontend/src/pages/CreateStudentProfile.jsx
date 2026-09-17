@@ -1,8 +1,14 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import { CheckIcon, LightBulbIcon } from "../components/ui/icons";
+import {
+  CheckIcon,
+  LightBulbIcon,
+  DocumentTextIcon,
+  InformationCircleIcon,
+} from "../components/ui/icons";
+import { Ra10173ConsentModal } from "../components/Ra10173ConsentModal";
 
 const difficultyOptions = [
   "Difficulty in Seeing",
@@ -113,10 +119,19 @@ function SectionHeader({ title, subtitle }) {
   );
 }
 
-function CheckOption({ label, checked, onChange }) {
+function CheckOption({ label, checked, onChange, disabled }) {
   return (
-    <label className="iep-check-option">
-      <input type="checkbox" checked={checked} onChange={onChange} />
+    <label
+      className={`iep-check-option ${
+        disabled ? "opacity-60 cursor-not-allowed select-none" : ""
+      }`}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        disabled={disabled}
+      />
       <span>{label}</span>
     </label>
   );
@@ -268,6 +283,29 @@ export default function CreateStudentProfile({
   const [error, setError] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdStudent, setCreatedStudent] = useState(null);
+  const [hasReadConsent, setHasReadConsent] = useState(false);
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const errorRef = useRef(null);
+
+  const scrollToError = () => {
+    setTimeout(() => {
+      if (errorRef.current) {
+        errorRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+        errorRef.current.focus?.();
+      }
+    }, 50);
+  };
+
+  const handleConfirmConsent = () => {
+    setHasReadConsent(true);
+    setForm((prev) => ({
+      ...prev,
+      parentalConsentObtained: true,
+    }));
+  };
 
   const handleBack = () => {
     if (onBack) onBack();
@@ -425,15 +463,23 @@ export default function CreateStudentProfile({
   };
 
   const handleNext = () => {
-    if (!validateStepOne()) return;
+    if (!validateStepOne()) {
+      scrollToError();
+      return;
+    }
+    setError("");
     setStep(2);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (step !== 2) return;
-    if (!validateStepTwo()) return;
+    if (!validateStepTwo()) {
+      scrollToError();
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -558,7 +604,17 @@ export default function CreateStudentProfile({
           </div>
         </div>
 
-        {error && <div className="iep-alert iep-alert-error">{error}</div>}
+        {error && (
+          <div
+            ref={errorRef}
+            tabIndex={-1}
+            role="alert"
+            aria-live="assertive"
+            className="iep-alert iep-alert-error outline-none"
+          >
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           {step === 1 && (
@@ -659,23 +715,91 @@ export default function CreateStudentProfile({
                   border: "1px solid #cbd5e1",
                 }}
               >
-                <h3
-                  className="iep-small-title"
+                <div
                   style={{
-                    color: "#0f172a",
-                    fontSize: "0.95rem",
-                    fontWeight: 700,
-                    marginBottom: "0.5rem",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "0.75rem",
+                    marginBottom: "0.75rem",
                   }}
                 >
-                  Republic Act 10173 (Data Privacy Act of 2012) Compliance
-                </h3>
-                <p
-                  className="iep-muted"
-                  style={{ fontSize: "0.85rem", marginBottom: "1rem" }}
-                >
-                  In compliance with Philippine RA 10173, processing sensitive personal information and automated AI analysis for minors require explicit parental or guardian consent.
-                </p>
+                  <div>
+                    <h3
+                      className="iep-small-title"
+                      style={{
+                        color: "#0f172a",
+                        fontSize: "0.95rem",
+                        fontWeight: 700,
+                        marginBottom: "0.25rem",
+                      }}
+                    >
+                      Republic Act 10173 (Data Privacy Act of 2012) Compliance
+                    </h3>
+                    <p
+                      className="iep-muted"
+                      style={{ fontSize: "0.85rem", margin: 0 }}
+                    >
+                      In compliance with Philippine RA 10173, processing sensitive personal information and automated AI analysis for minors require explicit parental or guardian consent.
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    {hasReadConsent ? (
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.25rem",
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          padding: "0.25rem 0.65rem",
+                          borderRadius: "9999px",
+                          backgroundColor: "#ecfdf5",
+                          color: "#047857",
+                          border: "1px solid #a7f3d0",
+                        }}
+                      >
+                        <CheckIcon className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
+                        Agreement Reviewed
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.25rem",
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          padding: "0.25rem 0.65rem",
+                          borderRadius: "9999px",
+                          backgroundColor: "#fffbeb",
+                          color: "#b45309",
+                          border: "1px solid #fde68a",
+                        }}
+                      >
+                        <InformationCircleIcon className="w-3.5 h-3.5 text-amber-600" aria-hidden="true" />
+                        Pending Review
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{
+                        padding: "6px 12px",
+                        fontSize: "0.75rem",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.35rem",
+                      }}
+                      onClick={() => setShowConsentModal(true)}
+                    >
+                      <DocumentTextIcon className="w-3.5 h-3.5 text-blue-600 inline" aria-hidden="true" />
+                      Read Full Consent Agreement
+                    </button>
+                  </div>
+                </div>
+
                 <div className="form-grid-2">
                   <FormField
                     label="Guardian Full Name"
@@ -700,6 +824,7 @@ export default function CreateStudentProfile({
                   <CheckOption
                     label="Consent Agreement / Statement: I confirm that parental/guardian consent has been verified and obtained for this learner in compliance with Republic Act 10173."
                     checked={Boolean(form.parentalConsentObtained)}
+                    disabled={!hasReadConsent}
                     onChange={(e) =>
                       setForm((prev) => ({
                         ...prev,
@@ -707,6 +832,22 @@ export default function CreateStudentProfile({
                       }))
                     }
                   />
+                  {!hasReadConsent && (
+                    <p
+                      style={{
+                        fontSize: "0.75rem",
+                        color: "#b45309",
+                        marginTop: "0.35rem",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.25rem",
+                        margin: "4px 0 0 0",
+                      }}
+                    >
+                      <InformationCircleIcon className="w-3.5 h-3.5 text-amber-600 inline shrink-0" aria-hidden="true" />
+                      Please review the Full Consent Agreement above before confirming parental consent.
+                    </p>
+                  )}
                 </div>
               </div>
             </section>
@@ -800,6 +941,11 @@ export default function CreateStudentProfile({
           onAddAnother={handleAddAnother}
         />
       )}
+      <Ra10173ConsentModal
+        isOpen={showConsentModal}
+        onClose={() => setShowConsentModal(false)}
+        onConfirm={handleConfirmConsent}
+      />
     </div>
   );
 }

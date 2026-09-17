@@ -341,10 +341,19 @@ describe("CreateStudentProfile next-step actions", () => {
     expect(guardianInput).toBeInTheDocument();
     fireEvent.change(guardianInput, { target: { value: "Maria Dela Cruz" } });
 
-    // Check RA 10173 consent agreement checkbox
-    const consentCheckbox = screen.getByLabelText(/Consent Agreement \/ Statement/i);
-    expect(consentCheckbox).toBeInTheDocument();
-    fireEvent.click(consentCheckbox);
+    // Review agreement and accept RA 10173 consent
+    fireEvent.click(
+      screen.getByRole("button", { name: /read full consent agreement/i }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /i have read & understood the terms/i,
+      }),
+    );
+    const consentCheckbox = screen.getByLabelText(
+      /Consent Agreement \/ Statement/i,
+    );
+    expect(consentCheckbox).toBeChecked();
 
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
@@ -507,4 +516,110 @@ describe("CreateStudentProfile next-step actions", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
   });
+
+  it("disables RA 10173 checkbox initially, opens modal, and unlocks checkbox upon agreement confirmation", async () => {
+    render(
+      <MemoryRouter>
+        <CreateStudentProfile onBack={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    // Initial state: Pending Review badge and disabled checkbox
+    expect(screen.getByText(/Pending Review/i)).toBeInTheDocument();
+    const consentCheckbox = screen.getByLabelText(/Consent Agreement \/ Statement/i);
+    expect(consentCheckbox).toBeDisabled();
+
+    // Click Read Full Consent Agreement button
+    const readBtn = screen.getByRole("button", {
+      name: /read full consent agreement/i,
+    });
+    expect(readBtn).toBeInTheDocument();
+    fireEvent.click(readBtn);
+
+    // Modal opens with statutory title
+    expect(
+      await screen.findByRole("heading", {
+        name: /Parental Consent & Disclosure Agreement/i,
+      }),
+    ).toBeInTheDocument();
+
+    // Confirm reading
+    const confirmBtn = screen.getByRole("button", {
+      name: /i have read & understood the terms/i,
+    });
+    fireEvent.click(confirmBtn);
+
+    // Modal closes, badge flips to Agreement Reviewed, and checkbox is enabled
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByText(/Agreement Reviewed/i)).toBeInTheDocument();
+    expect(consentCheckbox).not.toBeDisabled();
+    expect(consentCheckbox).toBeChecked();
+  });
+
+  it("scrolls smoothly to error alert banner when validation fails on Step 1", async () => {
+    const scrollIntoViewMock = vi.fn();
+    window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock;
+
+    render(
+      <MemoryRouter>
+        <CreateStudentProfile onBack={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    // Press next without filling any required inputs
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    expect(await screen.findByText(/Student name is required/i)).toBeInTheDocument();
+    await vi.waitFor(() => {
+      expect(scrollIntoViewMock).toHaveBeenCalled();
+    });
+  });
+
+  it("advances to Step 2 and scrolls to top without triggering premature Step 2 validation", async () => {
+    const scrollToMock = vi.fn();
+    window.scrollTo = scrollToMock;
+
+    render(
+      <MemoryRouter>
+        <CreateStudentProfile onBack={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    // Fill valid Step 1
+    fireEvent.change(screen.getByPlaceholderText("Enter student name"), {
+      target: { value: "Juan Dela Cruz" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter age"), {
+      target: { value: "8" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter grade level"), {
+      target: { value: "2" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: /^gender:/i }), {
+      target: { value: "Male" },
+    });
+    fireEvent.click(screen.getByLabelText(/Difficulty in Seeing/i));
+    fireEvent.change(screen.getByPlaceholderText(/Enter parent or guardian name/i), {
+      target: { value: "Maria Dela Cruz" },
+    });
+
+    // Review agreement to unlock consent
+    fireEvent.click(screen.getByRole("button", { name: /read full consent agreement/i }));
+    fireEvent.click(screen.getByRole("button", { name: /i have read & understood the terms/i }));
+
+    // Click NEXT
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    // Verify on Step 2
+    expect(
+      await screen.findByText(/Present Levels of Academic Achievement/i),
+    ).toBeInTheDocument();
+    expect(scrollToMock).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
+
+    // CRITICAL: Ensure premature Step 2 error is NOT present
+    expect(
+      screen.queryByText(/Please fill in the evaluation \/ assessment results before saving/i),
+    ).not.toBeInTheDocument();
+  });
 });
+
