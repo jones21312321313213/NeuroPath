@@ -12,7 +12,7 @@ import {
 } from "./icons";
 
 export function ClaymorphismShowcase() {
-  const { theme, isClaymorphism, toggleTheme } = useTheme();
+  const { theme } = useTheme();
   const [inputText, setInputText] = useState("Sample NeuroPath text field");
   const [selectOption, setSelectOption] = useState("option1");
   const [activeTab, setActiveTab] = useState("students");
@@ -54,33 +54,10 @@ export function ClaymorphismShowcase() {
           </p>
         </div>
 
-        <div className="flex items-center gap-4 flex-shrink-0">
-          <div className="flex items-center gap-2.5">
-            <span className="text-xs font-bold text-slate-600 hidden sm:inline">Tactile Switch:</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isClaymorphism}
-              aria-label="Tactile physical theme toggle"
-              className={`clay-switch ${isClaymorphism ? "checked" : ""}`}
-              onClick={toggleTheme}
-            >
-              <span className="clay-switch-thumb" />
-            </button>
-          </div>
-
-          <button
-            type="button"
-            className={`topbar-theme-toggle px-5 py-2.5 text-sm font-bold ${
-              isClaymorphism ? "active bg-sky-100 text-sky-900 border-sky-300" : ""
-            }`}
-            onClick={toggleTheme}
-            aria-pressed={isClaymorphism}
-            aria-label={`Toggle theme: currently ${theme}`}
-          >
-            <SparklesIcon className="w-5 h-5 text-sky-500" aria-hidden="true" />
-            <span>{isClaymorphism ? "Switch to Default Theme" : "Switch to Claymorphism"}</span>
-          </button>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <span className="clay-pill clay-pill-primary text-xs font-bold py-1.5 px-4">
+            Claymorphism Active System-Wide
+          </span>
         </div>
       </section>
 
@@ -417,17 +394,9 @@ export function ClaymorphismShowcase() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className="topbar-theme-toggle"
-              onClick={toggleTheme}
-              aria-label="Toggle theme in preview"
-            >
-              <SparklesIcon className="w-4 h-4 text-sky-500" aria-hidden="true" />
-              <span className="text-xs font-semibold">
-                {isClaymorphism ? "Claymorphism Active" : "Default Active"}
-              </span>
-            </button>
+            <span className="clay-pill text-xs font-semibold text-slate-700 bg-white">
+              Universal Theme: Claymorphism
+            </span>
 
             <div className="topbar-pill" role="group" aria-label="Sample user profile pill">
               <div className="topbar-pill-avatar" aria-hidden="true">

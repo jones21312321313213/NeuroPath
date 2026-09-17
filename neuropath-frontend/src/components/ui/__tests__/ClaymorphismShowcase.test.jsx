@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { ThemeProvider } from "../../../context/ThemeContext";
 import ClaymorphismShowcase from "../ClaymorphismShowcase";
 import { runAxeAudit } from "../../../test/a11y-helper";
@@ -51,29 +50,16 @@ describe("ClaymorphismShowcase Component", () => {
     expect(screen.getByLabelText(/behavioral & sensory observations:/i)).toBeInTheDocument();
   });
 
-  it("toggles claymorphism theme and updates state & aria-pressed attribute", async () => {
-    const user = userEvent.setup();
-
+  it("displays permanent system-wide claymorphism indicators without toggle buttons", () => {
     render(
       <ThemeProvider>
         <ClaymorphismShowcase />
       </ThemeProvider>
     );
 
-    const toggleBtn = screen.getByRole("button", { name: /toggle theme: currently default/i });
-    expect(toggleBtn).toHaveAttribute("aria-pressed", "false");
-    expect(document.documentElement.getAttribute("data-theme")).toBeNull();
-
-    // Toggle on
-    await user.click(toggleBtn);
-    expect(toggleBtn).toHaveAttribute("aria-pressed", "true");
-    expect(document.documentElement.getAttribute("data-theme")).toBe("claymorphism");
-    expect(screen.getByText(/switch to default theme/i)).toBeInTheDocument();
-
-    // Toggle off
-    await user.click(toggleBtn);
-    expect(toggleBtn).toHaveAttribute("aria-pressed", "false");
-    expect(document.documentElement.getAttribute("data-theme")).toBeNull();
+    expect(screen.getByText(/claymorphism active system-wide/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /switch to.*theme/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
   });
 
   it("contains zero emojis across all rendered text and attributes", () => {

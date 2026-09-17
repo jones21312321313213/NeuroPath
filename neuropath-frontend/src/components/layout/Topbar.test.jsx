@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import Topbar from "./Topbar";
 import { AuthProvider } from "../../context/AuthContext";
@@ -27,43 +26,21 @@ describe("Topbar Component", () => {
     document.documentElement.removeAttribute("data-theme");
   });
 
-  it("renders breadcrumb, profile button, and clay theme toggle", () => {
+  it("renders breadcrumb and profile button with claymorphic styling", () => {
     renderTopbar();
 
     expect(screen.getByText("DASHBOARD / Home")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /view user profile/i })
     ).toBeInTheDocument();
-
-    const themeBtn = screen.getByRole("button", {
-      name: /switch to claymorphism theme/i,
-    });
-    expect(themeBtn).toBeInTheDocument();
-    expect(themeBtn).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("toggles claymorphism theme when theme toggle button is clicked", async () => {
-    const user = userEvent.setup();
+  it("does not render a theme toggle button since claymorphism is permanent system-wide", () => {
     renderTopbar();
 
-    const themeBtn = screen.getByRole("button", {
-      name: /switch to claymorphism theme/i,
-    });
-
-    await user.click(themeBtn);
-
-    expect(document.documentElement.getAttribute("data-theme")).toBe("claymorphism");
     expect(
-      screen.getByRole("button", { name: /switch to default theme/i })
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /switch to default theme/i })).toHaveAttribute(
-      "aria-pressed",
-      "true"
-    );
-
-    // Toggle back
-    await user.click(screen.getByRole("button", { name: /switch to default theme/i }));
-    expect(document.documentElement.getAttribute("data-theme")).toBeNull();
+      screen.queryByRole("button", { name: /switch to.*theme/i })
+    ).not.toBeInTheDocument();
   });
 
   it("contains no emojis anywhere in rendered HTML", () => {

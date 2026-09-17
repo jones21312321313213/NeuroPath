@@ -1,12 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { useTheme } from "../../context/ThemeContext";
-import { UserIcon, SparklesIcon } from "../ui/icons";
+import { UserIcon } from "../ui/icons";
 import "../../styles/Topbar.css";
 
 export default function Topbar({ breadcrumb, setActivePage }) {
   const { user } = useAuth();
-  const { isClaymorphism, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const teacherName = `Teacher ${user?.first_name || ""}`;
   const initials =
@@ -23,19 +21,6 @@ export default function Topbar({ breadcrumb, setActivePage }) {
         <span className="topbar-breadcrumb">{breadcrumb}</span>
       </div>
       <div className="topbar-user">
-        <button
-          type="button"
-          className={`topbar-theme-toggle ${isClaymorphism ? "active" : ""}`}
-          onClick={toggleTheme}
-          aria-label={`Switch to ${isClaymorphism ? "default" : "claymorphism"} theme`}
-          title={`Active theme: ${isClaymorphism ? "Claymorphism" : "Default"}`}
-          aria-pressed={isClaymorphism}
-        >
-          <SparklesIcon className="w-4 h-4 text-sky-500" aria-hidden="true" />
-          <span className="topbar-theme-label text-xs font-semibold">
-            {isClaymorphism ? "Clay Theme" : "Default Theme"}
-          </span>
-        </button>
         <button
           type="button"
           className="topbar-pill"
