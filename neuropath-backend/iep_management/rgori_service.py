@@ -130,15 +130,16 @@ OUTPUT FORMAT (return this exact JSON, no other text):
                 max_tokens=300,
                 json_mode=True,
             )
-        except Exception:
-            return RGORICheckerService._fallback_evaluation()
+        except Exception as e:
+            logger.warning("R-GORI evaluation AI call failed: %s", e)
+            raise RuntimeError(f"AI generation service is temporarily unavailable for R-GORI evaluation: {e}")
 
         return RGORICheckerService._parse_evaluation(raw_evaluation)
 
     @classmethod
     def _parse_evaluation(cls, raw_text):
         if not raw_text or not isinstance(raw_text, str):
-            return cls._fallback_evaluation()
+            raise RuntimeError("AI generation service returned empty or invalid response for R-GORI evaluation.")
 
         cleaned = raw_text.strip()
         # Strip markdown code fences if present
@@ -155,7 +156,7 @@ OUTPUT FORMAT (return this exact JSON, no other text):
         try:
             data = json.loads(cleaned)
             if not isinstance(data, dict):
-                return cls._fallback_evaluation()
+                raise RuntimeError("Failed to parse R-GORI evaluation: expected a JSON object.")
 
             # Ensure we have total_score or can compute it
             breakdown = data.get("breakdown")
@@ -180,7 +181,7 @@ OUTPUT FORMAT (return this exact JSON, no other text):
                     "instructional_context": instructional_context,
                 }
             elif "total_score" in data:
-                total_score = max(0, min(100, int(data.get("total_score", 75))))
+                total_score = max(0, min(100, int(data.get("total_score", 0))))
                 quarter = round(total_score / 4)
                 clean_breakdown = {
                     "measurability": quarter,
@@ -189,7 +190,7 @@ OUTPUT FORMAT (return this exact JSON, no other text):
                     "instructional_context": total_score - (quarter * 3),
                 }
             else:
-                return cls._fallback_evaluation()
+                raise RuntimeError("Failed to parse R-GORI evaluation: missing score metrics.")
 
             compliant = data.get("compliant")
             if not isinstance(compliant, bool):
@@ -210,19 +211,7 @@ OUTPUT FORMAT (return this exact JSON, no other text):
                 "compliant": compliant,
             }
         except Exception as e:
-            logger.warning("Error parsing R-GORI evaluation JSON: %s. Using pedagogical fallback.", e)
-            return cls._fallback_evaluation()
-
-    @staticmethod
-    def _fallback_evaluation():
-        return {
-            "total_score": 75,
-            "breakdown": {
-                "measurability": 20,
-                "functionality": 20,
-                "generality": 18,
-                "instructional_context": 17,
-            },
-            "feedback": "Deterministic pedagogical evaluation applied. Goal meets standard R-GORI compliance criteria.",
-            "compliant": True,
-        }
+            if isinstance(e, RuntimeError):
+                raise
+            logger.warning("Error parsing R-GORI evaluation JSON: %s", e)
+            raise RuntimeError(f"Failed to parse R-GORI evaluation from AI response: {e}")

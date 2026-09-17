@@ -487,6 +487,7 @@ class GenerateIEPGoalAPIView(APIView):
         best_goal = ""
         best_score = -1
         final_feedback = ""
+        last_error = None
 
         # 3. The Validation Loop
         for attempt in range(max_attempts):
@@ -827,31 +828,16 @@ class GenerateIEPGoalsFromIEPView(APIView):
             f"Each enroute_objectives entry must be a distinct, measurable sub-skill "
             f"that leads toward the annual goal above (e.g. 'Student will recognize numbers 0–5 with 80% accuracy')."
         )
-        try:
-            raw, _ = AIEngineService.generate_text(
-                prompt=user_prompt,
-                system_prompt=system_prompt,
-                max_tokens=600,
-                json_mode=True,
-            )
-        except Exception:
-            raw = None
-
-        fallback_rows = [{
-            "enroute_objectives": f"Student will demonstrate an initial sub-skill toward: {annual_goal[:120]}",
-            "objective": f"Student will demonstrate an initial sub-skill toward: {annual_goal[:120]}",
-            "interventions_procedures": f"Use {assistive_tech or 'visual supports'} and structured practice to support {goal_area or 'the goal area'}.",
-            "interventions": f"Use {assistive_tech or 'visual supports'} and structured practice to support {goal_area or 'the goal area'}.",
-            "intervention": f"Use {assistive_tech or 'visual supports'} and structured practice to support {goal_area or 'the goal area'}.",
-            "timeline_mins_session": "15-20 minutes every day",
-            "timeline": "15-20 minutes every day",
-            "individuals_responsible": facilitators or "SNED Teacher",
-            "progress_instructional": "Monitor weekly progress through teacher observation and skill checklists.",
-            "remarks": "To be updated based on actual learning outcomes."
-        }]
+        raw, _ = AIEngineService.generate_text(
+            prompt=user_prompt,
+            system_prompt=system_prompt,
+            max_tokens=600,
+            json_mode=True,
+        )
 
         if not raw or not isinstance(raw, str):
-            return fallback_rows
+            raise RuntimeError("AI generation service returned empty or invalid response for objective rows.")
+
         try:
             clean = raw.strip()
             if "```" in clean:
@@ -897,9 +883,11 @@ class GenerateIEPGoalsFromIEPView(APIView):
                 if validated_rows:
                     return validated_rows
 
-            return fallback_rows
-        except Exception:
-            return fallback_rows
+            raise RuntimeError("AI generation service could not generate valid objective rows. Please try again.")
+        except Exception as e:
+            if isinstance(e, RuntimeError):
+                raise
+            raise RuntimeError(f"AI generation service could not parse objective rows: {e}")
  
  
     def _map_difficulty_to_category(self, difficulty):

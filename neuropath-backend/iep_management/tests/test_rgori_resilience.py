@@ -84,24 +84,25 @@ class RGORIResilienceTestCase(TestCase):
         self.assertEqual(result["breakdown"]["functionality"], 20)
 
     @patch('iep_management.ai_engine.AIEngineService.generate_text')
-    def test_rgori_checker_unparsable_or_empty_response_fallback(self, mock_ai):
+    def test_rgori_checker_unparsable_response_raises_error(self, mock_ai):
         # AI returns non-JSON or corrupted output
-        mock_ai.return_value = ("Corrupted non-json text from provider", 'template_fallback')
+        mock_ai.return_value = ("Corrupted non-json text from provider", 'groq')
 
-        result = RGORICheckerService.evaluate_goal("Marcus will read words", "Marcus context")
-        self.assertEqual(result["total_score"], 75)
-        self.assertTrue(result["compliant"])
-        self.assertIn("Deterministic pedagogical evaluation", result["feedback"])
-        self.assertIn("measurability", result["breakdown"])
+        with self.assertRaises(RuntimeError) as ctx:
+            RGORICheckerService.evaluate_goal("Marcus will read words", "Marcus context")
+        self.assertIn("Failed to parse R-GORI evaluation", str(ctx.exception))
 
     @patch('iep_management.ai_engine.AIEngineService.generate_text')
-    def test_rgori_checker_deterministic_template_json_fallback(self, mock_ai):
-        # AI returns template json (e.g. lesson plan json mode output)
-        mock_ai.return_value = (json.dumps({"lesson_plans": [{"objective_focus": "Focus"}]}), 'template_fallback')
+    def test_rgori_checker_missing_score_metrics_raises_error(self, mock_ai):
+        # AI returns template json missing required scores
+        mock_ai.return_value = (json.dumps({"lesson_plans": [{"objective_focus": "Focus"}]}), 'groq')
 
-        result = RGORICheckerService.evaluate_goal("Marcus will count to 20", "Marcus context")
-        self.assertEqual(result["total_score"], 75)
-        self.assertTrue(result["compliant"])
+        with self.assertRaises(RuntimeError) as ctx:
+            RGORICheckerService.evaluate_goal("Marcus will count to 20", "Marcus context")
+        self.assertIn("Failed to parse R-GORI evaluation", str(ctx.exception))
+
+    def test_rgori_checker_has_no_fallback_evaluation_method(self):
+        self.assertFalse(hasattr(RGORICheckerService, '_fallback_evaluation'))
 
     @patch('iep_management.ai_engine.AIEngineService.generate_text')
     def test_generate_objective_rows_valid_json(self, mock_ai):
@@ -138,23 +139,20 @@ class RGORIResilienceTestCase(TestCase):
         self.assertEqual(rows[0]["enroute_objectives"], "Marcus will match 5 sight words with 80% accuracy.")
 
     @patch('iep_management.ai_engine.AIEngineService.generate_text')
-    def test_generate_objective_rows_unparsable_fallback(self, mock_ai):
-        mock_ai.return_value = ("Not a JSON array", 'template_fallback')
+    def test_generate_objective_rows_unparsable_raises_error(self, mock_ai):
+        mock_ai.return_value = ("Not a JSON array", 'groq')
 
         view = GenerateIEPGoalsFromIEPView()
-        rows = view._generate_objective_rows(
-            student_name='Marcus',
-            difficulty='Math',
-            assistive_tech='Counting cubes',
-            annual_goal='Marcus will add numbers within 10.',
-            facilitators='SNED Teacher',
-            goal_area='Mathematics'
-        )
-        self.assertIsInstance(rows, list)
-        self.assertGreaterEqual(len(rows), 1)
-        self.assertIn("enroute_objectives", rows[0])
-        self.assertIn("interventions_procedures", rows[0])
-        self.assertIn("timeline_mins_session", rows[0])
+        with self.assertRaises(RuntimeError) as ctx:
+            view._generate_objective_rows(
+                student_name='Marcus',
+                difficulty='Math',
+                assistive_tech='Counting cubes',
+                annual_goal='Marcus will add numbers within 10.',
+                facilitators='SNED Teacher',
+                goal_area='Mathematics'
+            )
+        self.assertIn("could not", str(ctx.exception).lower())
 
     @patch('iep_management.ai_engine.AIEngineService._call_gemini', side_effect=Exception('Gemini offline'))
     @patch('iep_management.ai_engine.AIEngineService._call_groq', side_effect=Exception('Groq offline'))
@@ -259,3 +257,56 @@ class RGORIResilienceTestCase(TestCase):
         self.assertEqual(response.status_code, 503)
         data = response.json()
         self.assertIn("temporarily unavailable", data["error"])
+
+    @patch.object(GenerateIEPGoalsFromIEPView, '_generate_objective_rows', side_effect=RuntimeError("Objective rows generation failed"))
+    @patch.object(GenerateIEPGoalsFromIEPView, '_generate_annual_goal', return_value="Marcus will initiate greetings.")
+    @patch('iep_management.rgori_service.RGORICheckerService.evaluate_goal', return_value={"total_score": 85, "compliant": True, "feedback": "Good"})
+    def test_generate_goals_from_iep_view_fails_when_objective_rows_fail(self, mock_rgori, mock_goal, mock_rows):
+        """
+        When objective rows fail to generate, ensure no canned rows are returned and
+        POST /api/iep/generate-goals-from-iep/ returns HTTP 503 honestly.
+        """
+        url = '/api/iep/generate-goals-from-iep/'
+        payload = {
+            "iep_id": self.iep.pk,
+            "student_name": self.student.name,
+            "goal_area": "Social-Emotional Skills",
+            "difficulties": "Difficulty in interacting with peers",
+            "generatedDetails": {
+                "special_factors_considerations": [
+                    {
+                        "difficulty": "Difficulty in interacting with peers",
+                        "assistive_technology": "Visual social stories"
+                    }
+                ]
+            }
+        }
+
+        response = self.client.post(url, payload, format='json')
+        self.assertEqual(response.status_code, 503)
+        data = response.json()
+        self.assertIn("temporarily unavailable", data["error"])
+        self.assertIn("Objective rows generation failed", data["details"])
+
+    @patch('iep_management.rgori_service.RGORICheckerService.evaluate_goal')
+    @patch('iep_management.ai_engine.AIEngineService.generate_text')
+    def test_generate_iep_goal_api_view_last_error_initialized_without_exception(self, mock_ai, mock_eval):
+        """
+        Ensures that if best_goal is empty without an exception occurring,
+        the 503 response does not trigger UnboundLocalError.
+        """
+        mock_ai.return_value = ("", 'gemini')
+        mock_eval.return_value = {"total_score": 0, "compliant": False, "feedback": ""}
+
+        url = '/api/iep/generate-goal/'
+        payload = {
+            "student_name": "Marcus Aurelius",
+            "diagnosis": "ASD",
+            "baseline_barriers": "Needs visual cues",
+            "target_domain": "Communication"
+        }
+
+        response = self.client.post(url, payload, format='json')
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("error", response.json())
+        self.assertIsNone(response.json()["details"])
