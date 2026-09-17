@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import LandingPage from "./pages/landingPage";
 import LoginPage from "./pages/loginPage";
 import RegisterPage from "./pages/registerPage";
@@ -188,8 +189,10 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
