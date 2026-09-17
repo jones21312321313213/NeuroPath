@@ -241,4 +241,131 @@ describe("UpdateStudentProfile Help Text & Difficulty Validation", () => {
       screen.getByLabelText(/impact of the disability on involvement and progress/i)
     ).toHaveValue("Requires visual aids");
   });
+
+  it("disables RA 10173 checkbox initially when unconsented, opens modal, and unlocks checkbox upon agreement confirmation", async () => {
+    studentsAPI.get.mockResolvedValueOnce({
+      data: {
+        ...mockStudent,
+        parental_consent_obtained: false,
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <UpdateStudentProfile studentId="student-123" onBack={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue("Maria Clara");
+
+    // Initial state: Pending Review badge and disabled checkbox
+    expect(screen.getByText(/Pending Review/i)).toBeInTheDocument();
+    const consentCheckbox = screen.getByLabelText(
+      /Parental\/Guardian Consent has been verified/i
+    );
+    expect(consentCheckbox).toBeDisabled();
+
+    // Click Read Full Consent Agreement button
+    const readBtn = screen.getByRole("button", {
+      name: /read full consent agreement/i,
+    });
+    fireEvent.click(readBtn);
+
+    // Modal dialog opens
+    expect(
+      await screen.findByRole("heading", {
+        name: /Parental Consent & Disclosure Agreement/i,
+      })
+    ).toBeInTheDocument();
+
+    // Confirm reading
+    const confirmBtn = screen.getByRole("button", {
+      name: /i have read & understood the terms/i,
+    });
+    fireEvent.click(confirmBtn);
+
+    // Modal closes, badge flips to Agreement Reviewed, and checkbox is enabled
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByText(/Agreement Reviewed/i)).toBeInTheDocument();
+    expect(consentCheckbox).not.toBeDisabled();
+    expect(consentCheckbox).toBeChecked();
+  });
+
+  it("initializes as Agreement Reviewed and enables checkbox if student already had consent", async () => {
+    studentsAPI.get.mockResolvedValueOnce({
+      data: {
+        ...mockStudent,
+        parental_consent_obtained: true,
+        guardian_name: "Juana Dela Cruz",
+        guardian_relationship: "Mother",
+        consent_date: "2026-01-15",
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <UpdateStudentProfile studentId="student-123" onBack={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue("Maria Clara");
+
+    expect(screen.getByText(/Agreement Reviewed/i)).toBeInTheDocument();
+    const consentCheckbox = screen.getByLabelText(
+      /Parental\/Guardian Consent has been verified/i
+    );
+    expect(consentCheckbox).not.toBeDisabled();
+    expect(consentCheckbox).toBeChecked();
+  });
+
+  it("scrolls smoothly to error alert banner when validation fails on Step 1", async () => {
+    const scrollIntoViewMock = vi.fn();
+    window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock;
+
+    studentsAPI.get.mockResolvedValueOnce({ data: mockStudent });
+
+    render(
+      <MemoryRouter>
+        <UpdateStudentProfile studentId="student-123" onBack={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue("Maria Clara");
+
+    // Clear student name to trigger validation error
+    fireEvent.change(screen.getByLabelText(/^student name:/i), {
+      target: { value: "" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
+
+    expect(
+      await screen.findByText(/Student name is required/i)
+    ).toBeInTheDocument();
+    await vi.waitFor(() => {
+      expect(scrollIntoViewMock).toHaveBeenCalled();
+    });
+  });
+
+  it("advances to Step 2 and smoothly scrolls to top", async () => {
+    const scrollToMock = vi.fn();
+    window.scrollTo = scrollToMock;
+
+    studentsAPI.get.mockResolvedValueOnce({ data: mockStudent });
+
+    render(
+      <MemoryRouter>
+        <UpdateStudentProfile studentId="student-123" onBack={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue("Maria Clara");
+
+    fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
+
+    expect(
+      await screen.findByText(/Present Levels of Academic Achievement/i)
+    ).toBeInTheDocument();
+    expect(scrollToMock).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
+  });
 });
