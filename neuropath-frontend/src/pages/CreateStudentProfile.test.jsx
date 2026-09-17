@@ -101,7 +101,14 @@ describe("CreateStudentProfile Help Text & Difficulty Validation", () => {
     fireEvent.change(screen.getByPlaceholderText(/Enter parent or guardian name/i), {
       target: { value: "Maria Dela Cruz" },
     });
-    fireEvent.click(screen.getByLabelText(/Consent Agreement \/ Statement/i));
+    fireEvent.click(
+      screen.getByRole("button", { name: /read full consent agreement/i }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /i have read & understood the terms/i,
+      }),
+    );
 
     fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
 
@@ -109,8 +116,9 @@ describe("CreateStudentProfile Help Text & Difficulty Validation", () => {
       await screen.findByText(/Present Levels of Academic Achievement/i),
     ).toBeInTheDocument();
 
-    const aiHelpTexts = screen.getAllByText(/Used by AI when drafting goals/i);
-    expect(aiHelpTexts.length).toBeGreaterThanOrEqual(4);
+    expect(
+      screen.queryByText(/Used by AI when drafting goals/i),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -142,7 +150,14 @@ describe("CreateStudentProfile next-step actions", () => {
     fireEvent.change(screen.getByPlaceholderText("Enter parent or guardian name"), {
       target: { value: "Jane Smith" },
     });
-    fireEvent.click(screen.getByLabelText(/Consent Agreement \/ Statement/i));
+    fireEvent.click(
+      screen.getByRole("button", { name: /read full consent agreement/i }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /i have read & understood the terms/i,
+      }),
+    );
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
     // Step 2 fields
@@ -524,8 +539,8 @@ describe("CreateStudentProfile next-step actions", () => {
       </MemoryRouter>,
     );
 
-    // Initial state: Pending Review badge and disabled checkbox
-    expect(screen.getByText(/Pending Review/i)).toBeInTheDocument();
+    // Initial state: X icon (not reviewed) and disabled checkbox
+    expect(screen.getByLabelText(/agreement not reviewed/i)).toBeInTheDocument();
     const consentCheckbox = screen.getByLabelText(/Consent Agreement \/ Statement/i);
     expect(consentCheckbox).toBeDisabled();
 
@@ -549,9 +564,9 @@ describe("CreateStudentProfile next-step actions", () => {
     });
     fireEvent.click(confirmBtn);
 
-    // Modal closes, badge flips to Agreement Reviewed, and checkbox is enabled
+    // Modal closes, icon flips to checkmark (reviewed), and checkbox is enabled
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByText(/Agreement Reviewed/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/agreement reviewed/i)).toBeInTheDocument();
     expect(consentCheckbox).not.toBeDisabled();
     expect(consentCheckbox).toBeChecked();
   });

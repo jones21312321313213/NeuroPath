@@ -4,6 +4,7 @@ import { studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import {
   CheckIcon,
+  CloseIcon,
   LightBulbIcon,
   DocumentTextIcon,
   InformationCircleIcon,
@@ -294,7 +295,9 @@ export default function CreateStudentProfile({
           behavior: "smooth",
           block: "center",
         });
-        errorRef.current.focus?.();
+        errorRef.current.focus?.({ preventScroll: true });
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
     }, 50);
   };
@@ -462,7 +465,10 @@ export default function CreateStudentProfile({
     return true;
   };
 
-  const handleNext = () => {
+  const handleNext = (e) => {
+    if (e?.preventDefault) e.preventDefault();
+    if (e?.stopPropagation) e.stopPropagation();
+
     if (!validateStepOne()) {
       scrollToError();
       return;
@@ -473,9 +479,10 @@ export default function CreateStudentProfile({
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e?.preventDefault) e.preventDefault();
 
     if (step !== 2) return;
+
     if (!validateStepTwo()) {
       scrollToError();
       return;
@@ -616,9 +623,9 @@ export default function CreateStudentProfile({
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={(e) => e.preventDefault()}>
           {step === 1 && (
-            <section className="form-section">
+            <section className="form-section form-section-animated">
               <SectionHeader
                 title="Section A: Personal Information"
                 subtitle="Enter learner information and mark the appropriate difficulty or diagnosis based on assessment."
@@ -745,43 +752,6 @@ export default function CreateStudentProfile({
                     </p>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    {hasReadConsent ? (
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "0.25rem",
-                          fontSize: "0.75rem",
-                          fontWeight: 600,
-                          padding: "0.25rem 0.65rem",
-                          borderRadius: "9999px",
-                          backgroundColor: "#ecfdf5",
-                          color: "#047857",
-                          border: "1px solid #a7f3d0",
-                        }}
-                      >
-                        <CheckIcon className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
-                        Agreement Reviewed
-                      </span>
-                    ) : (
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "0.25rem",
-                          fontSize: "0.75rem",
-                          fontWeight: 600,
-                          padding: "0.25rem 0.65rem",
-                          borderRadius: "9999px",
-                          backgroundColor: "#fffbeb",
-                          color: "#b45309",
-                          border: "1px solid #fde68a",
-                        }}
-                      >
-                        <InformationCircleIcon className="w-3.5 h-3.5 text-amber-600" aria-hidden="true" />
-                        Pending Review
-                      </span>
-                    )}
                     <button
                       type="button"
                       className="btn btn-secondary"
@@ -797,6 +767,25 @@ export default function CreateStudentProfile({
                       <DocumentTextIcon className="w-3.5 h-3.5 text-blue-600 inline" aria-hidden="true" />
                       Read Full Consent Agreement
                     </button>
+                    {hasReadConsent ? (
+                      <span
+                        role="img"
+                        title="Agreement reviewed"
+                        aria-label="Agreement reviewed"
+                        className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 border border-emerald-300 shrink-0"
+                      >
+                        <CheckIcon className="w-4 h-4 text-emerald-600 stroke-[2.5]" aria-hidden="true" />
+                      </span>
+                    ) : (
+                      <span
+                        role="img"
+                        title="Agreement not reviewed"
+                        aria-label="Agreement not reviewed"
+                        className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-rose-100 text-rose-600 border border-rose-300 shrink-0"
+                      >
+                        <CloseIcon className="w-4 h-4 text-rose-600 stroke-[2.5]" aria-hidden="true" />
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -854,11 +843,10 @@ export default function CreateStudentProfile({
           )}
 
           {step === 2 && (
-            <section className="form-section">
+            <section className="form-section form-section-animated">
               <SectionHeader title="Present Levels of Academic Achievement and/or Functional Performance" />
               <TextAreaField
                 label="Results of initial or most recent evaluation and results of school assessments"
-                helpText="Used by AI when drafting goals"
                 placeholder="Example: The learner fails to finish tasks most of the time, has difficulty in concentrating and paying attention, and may be unable to get what he wants."
                 value={form.presentEvaluation}
                 onChange={setField("presentEvaluation")}
@@ -866,7 +854,6 @@ export default function CreateStudentProfile({
               />
               <TextAreaField
                 label="Description of academic, developmental, and/or functional strengths"
-                helpText="Used by AI when drafting goals"
                 placeholder="Example: The learner can spell random words using alphabet blocks and arranges alphabet sequentially."
                 value={form.academicStrengths}
                 onChange={setField("academicStrengths")}
@@ -874,7 +861,6 @@ export default function CreateStudentProfile({
               />
               <TextAreaField
                 label="Description of academic, developmental, and/or functional needs"
-                helpText="Used by AI when drafting goals"
                 placeholder="Example: Needs structured routines, visual task supports, shortened activities, sensory breaks, and positive reinforcement."
                 value={form.academicNeeds}
                 onChange={setField("academicNeeds")}
@@ -882,7 +868,6 @@ export default function CreateStudentProfile({
               />
               <TextAreaField
                 label="Parental concerns regarding the child’s education"
-                helpText="Used by AI when drafting goals"
                 placeholder="Write concerns shared by the parent or guardian."
                 value={form.parentalConcerns}
                 onChange={setField("parentalConcerns")}
@@ -890,7 +875,6 @@ export default function CreateStudentProfile({
               />
               <TextAreaField
                 label="Impact of the disability on involvement and progress in the general education curriculum"
-                helpText="Used by AI when drafting goals"
                 placeholder="Example: The learner has difficulty concentrating and needs support to listen well."
                 value={form.curriculumImpact}
                 onChange={setField("curriculumImpact")}
@@ -915,6 +899,7 @@ export default function CreateStudentProfile({
             )}
             {step < 2 ? (
               <button
+                key="step1-next"
                 type="button"
                 className="btn btn-submit"
                 onClick={handleNext}
@@ -923,8 +908,10 @@ export default function CreateStudentProfile({
               </button>
             ) : (
               <button
-                type="submit"
+                key="step2-submit"
+                type="button"
                 className="btn btn-submit"
+                onClick={handleSubmit}
                 disabled={saving}
               >
                 {saving ? "SAVING..." : "SUBMIT"}

@@ -89,7 +89,7 @@ describe("UpdateStudentProfile Help Text & Difficulty Validation", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows AI goal drafting help texts in Step 2", async () => {
+  it("does not show AI goal drafting help texts in Step 2", async () => {
     studentsAPI.get.mockResolvedValueOnce({ data: mockStudent });
     render(
       <MemoryRouter>
@@ -105,8 +105,7 @@ describe("UpdateStudentProfile Help Text & Difficulty Validation", () => {
       await screen.findByText(/Present Levels of Academic Achievement/i)
     ).toBeInTheDocument();
 
-    const aiHelpTexts = screen.getAllByText(/Used by AI when drafting goals/i);
-    expect(aiHelpTexts.length).toBeGreaterThanOrEqual(4);
+    expect(screen.queryByText(/Used by AI when drafting goals/i)).not.toBeInTheDocument();
   });
 
   it("loads student via useParams id and navigates back on top back button click", async () => {
@@ -258,8 +257,8 @@ describe("UpdateStudentProfile Help Text & Difficulty Validation", () => {
 
     await screen.findByDisplayValue("Maria Clara");
 
-    // Initial state: Pending Review badge and disabled checkbox
-    expect(screen.getByText(/Pending Review/i)).toBeInTheDocument();
+    // Initial state: not reviewed icon and disabled checkbox
+    expect(screen.getByLabelText(/agreement not reviewed/i)).toBeInTheDocument();
     const consentCheckbox = screen.getByLabelText(
       /Parental\/Guardian Consent has been verified/i
     );
@@ -284,9 +283,9 @@ describe("UpdateStudentProfile Help Text & Difficulty Validation", () => {
     });
     fireEvent.click(confirmBtn);
 
-    // Modal closes, badge flips to Agreement Reviewed, and checkbox is enabled
+    // Modal closes, indicator flips to Agreement Reviewed, and checkbox is enabled
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByText(/Agreement Reviewed/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/agreement reviewed/i)).toBeInTheDocument();
     expect(consentCheckbox).not.toBeDisabled();
     expect(consentCheckbox).toBeChecked();
   });
@@ -310,7 +309,7 @@ describe("UpdateStudentProfile Help Text & Difficulty Validation", () => {
 
     await screen.findByDisplayValue("Maria Clara");
 
-    expect(screen.getByText(/Agreement Reviewed/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/agreement reviewed/i)).toBeInTheDocument();
     const consentCheckbox = screen.getByLabelText(
       /Parental\/Guardian Consent has been verified/i
     );
@@ -367,5 +366,8 @@ describe("UpdateStudentProfile Help Text & Difficulty Validation", () => {
       await screen.findByText(/Present Levels of Academic Achievement/i)
     ).toBeInTheDocument();
     expect(scrollToMock).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
+    expect(
+      screen.queryByText(/Please fill in the evaluation \/ assessment results before saving/i),
+    ).not.toBeInTheDocument();
   });
 });
