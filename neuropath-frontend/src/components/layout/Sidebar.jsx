@@ -2,12 +2,21 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import LogoutModal from "./LogoutModal";
+import {
+  HomeIcon,
+  UsersIcon,
+  SparklesIcon,
+  BookOpenIcon,
+  ChartBarIcon,
+  ChevronRightIcon,
+  LogOutIcon,
+} from "../ui/icons";
 
 const navItems = [
   {
     label: "Home",
     path: "/dashboard",
-    icon: "ti-home-2",
+    iconComponent: HomeIcon,
     exact: true,
     children: [],
   },
@@ -15,7 +24,7 @@ const navItems = [
     label: "Student Profiling",
     key: "student-profiling",
     pathPrefix: "/dashboard/students",
-    icon: "ti-users",
+    iconComponent: UsersIcon,
     children: [
       { label: "Create Student Profile", path: "/dashboard/students/create" },
       { label: "View Student Profile", path: "/dashboard/students", exact: true },
@@ -25,7 +34,7 @@ const navItems = [
     label: "AI-Based IEP Generation",
     key: "iep-generation",
     pathPrefix: "/dashboard/iep",
-    icon: "ti-sparkles",
+    iconComponent: SparklesIcon,
     children: [
       { label: "Generate IEP", path: "/dashboard/iep/generate" },
       { label: "View IEP", path: "/dashboard/iep/view" },
@@ -34,7 +43,7 @@ const navItems = [
   {
     label: "Instructional Support",
     key: "instructional-support",
-    icon: "ti-books",
+    iconComponent: BookOpenIcon,
     children: [
       { label: "Manage Lesson Plans", path: "/dashboard/lessons" },
       { label: "Manage Visual Aids", path: "/dashboard/visual-aids" },
@@ -44,13 +53,14 @@ const navItems = [
   {
     label: "Outcome Monitoring",
     key: "outcome-monitoring",
-    icon: "ti-chart-bar",
+    iconComponent: ChartBarIcon,
     children: [
       { label: "View Student Records", path: "/dashboard/records" },
       { label: "View Progress Dashboard", path: "/dashboard/monitoring" },
     ],
   },
 ];
+
 
 export default function Sidebar({
   activePage,
@@ -185,13 +195,17 @@ export default function Sidebar({
                   aria-expanded={item.children.length > 0 ? isCategoryExpanded : undefined}
                   aria-controls={item.children.length > 0 ? `subnav-${item.key}` : undefined}
                 >
-                  <i className={`ti ${item.icon} sidebar-icon`} aria-hidden="true" />
+                  {item.iconComponent ? (
+                    <item.iconComponent className="w-5 h-5 sidebar-icon" aria-hidden="true" />
+                  ) : (
+                    <HomeIcon className="w-5 h-5 sidebar-icon" aria-hidden="true" />
+                  )}
                   {!collapsed && (
                     <>
                       <span className="sidebar-label">{item.label}</span>
                       {item.children.length > 0 && (
-                        <i
-                          className={`ti ti-chevron-right sidebar-chevron ${isCategoryExpanded ? "rotated" : ""}`}
+                        <ChevronRightIcon
+                          className={`w-4 h-4 sidebar-chevron ${isCategoryExpanded ? "rotated" : ""}`}
                           aria-hidden="true"
                         />
                       )}
@@ -211,8 +225,8 @@ export default function Sidebar({
                   >
                     {item.children.map((child) => {
                       const isChildActive = child.exact
-                        ? currentPath === child.path
-                        : currentPath.startsWith(child.path);
+                          ? currentPath === child.path
+                          : currentPath.startsWith(child.path);
 
                       return (
                         <button
@@ -262,11 +276,12 @@ export default function Sidebar({
             aria-label="Log Out"
             title={collapsed ? "Log out" : undefined}
           >
-            <i className="ti ti-logout-2" aria-hidden="true" />
+            <LogOutIcon className="w-5 h-5 sidebar-icon" aria-hidden="true" />
             {!collapsed && <span>Log Out</span>}
             {collapsed && <span className="sidebar-tooltip" aria-hidden="true">Log Out</span>}
           </button>
         </div>
+
       </aside>
 
       <LogoutModal
