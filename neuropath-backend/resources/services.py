@@ -183,24 +183,20 @@ Generate a highly tailored lesson plan for EACH Enroute Objective listed above. 
             # 4. Route to AIEngineService with JSON strict mode
             raw_content, _ = AIEngineService.generate_text(prompt=prompt, json_mode=True)
             
-            try:
-                if isinstance(raw_content, dict):
-                    parsed_json = raw_content
-                else:
-                    clean_content = str(raw_content).strip()
-                    if clean_content.startswith('```'):
-                        lines = clean_content.splitlines()
-                        if lines and lines[0].startswith('```'):
-                            lines = lines[1:]
-                        if lines and lines[-1].startswith('```'):
-                            lines = lines[:-1]
-                        clean_content = '\n'.join(lines).strip()
-                    parsed_json = json.loads(clean_content)
-                if not isinstance(parsed_json, dict) or 'lesson_plans' not in parsed_json:
-                    raise ValueError("Parsed JSON missing 'lesson_plans' key.")
-            except Exception:
-                fallback_str = AIEngineService._deterministic_fallback(prompt, json_mode=True)
-                parsed_json = json.loads(fallback_str)
+            if isinstance(raw_content, dict):
+                parsed_json = raw_content
+            else:
+                clean_content = str(raw_content).strip()
+                if clean_content.startswith('```'):
+                    lines = clean_content.splitlines()
+                    if lines and lines[0].startswith('```'):
+                        lines = lines[1:]
+                    if lines and lines[-1].startswith('```'):
+                        lines = lines[:-1]
+                    clean_content = '\n'.join(lines).strip()
+                parsed_json = json.loads(clean_content)
+            if not isinstance(parsed_json, dict) or 'lesson_plans' not in parsed_json:
+                raise ValueError("Parsed JSON missing 'lesson_plans' key.")
             
             # 5. SAVE TO DATABASE AUTOMATICALLY
             # Extract a safe name for the title

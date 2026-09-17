@@ -46,8 +46,9 @@ class AIGenerationService:
             generated_summary, _ = AIEngineService.generate_text(
                 prompt=prompt,
                 system_prompt='You output only the requested summary paragraph. No conversational filler.',
-                max_tokens=350
+                max_tokens=600
             )
+
             new_insight = GeneratedAIInsight.objects.create(
                 student=student_instance,
                 teacher=teacher_instance, 
@@ -55,5 +56,5 @@ class AIGenerationService:
             )
             return new_insight
         except Exception as e:
-            raise Exception(f"AI Generation failed: {str(e)}")
+            raise RuntimeError(f"AI Generation failed: {str(e)}")
 

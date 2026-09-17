@@ -388,7 +388,12 @@ def generate_ai_insight(request, student_id):
     except ConsentRequiredException as e:
         return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
     except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        status_code = (
+            status.HTTP_503_SERVICE_UNAVAILABLE
+            if ("AI Generation failed" in str(e) or "temporarily unavailable" in str(e) or "503" in str(e))
+            else status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+        return Response({"error": str(e)}, status=status_code)
 
 # 2. FETCH INSIGHTS SECURELY ENDPOINT (This answers your exact question!)
 @api_view(['GET'])
@@ -482,6 +487,7 @@ class GenerateIEPGoalAPIView(APIView):
         best_goal = ""
         best_score = -1
         final_feedback = ""
+        last_error = None
 
         # 3. The Validation Loop
         for attempt in range(max_attempts):
@@ -503,12 +509,17 @@ class GenerateIEPGoalAPIView(APIView):
                 if evaluation.get('compliant') is True:
                     break
                     
-                time.sleep(0.5)
-                
             except Exception as e:
+                last_error = str(e)
                 if best_goal:
                     break
-                return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                time.sleep(0.5)
+
+        if not best_goal:
+            return Response(
+                {"error": "AI generation service is temporarily unavailable. Please try again shortly.", "details": last_error},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
 
         # 4. Send the final, audited result back to React
         return Response({
@@ -648,8 +659,8 @@ class GenerateIEPGoalsFromIEPView(APIView):
 
         if error:
             return Response(
-                {"error": "Goal generation failed.", "details": error},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "AI generation service is temporarily unavailable. Please try again shortly.", "details": error},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
         return Response({
@@ -824,17 +835,9 @@ class GenerateIEPGoalsFromIEPView(APIView):
             json_mode=True,
         )
 
-        fallback_rows = [{
-            "enroute_objectives": f"Student will demonstrate an initial sub-skill toward: {annual_goal[:120]}",
-            "interventions_procedures": f"Use {assistive_tech or 'visual supports'} and structured practice to support {goal_area or 'the goal area'}.",
-            "timeline_mins_session": "15-20 minutes every day",
-            "individuals_responsible": facilitators or "SNED Teacher",
-            "progress_instructional": "Monitor weekly progress through teacher observation and skill checklists.",
-            "remarks": "To be updated based on actual learning outcomes."
-        }]
-
         if not raw or not isinstance(raw, str):
-            return fallback_rows
+            raise RuntimeError("AI generation service returned empty or invalid response for objective rows.")
+
         try:
             clean = raw.strip()
             if "```" in clean:
@@ -859,20 +862,32 @@ class GenerateIEPGoalsFromIEPView(APIView):
                 validated_rows = []
                 for row in parsed:
                     if isinstance(row, dict) and (row.get("enroute_objectives") or row.get("objective")):
+                        obj_text = str(row.get("enroute_objectives") or row.get("objective", "")).strip()
+                        int_text = str(row.get("interventions_procedures") or row.get("interventions") or row.get("intervention", f"Use {assistive_tech or 'visual supports'}")).strip()
+                        time_text = str(row.get("timeline_mins_session") or row.get("timeline", "15-20 minutes every day")).strip()
+                        resp_text = str(row.get("individuals_responsible") or row.get("responsible", facilitators or "SNED Teacher")).strip()
+                        prog_text = str(row.get("progress_instructional") or row.get("progress", "Weekly skill mastery checklist.")).strip()
+                        rem_text = str(row.get("remarks", "Targeted for ongoing observation.")).strip()
                         validated_rows.append({
-                            "enroute_objectives": str(row.get("enroute_objectives") or row.get("objective", "")).strip(),
-                            "interventions_procedures": str(row.get("interventions_procedures") or row.get("intervention", f"Use {assistive_tech or 'visual supports'}")).strip(),
-                            "timeline_mins_session": str(row.get("timeline_mins_session") or row.get("timeline", "15-20 minutes every day")).strip(),
-                            "individuals_responsible": str(row.get("individuals_responsible") or row.get("responsible", facilitators or "SNED Teacher")).strip(),
-                            "progress_instructional": str(row.get("progress_instructional") or row.get("progress", "Weekly skill mastery checklist.")).strip(),
-                            "remarks": str(row.get("remarks", "Targeted for ongoing observation.")).strip(),
+                            "enroute_objectives": obj_text,
+                            "objective": obj_text,
+                            "interventions_procedures": int_text,
+                            "interventions": int_text,
+                            "intervention": int_text,
+                            "timeline_mins_session": time_text,
+                            "timeline": time_text,
+                            "individuals_responsible": resp_text,
+                            "progress_instructional": prog_text,
+                            "remarks": rem_text,
                         })
                 if validated_rows:
                     return validated_rows
 
-            return fallback_rows
-        except Exception:
-            return fallback_rows
+            raise RuntimeError("AI generation service could not generate valid objective rows. Please try again.")
+        except Exception as e:
+            if isinstance(e, RuntimeError):
+                raise
+            raise RuntimeError(f"AI generation service could not parse objective rows: {e}")
  
  
     def _map_difficulty_to_category(self, difficulty):

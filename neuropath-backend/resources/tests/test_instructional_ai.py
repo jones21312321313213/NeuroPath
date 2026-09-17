@@ -62,11 +62,10 @@ class InstructionalAIServiceTestCase(TestCase):
 
     @patch('iep_management.ai_engine.AIEngineService.generate_text')
     def test_lesson_plan_generation_handles_invalid_json_fallback(self, mock_ai):
-        mock_ai.return_value = ('Invalid non-json output from model', 'template_fallback')
-        data = LessonPlanGenerationService.execute_generation(self.goal.pk, self.teacher)
-        self.assertIn('lesson_plans', data)
-        self.assertIsInstance(data['lesson_plans'], list)
-        self.assertGreater(len(data['lesson_plans']), 0)
+        mock_ai.return_value = ('Invalid non-json output from model', 'gemini')
+        with self.assertRaises(Exception) as ctx:
+            LessonPlanGenerationService.execute_generation(self.goal.pk, self.teacher)
+        self.assertIn('Lesson Plan Generation failed', str(ctx.exception))
 
     def test_lesson_generation_serializer_with_only_goal_id_and_frontend_payload(self):
         from resources.serializers import LessonGenerationSerializer
