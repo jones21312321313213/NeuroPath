@@ -196,16 +196,16 @@ export default function Sidebar({
                   aria-controls={item.children.length > 0 ? `subnav-${item.key}` : undefined}
                 >
                   {item.iconComponent ? (
-                    <item.iconComponent className="sidebar-icon" aria-hidden="true" />
+                    <item.iconComponent className="w-5 h-5 sidebar-icon" aria-hidden="true" />
                   ) : (
-                    <HomeIcon className="sidebar-icon" aria-hidden="true" />
+                    <HomeIcon className="w-5 h-5 sidebar-icon" aria-hidden="true" />
                   )}
                   {!collapsed && (
                     <>
                       <span className="sidebar-label">{item.label}</span>
                       {item.children.length > 0 && (
                         <ChevronRightIcon
-                          className={`sidebar-chevron ${isCategoryExpanded ? "rotated" : ""}`}
+                          className={`w-4 h-4 sidebar-chevron ${isCategoryExpanded ? "rotated" : ""}`}
                           aria-hidden="true"
                         />
                       )}
@@ -276,7 +276,7 @@ export default function Sidebar({
             aria-label="Log Out"
             title={collapsed ? "Log out" : undefined}
           >
-            <LogOutIcon className="sidebar-icon" aria-hidden="true" />
+            <LogOutIcon className="w-5 h-5 sidebar-icon" aria-hidden="true" />
             {!collapsed && <span>Log Out</span>}
             {collapsed && <span className="sidebar-tooltip" aria-hidden="true">Log Out</span>}
           </button>
