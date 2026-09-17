@@ -187,7 +187,7 @@ export default function UpdateStudentProfile({ studentId: propStudentId, onBack 
   const scrollToError = () => {
     setTimeout(() => {
       if (errorRef.current) {
-        errorRef.current.scrollIntoView({
+        errorRef.current.scrollIntoView?.({
           behavior: "smooth",
           block: "center",
         });

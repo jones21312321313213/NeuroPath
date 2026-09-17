@@ -290,7 +290,7 @@ export default function CreateStudentProfile({
   const scrollToError = () => {
     setTimeout(() => {
       if (errorRef.current) {
-        errorRef.current.scrollIntoView({
+        errorRef.current.scrollIntoView?.({
           behavior: "smooth",
           block: "center",
         });
