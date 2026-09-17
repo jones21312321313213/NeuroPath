@@ -1,0 +1,486 @@
+/**
+ * NeuroPath Design System Spike - Claymorphism Theme
+ * 
+ * GitHub Issue #185: "Design Spike: Claymorphism Style System"
+ * Brand Palette:
+ *   - Brand Primary:       #5aabf0
+ *   - Brand Action:        #3d9de8
+ *   - Deep Shadow Anchor:  #1e6fbf
+ *   - Page Background:     #f0f4f9 (soft pale clay background)
+ *   - Card Surface:        #ffffff
+ *   - Primary Text:        #1e293b
+ *   - Secondary Text:      #64748b
+ *   - Accessible Focus:    #0284c7 (with 2px offset)
+ * 
+ * Features:
+ *   1. Generous border-radius: 16px to 24px on cards, buttons, and inputs.
+ *   2. Dual-shadow technique for clay depth:
+ *      - Outer soft drop shadow: 8px 8px 16px rgba(90, 171, 240, 0.12), -4px -4px 12px rgba(255, 255, 255, 0.85)
+ *      - Inner highlight: inset 2px 2px 4px rgba(255, 255, 255, 0.8), inset -2px -2px 4px rgba(61, 157, 232, 0.12)
+ *   3. Smooth pill shapes on buttons (border-radius: 9999px) with tactile active depression (transform: scale(0.98)).
+ *   4. Strict accessibility: WCAG 2.1 AA compliant contrast (#1e293b primary text, #0284c7 focus rings).
+ */
+
+/* ── 1. CSS Custom Properties ────────────────────────────────────────────── */
+:root {
+  /* Brand Palette */
+  --clay-brand-primary: #5aabf0;
+  --clay-brand-action: #3d9de8;
+  --clay-deep-shadow-anchor: #1e6fbf;
+  --clay-page-bg: #f0f4f9;
+  --clay-card-surface: #ffffff;
+  --clay-primary-text: #1e293b;
+  --clay-secondary-text: #64748b;
+  --clay-focus-ring: #0284c7;
+  --clay-focus-offset: 2px;
+
+  /* Border Radii */
+  --clay-radius-input: 16px;
+  --clay-radius-card: 20px;
+  --clay-radius-card-lg: 24px;
+  --clay-radius-pill: 9999px;
+
+  /* Dual-Shadow Components */
+  --clay-shadow-outer: 8px 8px 16px rgba(90, 171, 240, 0.12), -4px -4px 12px rgba(255, 255, 255, 0.85);
+  --clay-shadow-inner: inset 2px 2px 4px rgba(255, 255, 255, 0.8), inset -2px -2px 4px rgba(61, 157, 232, 0.12);
+
+  /* Composite Card Surface Shadow (Outer + Inner Highlights) */
+  --clay-surface-shadow: 8px 8px 16px rgba(90, 171, 240, 0.12),
+                         -4px -4px 12px rgba(255, 255, 255, 0.85),
+                         inset 2px 2px 4px rgba(255, 255, 255, 0.8),
+                         inset -2px -2px 4px rgba(61, 157, 232, 0.12);
+
+  /* Hover Elevation for Interactive Cards */
+  --clay-surface-shadow-hover: 12px 12px 24px rgba(90, 171, 240, 0.16),
+                               -6px -6px 16px rgba(255, 255, 255, 0.95),
+                               inset 2px 2px 4px rgba(255, 255, 255, 0.85),
+                               inset -2px -2px 4px rgba(61, 157, 232, 0.14);
+
+  /* Tactile Button Shadows */
+  --clay-btn-primary-shadow: 6px 6px 14px rgba(30, 111, 191, 0.28),
+                             -3px -3px 10px rgba(255, 255, 255, 0.75),
+                             inset 2px 2px 3px rgba(255, 255, 255, 0.55),
+                             inset -2px -2px 4px rgba(30, 111, 191, 0.35);
+
+  --clay-btn-primary-hover-shadow: 8px 8px 18px rgba(30, 111, 191, 0.32),
+                                   -4px -4px 12px rgba(255, 255, 255, 0.85),
+                                   inset 2px 2px 3px rgba(255, 255, 255, 0.65),
+                                   inset -2px -2px 4px rgba(30, 111, 191, 0.4);
+
+  --clay-btn-secondary-shadow: 5px 5px 12px rgba(90, 171, 240, 0.14),
+                               -3px -3px 8px rgba(255, 255, 255, 0.9),
+                               inset 2px 2px 3px rgba(255, 255, 255, 0.9),
+                               inset -2px -2px 3px rgba(61, 157, 232, 0.1);
+
+  --clay-btn-active-shadow: inset 3px 3px 6px rgba(30, 111, 191, 0.35),
+                            inset -2px -2px 4px rgba(255, 255, 255, 0.4);
+
+  /* Recessed Input Field Shadows */
+  --clay-input-shadow: inset 2px 2px 5px rgba(90, 171, 240, 0.1),
+                       inset -2px -2px 5px rgba(255, 255, 255, 0.9),
+                       0 2px 6px rgba(90, 171, 240, 0.04);
+
+  --clay-input-focus-shadow: inset 2px 2px 4px rgba(90, 171, 240, 0.16),
+                             inset -2px -2px 4px rgba(255, 255, 255, 0.95);
+
+  /* Pill / Topbar Shadows */
+  --clay-pill-shadow: 4px 4px 10px rgba(90, 171, 240, 0.14),
+                      -2px -2px 8px rgba(255, 255, 255, 0.9),
+                      inset 1.5px 1.5px 2px rgba(255, 255, 255, 0.8),
+                      inset -1.5px -1.5px 2px rgba(61, 157, 232, 0.12);
+}
+
+/* ── 2. Scoped Theme: [data-theme="claymorphism"] ────────────────────────── */
+
+/* Page Background & Global Typography */
+[data-theme="claymorphism"] {
+  background-color: var(--clay-page-bg);
+  color: var(--clay-primary-text);
+}
+
+[data-theme="claymorphism"] body,
+[data-theme="claymorphism"] .app-layout,
+[data-theme="claymorphism"] .main-area,
+[data-theme="claymorphism"] .page-content {
+  background-color: var(--clay-page-bg);
+  color: var(--clay-primary-text);
+}
+
+/* Accessible Global Focus Rings under Claymorphism */
+[data-theme="claymorphism"] :focus-visible {
+  outline: 2px solid var(--clay-focus-ring) !important;
+  outline-offset: var(--clay-focus-offset) !important;
+}
+
+/* ── Topbar Component under Claymorphism ── */
+[data-theme="claymorphism"] .topbar {
+  background: var(--clay-card-surface);
+  border-bottom: 1px solid rgba(90, 171, 240, 0.18);
+  box-shadow: 0 4px 16px rgba(90, 171, 240, 0.08);
+  transition: all 0.2s ease;
+}
+
+[data-theme="claymorphism"] .topbar-breadcrumb {
+  color: var(--clay-primary-text);
+  font-weight: 700;
+}
+
+[data-theme="claymorphism"] .topbar-pill {
+  background: #ffffff;
+  border-radius: var(--clay-radius-pill);
+  box-shadow: var(--clay-pill-shadow);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  color: var(--clay-primary-text);
+  transition: transform 0.12s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+[data-theme="claymorphism"] .topbar-pill:hover {
+  background: #f8fbfe;
+  box-shadow: 5px 5px 14px rgba(90, 171, 240, 0.18),
+              -3px -3px 10px rgba(255, 255, 255, 0.95),
+              inset 1.5px 1.5px 2px rgba(255, 255, 255, 0.8),
+              inset -1.5px -1.5px 2px rgba(61, 157, 232, 0.12);
+}
+
+[data-theme="claymorphism"] .topbar-pill:active {
+  transform: scale(0.98);
+  box-shadow: inset 2px 2px 4px rgba(90, 171, 240, 0.2),
+              inset -1px -1px 2px rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="claymorphism"] .topbar-pill:focus-visible {
+  outline: 2px solid var(--clay-focus-ring);
+  outline-offset: 2px;
+}
+
+[data-theme="claymorphism"] .topbar-pill-name {
+  color: #185fa5;
+}
+
+/* ── Form Cards & Surface Containers under Claymorphism ── */
+[data-theme="claymorphism"] .form-card,
+[data-theme="claymorphism"] .overview-glance-strip,
+[data-theme="claymorphism"] .card,
+[data-theme="claymorphism"] .modal-content,
+[data-theme="claymorphism"] section.form-card {
+  background-color: var(--clay-card-surface);
+  border-radius: var(--clay-radius-card-lg); /* 24px */
+  box-shadow: var(--clay-surface-shadow);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  color: var(--clay-primary-text);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+[data-theme="claymorphism"] .form-section-title {
+  color: var(--clay-primary-text);
+  font-weight: 700;
+}
+
+[data-theme="claymorphism"] .form-label {
+  color: var(--clay-primary-text);
+  font-weight: 600;
+}
+
+/* ── Input Fields, Selects, and Textareas under Claymorphism ── */
+[data-theme="claymorphism"] .form-input,
+[data-theme="claymorphism"] .form-select,
+[data-theme="claymorphism"] .form-textarea,
+[data-theme="claymorphism"] .ts-form-input,
+[data-theme="claymorphism"] .va-form-input,
+[data-theme="claymorphism"] .om-search-input,
+[data-theme="claymorphism"] input[type="text"]:not([class*="sr-only"]),
+[data-theme="claymorphism"] input[type="email"],
+[data-theme="claymorphism"] input[type="password"],
+[data-theme="claymorphism"] input[type="search"] {
+  border-radius: var(--clay-radius-input); /* 16px */
+  background: #ffffff;
+  border: 1.5px solid rgba(90, 171, 240, 0.22);
+  box-shadow: var(--clay-input-shadow);
+  color: var(--clay-primary-text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+[data-theme="claymorphism"] .form-input::placeholder,
+[data-theme="claymorphism"] .form-textarea::placeholder,
+[data-theme="claymorphism"] input::placeholder,
+[data-theme="claymorphism"] textarea::placeholder {
+  color: var(--clay-secondary-text);
+  opacity: 0.8;
+}
+
+[data-theme="claymorphism"] .form-input:focus,
+[data-theme="claymorphism"] .form-select:focus,
+[data-theme="claymorphism"] .form-textarea:focus,
+[data-theme="claymorphism"] input:focus,
+[data-theme="claymorphism"] select:focus,
+[data-theme="claymorphism"] textarea:focus {
+  background: #ffffff;
+  border-color: var(--clay-brand-action);
+  box-shadow: var(--clay-input-focus-shadow);
+  outline: 2px solid var(--clay-focus-ring);
+  outline-offset: 2px;
+}
+
+[data-theme="claymorphism"] .form-input:focus-visible,
+[data-theme="claymorphism"] .form-select:focus-visible,
+[data-theme="claymorphism"] .form-textarea:focus-visible,
+[data-theme="claymorphism"] input:focus-visible,
+[data-theme="claymorphism"] select:focus-visible,
+[data-theme="claymorphism"] textarea:focus-visible {
+  outline: 2px solid var(--clay-focus-ring);
+  outline-offset: 2px;
+}
+
+/* ── Buttons under Claymorphism ── */
+[data-theme="claymorphism"] .btn,
+[data-theme="claymorphism"] .btn-submit,
+[data-theme="claymorphism"] .btn-back,
+[data-theme="claymorphism"] button[type="submit"]:not(.btn-unstyled) {
+  border-radius: var(--clay-radius-pill); /* 9999px smooth pill shape */
+  padding: 10px 26px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.12s ease, box-shadow 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+  user-select: none;
+}
+
+/* Tactile Active Depression on Click (transform: scale(0.98)) */
+[data-theme="claymorphism"] .btn:active,
+[data-theme="claymorphism"] .btn-submit:active,
+[data-theme="claymorphism"] .btn-back:active,
+[data-theme="claymorphism"] button[type="submit"]:active {
+  transform: scale(0.98);
+}
+
+[data-theme="claymorphism"] .btn:focus-visible,
+[data-theme="claymorphism"] .btn-submit:focus-visible,
+[data-theme="claymorphism"] .btn-back:focus-visible,
+[data-theme="claymorphism"] button[type="submit"]:focus-visible {
+  outline: 2px solid var(--clay-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Primary Action Button (#3d9de8 / #5aabf0) */
+[data-theme="claymorphism"] .btn-submit,
+[data-theme="claymorphism"] .clay-btn-primary {
+  background: linear-gradient(135deg, var(--clay-brand-primary) 0%, var(--clay-brand-action) 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: var(--clay-btn-primary-shadow);
+  text-shadow: 0 1px 2px rgba(30, 111, 191, 0.3);
+}
+
+[data-theme="claymorphism"] .btn-submit:hover,
+[data-theme="claymorphism"] .clay-btn-primary:hover {
+  background: linear-gradient(135deg, #6bb8f5 0%, #3594df 100%);
+  box-shadow: var(--clay-btn-primary-hover-shadow);
+  transform: translateY(-1px);
+}
+
+[data-theme="claymorphism"] .btn-submit:active,
+[data-theme="claymorphism"] .clay-btn-primary:active {
+  transform: scale(0.98);
+  box-shadow: var(--clay-btn-active-shadow);
+}
+
+/* Secondary / Back Button */
+[data-theme="claymorphism"] .btn-back,
+[data-theme="claymorphism"] .clay-btn-secondary {
+  background: #ffffff;
+  color: var(--clay-primary-text);
+  border: 1.5px solid rgba(90, 171, 240, 0.25);
+  box-shadow: var(--clay-btn-secondary-shadow);
+}
+
+[data-theme="claymorphism"] .btn-back:hover,
+[data-theme="claymorphism"] .clay-btn-secondary:hover {
+  background: #f8fbfe;
+  color: var(--clay-primary-text);
+  border-color: rgba(90, 171, 240, 0.4);
+  transform: translateY(-1px);
+}
+
+[data-theme="claymorphism"] .btn-back:active,
+[data-theme="claymorphism"] .clay-btn-secondary:active {
+  transform: scale(0.98);
+  box-shadow: inset 2px 2px 4px rgba(90, 171, 240, 0.18),
+              inset -1px -1px 2px rgba(255, 255, 255, 0.9);
+}
+
+/* ── 3. Standalone Claymorphic Utility Classes ───────────────────────────── */
+
+/* Standalone Clay Surface Card */
+.clay-card {
+  background-color: var(--clay-card-surface);
+  border-radius: var(--clay-radius-card-lg); /* 24px */
+  box-shadow: var(--clay-surface-shadow);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  color: var(--clay-primary-text);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.clay-card-interactive {
+  background-color: var(--clay-card-surface);
+  border-radius: var(--clay-radius-card-lg);
+  box-shadow: var(--clay-surface-shadow);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  color: var(--clay-primary-text);
+  cursor: pointer;
+  transition: box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s ease;
+}
+
+.clay-card-interactive:hover {
+  box-shadow: var(--clay-surface-shadow-hover);
+  transform: translateY(-2px);
+}
+
+.clay-card-interactive:active {
+  transform: scale(0.99);
+}
+
+/* Standalone Buttons */
+.clay-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--clay-radius-pill);
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.12s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.clay-btn:active {
+  transform: scale(0.98);
+}
+
+.clay-btn:focus-visible {
+  outline: 2px solid var(--clay-focus-ring);
+  outline-offset: 2px;
+}
+
+.clay-btn-primary {
+  background: linear-gradient(135deg, var(--clay-brand-primary) 0%, var(--clay-brand-action) 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: var(--clay-btn-primary-shadow);
+}
+
+.clay-btn-primary:hover {
+  background: linear-gradient(135deg, #6bb8f5 0%, #3594df 100%);
+  box-shadow: var(--clay-btn-primary-hover-shadow);
+  transform: translateY(-1px);
+}
+
+.clay-btn-primary:active {
+  transform: scale(0.98);
+  box-shadow: var(--clay-btn-active-shadow);
+}
+
+.clay-btn-secondary {
+  background: #ffffff;
+  color: var(--clay-primary-text);
+  border: 1.5px solid rgba(90, 171, 240, 0.25);
+  box-shadow: var(--clay-btn-secondary-shadow);
+}
+
+.clay-btn-secondary:hover {
+  background: #f8fbfe;
+  border-color: rgba(90, 171, 240, 0.4);
+  transform: translateY(-1px);
+}
+
+.clay-btn-secondary:active {
+  transform: scale(0.98);
+}
+
+/* Standalone Inputs */
+.clay-input,
+.clay-select,
+.clay-textarea {
+  border-radius: var(--clay-radius-input); /* 16px */
+  background: #ffffff;
+  border: 1.5px solid rgba(90, 171, 240, 0.22);
+  box-shadow: var(--clay-input-shadow);
+  color: var(--clay-primary-text);
+  padding: 10px 16px;
+  font-size: 14.5px;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.clay-input:focus,
+.clay-select:focus,
+.clay-textarea:focus {
+  outline: 2px solid var(--clay-focus-ring);
+  outline-offset: 2px;
+  border-color: var(--clay-brand-action);
+  box-shadow: var(--clay-input-focus-shadow);
+}
+
+/* Standalone Pill Badge */
+.clay-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--clay-radius-pill);
+  padding: 6px 14px;
+  background: #ffffff;
+  box-shadow: var(--clay-pill-shadow);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  color: var(--clay-primary-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.clay-pill-primary {
+  background: #eaf4fd;
+  color: #185fa5;
+  border-color: rgba(90, 171, 240, 0.25);
+}
+
+/* Theme Toggle Button in Topbar */
+.topbar-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: var(--clay-radius-pill);
+  border: 1px solid rgba(90, 171, 240, 0.3);
+  background: #ffffff;
+  color: var(--clay-primary-text);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--clay-pill-shadow);
+  transition: transform 0.12s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.topbar-theme-toggle:hover {
+  background: #f8fbfe;
+  transform: translateY(-1px);
+}
+
+.topbar-theme-toggle:active {
+  transform: scale(0.98);
+}
+
+.topbar-theme-toggle:focus-visible {
+  outline: 2px solid var(--clay-focus-ring);
+  outline-offset: 2px;
+}
+
+.topbar-theme-toggle[aria-pressed="true"] {
+  background: linear-gradient(135deg, #e8f4fe 0%, #d8ecfd 100%);
+  border-color: var(--clay-brand-primary);
+  color: #0f4c81;
+}

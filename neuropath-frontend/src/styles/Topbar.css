@@ -42,3 +42,34 @@
   color: #185fa5;
   white-space: nowrap;
 }
+
+.topbar-theme-toggle {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #1e293b;
+  border-radius: 9999px;
+  padding: 5px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.topbar-theme-toggle:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.topbar-theme-toggle:active {
+  transform: scale(0.98);
+}
+
+.topbar-theme-toggle:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+}

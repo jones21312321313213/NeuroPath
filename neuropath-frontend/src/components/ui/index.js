@@ -11,4 +11,5 @@ export { default as GlareHover } from "./GlareHover";
 export { default as ClickSpark } from "./ClickSpark";
 export { default as RotatingText } from "./RotatingText";
 export { IepPostGenerationModal, default as IepPostGenerationModalDefault } from "./IepPostGenerationModal";
+export { ClaymorphismShowcase, default as ClaymorphismShowcaseDefault } from "./ClaymorphismShowcase";
 export * from "./icons";

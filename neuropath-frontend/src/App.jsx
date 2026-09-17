@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import LandingPage from "./pages/landingPage";
 import LoginPage from "./pages/loginPage";
 import RegisterPage from "./pages/registerPage";
@@ -23,11 +24,13 @@ import LoginSplash from "./components/LoginSplash";
 import TeacherTutorialModal from "./components/TeacherTutorialModal";
 import NotFoundPage from "./pages/NotFoundPage";
 import SessionTimeoutManager from "./components/session/SessionTimeoutManager";
+import ClaymorphismShowcase from "./components/ui/ClaymorphismShowcase";
 import "./App.css";
 
 function getBreadcrumb(pathname) {
   if (pathname === "/dashboard" || pathname === "/dashboard/") return "DASHBOARD / Home";
   if (pathname === "/dashboard/profile") return "DASHBOARD / My Profile";
+  if (pathname === "/dashboard/clay-spike") return "DASHBOARD / Design Spike / Claymorphism";
   if (pathname === "/dashboard/students") return "DASHBOARD / Student Profiling / View Profiles";
   if (pathname === "/dashboard/students/create") return "DASHBOARD / Student Profiling / Create Profile";
   if (pathname.startsWith("/dashboard/students/") && pathname.endsWith("/edit")) return "DASHBOARD / Student Profiling / Edit Profile";
@@ -45,6 +48,7 @@ function getBreadcrumb(pathname) {
 
 function DashboardLayout() {
   const { user, markTutorialComplete } = useAuth();
+  const { theme } = useTheme();
   const location = useLocation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     return localStorage.getItem("neuropath_sidebar_collapsed") === "true";
@@ -62,7 +66,10 @@ function DashboardLayout() {
   const showTutorial = user && user.has_completed_tutorial === false;
 
   return (
-    <div className={`app-layout ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+    <div
+      className={`app-layout ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}
+      data-theme={theme}
+    >
       <SkipLink targetId="main-content" />
       {showTutorial && (
         <TeacherTutorialModal onComplete={markTutorialComplete} />
@@ -162,6 +169,7 @@ function AppRoutes() {
             }
           >
             <Route index element={<Overview />} />
+            <Route path="clay-spike" element={<ClaymorphismShowcase />} />
             <Route path="profile" element={<UserProfile />} />
             <Route path="students" element={<ViewStudentProfile />} />
             <Route path="students/create" element={<CreateStudentProfile />} />
@@ -188,8 +196,10 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
