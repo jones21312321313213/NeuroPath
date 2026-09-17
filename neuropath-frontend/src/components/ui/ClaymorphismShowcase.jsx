@@ -1,12 +1,21 @@
 import { useState } from "react";
 import { useTheme } from "../../context/ThemeContext";
 import { Button } from "./Button";
-import { SparklesIcon, CheckIcon, UserIcon, InfoIcon } from "./icons";
+import {
+  SparklesIcon,
+  CheckIcon,
+  UserIcon,
+  InfoIcon,
+  AcademicCapIcon,
+  DocumentIcon,
+  ClipboardIcon,
+} from "./icons";
 
 export function ClaymorphismShowcase() {
   const { theme, isClaymorphism, toggleTheme } = useTheme();
   const [inputText, setInputText] = useState("Sample NeuroPath text field");
   const [selectOption, setSelectOption] = useState("option1");
+  const [activeTab, setActiveTab] = useState("students");
   const [textareaText, setTextareaText] = useState(
     "Claymorphic surfaces use rounded corners, soft drop shadows, and subtle inner highlights for a tactile 3D feel."
   );
@@ -39,12 +48,27 @@ export function ClaymorphismShowcase() {
             Claymorphism Style System Prototype
           </h1>
           <p className="text-slate-600 mt-1 max-w-2xl text-sm md:text-base leading-relaxed">
-            A tactile, soft 3D design system featuring generous radii (16px to 24px), dual-shadow
-            depth, pill-shaped buttons with active depression, and strict WCAG 2.1 AA accessibility.
+            A tactile, soft 3D design system inspired by modern Pinterest and Michal Malewicz
+            aesthetic principles: generous radii (16px to 24px), dual-shadow depth, pill-shaped
+            tactile depression, and strict WCAG 2.1 AA accessibility.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="flex items-center gap-4 flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs font-bold text-slate-600 hidden sm:inline">Tactile Switch:</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isClaymorphism}
+              aria-label="Tactile physical theme toggle"
+              className={`clay-switch ${isClaymorphism ? "checked" : ""}`}
+              onClick={toggleTheme}
+            >
+              <span className="clay-switch-thumb" />
+            </button>
+          </div>
+
           <button
             type="button"
             className={`topbar-theme-toggle px-5 py-2.5 text-sm font-bold ${
@@ -57,6 +81,66 @@ export function ClaymorphismShowcase() {
             <SparklesIcon className="w-5 h-5 text-sky-500" aria-hidden="true" />
             <span>{isClaymorphism ? "Switch to Default Theme" : "Switch to Claymorphism"}</span>
           </button>
+        </div>
+      </section>
+
+      {/* Pinterest-Inspired Stat Tiles */}
+      <section aria-labelledby="stats-heading" className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <h2 id="stats-heading" className="text-lg font-bold text-slate-900">
+            Tactile Metric Widgets
+          </h2>
+          <span className="text-xs text-slate-500">Inflated 3D tiles with interactive hover elevation</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="clay-stat-tile">
+            <div className="flex items-center justify-between">
+              <div className="w-10 h-10 rounded-2xl bg-sky-100 flex items-center justify-center text-sky-600 shadow-xs">
+                <AcademicCapIcon className="w-5 h-5" aria-hidden="true" />
+              </div>
+              <span className="clay-pill text-xs font-bold text-sky-700 bg-sky-50">+2 this month</span>
+            </div>
+            <div>
+              <span className="text-3xl font-extrabold text-slate-900 tracking-tight">24</span>
+              <p className="text-xs font-semibold text-slate-500 mt-0.5">Enrolled SPED Students</p>
+            </div>
+            <div className="clay-progress-track">
+              <div className="clay-progress-bar" style={{ width: "75%" }} />
+            </div>
+          </div>
+
+          <div className="clay-stat-tile">
+            <div className="flex items-center justify-between">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs">
+                <ClipboardIcon className="w-5 h-5" aria-hidden="true" />
+              </div>
+              <span className="clay-pill text-xs font-bold text-indigo-700 bg-indigo-50">88% on track</span>
+            </div>
+            <div>
+              <span className="text-3xl font-extrabold text-slate-900 tracking-tight">42</span>
+              <p className="text-xs font-semibold text-slate-500 mt-0.5">Active IEP Milestones</p>
+            </div>
+            <div className="clay-progress-track">
+              <div className="clay-progress-bar" style={{ width: "88%" }} />
+            </div>
+          </div>
+
+          <div className="clay-stat-tile">
+            <div className="flex items-center justify-between">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-xs">
+                <DocumentIcon className="w-5 h-5" aria-hidden="true" />
+              </div>
+              <span className="clay-pill text-xs font-bold text-emerald-700 bg-emerald-50">Updated today</span>
+            </div>
+            <div>
+              <span className="text-3xl font-extrabold text-slate-900 tracking-tight">16</span>
+              <p className="text-xs font-semibold text-slate-500 mt-0.5">Lesson Plan Strategies</p>
+            </div>
+            <div className="clay-progress-track">
+              <div className="clay-progress-bar" style={{ width: "94%" }} />
+            </div>
+          </div>
         </div>
       </section>
 
@@ -84,6 +168,48 @@ export function ClaymorphismShowcase() {
               </span>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Pinterest-Style Segmented Navigation Tabs */}
+      <section aria-label="Sample Navigation Tabs" className="clay-card p-6 flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Tactile Segmented Controls</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Recessed clay gutter container with floating inflated active pill tab.
+            </p>
+          </div>
+
+          <div className="clay-segmented-track" role="tablist" aria-label="Demo Tabs">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "students"}
+              className={`clay-segment-pill ${activeTab === "students" ? "active" : ""}`}
+              onClick={() => setActiveTab("students")}
+            >
+              Student Roster
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "ieps"}
+              className={`clay-segment-pill ${activeTab === "ieps" ? "active" : ""}`}
+              onClick={() => setActiveTab("ieps")}
+            >
+              Active IEPs
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "strategies"}
+              className={`clay-segment-pill ${activeTab === "strategies" ? "active" : ""}`}
+              onClick={() => setActiveTab("strategies")}
+            >
+              Instructional Aids
+            </button>
+          </div>
         </div>
       </section>
 
