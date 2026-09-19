@@ -1,8 +1,13 @@
 
-export function Card({ as: Component = "section", className = "", children, ...props }) {
+export function Card({ as: Component = "section", variant, className = "", children, ...props }) {
+  const isClay = variant === "clay";
+  const baseClasses = isClay
+    ? "clay-card bg-white rounded-2xl border border-white/80 text-slate-800 transition-all"
+    : "bg-white rounded-xl border border-slate-200/80 shadow-xs text-slate-800 transition-all";
+
   return (
     <Component
-      className={`bg-white rounded-xl border border-slate-200/80 shadow-xs text-slate-800 transition-all ${className}`.trim()}
+      className={`${baseClasses} ${className}`.trim()}
       {...props}
     >
       {children}
