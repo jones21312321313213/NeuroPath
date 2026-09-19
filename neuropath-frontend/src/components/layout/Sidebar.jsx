@@ -1,164 +1,270 @@
-import { useState } from "react";
-import axios from "axios";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import LogoutModal from "./LogoutModal";
 
 const navItems = [
   {
-    label: "Overview",
-    key: "overview",
+    label: "Home",
+    path: "/dashboard",
+    icon: "ti-home-2",
+    exact: true,
     children: [],
   },
   {
     label: "Student Profiling",
     key: "student-profiling",
+    pathPrefix: "/dashboard/students",
+    icon: "ti-users",
     children: [
-      { label: "Create Student Profile", key: "create-student-profile" },
-      { label: "View Student Profile", key: "view-student-profile" },
+      { label: "Create Student Profile", path: "/dashboard/students/create" },
+      { label: "View Student Profile", path: "/dashboard/students", exact: true },
     ],
   },
   {
     label: "AI-Based IEP Generation",
     key: "iep-generation",
+    pathPrefix: "/dashboard/iep",
+    icon: "ti-sparkles",
     children: [
-      { label: "Generate IEP", key: "generate-iep" },
-      { label: "View IEP", key: "view-iep" },
+      { label: "Generate IEP", path: "/dashboard/iep/generate" },
+      { label: "View IEP", path: "/dashboard/iep/view" },
     ],
   },
   {
     label: "Instructional Support",
     key: "instructional-support",
+    icon: "ti-books",
     children: [
-      { label: "Manage Lesson Plans", key: "manage-lesson-plans" },
-      { label: "Manage Visual Aids", key: "manage-visual-aids" },
-      {
-        label: "Manage Teaching Strategies",
-        key: "manage-teaching-strategies",
-      },
+      { label: "Manage Lesson Plans", path: "/dashboard/lessons" },
+      { label: "Manage Visual Aids", path: "/dashboard/visual-aids" },
+      { label: "Manage Teaching Strategies", path: "/dashboard/strategies" },
     ],
   },
   {
     label: "Outcome Monitoring",
     key: "outcome-monitoring",
+    icon: "ti-chart-bar",
     children: [
-      { label: "View Student Records", key: "view-student-records" },
-      { label: "View Progress Dashboard", key: "view-progress-dashboard" },
+      { label: "View Student Records", path: "/dashboard/records" },
+      { label: "View Progress Dashboard", path: "/dashboard/monitoring" },
     ],
   },
 ];
 
-export default function Sidebar({ activePage, setActivePage }) {
-  const { user } = useAuth();
+export default function Sidebar({
+  activePage,
+  setActivePage,
+  collapsed = false,
+  onToggleCollapse,
+}) {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const currentPath = location?.pathname || "/dashboard";
+
   const [expanded, setExpanded] = useState({
     "student-profiling": false,
     "iep-generation": false,
+    "instructional-support": false,
+    "outcome-monitoring": false,
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Auto-expand group if current path is under that group
+  useEffect(() => {
+    navItems.forEach((item) => {
+      if (item.children && item.children.length > 0) {
+        const hasMatchingChild = item.children.some(
+          (child) => child.path === currentPath || (child.path !== "/dashboard/students" && currentPath.startsWith(child.path))
+        );
+        if (hasMatchingChild || (item.pathPrefix && currentPath.startsWith(item.pathPrefix))) {
+          setExpanded((prev) => ({ ...prev, [item.key]: true }));
+        }
+      }
+    });
+  }, [currentPath]);
 
   const toggleExpand = (key) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleConfirmLogout = async () => {
+  const handleConfirmLogout = () => {
     try {
-      await axios.post(
-        "http://127.0.0.1:8000/api/users/logout/",
-        {},
-        { withCredentials: true },
-      );
-    } catch (error) {
-      console.error("Logout failed:", error);
-    } finally {
-      localStorage.clear();
-      sessionStorage.clear();
-      setIsModalOpen(false);
-      window.location.href = "/login";
+      logout();
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+    sessionStorage.clear();
+    setIsModalOpen(false);
+    navigate("/login");
+  };
+
+  const isItemActive = (item) => {
+    if (item.exact) return currentPath === item.path;
+    if (item.path && currentPath === item.path) return true;
+    if (item.pathPrefix && currentPath.startsWith(item.pathPrefix)) return true;
+    if (item.children?.some((child) => child.exact ? currentPath === child.path : currentPath.startsWith(child.path))) return true;
+    if (activePage && (item.key === activePage || item.path === activePage)) return true;
+    return false;
+  };
+
+  const handleNavClick = (e, item) => {
+    e.stopPropagation();
+    if (collapsed) {
+      if (onToggleCollapse) onToggleCollapse();
+      if (item.children.length > 0) {
+        setExpanded((prev) => ({ ...prev, [item.key]: true }));
+      } else if (item.path) {
+        navigate(item.path);
+        if (setActivePage) setActivePage(item.key || item.path);
+      }
+      return;
+    }
+
+    if (item.children.length > 0) {
+      toggleExpand(item.key);
+    } else if (item.path) {
+      navigate(item.path);
+      if (setActivePage) setActivePage(item.key || item.path);
     }
   };
 
-  const getInitials = () => {
-    if (!user) return "";
-    const first = user.firstName || user.first_name || "";
-    const last = user.lastName || user.last_name || "";
-    return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
+  const handleToggleCollapse = (e) => {
+    e.stopPropagation();
+    onToggleCollapse?.();
   };
 
   return (
     <>
-      <aside className="sidebar">
-        {/* Header Visual Area */}
-        <div className="sidebar-profile-header flex flex-col items-center pt-6 pb-2 text-center">
-          {/* Logo / Avatar containing initials — Perfectly Centered */}
-          <div className="sidebar-logo flex items-center justify-center text-center font-bold  bg-[white] w-14 h-14 rounded-full text-lg shadow-sm border border-white/20 select-none">
-            <span className="flex items-center justify-center leading-none w-full h-full">
-              {getInitials() || "👤"}
-            </span>
-          </div>
-        </div>
+      <aside
+        className={`sidebar ${collapsed ? "collapsed" : ""}`}
+        aria-label="Sidebar"
+        onClick={(e) => {
+          if (!e.target.closest("button")) {
+            onToggleCollapse?.();
+          }
+        }}
+      >
+        <button
+          type="button"
+          className="sidebar-header sidebar-header-btn"
+          onClick={handleToggleCollapse}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Click to expand sidebar" : "Click to collapse sidebar"}
+        >
+          {!collapsed ? (
+            <div className="sidebar-brand">
+              <div className="sidebar-brand-info">
+                <span className="sidebar-brand-name">NeuroPath</span>
+                <span className="sidebar-brand-tag">Special Ed Workspace</span>
+              </div>
+            </div>
+          ) : (
+            <div className="sidebar-brand collapsed">
+              <span className="sidebar-brand-abbr">NP</span>
+            </div>
+          )}
+        </button>
 
         <hr className="sidebar-divider" />
 
-        {/* Dashboard label */}
-        <div className="sidebar-dashboard-btn">DASHBOARD</div>
+        <nav className="sidebar-nav" aria-label="Main Navigation">
+          {navItems.map((item) => {
+            const active = isItemActive(item);
+            const isCategoryExpanded = expanded[item.key];
 
-        {/* Nav */}
-        <nav className="sidebar-nav">
-          {navItems.map((item) => (
-            <div key={item.key}>
-              <button
-                className={`sidebar-nav-item ${activePage === item.key ? "active" : ""}`}
-                onClick={() => {
-                  if (item.children.length > 0) {
-                    toggleExpand(item.key);
-                  } else {
-                    setActivePage(item.key);
-                  }
-                }}
-              >
-                {item.children.length > 0 && (
-                  <span className="sidebar-chevron">›</span>
+            return (
+              <div key={item.key || item.path} className="sidebar-nav-group">
+                <button
+                  type="button"
+                  className={`sidebar-nav-item ${active ? "active" : ""}`}
+                  onClick={(e) => handleNavClick(e, item)}
+                  title={collapsed ? item.label : undefined}
+                  aria-expanded={item.children.length > 0 ? isCategoryExpanded : undefined}
+                  aria-controls={item.children.length > 0 ? `subnav-${item.key}` : undefined}
+                >
+                  <i className={`ti ${item.icon} sidebar-icon`} aria-hidden="true" />
+                  {!collapsed && (
+                    <>
+                      <span className="sidebar-label">{item.label}</span>
+                      {item.children.length > 0 && (
+                        <i
+                          className={`ti ti-chevron-right sidebar-chevron ${isCategoryExpanded ? "rotated" : ""}`}
+                          aria-hidden="true"
+                        />
+                      )}
+                    </>
+                  )}
+                  {collapsed && (
+                    <span className="sidebar-tooltip">{item.label}</span>
+                  )}
+                </button>
+
+                {!collapsed && item.children.length > 0 && isCategoryExpanded && (
+                  <div
+                    id={`subnav-${item.key}`}
+                    className="sidebar-subnav"
+                    role="region"
+                    aria-label={`${item.label} sub-navigation`}
+                  >
+                    {item.children.map((child) => {
+                      const isChildActive = child.exact
+                        ? currentPath === child.path
+                        : currentPath.startsWith(child.path);
+
+                      return (
+                        <button
+                          key={child.path}
+                          type="button"
+                          className={`sidebar-subnav-item ${isChildActive ? "active" : ""}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(child.path);
+                            if (setActivePage) setActivePage(child.key || child.path);
+                          }}
+                        >
+                          <span className="subnav-bullet" aria-hidden="true" />
+                          <span className="subnav-label">{child.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
-                {item.label}
-              </button>
-
-              {item.children.length > 0 && expanded[item.key] && (
-                <div className="sidebar-subnav">
-                  {item.children.map((child) => (
-                    <button
-                      key={child.key}
-                      className={`sidebar-subnav-item ${activePage === child.key ? "active" : ""}`}
-                      onClick={() => setActivePage(child.key)}
-                    >
-                      {child.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </nav>
 
-        {/* Logout Button Section */}
+        <div
+          className="sidebar-empty-space"
+          data-testid="sidebar-empty-space"
+          onClick={handleToggleCollapse}
+          role="button"
+          tabIndex={0}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              onToggleCollapse?.();
+            }
+          }}
+        />
+
         <div className="sidebar-footer">
           <button
+            type="button"
             className="sidebar-logout-btn"
-            onClick={() => setIsModalOpen(true)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsModalOpen(true);
+            }}
+            aria-label="Log Out"
+            title={collapsed ? "Log out" : undefined}
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-              <polyline points="16 17 21 12 16 7"></polyline>
-              <line x1="21" y1="12" x2="9" y2="12"></line>
-            </svg>
-            LOG OUT
+            <i className="ti ti-logout-2" aria-hidden="true" />
+            {!collapsed && <span>Log Out</span>}
+            {collapsed && <span className="sidebar-tooltip" aria-hidden="true">Log Out</span>}
           </button>
         </div>
       </aside>

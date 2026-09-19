@@ -1,18 +1,49 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import {
+  BoltIcon,
+  LockIcon,
+  ClockIcon,
+  CheckIcon,
+  WarningIcon,
+  EyeIcon,
+  EyeSlashIcon,
+} from "../components/ui/icons";
 
 export default function LoginPage({
   onNavigateRegister,
   onLoginSuccess,
   successMessage,
   onClearMessage,
+  sessionNotice: initialSessionNotice,
 }) {
-  
+  const location = useLocation();
   const { login } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState(() => {
+    return (
+      initialSessionNotice ||
+      location?.state?.message ||
+      (typeof sessionStorage !== "undefined"
+        ? sessionStorage.getItem("neuropath_session_notice")
+        : "") ||
+      ""
+    );
+  });
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.removeItem("neuropath_session_notice");
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+  }, []);
 
   useEffect(() => {
     if (successMessage) {
@@ -24,12 +55,13 @@ export default function LoginPage({
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     setError("");
+    setNotice("");
   };
 
   const handleSubmit = async (e) => {
       e.preventDefault();
       setLoading(true);
-      setError(""); // 📑 Fixed spelling: removed the "s"
+      setError(""); // Fixed spelling: removed the "s"
 
       try {
         // pulling email and password safely out of your form state object
@@ -39,8 +71,8 @@ export default function LoginPage({
         onLoginSuccess(); 
       } catch (err) {
         // Catch-all for incorrect passwords or unmapped profiles
-        const errorMsg = err.response?.data?.error || "Invalid email or password.";
-        setError(errorMsg); // 📑 Fixed spelling: removed the "s"
+        const errorMsg = err.message || "Invalid email or password.";
+        setError(errorMsg); // Fixed spelling: removed the "s"
       } finally {
         setLoading(false);
       }
@@ -84,7 +116,7 @@ export default function LoginPage({
         >
           {/* Logo inside card */}
           <div className="flex items-center gap-2 select-none mb-6">
-            <span className="text-2xl">⚡</span>
+            <BoltIcon className="w-6 h-6 text-white" aria-hidden="true" />
             <span className="text-xl font-bold tracking-tight text-white">
               NeuroPath
             </span>
@@ -115,10 +147,11 @@ export default function LoginPage({
 
           {/* Footer note inside card */}
           <p
-            className="text-xs mt-6"
-            style={{ color: "rgba(255,255,255,0.5)" }}
+            className="text-xs mt-6 flex items-center gap-1.5"
+            style={{ color: "rgba(255,255,255,0.7)" }}
           >
-            🔒 FERPA Compliant Documentation Platform
+            <LockIcon className="w-3.5 h-3.5 text-white/70" aria-hidden="true" />
+            <span>FERPA Compliant Documentation Platform</span>
           </p>
         </div>
       </div>
@@ -137,10 +170,26 @@ export default function LoginPage({
             >
               Welcome back
             </h1>
-            <p className="text-sm font-medium" style={{ color: "#5a9dbf" }}>
+            <p className="text-sm font-medium" style={{ color: "#1e78a6" }}>
               Sign in to your NeuroPath account
             </p>
           </div>
+
+          {/* Session timeout warning banner */}
+          {notice && (
+            <div
+              className="mb-6 flex items-center gap-2.5 text-sm p-3.5 rounded-xl"
+              style={{
+                background: "#fffbeb",
+                border: "1px solid #fde68a",
+                color: "#92400e",
+              }}
+              role="alert"
+            >
+              <ClockIcon className="w-4 h-4 text-amber-700 shrink-0" aria-hidden="true" />
+              <p className="font-medium">{notice}</p>
+            </div>
+          )}
 
           {/* Success banner */}
           {successMessage && (
@@ -152,7 +201,7 @@ export default function LoginPage({
                 color: "#276749",
               }}
             >
-              <span className="text-base">✅</span>
+              <CheckIcon className="w-4 h-4 text-emerald-700 shrink-0" aria-hidden="true" />
               <p className="font-medium">{successMessage}</p>
             </div>
           )}
@@ -167,7 +216,7 @@ export default function LoginPage({
                 color: "#c0392b",
               }}
             >
-              <span className="text-base">⚠️</span>
+              <WarningIcon className="w-4 h-4 text-rose-700 shrink-0" aria-hidden="true" />
               <p className="font-medium">{error}</p>
             </div>
           )}
@@ -247,9 +296,13 @@ export default function LoginPage({
                   className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-sm transition-all"
                   style={{ color: "#82C7FF" }}
                   onClick={() => setShowPass(!showPass)}
-                  aria-label="Toggle password visibility"
+                  aria-label={showPass ? "Hide password" : "Show password"}
                 >
-                  {showPass ? "🙈" : "👁️"}
+                  {showPass ? (
+                    <EyeSlashIcon className="w-4 h-4 text-slate-500" aria-hidden="true" />
+                  ) : (
+                    <EyeIcon className="w-4 h-4 text-slate-500" aria-hidden="true" />
+                  )}
                 </button>
               </div>
             </div>
@@ -296,7 +349,7 @@ export default function LoginPage({
 
           <p
             className="text-sm font-medium text-center"
-            style={{ color: "#5a9dbf" }}
+            style={{ color: "#1e78a6" }}
           >
             Don't have an account?{" "}
             <button

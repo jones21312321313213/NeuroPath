@@ -1,71 +1,81 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import "../../styles/ViewSelectedStudentProfile.css";
 import StudentInsightsTab from "./StudentInsightsTab";
+import { useStudent } from "../../hooks/queries";
+import { Badge } from "../../components/ui";
+import { CheckIcon, WarningIcon } from "../../components/ui/icons";
 
 function getProfileDetails(student) {
-  if (student?.profileDetails && typeof student.profileDetails === "object") {
-    return student.profileDetails;
+  const record = student?.data || student;
+  if (record?.profileDetails && typeof record.profileDetails === "object") {
+    return record.profileDetails;
   }
 
-  if (!student?.preferences) return {};
+  if (!record?.preferences) return {};
 
-  if (typeof student.preferences === "string") {
+  if (typeof record.preferences === "string") {
     try {
-      const parsed = JSON.parse(student.preferences);
+      const parsed = JSON.parse(record.preferences);
       return parsed && typeof parsed === "object" ? parsed : {};
     } catch {
       return {};
     }
   }
 
-  return typeof student.preferences === "object" ? student.preferences : {};
+  return typeof record.preferences === "object" ? record.preferences : {};
 }
 
 function ReadOnlyInput({ label, value }) {
+  const inputId = label
+    ? `view-field-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    : undefined;
   return (
     <div className="form-group">
-      <label className="form-label">{label}:</label>
-      <input className="form-input" value={value || "—"} readOnly />
+      <label htmlFor={inputId} className="form-label">{label}:</label>
+      <input id={inputId} className="form-input" value={value || "—"} readOnly />
     </div>
   );
 }
 
 function ReadOnlyTextArea({ label, value, rows = 4 }) {
+  const areaId = label
+    ? `view-area-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    : undefined;
   return (
     <div className="form-group">
-      <label className="form-label">{label}</label>
-      <textarea className="form-textarea" rows={rows} value={value || "—"} readOnly />
+      <label htmlFor={areaId} className="form-label">{label}</label>
+      <textarea id={areaId} className="form-textarea" rows={rows} value={value || "—"} readOnly />
     </div>
   );
 }
 
-export default function ViewSelectedStudentProfile({ studentId, setActivePage }) {
-  const [selected, setSelected] = useState(null);
-  const [loading, setLoading] = useState(true);
+export default function ViewSelectedStudentProfile({ studentId: propStudentId, setActivePage }) {
+  const params = useParams();
+  const navigate = useNavigate();
+  const studentId = propStudentId || params?.id;
   const [activeTab, setActiveTab] = useState("info");
 
-  useEffect(() => {
-    if (!studentId) return;
+  const {
+    data: selected,
+    isLoading,
+    isError,
+    error: queryError,
+  } = useStudent(studentId);
 
-    setLoading(true);
-
-    fetch(`http://localhost:8000/api/users/students/${studentId}/view/`)
-      .then((res) => res.json())
-      .then((response) => {
-        setSelected(response?.data || response);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setLoading(false);
-      });
-  }, [studentId]);
-
+  const student = selected?.data || selected;
   const details = useMemo(() => getProfileDetails(selected), [selected]);
-  const handleBack = () => setActivePage("view-student-profile");
-  const handleUpdate = () => setActivePage("update-student-profile");
 
-  if (loading) {
+  const handleBack = () => {
+    if (setActivePage) setActivePage("view-student-profile");
+    navigate("/dashboard/students");
+  };
+  const handleUpdate = () => {
+    if (setActivePage) setActivePage("update-student-profile");
+    navigate(`/dashboard/students/${studentId}/edit`);
+  };
+
+  if (isLoading && !selected) {
     return (
       <div className="page-content">
         <div className="placeholder-page">Loading student details...</div>
@@ -73,10 +83,12 @@ export default function ViewSelectedStudentProfile({ studentId, setActivePage })
     );
   }
 
-  if (!selected) {
+  if (isError || !selected) {
     return (
       <div className="page-content">
-        <div className="placeholder-page">No student details found.</div>
+        <div className="placeholder-page">
+          {queryError?.message || "No student details found."}
+        </div>
       </div>
     );
   }
@@ -102,28 +114,41 @@ export default function ViewSelectedStudentProfile({ studentId, setActivePage })
             className={`tab-btn ${activeTab === "insights" ? "active" : ""}`}
             onClick={() => setActiveTab("insights")}
           >
-            Generate AI Insights
+            Quick Student Summary
           </button>
         </div>
 
         {activeTab === "info" && (
           <div className="tab-content">
             <section className="form-section">
-              <h2 className="form-section-title">Section A: Personal Information</h2>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                <h2 className="form-section-title" style={{ margin: 0 }}>Section A: Personal Information</h2>
+                {student?.parental_consent_obtained ? (
+                  <Badge variant="success" className="inline-flex items-center gap-1.5">
+                    <CheckIcon className="w-4 h-4 text-emerald-700" aria-hidden="true" />
+                    <span>RA 10173 Consent Verified (Guardian: {student.guardian_name || "Parent/Guardian"})</span>
+                  </Badge>
+                ) : (
+                  <Badge variant="warning" className="inline-flex items-center gap-1.5">
+                    <WarningIcon className="w-4 h-4 text-amber-700" aria-hidden="true" />
+                    <span>RA 10173 Consent Pending — AI Processing Restricted</span>
+                  </Badge>
+                )}
+              </div>
               <div className="form-grid-2">
-                <ReadOnlyInput label="Student Name" value={details.studentName || details.learnerName || selected.name} />
-                <ReadOnlyInput label="Age" value={selected.age} />
-                <ReadOnlyInput label="Grade Level" value={selected.grade} />
-                <ReadOnlyInput label="Gender" value={selected.gender} />
+                <ReadOnlyInput label="Student Name" value={details.studentName || details.learnerName || student.name} />
+                <ReadOnlyInput label="Age" value={student.age} />
+                <ReadOnlyInput label="Grade Level" value={student.grade} />
+                <ReadOnlyInput label="Gender" value={student.gender} />
                 <ReadOnlyInput label="School" value={details.school} />
                 <ReadOnlyInput label="School Year" value={details.schoolYear} />
                 <ReadOnlyInput label="Birthdate" value={details.birthdate} />
-                <ReadOnlyInput label="Diagnosis" value={details.disabilityCategory || selected.diagnosis} />
+                <ReadOnlyInput label="Diagnosis" value={details.disabilityCategory || student.diagnosis} />
               </div>
 
               <ReadOnlyTextArea
                 label="Assessment / Diagnosis Details"
-                value={details.diagnosisDetails || selected.asdBackground}
+                value={details.diagnosisDetails || student.asdBackground}
                 rows={3}
               />
 
@@ -138,7 +163,7 @@ export default function ViewSelectedStudentProfile({ studentId, setActivePage })
               <h2 className="form-section-title">Present Levels of Academic Achievement and/or Functional Performance</h2>
               <ReadOnlyTextArea
                 label="Results of initial or most recent evaluation and results of school assessments"
-                value={details.presentEvaluation || selected.assessmentResult}
+                value={details.presentEvaluation || student.assessmentResult}
                 rows={5}
               />
               <ReadOnlyTextArea
@@ -148,7 +173,7 @@ export default function ViewSelectedStudentProfile({ studentId, setActivePage })
               />
               <ReadOnlyTextArea
                 label="Description of academic, developmental, and/or functional needs"
-                value={details.academicNeeds || selected.support_needs}
+                value={details.academicNeeds || student.support_needs}
                 rows={4}
               />
               <ReadOnlyTextArea
@@ -166,7 +191,11 @@ export default function ViewSelectedStudentProfile({ studentId, setActivePage })
         )}
 
         {activeTab === "insights" && (
-          <StudentInsightsTab studentId={studentId} />
+          <StudentInsightsTab
+            studentId={studentId}
+            setActivePage={setActivePage}
+            student={student}
+          />
         )}
       </div>
     </div>

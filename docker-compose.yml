@@ -1,0 +1,59 @@
+version: "3.8"
+
+services:
+  db:
+    image: supabase/postgres:15.1.0.147
+    container_name: neuropath_db
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./neuropath-backend
+      dockerfile: Dockerfile
+    container_name: neuropath_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./neuropath-backend/.env
+    environment:
+      DB_HOST: db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: postgres
+      DB_PORT: 5432
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./neuropath-backend:/app
+
+  frontend:
+    build:
+      context: ./neuropath-frontend
+      dockerfile: Dockerfile
+    container_name: neuropath_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    env_file:
+      - ./neuropath-frontend/.env
+    volumes:
+      - ./neuropath-frontend:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:

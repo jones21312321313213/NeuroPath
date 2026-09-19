@@ -1,14 +1,41 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import "../styles/ManageTeachingStrategies.css";
 import "../styles/ManageLessonPlans.css";
 import { iepAPI, lessonPlansAPI, studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import StudentShimmer from "../components/StudentShimmer";
+import {
+  SparklesIcon,
+  FolderIcon,
+  InboxIcon,
+  WarningIcon,
+  DocumentTextIcon,
+  SchoolIcon,
+  UserIcon,
+  CheckIcon,
+  ClipboardIcon,
+  StarIcon,
+  CalendarIcon,
+  BookOpenIcon,
+  TargetIcon,
+  PencilIcon,
+  ArrowPathIcon,
+  DiskIcon,
+  TrashIcon,
+  CloseIcon,
+} from "../components/ui/icons";
 
 const TABS = [
-  { key: "generate", label: "Generate", icon: "✦" },
-  { key: "view", label: "View", icon: "◎" },
-  { key: "edit", label: "Edit", icon: "✏" },
-  { key: "delete", label: "Delete", icon: "⊘" },
+  {
+    key: "generate",
+    label: "Generate",
+    icon: <SparklesIcon className="w-4 h-4" aria-hidden="true" />,
+  },
+  {
+    key: "manage",
+    label: "Manage",
+    icon: <FolderIcon className="w-4 h-4" aria-hidden="true" />,
+  },
 ];
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -26,11 +53,30 @@ function Loading({ text = "Loading…" }) {
   );
 }
 
-function EmptyState({ icon = "📭", message = "No records found." }) {
+function EmptyState({
+  icon = <InboxIcon className="w-8 h-8 text-slate-400" aria-hidden="true" />,
+  message = "No records found.",
+  description,
+  actionLabel,
+  onAction,
+  actionIcon,
+}) {
   return (
     <div className="ts-empty">
-      <span className="ts-empty-icon">{icon}</span>
+      <span className="ts-empty-icon flex items-center justify-center">{icon}</span>
       <p className="ts-empty-text">{message}</p>
+      {description && <p className="ts-empty-desc">{description}</p>}
+      {actionLabel && onAction && (
+        <button
+          type="button"
+          className="ts-btn ts-btn-primary flex items-center gap-1.5"
+          style={{ marginTop: 16 }}
+          onClick={onAction}
+        >
+          {actionIcon && <span>{actionIcon}</span>}
+          {actionLabel}
+        </button>
+      )}
     </div>
   );
 }
@@ -38,8 +84,8 @@ function EmptyState({ icon = "📭", message = "No records found." }) {
 function ErrorBanner({ message }) {
   if (!message) return null;
   return (
-    <div className="ts-error-banner">
-      <span>⚠️</span>
+    <div className="ts-error-banner flex items-center gap-2">
+      <WarningIcon className="w-4 h-4 text-red-600 flex-shrink-0" aria-hidden="true" />
       <span>{message}</span>
     </div>
   );
@@ -91,23 +137,13 @@ function formatSavedIepGoal(goal) {
 function StatusBadge({ status }) {
   const isActive = status === "Active";
   return (
-    <span
-      style={{
-        display: "inline-block",
-        padding: "3px 10px",
-        borderRadius: 12,
-        fontSize: 12,
-        fontWeight: 700,
-        background: isActive ? "#dcfce7" : "#fef9c3",
-        color: isActive ? "#16a34a" : "#92400e",
-      }}
-    >
+    <span className={`lp-status-badge ${isActive ? "active" : "draft"}`}>
       {status}
     </span>
   );
 }
 
-// 🛡️ Advanced Bulletproof AI text renderer
+// Advanced Bulletproof AI text renderer
 function renderSafeText(content) {
   if (!content) return "";
   if (typeof content !== "object") return String(content);
@@ -134,18 +170,7 @@ function renderSafeText(content) {
 // Phase badge used in both Generate result and View detail
 function PhaseBadge({ index }) {
   return (
-    <span
-      style={{
-        background: "linear-gradient(135deg, #3d9de8, #5aabf0)",
-        color: "#fff",
-        padding: "4px 10px",
-        borderRadius: 12,
-        fontSize: 11,
-        fontWeight: 800,
-        letterSpacing: "0.5px",
-        flexShrink: 0,
-      }}
-    >
+    <span className="lp-phase-badge">
       Phase {index + 1}
     </span>
   );
@@ -153,25 +178,10 @@ function PhaseBadge({ index }) {
 
 // Renders a single lesson-plan phase block (used in Generate + View)
 function LessonPhaseBlock({ plan, index, total }) {
+  const isBordered = index !== total - 1;
   return (
-    <div
-      style={{
-        marginBottom: 24,
-        paddingBottom: 24,
-        borderBottom: index !== total - 1 ? "2px dashed #dde6f0" : "none",
-      }}
-    >
-      <h4
-        style={{
-          color: "#1a2b40",
-          fontSize: 15,
-          fontWeight: 700,
-          marginBottom: 14,
-          display: "flex",
-          gap: 10,
-          alignItems: "center",
-        }}
-      >
+    <div className={`lp-phase-block ${isBordered ? "bordered" : ""}`}>
+      <h4 className="lp-phase-title">
         <PhaseBadge index={index} />
         {renderSafeText(plan.objective_focus)}
       </h4>
@@ -210,9 +220,12 @@ function LessonPhaseBlock({ plan, index, total }) {
   );
 }
 
-// Plan row list (shared between View / Edit / Delete tabs)
+// Plan row list with contextual View, Edit, and Delete actions
 function PlanRowList({
   plans,
+  onView,
+  onEdit,
+  onDelete,
   actionLabel,
   onAction,
   actionClass = "ts-btn ts-btn-primary",
@@ -221,16 +234,18 @@ function PlanRowList({
     <div className="ts-strategies-list">
       {plans.map((plan) => (
         <div key={plan.lessonID} className="ts-strategy-row">
-          <div className="ts-strategy-row-icon">📋</div>
+          <div className="ts-strategy-row-icon flex items-center justify-center" aria-hidden="true">
+            <DocumentTextIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+          </div>
           <div className="ts-strategy-row-info">
             <p className="ts-strategy-row-title">{plan.title}</p>
             <p className="ts-strategy-row-date">
-              👤 {plan.studentName}
+              <span>{plan.studentName}</span>
               {plan.dateCreated && (
                 <>
                   {" "}
-                  &nbsp;·&nbsp; 🗓{" "}
-                  {new Date(plan.dateCreated).toLocaleDateString()}
+                  &nbsp;·&nbsp;{" "}
+                  <span>{new Date(plan.dateCreated).toLocaleDateString()}</span>
                 </>
               )}
               {plan.status && (
@@ -242,9 +257,46 @@ function PlanRowList({
             </p>
           </div>
           <div className="ts-strategy-row-actions">
-            <button className={actionClass} onClick={() => onAction(plan)}>
-              {actionLabel}
-            </button>
+            {onView ? (
+              <>
+                <button
+                  type="button"
+                  className="ts-btn ts-btn-primary"
+                  onClick={() => onView(plan)}
+                  aria-label={`View ${plan.title}`}
+                >
+                  View
+                </button>
+                {onEdit && (
+                  <button
+                    type="button"
+                    className="ts-btn ts-btn-secondary"
+                    onClick={() => onEdit(plan)}
+                    aria-label={`Edit ${plan.title}`}
+                  >
+                    Edit
+                  </button>
+                )}
+                {onDelete && (
+                  <button
+                    type="button"
+                    className="ts-btn ts-btn-danger"
+                    onClick={() => onDelete(plan)}
+                    aria-label={`Delete ${plan.title}`}
+                  >
+                    Delete
+                  </button>
+                )}
+              </>
+            ) : (
+              <button
+                type="button"
+                className={actionClass}
+                onClick={() => onAction && onAction(plan)}
+              >
+                {actionLabel}
+              </button>
+            )}
           </div>
         </div>
       ))}
@@ -275,7 +327,9 @@ function StudentGrid({ students, selectedID, onSelect }) {
                 <span className="ts-student-tag">Student</span>
               )}
             </div>
-            <div className="ts-student-check">{isSelected && "✓"}</div>
+            <div className="ts-student-check">
+              {isSelected && <CheckIcon className="w-4 h-4 text-blue-600" aria-hidden="true" />}
+            </div>
           </div>
         );
       })}
@@ -284,11 +338,16 @@ function StudentGrid({ students, selectedID, onSelect }) {
 }
 
 // ── Generate Tab ──────────────────────────────────────────────────────────────
-function GenerateTab({ onSave }) {
+function GenerateTab({ onSave, setActivePage }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [availableIEPs, setAvailableIEPs] = useState([]);
+  const [selectedIEP, setSelectedIEP] = useState(null);
+  const [loadingIEPs, setLoadingIEPs] = useState(false);
+  const [loadingGoals, setLoadingGoals] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState(null);
   const [generated, setGenerated] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -303,22 +362,109 @@ function GenerateTab({ onSave }) {
       .finally(() => setLoadingDir(false));
   }, [user?.id]);
 
+  const loadGoalsForIEP = async (iep, student = selectedStudent) => {
+    setLoadingGoals(true);
+    setError("");
+    setSelectedGoal(null);
+
+    try {
+      const rawGoals = await iepAPI.listGoalsByIep(iep.iepID);
+      const parsedGoals = (Array.isArray(rawGoals) ? rawGoals : rawGoals?.results || rawGoals?.data || [])
+        .map(formatSavedIepGoal)
+        .filter((g) => g.goalArea || g.label);
+
+      setSelectedStudent((prev) => ({
+        ...(prev || student),
+        availableGoals: parsedGoals,
+      }));
+      if (parsedGoals.length === 1) {
+        setSelectedGoal(parsedGoals[0]);
+      } else {
+        setSelectedGoal(null);
+      }
+    } catch {
+      try {
+        const fallbackGoals = await iepAPI.listLatestGoalsByStudent((student || selectedStudent)?.studentID);
+        const parsed = (Array.isArray(fallbackGoals) ? fallbackGoals : fallbackGoals?.results || fallbackGoals?.data || [])
+          .map(formatSavedIepGoal)
+          .filter((g) => g.goalArea || g.label);
+        setSelectedStudent((prev) => ({
+          ...(prev || student),
+          availableGoals: parsed,
+        }));
+        if (parsed.length === 1) {
+          setSelectedGoal(parsed[0]);
+        }
+      } catch {
+        const fallbackList = Array.isArray(student?.availableGoals) ? student.availableGoals : [];
+        setSelectedStudent((prev) => ({
+          ...(prev || student),
+          availableGoals: fallbackList,
+        }));
+        if (fallbackList.length === 1) {
+          setSelectedGoal(fallbackList[0]);
+        }
+      }
+    } finally {
+      setLoadingGoals(false);
+    }
+  };
+
+  const handleSelectIEP = async (iep) => {
+    if (selectedIEP?.iepID === iep.iepID) return;
+    setSelectedIEP(iep);
+    await loadGoalsForIEP(iep);
+  };
+
   const selectStudent = async (student) => {
     const baseStudent = { ...student, availableGoals: [] };
     setSelectedStudent(baseStudent);
+    setSelectedIEP(null);
+    setAvailableIEPs([]);
     setSelectedGoal(null);
     setGenerated(null);
     setError("");
     setSaved(false);
+    setLoadingIEPs(true);
 
+    let iepList = [];
     try {
-      const savedGoals = await iepAPI.listLatestGoalsByStudent(student.studentID);
+      const fetchedIeps = await iepAPI.listByStudent(student.studentID);
+      const rawIeps = Array.isArray(fetchedIeps) ? fetchedIeps : fetchedIeps?.results || fetchedIeps?.data || [];
+      iepList = rawIeps.map((iep) => ({
+        ...iep,
+        iepID: iep.iepID || iep.id,
+        version: iep.version || 1,
+        createdDate: iep.formattedDate || (iep.createdDate ? new Date(iep.createdDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : ""),
+        program_type: iep.program_type || "Graded",
+        accommodations: iep.accommodations || "",
+      }));
+    } catch {
+      if (Array.isArray(student.availableIEPs) && student.availableIEPs.length > 0) {
+        iepList = student.availableIEPs.map((iep) => ({
+          ...iep,
+          iepID: iep.iepID || iep.id,
+          version: iep.version || 1,
+          createdDate: iep.createdDate || "",
+          program_type: iep.program_type || "Graded",
+          accommodations: iep.accommodations || "",
+        }));
+      }
+    }
+
+    iepList.sort((a, b) => (b.version || 0) - (a.version || 0));
+    setAvailableIEPs(iepList);
+    setLoadingIEPs(false);
+
+    if (iepList.length > 0) {
+      const defaultIEP = iepList[0];
+      setSelectedIEP(defaultIEP);
+      await loadGoalsForIEP(defaultIEP, student);
+    } else {
       setSelectedStudent({
-        ...baseStudent,
-        availableGoals: (savedGoals || []).map(formatSavedIepGoal),
+        ...student,
+        availableGoals: Array.isArray(student.availableGoals) ? student.availableGoals : [],
       });
-    } catch (err) {
-      setError(err.message || "Failed to load saved IEP goals for this student.");
     }
   };
 
@@ -326,24 +472,46 @@ function GenerateTab({ onSave }) {
     if (!selectedStudent || !selectedGoal) return;
     setLoading(true);
     setError("");
+    setGenerated(null);
+    setSaved(false);
+
     try {
-      const data = await lessonPlansAPI.generate({
+      const res = await lessonPlansAPI.generate({
+        studentID: selectedStudent.studentID,
         goalID: selectedGoal.goalID,
-        subject: selectedGoal.goalArea || "General Learning",
-        topic: (selectedGoal.goalArea || selectedGoal.label || "General Learning").slice(0, 250),
+        goalArea: selectedGoal.goalArea,
+        subject: selectedGoal.goalArea || "General",
+        topic: selectedGoal.label || selectedGoal.goalArea || "IEP Goal",
+        teacherPrompt: "",
       });
-      setGenerated(data);
+      setGenerated(res);
     } catch (err) {
-      setError(err.message || "Generation failed. Is the AI pipeline running?");
+      setError(err.message || "Failed to generate lesson plan.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSave = () => {
-    if (!generated) return;
-    onSave(generated.data);
-    setSaved(true);
+  const handleSave = async () => {
+    const plans = generated?.lesson_plans || generated?.data?.lesson_plans;
+    if (!plans || !selectedStudent) return;
+    setLoading(true);
+    setError("");
+
+    try {
+      const savedPlan = await lessonPlansAPI.save({
+        studentID: selectedStudent.studentID,
+        goalID: selectedGoal?.goalID || null,
+        title: `${selectedGoal?.goalArea || "ASD"} Lesson Plan`,
+        content: plans,
+      });
+      setSaved(true);
+      onSave(savedPlan);
+    } catch (err) {
+      setError(err.message || "Failed to save lesson plan.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -359,8 +527,15 @@ function GenerateTab({ onSave }) {
           <Loading text="Fetching students…" />
         ) : directory.length === 0 ? (
           <EmptyState
-            icon="🏫"
-            message="No students found. Add a student profile first."
+            icon={<SchoolIcon className="w-8 h-8 text-slate-400" aria-hidden="true" />}
+            message="No students found."
+            description="You need at least one registered student profile before generating a lesson plan."
+            actionLabel="Create Student Profile"
+            actionIcon={<UserIcon className="w-4 h-4" aria-hidden="true" />}
+            onAction={() => {
+              navigate("/dashboard/students/create");
+              if (setActivePage) setActivePage("create-student-profile");
+            }}
           />
         ) : (
           <StudentGrid
@@ -371,25 +546,133 @@ function GenerateTab({ onSave }) {
         )}
       </div>
 
-      {/* Step 2 — Select IEP Goal */}
+      {/* Step 2 — Select IEP Version */}
       {selectedStudent && !generated && !loading && (
         <div className="ts-card">
           <div className="ts-step-badge">
-            <span className="ts-step-num">2</span>Select an IEP Goal
+            <span className="ts-step-num">2</span>Select an IEP Version
           </div>
-          <p style={{ fontSize: 13, color: "#5a7491", marginBottom: 14 }}>
-            Choose a goal for{" "}
+          <p className="ts-form-intro">
+            Choose an IEP version for{" "}
+            <strong style={{ color: "#1a2b40" }}>
+              {selectedStudent.studentName}
+            </strong>{" "}
+            to base instructional materials on:
+          </p>
+          {loadingIEPs ? (
+            <Loading text="Fetching created IEPs…" />
+          ) : availableIEPs.length === 0 ? (
+            <EmptyState
+              icon={<ClipboardIcon className="w-8 h-8 text-slate-400" aria-hidden="true" />}
+              message="No IEP records found for this student."
+              description="Lesson plans require a created IEP. Generate and save an IEP for this student first."
+              actionLabel="Generate IEP"
+              actionIcon={<SparklesIcon className="w-4 h-4" aria-hidden="true" />}
+              onAction={() => {
+                navigate("/dashboard/iep/generate");
+                if (setActivePage) setActivePage("iep-generation");
+              }}
+            />
+          ) : (
+            <div className="ts-iep-grid">
+              {availableIEPs.map((iep, index) => {
+                const isSelected = selectedIEP?.iepID === iep.iepID;
+                const isLatest = index === 0;
+                return (
+                  <div
+                    key={iep.iepID}
+                    className={`ts-iep-item ${isSelected ? "selected" : ""}`}
+                    onClick={() => handleSelectIEP(iep)}
+                  >
+                    <div className="ts-iep-header">
+                      <div className="ts-iep-title-wrap">
+                        <input
+                          type="radio"
+                          name="selectedIEP"
+                          className="ts-iep-radio"
+                          checked={isSelected}
+                          onChange={() => handleSelectIEP(iep)}
+                        />
+                        <span className="ts-iep-version-title">
+                          {`IEP Version ${iep.version}`}
+                        </span>
+                      </div>
+                      {isLatest && (
+                        <span className="ts-iep-badge-latest flex items-center gap-1">
+                          <StarIcon className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
+                          <span>Latest</span>
+                        </span>
+                      )}
+                    </div>
+                    <div className="ts-iep-meta">
+                      {iep.createdDate && (
+                        <span className="ts-iep-tag flex items-center gap-1">
+                          <CalendarIcon className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+                          <span>{iep.createdDate}</span>
+                        </span>
+                      )}
+                      {iep.program_type && (
+                        <span className="ts-iep-tag flex items-center gap-1">
+                          <BookOpenIcon className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+                          <span>{iep.program_type}</span>
+                        </span>
+                      )}
+                    </div>
+                    {iep.accommodations && (
+                      <div
+                        className="ts-iep-accommodations"
+                        title={iep.accommodations}
+                      >
+                        <strong>Accommodations:</strong> {iep.accommodations}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Step 3 — Select IEP Goal */}
+      {selectedStudent && selectedIEP && !generated && !loading && (
+        <div className="ts-card">
+          <div className="ts-step-badge">
+            <span className="ts-step-num">3</span>Select an IEP Goal
+          </div>
+          <p className="ts-form-intro">
+            Choose a goal from{" "}
+            <strong style={{ color: "#1a2b40" }}>
+              {`IEP Version ${selectedIEP.version}`}
+            </strong>{" "}
+            for{" "}
             <strong style={{ color: "#1a2b40" }}>
               {selectedStudent.studentName}
             </strong>
+            :
           </p>
-          {selectedStudent.availableGoals.length === 0 ? (
+          {loadingGoals ? (
+            <Loading text="Loading goals for selected IEP…" />
+          ) : selectedStudent.availableGoals.length === 0 ? (
             <EmptyState
-              icon="🎯"
-              message="No IEP goals found for this student. Generate an IEP first."
+              icon={<TargetIcon className="w-8 h-8 text-slate-400" aria-hidden="true" />}
+              message={`No IEP goals found in Version ${selectedIEP.version}.`}
+              description="This IEP version has no saved goals. Select another version or add goals to this IEP."
+              actionLabel="Manage Goals"
+              actionIcon={<PencilIcon className="w-4 h-4" aria-hidden="true" />}
+              onAction={() => {
+                navigate("/dashboard/iep/view");
+                if (setActivePage) setActivePage("view-iep");
+              }}
             />
           ) : (
             <>
+              {selectedStudent.availableGoals.length === 1 && (
+                <div className="ts-goal-auto-selected-badge flex items-center gap-1.5" data-testid="goal-auto-selected-badge">
+                  <CheckIcon className="w-4 h-4 text-emerald-600" aria-hidden="true" />
+                  <span>Goal automatically selected from Version {selectedIEP.version}</span>
+                </div>
+              )}
               <div className="ts-goal-grid">
                 {selectedStudent.availableGoals.map((goal) => {
                   const isSelected = selectedGoal?.goalID === goal.goalID;
@@ -417,7 +700,7 @@ function GenerateTab({ onSave }) {
                           {goal.goalArea}
                         </strong>
                         {goal.label && goal.label !== goal.goalArea && (
-                          <span style={{ fontSize: 12.5, color: "#5a7491" }}>
+                          <span className="ts-goal-subtext">
                             {goal.label}
                           </span>
                         )}
@@ -428,12 +711,12 @@ function GenerateTab({ onSave }) {
               </div>
               <div className="ts-actions" style={{ marginTop: 22 }}>
                 <button
-                  className="ts-generate-btn"
+                  className="ts-generate-btn flex items-center justify-center gap-2"
                   onClick={handleGenerate}
                   disabled={!selectedGoal}
                 >
-                  <span className="ts-btn-icon">✦</span>
-                  Generate Lesson Plan
+                  <SparklesIcon className="w-4 h-4" aria-hidden="true" />
+                  <span>Generate Lesson Plan</span>
                 </button>
               </div>
             </>
@@ -443,22 +726,44 @@ function GenerateTab({ onSave }) {
 
       {/* Loading / AI generation */}
       {loading && (
-        <div className="ts-card">
+        <div className="ts-card" role="status" aria-live="polite">
           <div className="ts-ai-generating">
-            <div className="ts-ai-orb">🧠</div>
-            <p className="ts-ai-label">Invoking Llama AI Pipeline…</p>
+            <div className="ts-ai-orb" aria-hidden="true">
+              <svg
+                style={{ width: 28, height: 28 }}
+                className="animate-spin text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+            </div>
+            <p className="ts-ai-label">Creating Personalized Lesson Plan…</p>
             <p className="ts-ai-sub">
-              Crafting a personalised lesson plan based on the IEP goal area
+              Structuring instructional sequence and learning activities based on the IEP goal area
             </p>
           </div>
         </div>
       )}
 
-      {/* Step 3 — Result */}
+      {/* Step 4 — Result */}
       {generated && !loading && (
         <div className="ts-card">
           <div className="ts-step-badge">
-            <span className="ts-step-num">3</span>Review & Save
+            <span className="ts-step-num">4</span>Review & Save
           </div>
 
           <div className="ts-detail-hero">
@@ -466,13 +771,13 @@ function GenerateTab({ onSave }) {
               {generated.data?.title || "AI-Generated Lesson Plan"}
             </h2>
             <div className="ts-detail-meta">
-              <div className="ts-meta-chip">
-                <span className="ts-meta-chip-icon">👤</span>
-                {selectedStudent?.studentName}
+              <div className="ts-meta-chip flex items-center gap-1.5">
+                <UserIcon className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+                <span>{selectedStudent?.studentName}</span>
               </div>
-              <div className="ts-meta-chip">
-                <span className="ts-meta-chip-icon">🎯</span>
-                {selectedGoal?.goalArea}
+              <div className="ts-meta-chip flex items-center gap-1.5">
+                <TargetIcon className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+                <span>{selectedGoal?.goalArea}</span>
               </div>
             </div>
           </div>
@@ -495,13 +800,7 @@ function GenerateTab({ onSave }) {
                   />
                 ))
               ) : (
-                <p
-                  style={{
-                    color: "#8a9ab5",
-                    fontStyle: "italic",
-                    fontSize: 13,
-                  }}
-                >
+                <p className="ts-empty-italic">
                   No lesson plan data was returned from the AI.
                 </p>
               )}
@@ -509,28 +808,34 @@ function GenerateTab({ onSave }) {
           </div>
 
           {generated.message && (
-            <div className="ts-success-msg">✅ {generated.message}</div>
+            <div className="ts-success-msg flex items-center gap-1.5">
+              <CheckIcon className="w-4 h-4 text-emerald-600 flex-shrink-0" aria-hidden="true" />
+              <span>{generated.message}</span>
+            </div>
           )}
           {saved && (
-            <div className="ts-success-msg" style={{ marginTop: 8 }}>
-              💾 Lesson plan saved successfully to student profile.
+            <div className="ts-success-msg flex items-center gap-1.5" style={{ marginTop: 8 }}>
+              <CheckIcon className="w-4 h-4 text-emerald-600 flex-shrink-0" aria-hidden="true" />
+              <span>Lesson plan saved successfully to student profile.</span>
             </div>
           )}
 
           <div className="ts-actions" style={{ marginTop: 20 }}>
             <button
-              className="ts-btn ts-btn-secondary"
+              className="ts-btn ts-btn-secondary flex items-center gap-1.5"
               onClick={handleGenerate}
               disabled={loading}
             >
-              🔄 Regenerate
+              <ArrowPathIcon className="w-4 h-4" aria-hidden="true" />
+              <span>Regenerate</span>
             </button>
             <button
-              className="ts-btn ts-btn-primary"
+              className="ts-btn ts-btn-primary flex items-center gap-1.5"
               onClick={handleSave}
               disabled={loading || saved}
             >
-              💾 Confirm & Save Plan
+              <DiskIcon className="w-4 h-4" aria-hidden="true" />
+              <span>Confirm & Save Plan</span>
             </button>
           </div>
         </div>
@@ -539,8 +844,9 @@ function GenerateTab({ onSave }) {
   );
 }
 
-// ── View Tab ──────────────────────────────────────────────────────────────────
-function ViewTab() {
+// ── Manage Tab (Unified View, Edit, and Delete) ──────────────────────────────
+function ManagePlansTab({ setActivePage, onGoToGenerate }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
@@ -548,41 +854,258 @@ function ViewTab() {
   const [plans, setPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [viewingPlan, setViewingPlan] = useState(null);
+  const [editingPlan, setEditingPlan] = useState(null);
+  const [formValue, setFormValue] = useState({ title: "", status: "Draft" });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [toDeletePlan, setToDeletePlan] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [search, setSearch] = useState("");
   const [filterGrade, setFilterGrade] = useState("");
   const [filterAge, setFilterAge] = useState("");
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
+    let active = true;
     studentsAPI
       .list(user?.id)
-      .then(setStudents)
-      .catch(() => setError("Failed to load students."))
-      .finally(() => setLoadingStudents(false));
+      .then((data) => {
+        if (active) {
+          const studentList = Array.isArray(data)
+            ? data
+            : data?.results || data?.data || [];
+          setStudents(studentList);
+        }
+      })
+      .catch(() => {
+        if (active) setError("Failed to load students.");
+      })
+      .finally(() => {
+        if (active) setLoadingStudents(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [user?.id]);
+
+  const loadPlansForStudent = useCallback(async (student) => {
+    setLoadingPlans(true);
+    setError("");
+    try {
+      const res = await lessonPlansAPI.list({ studentID: student.studentID });
+      const rawPlans = Array.isArray(res)
+        ? res
+        : res?.results || res?.data || [];
+      setPlans(rawPlans);
+    } catch {
+      setError("Failed to load lesson plans.");
+      setPlans([]);
+    } finally {
+      setLoadingPlans(false);
+    }
+  }, []);
 
   const handleSelectStudent = (s) => {
     setSelectedStudent(s);
-    setLoadingPlans(true);
-    lessonPlansAPI
-      .list({ studentID: s.studentID })
-      .then(setPlans)
-      .catch(() => setError("Failed to load lesson plans."))
-      .finally(() => setLoadingPlans(false));
+    setViewingPlan(null);
+    setEditingPlan(null);
+    setToDeletePlan(null);
+    setError("");
+    setSuccessMessage("");
+    loadPlansForStudent(s);
+  };
+
+  const handleBackToStudents = () => {
+    setSelectedStudent(null);
+    setPlans([]);
+    setViewingPlan(null);
+    setEditingPlan(null);
+    setToDeletePlan(null);
+    setError("");
+    setSuccessMessage("");
+  };
+
+  const handleBackToList = () => {
+    setViewingPlan(null);
+    setEditingPlan(null);
+    setError("");
+    setSuccessMessage("");
+  };
+
+  const handleOpenEdit = (plan) => {
+    setEditingPlan(plan);
+    setFormValue({
+      title: plan.title || "",
+      status: plan.status || "Draft",
+    });
+    setError("");
+    setSuccessMessage("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingPlan) return;
+    if (!formValue.title.trim()) {
+      setError("Plan title is required.");
+      return;
+    }
+
+    setSavingEdit(true);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      await lessonPlansAPI.update(editingPlan.lessonID, formValue);
+      const updatedPlan = { ...editingPlan, ...formValue };
+
+      setPlans((prev) =>
+        prev.map((p) =>
+          p.lessonID === editingPlan.lessonID ? updatedPlan : p
+        )
+      );
+
+      if (viewingPlan?.lessonID === editingPlan.lessonID) {
+        setViewingPlan(updatedPlan);
+      }
+
+      setSuccessMessage("Lesson plan saved successfully.");
+      setEditingPlan(null);
+    } catch (err) {
+      setError(err.message || "Failed to update lesson plan.");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!toDeletePlan) return;
+    setDeleting(true);
+    setError("");
+
+    try {
+      await lessonPlansAPI.delete(toDeletePlan.lessonID);
+      setPlans((prev) =>
+        prev.filter((p) => p.lessonID !== toDeletePlan.lessonID)
+      );
+
+      if (viewingPlan?.lessonID === toDeletePlan.lessonID) {
+        setViewingPlan(null);
+      }
+
+      if (editingPlan?.lessonID === toDeletePlan.lessonID) {
+        setEditingPlan(null);
+      }
+
+      setSuccessMessage(`Lesson plan "${toDeletePlan.title}" was deleted.`);
+      setToDeletePlan(null);
+    } catch (err) {
+      setError(err.message || "Failed to delete lesson plan.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const filteredStudents = students.filter((s) => {
-    const matchName = (s.name || "")
+    const matchName = (s.name || s.studentName || "")
       .toLowerCase()
       .includes(search.toLowerCase());
-    const matchGrade = filterGrade ? s.grade === parseInt(filterGrade) : true;
-    const matchAge = filterAge ? s.age === parseInt(filterAge) : true;
+    const matchGrade = filterGrade
+      ? Number(s.grade) === Number(filterGrade)
+      : true;
+    const matchAge = filterAge ? Number(s.age) === Number(filterAge) : true;
     return matchName && matchGrade && matchAge;
   });
 
-  // Screen 3: Detail view
+  // Screen 4: Edit Mode
+  if (editingPlan) {
+    return (
+      <div className="ts-card">
+        <Breadcrumb
+          items={[
+            { label: "All Students", onClick: handleBackToStudents },
+            {
+              label: selectedStudent?.name || "Student",
+              onClick: handleBackToList,
+            },
+            ...(viewingPlan
+              ? [
+                  {
+                    label: viewingPlan.title || "Lesson Plan",
+                    onClick: () => setEditingPlan(null),
+                  },
+                ]
+              : []),
+            { label: "Edit Plan" },
+          ]}
+        />
+        <div className="ts-card-header">
+          <div className="ts-card-icon flex items-center justify-center" aria-hidden="true">
+            <PencilIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+          </div>
+          <div>
+            <p className="ts-card-title">Edit Lesson Plan</p>
+            <p className="ts-card-subtitle">Make changes and save</p>
+          </div>
+        </div>
+        <ErrorBanner message={error} />
+        {successMessage && (
+          <div className="ts-success-msg" role="status">
+            {successMessage}
+          </div>
+        )}
+        <div className="ts-form-group">
+          <label htmlFor="lp-edit-title" className="ts-form-label">
+            Plan Title
+          </label>
+          <input
+            id="lp-edit-title"
+            className="ts-form-input"
+            value={formValue.title}
+            onChange={(e) =>
+              setFormValue((prev) => ({ ...prev, title: e.target.value }))
+            }
+          />
+        </div>
+        <div className="ts-form-group">
+          <label htmlFor="lp-edit-status" className="ts-form-label">
+            Status
+          </label>
+          <select
+            id="lp-edit-status"
+            className="ts-form-input"
+            value={formValue.status}
+            onChange={(e) =>
+              setFormValue((prev) => ({ ...prev, status: e.target.value }))
+            }
+          >
+            <option value="Draft">Draft</option>
+            <option value="Active">Active</option>
+            <option value="Archived">Archived</option>
+          </select>
+        </div>
+        <div className="ts-actions space-between" style={{ marginTop: 24 }}>
+          <button
+            type="button"
+            className="ts-btn ts-btn-ghost"
+            onClick={() => setEditingPlan(null)}
+            disabled={savingEdit}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="ts-btn ts-btn-primary"
+            onClick={handleSaveEdit}
+            disabled={savingEdit || !formValue.title.trim()}
+          >
+            {savingEdit ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Screen 3: Detail View
   if (viewingPlan) {
-    // 🎯 Hyper-resilient JSON parser
     let lessonsArray = [];
     try {
       let rawText = viewingPlan.lessonContent || viewingPlan.content || "{}";
@@ -599,33 +1122,64 @@ function ViewTab() {
       <div className="ts-card">
         <Breadcrumb
           items={[
-            { label: "All Plans", onClick: () => setViewingPlan(null) },
-            { label: viewingPlan.title },
+            { label: "All Students", onClick: handleBackToStudents },
+            {
+              label: selectedStudent?.name || "Student",
+              onClick: handleBackToList,
+            },
+            { label: viewingPlan.title || "Lesson Plan" },
           ]}
         />
-
-        <div className="ts-detail-hero">
-          <h2 className="ts-detail-title">{viewingPlan.title}</h2>
-          <div className="ts-detail-meta">
-            <div className="ts-meta-chip">
-              <span className="ts-meta-chip-icon">👤</span>
-              {viewingPlan.studentName}
-            </div>
-            <div className="ts-meta-chip">
-              <span className="ts-meta-chip-icon">🗓</span>
-              {new Date(viewingPlan.dateCreated).toLocaleDateString()}
-            </div>
+        <div className="ts-card-header">
+          <div className="ts-card-icon flex items-center justify-center" aria-hidden="true">
+            <DocumentTextIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
           </div>
+          <div>
+            <p className="ts-card-title">{viewingPlan.title}</p>
+            <p className="ts-card-subtitle">
+              <span>{viewingPlan.studentName || selectedStudent?.name}</span>
+              {viewingPlan.dateCreated && (
+                <>
+                  {" "}
+                  &nbsp;·&nbsp;{" "}
+                  <span>
+                    {new Date(viewingPlan.dateCreated).toLocaleDateString()}
+                  </span>
+                </>
+              )}
+              {viewingPlan.status && (
+                <>
+                  {" "}
+                  &nbsp;·&nbsp; <StatusBadge status={viewingPlan.status} />
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+
+        <ErrorBanner message={error} />
+        {successMessage && (
+          <div className="ts-success-msg" role="status">
+            {successMessage}
+          </div>
+        )}
+
+        <div className="lp-goal-area-display" style={{ marginBottom: 24 }}>
+          <span className="lp-goal-area-label">Target IEP Goal Area</span>
+          <span className="lp-goal-area-value">
+            {viewingPlan.goalArea || "ASD Functional Learning Area"}
+          </span>
+          <span className="lp-goal-area-note">
+            Targeted instructional intervention tailored for this learner.
+          </span>
         </div>
 
         <div className="ts-output-box">
           <div className="ts-output-label">
-            Lesson Plan Content
+            <span>Lesson Plan Phases</span>
             <div className="ts-output-label-line" />
           </div>
-          <div
-            style={{ maxHeight: "60vh", overflowY: "auto", paddingRight: 4 }}
-          >
+          <div className="ts-strategy-body">
             {lessonsArray.length > 0 ? (
               lessonsArray.map((plan, index) => (
                 <LessonPhaseBlock
@@ -636,9 +1190,7 @@ function ViewTab() {
                 />
               ))
             ) : (
-              <p
-                style={{ color: "#8a9ab5", fontStyle: "italic", fontSize: 13 }}
-              >
+              <p className="ts-empty-italic">
                 No lesson plan content available to display.
               </p>
             )}
@@ -647,54 +1199,156 @@ function ViewTab() {
 
         <div className="ts-actions space-between" style={{ marginTop: 20 }}>
           <button
+            type="button"
             className="ts-btn ts-btn-ghost"
-            onClick={() => setViewingPlan(null)}
+            onClick={handleBackToList}
           >
             ← Back to List
           </button>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="ts-btn ts-btn-secondary"
+              onClick={() => handleOpenEdit(viewingPlan)}
+            >
+              Edit Plan
+            </button>
+            <button
+              type="button"
+              className="ts-btn ts-btn-danger"
+              onClick={() => setToDeletePlan(viewingPlan)}
+            >
+              Delete Plan
+            </button>
+          </div>
         </div>
+
+        {toDeletePlan && (
+          <div
+            className="ts-modal-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lp-modal-title"
+          >
+            <div className="ts-modal">
+              <div className="ts-modal-icon" aria-hidden="true">
+                <TrashIcon className="w-6 h-6 text-red-600" aria-hidden="true" />
+              </div>
+              <p id="lp-modal-title" className="ts-modal-title">Delete Lesson Plan?</p>
+              <p className="ts-modal-body">
+                You are about to permanently delete{" "}
+                <strong>"{toDeletePlan?.title}"</strong>. This action cannot be
+                undone.
+              </p>
+              <div className="ts-modal-actions">
+                <button
+                  type="button"
+                  className="ts-btn ts-btn-ghost"
+                  onClick={() => setToDeletePlan(null)}
+                  disabled={deleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="ts-btn ts-btn-danger-solid"
+                  onClick={handleConfirmDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting…" : "Yes, Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  // Screen 2: Plan list for student
+  // Screen 2: Plan list for selected student
   if (selectedStudent) {
     return (
       <div className="ts-card">
         <Breadcrumb
           items={[
-            {
-              label: "All Students",
-              onClick: () => {
-                setSelectedStudent(null);
-                setPlans([]);
-              },
-            },
-            { label: selectedStudent.name },
+            { label: "All Students", onClick: handleBackToStudents },
+            { label: selectedStudent.name || selectedStudent.studentName },
           ]}
         />
         <div className="ts-card-header">
-          <div className="ts-card-icon">📚</div>
+          <div className="ts-card-icon" aria-hidden="true">
+            <BookOpenIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+          </div>
           <div>
             <p className="ts-card-title">Lesson Plans</p>
-            <p className="ts-card-subtitle">For {selectedStudent.name}</p>
+            <p className="ts-card-subtitle">
+              For {selectedStudent.name || selectedStudent.studentName}
+            </p>
           </div>
         </div>
         <ErrorBanner message={error} />
+        {successMessage && (
+          <div className="ts-success-msg" role="status">
+            {successMessage}
+          </div>
+        )}
         {loadingPlans ? (
           <Loading text="Loading lesson plans…" />
         ) : plans.length === 0 ? (
           <EmptyState
-            icon="📭"
+            icon={<InboxIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
             message="No lesson plans found for this student."
+            description="Create an AI-generated lesson plan tailored to this student's IEP goals."
+            actionLabel="Generate Lesson Plan"
+            actionIcon={<SparklesIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />}
+            onAction={onGoToGenerate}
           />
         ) : (
           <PlanRowList
             plans={plans}
-            actionLabel="View"
-            onAction={(p) => setViewingPlan(p)}
-            actionClass="ts-btn ts-btn-primary"
+            onView={(p) => setViewingPlan(p)}
+            onEdit={(p) => handleOpenEdit(p)}
+            onDelete={(p) => setToDeletePlan(p)}
           />
+        )}
+
+        {toDeletePlan && (
+          <div
+            className="ts-modal-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lp-modal-title"
+          >
+            <div className="ts-modal">
+              <div className="ts-modal-icon" aria-hidden="true">
+                <TrashIcon className="w-6 h-6 text-red-600" aria-hidden="true" />
+              </div>
+              <p id="lp-modal-title" className="ts-modal-title">Delete Lesson Plan?</p>
+              <p className="ts-modal-body">
+                You are about to permanently delete{" "}
+                <strong>"{toDeletePlan?.title}"</strong>. This action cannot be
+                undone.
+              </p>
+              <div className="ts-modal-actions">
+                <button
+                  type="button"
+                  className="ts-btn ts-btn-ghost"
+                  onClick={() => setToDeletePlan(null)}
+                  disabled={deleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="ts-btn ts-btn-danger-solid"
+                  onClick={handleConfirmDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting…" : "Yes, Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     );
@@ -704,18 +1358,26 @@ function ViewTab() {
   return (
     <div className="ts-card">
       <div className="ts-card-header">
-        <div className="ts-card-icon">📚</div>
+        <div className="ts-card-icon" aria-hidden="true">
+          <BookOpenIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+        </div>
         <div>
-          <p className="ts-card-title">View Lesson Plans</p>
+          <p className="ts-card-title">Manage Lesson Plans</p>
           <p className="ts-card-subtitle">
-            Select a student to view their lesson plans
+            Select a student to view, edit, or delete their lesson plans
           </p>
         </div>
       </div>
       <ErrorBanner message={error} />
+      {successMessage && (
+        <div className="ts-success-msg" role="status">
+          {successMessage}
+        </div>
+      )}
 
       <div className="lp-search-bar" style={{ marginBottom: 16 }}>
         <input
+          aria-label="Search students"
           className="ts-form-input"
           style={{ flex: 1, minWidth: 180 }}
           placeholder="Search students…"
@@ -723,10 +1385,9 @@ function ViewTab() {
           onChange={(e) => setSearch(e.target.value)}
         />
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#5a7491" }}>
-            Filter
-          </span>
+          <span className="lp-filter-label">Filter:</span>
           <select
+            aria-label="Filter by Grade"
             className="ts-form-input"
             style={{ width: "auto", minWidth: 100, padding: "10px 12px" }}
             value={filterGrade}
@@ -740,6 +1401,7 @@ function ViewTab() {
             ))}
           </select>
           <select
+            aria-label="Filter by Age"
             className="ts-form-input"
             style={{ width: "auto", minWidth: 80, padding: "10px 12px" }}
             value={filterAge}
@@ -758,7 +1420,41 @@ function ViewTab() {
       {loadingStudents ? (
         <Loading text="Fetching students…" />
       ) : filteredStudents.length === 0 ? (
-        <EmptyState icon="🏫" message="No students found." />
+        <EmptyState
+          icon={<SchoolIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
+          message={
+            search || filterGrade || filterAge
+              ? "No students match your filter."
+              : "No students found."
+          }
+          description={
+            search || filterGrade || filterAge
+              ? "Try adjusting your search query or filters."
+              : "Register a student profile first to manage and view lesson plans."
+          }
+          actionLabel={
+            search || filterGrade || filterAge
+              ? "Clear Filters"
+              : "Create Student Profile"
+          }
+          actionIcon={
+            search || filterGrade || filterAge ? (
+              <CloseIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />
+            ) : (
+              <UserIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />
+            )
+          }
+          onAction={() => {
+            if (search || filterGrade || filterAge) {
+              setSearch("");
+              setFilterGrade("");
+              setFilterAge("");
+            } else {
+              navigate("/dashboard/students/create");
+              if (setActivePage) setActivePage("create-student-profile");
+            }
+          }}
+        />
       ) : (
         <StudentGrid
           students={filteredStudents}
@@ -770,252 +1466,20 @@ function ViewTab() {
   );
 }
 
-// ── Edit Tab ──────────────────────────────────────────────────────────────────
-function EditTab() {
-  const [plans, setPlans] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [editingPlan, setEditingPlan] = useState(null);
-  const [formValue, setFormValue] = useState({ title: "", status: "" });
-  const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState(false);
-
-  const fetchPlans = useCallback(() => {
-    setLoading(true);
-    lessonPlansAPI
-      .list()
-      .then(setPlans)
-      .catch(() => setError("Failed to load lesson plans."))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    fetchPlans();
-  }, [fetchPlans]);
-
-  const openEdit = (plan) => {
-    setEditingPlan(plan);
-    setFormValue({ title: plan.title, status: plan.status });
-    setSuccess(false);
-    setError("");
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    setError("");
-    try {
-      const updated = await lessonPlansAPI.update(
-        editingPlan.lessonID,
-        formValue,
-      );
-      setPlans((prev) =>
-        prev.map((p) =>
-          p.lessonID === editingPlan.lessonID ? { ...p, ...updated } : p,
-        ),
-      );
-      setSuccess(true);
-      setTimeout(() => {
-        setEditingPlan(null);
-        setSuccess(false);
-      }, 1200);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (editingPlan) {
-    return (
-      <div className="ts-card">
-        <Breadcrumb
-          items={[
-            { label: "All Plans", onClick: () => setEditingPlan(null) },
-            { label: "Edit Plan" },
-          ]}
-        />
-        <div className="ts-card-header">
-          <div className="ts-card-icon">✏️</div>
-          <div>
-            <p className="ts-card-title">Edit Lesson Plan</p>
-            <p className="ts-card-subtitle">Make changes and save</p>
-          </div>
-        </div>
-        <ErrorBanner message={error} />
-        {success && (
-          <div className="ts-success-msg">
-            ✅ Lesson plan saved successfully!
-          </div>
-        )}
-        <div className="ts-form-group">
-          <label className="ts-form-label">Plan Title</label>
-          <input
-            className="ts-form-input"
-            value={formValue.title}
-            onChange={(e) =>
-              setFormValue({ ...formValue, title: e.target.value })
-            }
-          />
-        </div>
-        <div className="ts-form-group">
-          <label className="ts-form-label">Status</label>
-          <select
-            className="ts-form-input"
-            value={formValue.status}
-            onChange={(e) =>
-              setFormValue({ ...formValue, status: e.target.value })
-            }
-          >
-            <option value="Active">Active</option>
-            <option value="Draft">Draft</option>
-            <option value="Generated">Generated</option>
-          </select>
-        </div>
-        <div className="ts-actions space-between" style={{ marginTop: 8 }}>
-          <button
-            className="ts-btn ts-btn-ghost"
-            onClick={() => setEditingPlan(null)}
-          >
-            ← Back
-          </button>
-          <button
-            className="ts-btn ts-btn-primary"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? "Saving…" : "💾 Save Changes"}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="ts-card">
-      <div className="ts-card-header">
-        <div className="ts-card-icon">✏️</div>
-        <div>
-          <p className="ts-card-title">Edit Lesson Plans</p>
-          <p className="ts-card-subtitle">Select a plan to edit</p>
-        </div>
-      </div>
-      <ErrorBanner message={error} />
-      {loading ? (
-        <Loading text="Loading lesson plans…" />
-      ) : plans.length === 0 ? (
-        <EmptyState icon="📭" message="No lesson plans found." />
-      ) : (
-        <PlanRowList
-          plans={plans}
-          actionLabel="Edit"
-          onAction={openEdit}
-          actionClass="ts-btn ts-btn-secondary"
-        />
-      )}
-    </div>
-  );
-}
-
-// ── Delete Tab ────────────────────────────────────────────────────────────────
-function DeleteTab() {
-  const [plans, setPlans] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [toDelete, setToDelete] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-
-  const fetchPlans = useCallback(() => {
-    setLoading(true);
-    lessonPlansAPI
-      .list()
-      .then(setPlans)
-      .catch(() => setError("Failed to load lesson plans."))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    fetchPlans();
-  }, [fetchPlans]);
-
-  const confirmDelete = async () => {
-    setDeleting(true);
-    try {
-      await lessonPlansAPI.delete(toDelete);
-      setPlans((prev) => prev.filter((p) => p.lessonID !== toDelete));
-      setToDelete(null);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const itemToDelete = plans.find((p) => p.lessonID === toDelete);
-
-  return (
-    <div className="ts-card">
-      <div className="ts-card-header">
-        <div className="ts-card-icon">🗑️</div>
-        <div>
-          <p className="ts-card-title">Delete Lesson Plans</p>
-          <p className="ts-card-subtitle">Permanently remove a lesson plan</p>
-        </div>
-      </div>
-      <ErrorBanner message={error} />
-      {loading ? (
-        <Loading text="Loading lesson plans…" />
-      ) : plans.length === 0 ? (
-        <EmptyState icon="📭" message="No lesson plans to delete." />
-      ) : (
-        <PlanRowList
-          plans={plans}
-          actionLabel="Delete"
-          onAction={(p) => setToDelete(p.lessonID)}
-          actionClass="ts-btn ts-btn-danger"
-        />
-      )}
-
-      {toDelete && (
-        <div className="ts-modal-overlay">
-          <div className="ts-modal">
-            <div className="ts-modal-icon">🗑️</div>
-            <p className="ts-modal-title">Delete Lesson Plan?</p>
-            <p className="ts-modal-body">
-              You're about to permanently delete{" "}
-              <strong>"{itemToDelete?.title}"</strong>. This action cannot be
-              undone.
-            </p>
-            <div className="ts-modal-actions">
-              <button
-                className="ts-btn ts-btn-ghost"
-                onClick={() => setToDelete(null)}
-                disabled={deleting}
-              >
-                Cancel
-              </button>
-              <button
-                className="ts-btn ts-btn-danger-solid"
-                onClick={confirmDelete}
-                disabled={deleting}
-              >
-                {deleting ? "Deleting…" : "Yes, Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Main Page ─────────────────────────────────────────────────────────────────
-export default function ManageLessonPlans() {
+export default function ManageLessonPlans({ setActivePage }) {
   const [activeTab, setActiveTab] = useState("generate");
-  const [lessonPlans, setLessonPlans] = useState([]);
+  const [, setLessonPlans] = useState([]);
 
   const saveLessonPlan = (plan) => {
     if (plan) setLessonPlans((prev) => [plan, ...prev]);
   };
+
+  const isManageTab =
+    activeTab === "manage" ||
+    activeTab === "view" ||
+    activeTab === "edit" ||
+    activeTab === "delete";
 
   return (
     <div className="page-content ts-page">
@@ -1033,25 +1497,40 @@ export default function ManageLessonPlans() {
             </p>
           </div>
         </div>
-        <div className="ts-tab-bar">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              className={`ts-tab-btn ${activeTab === tab.key ? "active" : ""}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              <span className="ts-tab-icon">{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
+        <div className="ts-tab-bar" role="tablist">
+          {TABS.map((tab) => {
+            const isActive =
+              activeTab === tab.key ||
+              (tab.key === "manage" && isManageTab && activeTab !== "generate");
+            return (
+              <button
+                key={tab.key}
+                role="tab"
+                aria-selected={isActive}
+                className={`ts-tab-btn ${isActive ? "active" : ""}`}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                <span className="ts-tab-icon">{tab.icon}</span>
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       <div className="ts-body">
-        {activeTab === "generate" && <GenerateTab onSave={saveLessonPlan} />}
-        {activeTab === "view" && <ViewTab />}
-        {activeTab === "edit" && <EditTab />}
-        {activeTab === "delete" && <DeleteTab />}
+        {activeTab === "generate" && (
+          <GenerateTab
+            onSave={saveLessonPlan}
+            setActivePage={setActivePage}
+          />
+        )}
+        {isManageTab && (
+          <ManagePlansTab
+            setActivePage={setActivePage}
+            onGoToGenerate={() => setActiveTab("generate")}
+          />
+        )}
       </div>
     </div>
   );

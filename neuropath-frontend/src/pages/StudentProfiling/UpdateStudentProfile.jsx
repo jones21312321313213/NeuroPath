@@ -1,5 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useId, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { studentsAPI } from "../../api/client";
+import { Modal, Button } from "../../components/ui";
+import {
+  CheckIcon,
+  CloseIcon,
+  LightBulbIcon,
+  DocumentTextIcon,
+  InformationCircleIcon,
+} from "../../components/ui/icons";
+import { Ra10173ConsentModal } from "../../components/Ra10173ConsentModal";
 import "../../styles/UpdateStudentProfile.css";
 
 const difficultyOptions = [
@@ -32,26 +42,38 @@ function getProfileDetails(student) {
   return typeof student.preferences === "object" ? student.preferences : {};
 }
 
-function FormField({ label, placeholder, value, onChange, type = "text" }) {
+function FormField({ label, placeholder, value, onChange, type = "text", min, max }) {
+  const generatedId = useId();
+  const inputId = label
+    ? `usp-field-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    : generatedId;
   return (
     <div className="form-group">
-      <label className="form-label">{label}:</label>
+      <label htmlFor={inputId} className="form-label">{label}:</label>
       <input
+        id={inputId}
         type={type}
         placeholder={placeholder}
         value={value}
         onChange={onChange}
         className="form-input gray-input"
+        min={min}
+        max={max}
       />
     </div>
   );
 }
 
 function SelectField({ label, options, value, onChange }) {
+  const generatedId = useId();
+  const selectId = label
+    ? `usp-select-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    : generatedId;
   return (
     <div className="form-group">
-      <label className="form-label">{label}:</label>
+      <label htmlFor={selectId} className="form-label">{label}:</label>
       <select
+        id={selectId}
         value={value}
         onChange={onChange}
         className="form-select gray-input"
@@ -67,11 +89,24 @@ function SelectField({ label, options, value, onChange }) {
   );
 }
 
-function TextAreaField({ label, placeholder, value, onChange, rows = 3 }) {
+function TextAreaField({
+  label,
+  placeholder,
+  value,
+  onChange,
+  rows = 3,
+  helpText,
+}) {
+  const generatedId = useId();
+  const areaId = label
+    ? `usp-area-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+    : generatedId;
   return (
     <div className="form-group">
-      <label className="form-label">{label}</label>
+      <label htmlFor={areaId} className="form-label">{label}</label>
+      {helpText && <span className="iep-field-help">{helpText}</span>}
       <textarea
+        id={areaId}
         rows={rows}
         placeholder={placeholder}
         value={value}
@@ -91,10 +126,19 @@ function SectionHeader({ title, subtitle }) {
   );
 }
 
-function CheckOption({ label, checked, onChange }) {
+function CheckOption({ label, checked, onChange, disabled = false }) {
   return (
-    <label className="iep-check-option">
-      <input type="checkbox" checked={checked} onChange={onChange} />
+    <label
+      className={`iep-check-option ${
+        disabled ? "opacity-60 cursor-not-allowed select-none" : ""
+      }`}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        disabled={disabled}
+      />
       <span>{label}</span>
     </label>
   );
@@ -103,28 +147,74 @@ function CheckOption({ label, checked, onChange }) {
 /* ── Success Modal ─────────────────────────────────────── */
 function SuccessModal({ studentName, onClose }) {
   return (
-    <div className="usp-modal-overlay" onClick={onClose}>
-      <div className="usp-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="usp-modal-icon">✓</div>
-        <h3 className="usp-modal-title">Profile Updated!</h3>
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title="Profile Updated!"
+      size="sm"
+      footer={
+        <Button variant="primary" onClick={onClose} className="w-full">
+          Done
+        </Button>
+      }
+    >
+      <div className="text-center py-2">
+        <div className="usp-modal-icon" aria-hidden="true">
+          <CheckIcon className="w-7 h-7 text-blue-600" aria-hidden="true" />
+        </div>
         <p className="usp-modal-body">
           <strong>{studentName}</strong>'s profile has been saved successfully.
         </p>
-        <button className="btn btn-submit usp-modal-btn" onClick={onClose}>
-          Done
-        </button>
       </div>
-    </div>
+    </Modal>
   );
 }
 
-export default function UpdateStudentProfile({ studentId, onBack }) {
+export default function UpdateStudentProfile({ studentId: propStudentId, onBack }) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const studentId = propStudentId || id;
+
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [hasReadConsent, setHasReadConsent] = useState(false);
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const errorRef = useRef(null);
+
+  const scrollToError = () => {
+    setTimeout(() => {
+      if (errorRef.current) {
+        errorRef.current.scrollIntoView?.({
+          behavior: "smooth",
+          block: "center",
+        });
+        errorRef.current.focus?.({ preventScroll: true });
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }, 50);
+  };
+
+  const handleConfirmConsent = () => {
+    setHasReadConsent(true);
+    setForm((prev) => ({
+      ...prev,
+      parentalConsentObtained: true,
+    }));
+  };
+
+  const handleBack = () => {
+    if (onBack) onBack();
+    if (studentId) {
+      navigate(`/dashboard/students/${studentId}`);
+    } else {
+      navigate("/dashboard/students");
+    }
+  };
 
   useEffect(() => {
     if (!studentId) return;
@@ -136,6 +226,10 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
         const response = await studentsAPI.get(studentId);
         const data = response?.data || response;
         const details = getProfileDetails(data);
+        const hasConsent = Boolean(data.parental_consent_obtained);
+        if (hasConsent) {
+          setHasReadConsent(true);
+        }
 
         setForm({
           school: details.school || "",
@@ -161,6 +255,10 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
           academicNeeds: details.academicNeeds || data.support_needs || "",
           parentalConcerns: details.parentalConcerns || "",
           curriculumImpact: details.curriculumImpact || "",
+          parentalConsentObtained: hasConsent,
+          consentDate: data.consent_date || new Date().toISOString().split("T")[0],
+          guardianName: data.guardian_name || "",
+          guardianRelationship: data.guardian_relationship || "Parent",
         });
       } catch (err) {
         setError(err.message || "Unable to load student profile.");
@@ -198,6 +296,25 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
         return false;
       }
     }
+
+    if (!form.difficultyMarkers || form.difficultyMarkers.length === 0) {
+      setError(
+        "Please select at least one difficulty marker (needed before Generate IEP).",
+      );
+      return false;
+    }
+
+    if (form.parentalConsentObtained) {
+      if (!String(form.guardianName || "").trim()) {
+        setError("Guardian name is required when parental consent is obtained.");
+        return false;
+      }
+      if (!String(form.consentDate || "").trim()) {
+        setError("Consent date is required when parental consent is obtained.");
+        return false;
+      }
+    }
+
     setError("");
     return true;
   };
@@ -232,19 +349,31 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
     return true;
   };
 
-  const handleNext = () => {
-    if (!validateStepOne()) return;
+  const handleNext = (e) => {
+    if (e?.preventDefault) e.preventDefault();
+    if (e?.stopPropagation) e.stopPropagation();
+
+    if (!validateStepOne()) {
+      scrollToError();
+      return;
+    }
+    setError("");
     setStep(2);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleSave = async (e) => {
-    e.preventDefault();
+    if (e?.preventDefault) e.preventDefault();
+    if (step !== 2) return;
+
     if (!validateStepOne()) {
       setStep(1);
+      scrollToError();
       return;
     }
     if (!validateStepTwo()) {
       setStep(2);
+      scrollToError();
       return;
     }
 
@@ -281,6 +410,10 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
       learning_style: "",
       interests: "",
       sensory_preferences: "",
+      parental_consent_obtained: Boolean(form.parentalConsentObtained),
+      consent_date: form.parentalConsentObtained ? form.consentDate : null,
+      guardian_name: form.parentalConsentObtained ? form.guardianName.trim() : "",
+      guardian_relationship: form.parentalConsentObtained ? form.guardianRelationship : "Parent",
     };
 
     try {
@@ -288,6 +421,7 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
       setShowSuccessModal(true); // ← show modal instead of alert()
     } catch (err) {
       setError(err.message || "Unable to update student profile.");
+      scrollToError();
     } finally {
       setSaving(false);
     }
@@ -295,7 +429,7 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
 
   const handleModalClose = () => {
     setShowSuccessModal(false);
-    if (onBack) onBack();
+    handleBack();
   };
 
   if (loading || !form) {
@@ -329,8 +463,17 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
           </div>
         </div>
 
+        <div className="iep-form-intro">
+          <span className="iep-form-intro-icon">
+            <LightBulbIcon className="w-5 h-5 text-amber-500" aria-hidden="true" />
+          </span>
+          <div>
+            <strong>Tip:</strong> NeuroPath uses this form for AI IEP drafts; fuller answers usually mean better drafts.
+          </div>
+        </div>
+
         <div className="form-actions">
-          <button type="button" className="btn btn-back" onClick={onBack}>
+          <button type="button" className="btn btn-back" onClick={handleBack}>
             ←
           </button>
           {step === 2 ? (
@@ -347,10 +490,20 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
           )}
         </div>
 
-        {error && <div className="iep-alert iep-alert-error">{error}</div>}
+        {error && (
+          <div
+            ref={errorRef}
+            tabIndex={-1}
+            role="alert"
+            aria-live="assertive"
+            className="iep-alert iep-alert-error outline-none"
+          >
+            {error}
+          </div>
+        )}
 
         {step === 1 && (
-          <section className="form-section">
+          <section className="form-section form-section-animated">
             <SectionHeader
               title="Section A: Personal Information"
               subtitle="Update the same student information used in Create Student Profile and View Student Profile."
@@ -419,6 +572,9 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
             <div>
               <h3 className="iep-small-title">
                 Difficulties — mark the appropriate box based on assessment
+                <span className="iep-small-title-help">
+                  (Needed before Generate IEP)
+                </span>
               </h3>
               <div className="iep-check-grid">
                 {difficultyOptions.map((option) => (
@@ -431,11 +587,143 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
                 ))}
               </div>
             </div>
+
+            <div
+              className="ra10173-consent-section"
+              style={{
+                marginTop: "1.5rem",
+                padding: "1.25rem",
+                borderRadius: "0.75rem",
+                backgroundColor: "#f8fafc",
+                border: "1px solid #cbd5e1",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "0.75rem",
+                  marginBottom: "0.75rem",
+                }}
+              >
+                <div>
+                  <h3
+                    className="iep-small-title"
+                    style={{
+                      color: "#0f172a",
+                      fontSize: "0.95rem",
+                      fontWeight: 700,
+                      marginBottom: "0.25rem",
+                    }}
+                  >
+                    Republic Act 10173 (Data Privacy Act of 2012) Compliance
+                  </h3>
+                  <p
+                    className="iep-muted"
+                    style={{ fontSize: "0.85rem", margin: 0 }}
+                  >
+                    In compliance with Philippine RA 10173, processing sensitive personal information and automated AI analysis for minors require explicit parental or guardian consent.
+                  </p>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{
+                      padding: "6px 12px",
+                      fontSize: "0.75rem",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.35rem",
+                    }}
+                    onClick={() => setShowConsentModal(true)}
+                  >
+                    <DocumentTextIcon className="w-3.5 h-3.5 text-blue-600 inline" aria-hidden="true" />
+                    Read Full Consent Agreement
+                  </button>
+                  {hasReadConsent ? (
+                    <span
+                      role="img"
+                      title="Agreement reviewed"
+                      aria-label="Agreement reviewed"
+                      className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 border border-emerald-300 shrink-0"
+                    >
+                      <CheckIcon className="w-4 h-4 text-emerald-600 stroke-[2.5]" aria-hidden="true" />
+                    </span>
+                  ) : (
+                    <span
+                      role="img"
+                      title="Agreement not reviewed"
+                      aria-label="Agreement not reviewed"
+                      className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-rose-100 text-rose-600 border border-rose-300 shrink-0"
+                    >
+                      <CloseIcon className="w-4 h-4 text-rose-600 stroke-[2.5]" aria-hidden="true" />
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <CheckOption
+                label="Parental/Guardian Consent has been verified and obtained for this learner."
+                checked={Boolean(form.parentalConsentObtained)}
+                disabled={!hasReadConsent}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    parentalConsentObtained: e.target.checked,
+                  }))
+                }
+              />
+              {!hasReadConsent && (
+                <p
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "#b45309",
+                    marginTop: "0.35rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.25rem",
+                    margin: "4px 0 0 0",
+                  }}
+                >
+                  <InformationCircleIcon className="w-3.5 h-3.5 text-amber-600 inline shrink-0" aria-hidden="true" />
+                  Please review the Full Consent Agreement above before confirming parental consent.
+                </p>
+              )}
+
+              {form.parentalConsentObtained && (
+                <div
+                  className="form-grid-2"
+                  style={{ marginTop: "1rem" }}
+                >
+                  <FormField
+                    label="Guardian Full Name"
+                    placeholder="Enter parent or guardian name"
+                    value={form.guardianName}
+                    onChange={setField("guardianName")}
+                  />
+                  <SelectField
+                    label="Guardian Relationship"
+                    value={form.guardianRelationship}
+                    onChange={setField("guardianRelationship")}
+                    options={["Parent", "Mother", "Father", "Legal Guardian", "Other"]}
+                  />
+                  <FormField
+                    label="Consent Verification Date"
+                    type="date"
+                    value={form.consentDate}
+                    onChange={setField("consentDate")}
+                  />
+                </div>
+              )}
+            </div>
           </section>
         )}
 
         {step === 2 && (
-          <section className="form-section">
+          <section className="form-section form-section-animated">
             <SectionHeader title="Present Levels of Academic Achievement and/or Functional Performance" />
             <TextAreaField
               label="Results of initial or most recent evaluation and results of school assessments"
@@ -498,6 +786,11 @@ export default function UpdateStudentProfile({ studentId, onBack }) {
           )}
         </div>
       </div>
+      <Ra10173ConsentModal
+        isOpen={showConsentModal}
+        onClose={() => setShowConsentModal(false)}
+        onConfirm={handleConfirmConsent}
+      />
     </div>
   );
 }

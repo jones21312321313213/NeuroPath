@@ -7,5 +7,5 @@ from rest_framework.permissions import BasePermission
 # =====================================================================
 class UserAuthPermissions(BasePermission):
     def has_permission(self, request, view):
-        # Checks if the user's JWT token is valid and active
+        # Checks if the user is authenticated via DRF TokenAuthentication
         return bool(request.user and request.user.is_authenticated)

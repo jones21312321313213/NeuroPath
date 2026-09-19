@@ -9,7 +9,6 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
-import sys
 import os
 from pathlib import Path
 import environ
@@ -26,12 +25,18 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-&#qef2xq6#8jz$_e)-j%hyq329arlj7yok$ksib+n#400vll=0'
+SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-production-environment')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env.bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = []
+# Hosts this backend will answer for. Defaults match what DEBUG mode allowed
+# implicitly; set ALLOWED_HOSTS in .env to serve a non-localhost deployment
+# without editing this file.
+ALLOWED_HOSTS = env.list(
+    'ALLOWED_HOSTS',
+    default=['localhost', '127.0.0.1', '[::1]'] if DEBUG else [],
+)
 
 
 # Application definition
@@ -53,6 +58,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -60,7 +66,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'neuropath_core.urls'
@@ -87,15 +92,14 @@ WSGI_APPLICATION = 'neuropath_core.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres.mdlsncdlpgbfjcccavuv', 
-        'PASSWORD': env('DB_PASSWORD'),
-        'HOST': 'aws-1-ap-southeast-1.pooler.supabase.com',
-        'PORT': '6543',
+    'default': {
+        'ENGINE': env('DB_ENGINE', default='django.db.backends.postgresql'),
+        'NAME': env('DB_NAME', default='postgres'),
+        'USER': env('DB_USER', default='postgres'),
+        'PASSWORD': env('DB_PASSWORD', default=''),
+        'HOST': env('DB_HOST', default='localhost'),
+        'PORT': env('DB_PORT', default='5432'),
     }
-    #'default':env.db('DATABASE_URL')
 }
 
 
@@ -134,15 +138,20 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # ── CORS SETTINGS ───────────────────────────────────────
-# Authorize your local React development origins
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+# Origins the React app is served from. Defaults cover local development; set
+# CORS_ALLOWED_ORIGINS in .env to authorize a deployed frontend origin.
+CORS_ALLOWED_ORIGINS = env.list(
+    'CORS_ALLOWED_ORIGINS',
+    default=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+)
 
 # Allows credential sharing and session syncing across your local ports
 CORS_ALLOW_CREDENTIALS = True
@@ -152,17 +161,30 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 
 
 # Add this right below your CORS settings!
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+CSRF_TRUSTED_ORIGINS = env.list(
+    'CSRF_TRUSTED_ORIGINS',
+    default=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+)
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
     ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
 }
 
-# HUGGING FACE API CONFIGURATION
+# AI SERVICES CONFIGURATION
 HF_TOKEN = env('HF_TOKEN', default='MISSING_TOKEN')
 GROQ_API_KEY = env('GROQ_API_KEY', default='MISSING_KEY')
+GROQ_MODEL = env('GROQ_MODEL', default='llama-3.3-70b-versatile')
+
+GEMINI_API_KEY = env('GEMINI_API_KEY', default='MISSING_KEY')
+GEMINI_MODEL = env('GEMINI_MODEL', default='gemini-1.5-flash')
+
+OPENROUTER_API_KEY = env('OPENROUTER_API_KEY', default='MISSING_KEY')
+OPENROUTER_MODEL = env('OPENROUTER_MODEL', default='meta-llama/llama-3.3-70b-instruct:free')

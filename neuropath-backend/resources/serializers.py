@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from users.models import Teacher
-from .models import LessonPlan,VisualAid,TeachingStrategy
+from iep_management.models import IEPGoal
+from .models import LessonPlan, VisualAid, TeachingStrategy
 
 # =====================================================================
 # SDD COMPONENT: UserContextSerializer
@@ -35,18 +36,49 @@ class LessonPlanSerializer(serializers.ModelSerializer):
 #              generation requests to ensure parameters are safe.
 # =====================================================================
 class LessonGenerationSerializer(serializers.Serializer):
-    # 🚀 REWIRED: We only need the precise Goal ID now!
+    # 🚀 REWIRED: Streamlined for IEP Goal generation while retaining backward-compatibility
     goalID = serializers.IntegerField(required=True)
-    subject = serializers.CharField(max_length=100, required=True)
-    topic = serializers.CharField(required=True)
+    subject = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
+    topic = serializers.CharField(required=False, allow_blank=True, default="")
     
     gradeLevel = serializers.CharField(max_length=50, required=False, allow_blank=True)
     specificGoals = serializers.CharField(required=False, allow_blank=True)
+    goalArea = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
+    teacherPrompt = serializers.CharField(required=False, allow_blank=True, default="")
+    studentID = serializers.IntegerField(required=False)
+
+    def validate_goalID(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("IEP Goal ID must be a valid positive integer.")
+        return value
 
     def validate_topic(self, value):
-        if len(value.strip()) < 3:
+        if value and len(value.strip()) < 3:
             raise serializers.ValidationError("Topic description must be more specific.")
         return value
+
+    def validate(self, attrs):
+        # Derive subject/topic from goalArea or IEPGoal if omitted
+        goal_id = attrs.get('goalID')
+        if not attrs.get('subject') or not attrs.get('topic'):
+            if goal_id:
+                try:
+                    goal = IEPGoal.objects.select_related('iep').get(pk=goal_id)
+                    if not attrs.get('subject'):
+                        attrs['subject'] = attrs.get('goalArea') or getattr(goal, 'subject_category', None) or 'General'
+                    if not attrs.get('topic'):
+                        attrs['topic'] = (
+                            getattr(goal, 'annual_goal', None)
+                            or getattr(goal, 'goalName', None)
+                            or attrs.get('goalArea')
+                            or 'IEP Goal'
+                        )
+                except Exception:
+                    if not attrs.get('subject'):
+                        attrs['subject'] = attrs.get('goalArea') or 'General'
+                    if not attrs.get('topic'):
+                        attrs['topic'] = attrs.get('goalArea') or 'IEP Goal'
+        return attrs
     
     
 # =====================================================================
@@ -134,10 +166,10 @@ class StrategyGenerationService:
         )
         
         mock_generated_text = (
-            f"Recommended Strategy for Target Goal:\n"
-            f"1. Pre-teach vocabulary before the main lesson.\n"
-            f"2. Use visual schedules to map out the activity.\n"
-            f"3. Provide frequent, specific praise for approximations of the target behavior."
+            "Recommended Strategy for Target Goal:\n"
+            "1. Pre-teach vocabulary before the main lesson.\n"
+            "2. Use visual schedules to map out the activity.\n"
+            "3. Provide frequent, specific praise for approximations of the target behavior."
         )
         
         return {
@@ -155,6 +187,7 @@ class StrategyRetrievalSerializer(serializers.ModelSerializer):
     # 🚀 REWIRED: Complete data lineage traversal
     studentName = serializers.CharField(source='iep_goal.iep.studentID.name', read_only=True)
     studentID = serializers.IntegerField(source='iep_goal.iep.studentID.pk', read_only=True)
+    goalID = serializers.IntegerField(source='iep_goal.pk', read_only=True)
     goalName = serializers.CharField(source='iep_goal.annual_goal', read_only=True)
     formattedDate = serializers.DateTimeField(source='dateCreated', format="%B %d, %Y", read_only=True)
 
@@ -164,6 +197,7 @@ class StrategyRetrievalSerializer(serializers.ModelSerializer):
             'strategyID', 
             'studentName', 
             'studentID', 
+            'goalID',
             'goalName', 
             'title', 
             'strategyContent', 

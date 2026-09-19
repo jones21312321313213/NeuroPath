@@ -1,39 +1,32 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "../../styles/ViewStudentProfile.css";
 import { useAuth } from "../../context/AuthContext";
 import StudentShimmer from "../../components/StudentShimmer";
+import { useStudents } from "../../hooks/queries";
 
 export default function ViewStudentProfile({
   setActivePage,
   setSelectedStudentId,
 }) {
-  const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const { user } = useAuth();
+  const {
+    data: rawStudents = [],
+    isLoading,
+    isError,
+    error,
+  } = useStudents(user?.id);
 
-  useEffect(() => {
-    const teacherId = user?.id;
-    if (!teacherId) {
-      setLoading(false);
-      return;
-    }
-
-    fetch(`http://localhost:8000/api/users/students/?teacher_id=${teacherId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setStudents(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setLoading(false);
-      });
-  }, [user]);
+  const students = Array.isArray(rawStudents)
+    ? rawStudents
+    : (rawStudents?.results || []);
 
   const handleView = (id) => {
-    setSelectedStudentId(id);
-    setActivePage("view-student-detail");
+    if (setSelectedStudentId) setSelectedStudentId(id);
+    if (setActivePage) setActivePage("view-student-detail");
+    navigate(`/dashboard/students/${id}`);
   };
 
   const getInitials = (name = "") =>
@@ -49,12 +42,25 @@ export default function ViewStudentProfile({
     s.name?.toLowerCase().includes(search.toLowerCase()),
   );
 
-  if (loading) {
+  if (isLoading && students.length === 0) {
     return (
       <div className="page-content">
         <div className="form-card">
           <h2 className="form-section-title">View Student Profiles</h2>
           <StudentShimmer rows={6} variant="table" />
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="page-content">
+        <div className="form-card">
+          <h2 className="form-section-title">View Student Profiles</h2>
+          <div className="placeholder-page">
+            {error?.message || "Failed to load student profiles."}
+          </div>
         </div>
       </div>
     );
@@ -78,11 +84,13 @@ export default function ViewStudentProfile({
         <div className="vsp-search-wrap">
           <i className="ti ti-search vsp-search-icon" aria-hidden="true" />
           <input
+            id="search-students-input"
             type="text"
             className="vsp-search"
             placeholder="Search by student name…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search students by name"
           />
         </div>
 
@@ -97,48 +105,73 @@ export default function ViewStudentProfile({
             </p>
             <p className="vsp-empty-sub">
               {search
-                ? "Try a different name."
-                : "Create a student profile to get started."}
+                ? "Try a different name or clear the search filter."
+                : "Create a student profile to get started with NeuroPath."}
             </p>
+            {search ? (
+              <button
+                type="button"
+                className="vsp-empty-btn vsp-empty-btn-secondary"
+                onClick={() => setSearch("")}
+              >
+                <i className="ti ti-x" aria-hidden="true" />
+                Clear Search
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="vsp-empty-btn"
+                onClick={() => {
+                  if (setActivePage) setActivePage("create-student-profile");
+                  navigate("/dashboard/students/create");
+                }}
+              >
+                <i className="ti ti-user-plus" aria-hidden="true" />
+                Create Student
+              </button>
+            )}
           </div>
         ) : (
           <div className="vsp-grid">
-            {filtered.map((student) => (
-              <div key={student.studentID} className="vsp-card">
-                {/* Top row */}
-                <div className="vsp-card-top">
-                  <div className="vsp-avatar">{getInitials(student.name)}</div>
-                  <div className="vsp-card-info">
-                    <p className="vsp-card-name">{student.name}</p>
-                    <span className="vsp-card-meta">
-                      {student.diagnosis || "No diagnosis on record"}
-                    </span>
+            {filtered.map((student) => {
+              const studentId = student.studentID ?? student.id;
+              return (
+                <div key={studentId} className="vsp-card">
+                  {/* Top row */}
+                  <div className="vsp-card-top">
+                    <div className="vsp-avatar">{getInitials(student.name)}</div>
+                    <div className="vsp-card-info">
+                      <p className="vsp-card-name">{student.name}</p>
+                      <span className="vsp-card-meta">
+                        {student.diagnosis || "No diagnosis on record"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Pills */}
+                  <div className="vsp-card-pills">
+                    <span className="vsp-pill grade">Grade {student.grade}</span>
+                    {student.gender && (
+                      <span className="vsp-pill">{student.gender}</span>
+                    )}
+                    {student.age && (
+                      <span className="vsp-pill">{student.age} yrs</span>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="vsp-card-footer">
+                    <button
+                      className="vsp-view-btn"
+                      onClick={() => handleView(studentId)}
+                    >
+                      View profile
+                      <i className="ti ti-arrow-right" aria-hidden="true" />
+                    </button>
                   </div>
                 </div>
-
-                {/* Pills */}
-                <div className="vsp-card-pills">
-                  <span className="vsp-pill grade">Grade {student.grade}</span>
-                  {student.gender && (
-                    <span className="vsp-pill">{student.gender}</span>
-                  )}
-                  {student.age && (
-                    <span className="vsp-pill">{student.age} yrs</span>
-                  )}
-                </div>
-
-                {/* Footer */}
-                <div className="vsp-card-footer">
-                  <button
-                    className="vsp-view-btn"
-                    onClick={() => handleView(student.studentID)}
-                  >
-                    View profile
-                    <i className="ti ti-arrow-right" aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

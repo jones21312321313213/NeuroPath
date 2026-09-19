@@ -1,5 +1,12 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import {
+  BoltIcon,
+  LockIcon,
+  WarningIcon,
+  EyeIcon,
+  EyeSlashIcon,
+} from "../components/ui/icons";
 
 export default function RegisterPage({ onNavigateLogin }) {
   const { register } = useAuth();
@@ -44,7 +51,7 @@ export default function RegisterPage({ onNavigateLogin }) {
     setLoading(true);
     try {
       // Mapping the data to match Django's exact Serializer expectations
-      const data = await register({
+      await register({
         username: form.email.trim().toLowerCase(), // Django requires a username!
         email: form.email.trim().toLowerCase(),
         first_name: form.firstName.trim(), // Converted to snake_case
@@ -57,11 +64,10 @@ export default function RegisterPage({ onNavigateLogin }) {
         `Account created for ${form.firstName.trim()}! Please sign in.`,
       );
     } catch (err) {
-      const msg =
-        err.response?.data?.message || err.message || "Registration failed.";
+      const msg = err.message || err.data?.message || "Registration failed.";
 
       // Django often returns a dictionary of specific field errors
-      const fieldErrors = err.response?.data?.errors;
+      const fieldErrors = err.data?.errors;
 
       if (fieldErrors?.username || fieldErrors?.email) {
         setErrors({ email: "This email is already registered." });
@@ -127,7 +133,7 @@ export default function RegisterPage({ onNavigateLogin }) {
         >
           {/* Logo inside card */}
           <div className="flex items-center gap-2 select-none mb-6">
-            <span className="text-2xl">⚡</span>
+            <BoltIcon className="w-6 h-6 text-white" aria-hidden="true" />
             <span className="text-xl font-bold tracking-tight text-white">
               NeuroPath
             </span>
@@ -199,10 +205,11 @@ export default function RegisterPage({ onNavigateLogin }) {
 
           {/* Footer note inside card */}
           <p
-            className="text-xs mt-6"
-            style={{ color: "rgba(255,255,255,0.5)" }}
+            className="text-xs mt-6 flex items-center gap-1.5"
+            style={{ color: "rgba(255,255,255,0.7)" }}
           >
-            🔒 FERPA Compliant Documentation Platform
+            <LockIcon className="w-3.5 h-3.5 text-white/70" aria-hidden="true" />
+            <span>FERPA Compliant Documentation Platform</span>
           </p>
         </div>
       </div>
@@ -220,7 +227,7 @@ export default function RegisterPage({ onNavigateLogin }) {
             >
               Create your account
             </h1>
-            <p className="text-sm font-medium" style={{ color: "#5a9dbf" }}>
+            <p className="text-sm font-medium" style={{ color: "#1e78a6" }}>
               Join NeuroPath and start building better IEPs
             </p>
           </div>
@@ -234,7 +241,7 @@ export default function RegisterPage({ onNavigateLogin }) {
                 color: "#c0392b",
               }}
             >
-              <span className="text-base">⚠️</span>
+              <WarningIcon className="w-4 h-4 text-rose-700 shrink-0" aria-hidden="true" />
               <p className="font-medium">{errors.general}</p>
             </div>
           )}
@@ -357,9 +364,13 @@ export default function RegisterPage({ onNavigateLogin }) {
                   type="button"
                   className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-sm transition-all"
                   onClick={() => setShowPass(!showPass)}
-                  aria-label="Toggle password visibility"
+                  aria-label={showPass ? "Hide password" : "Show password"}
                 >
-                  {showPass ? "🙈" : "👁️"}
+                  {showPass ? (
+                    <EyeSlashIcon className="w-4 h-4 text-slate-500" aria-hidden="true" />
+                  ) : (
+                    <EyeIcon className="w-4 h-4 text-slate-500" aria-hidden="true" />
+                  )}
                 </button>
               </div>
               {errors.password && (
@@ -444,7 +455,7 @@ export default function RegisterPage({ onNavigateLogin }) {
 
           <p
             className="text-sm font-medium text-center"
-            style={{ color: "#5a9dbf" }}
+            style={{ color: "#1e78a6" }}
           >
             Already have an account?{" "}
             <button

@@ -1,15 +1,24 @@
 .topbar-pill {
+  border: none;
   background: #e8f4fe;
   border-radius: 999px;
   padding: 5px 14px 5px 5px;
   display: flex;
   align-items: center;
   gap: 8px;
-  transition: background 0.15s;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
 }
 
 .topbar-pill:hover {
   background: #d4ecfd;
+}
+
+.topbar-pill:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #3b82f6;
 }
 
 .topbar-pill-avatar {
