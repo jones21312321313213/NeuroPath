@@ -6,11 +6,11 @@ services:
     container_name: neuropath_db
     restart: unless-stopped
     ports:
-      - "5433:5432"
+      - "${DB_HOST_PORT:-5432}:5432"
     environment:
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -30,11 +30,11 @@ services:
     env_file:
       - ./neuropath-backend/.env
     environment:
-      DB_HOST: db
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      DB_NAME: postgres
-      DB_PORT: 5432
+      DB_HOST: ${DB_HOST:-db}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
     depends_on:
       db:
         condition: service_healthy
