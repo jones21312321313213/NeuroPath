@@ -16,3 +16,8 @@ node_modules/
 dist/
 staticfiles/
 *.log
+
+# Binary documents & scratch files
+*.docx
+steps-torun.txt
+Github-templates.md
