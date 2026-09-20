@@ -188,9 +188,12 @@ Unlike generic text chunking (which relies on arbitrary character counts or fixe
 
 ---
 
-## 5. Latency Budget Allocation (Target $\le 10\text{s}$)
+## 5. Latency Budget Allocation (Target Design Estimates $\le 10\text{s}$)
 
-To satisfy the strict Software Requirements Specification (SRS) requirement of $\le 10\text{ seconds}$ standard IEP generation turnaround:
+To satisfy the target Software Requirements Specification (SRS) objective of $\le 10\text{ seconds}$ standard IEP generation turnaround:
+
+> [!NOTE]
+> Latency figures listed below represent theoretical design targets and engineering budget allocations for the planned RAG subsystem (KAN-8). They are architectural benchmarks to guide implementation and will be verified through reproducible benchmark scripts under load prior to production SLA certification.
 
 | Pipeline Stage | Subsystem | Target Latency | Optimization Mechanism |
 | :--- | :--- | :--- | :--- |
@@ -200,4 +203,4 @@ To satisfy the strict Software Requirements Specification (SRS) requirement of $
 | 4. Prompt Synthesis | Django Service Layer | $\le 10\text{ ms}$ | Pre-compiled string templates in memory |
 | 5. LLM Inference | Ollama / Groq | $3,500 - 6,500\text{ ms}$ | Streaming token evaluation with low max_tokens (450) |
 | 6. R-GORI Quality Audit | RGORICheckerService | $800 - 1,400\text{ ms}$ | Structured JSON parsing & deterministic rule evaluator |
-| **Total Turnaround** | **End-to-End** | **$4.5\text{s} - 8.3\text{s}$** | **Safely within the $\le 10\text{s}$ SLA ceiling** |
+| **Total Turnaround** | **End-to-End** | **$4.5\text{s} - 8.3\text{s}$** | **Design target within the $\le 10\text{s}$ objective ceiling** |

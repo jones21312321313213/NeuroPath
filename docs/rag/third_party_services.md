@@ -1,12 +1,15 @@
 # NeuroPath RAG System: Third-Party Services & RA 10173 Privacy Architecture
 
+> [!NOTE]
+> **Specification & Roadmap Status:** This document describes the planned privacy controls, third-party provider requirements, and de-identification boundaries designed for the RAG integration (KAN-8). Statutory compliance policies represent design requirements to be independently audited upon full deployment.
+
 ## 1. Compliance Mandate: Philippine Data Privacy Act of 2012 (RA 10173)
 
-The processing of educational and clinical records for minors diagnosed with Autism Spectrum Disorder (ASD) is classified under Republic Act No. 10173 as **Sensitive Personal Information**. The system enforces a strict zero-breach, zero-leakage security boundary:
+The processing of educational and clinical records for minors diagnosed with Autism Spectrum Disorder (ASD) is classified under Republic Act No. 10173 as **Sensitive Personal Information**. The system aims to enforce a strict security boundary:
 
 1. **Heightened Protection of Minors**: Under National Privacy Commission (NPC) regulations, children's sensitive data cannot be stored, processed, or transferred without explicit parental consent and strict necessity.
-2. **Zero Data Retention (ZDR) Requirement**: Any external AI compute engine (e.g., OpenAI, Groq) must operate strictly as an ephemeral processing pipeline. Third-party providers are contractually and technically prohibited from retaining, logging, or utilizing submitted SPED text to train foundation models.
-3. **Data Minimization & De-identification**: No Personally Identifiable Information (PII)—including learner full names, Learner Reference Numbers (LRN), birthdates, addresses, parent names, or school names—is ever transmitted outside the secure backend perimeter.
+2. **Zero Data Retention (ZDR) Requirement**: Any external AI compute engine (e.g., OpenAI, Groq) must operate strictly as an ephemeral processing pipeline. Third-party providers are evaluated against strict non-retention terms prohibiting the use of submitted text for model training.
+3. **Data Minimization & De-identification**: Personally Identifiable Information (PII)—including learner full names, Learner Reference Numbers (LRN), birthdates, addresses, parent names, or school names—must be de-identified prior to transmitting outside the secure backend perimeter.
 
 ---
 
@@ -36,7 +39,10 @@ sequenceDiagram
     App-->>Teacher: Render Validated Goal in Browser
 ```
 
-### 2.1 PII Sanitization Specification
+### 2.1 PII Sanitization Specification (Illustrative Architectural Reference)
+
+> *Note: The following `PIIScrubberService` class is an illustrative architectural design specification for roadmap item KAN-8. The production implementation requires comprehensive entity matching (handling compound surnames, parent/guardian names, educational institutions, and free-form notes) accompanied by full automated test suites.*
+
 ```python
 import re
 from typing import Tuple, Dict

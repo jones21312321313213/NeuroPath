@@ -1,5 +1,8 @@
 # NeuroPath RAG System: Documentation & Technical Specifications
 
+> [!NOTE]
+> **Specification & Roadmap Status:** This document details the planned RAG architecture and knowledge base design for future integration. Runtime models, pgvector migrations, and retrieval services are scheduled under Sprint roadmap item KAN-8 and are not part of the active production runtime.
+
 ## 1. Overview
 NeuroPath's Retrieval-Augmented Generation (RAG) system upgrades **Module 2 (AI-Based IEP Generation)** and **Module 3 (Instructional Support)** from zero-shot prompt generation to an authoritative, context-grounded retrieval architecture.
 
@@ -19,7 +22,8 @@ flowchart LR
 
 ---
 
-## 2. Core System Benchmarks & Non-Negotiables
+## 2. Target Design Benchmarks & Pedagogical Objectives
+*(Design objectives subject to empirical validation upon KAN-8 implementation)*
 
 | Metric / Requirement | Target Benchmark | Enforcement Mechanism |
 | :--- | :--- | :--- |
@@ -27,7 +31,7 @@ flowchart LR
 | **Full Document Generation Latency** | $\le 30\text{ seconds}$ | Concurrent visual aid dispatch & batched section drafting |
 | **Generation Hard Timeout** | $45\text{ seconds}$ | Client-side abort with automatic draft retention in IndexedDB |
 | **Pedagogical Quality Standard** | $\ge 80\%$ compliance | Automated post-generation audit via `RGORICheckerService` |
-| **Minor Data Privacy Compliance** | $100\%$ compliance, $0\%$ leak | Ephemeral regex/token surrogate PII scrubber (RA 10173) |
+| **Minor Data Privacy Compliance** | $100\%$ compliance target | Ephemeral regex/token surrogate PII scrubber (RA 10173) |
 | **Third-Party Data Retention** | Zero Data Retention (ZDR) | Stateless API terms; no training on minor learner data |
 
 ---
@@ -52,11 +56,12 @@ CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
 ### 4.2 Environment Configuration
-Verify your backend `.env` file contains:
+Verify your backend `.env` file contains the active AI service keys:
 ```env
-OPENAI_API_KEY=your_openai_api_key        # Used for text-embedding-3-small
-GROQ_API_KEY=your_groq_api_key            # Used for cloud fallback LLM
-OLLAMA_BASE_URL=http://localhost:11434    # Used for primary local LLM
+GEMINI_API_KEY=your_gemini_api_key        # Primary LLM generation tier
+GROQ_API_KEY=your_groq_api_key            # Cloud fallback tier
+OLLAMA_HOST=http://localhost:11434        # Optional local Ollama server
+OPENAI_API_KEY=your_openai_api_key        # Future embedding generation (KAN-8)
 ```
 
 ### 4.3 Ingestion Management Command
