@@ -1,5 +1,5 @@
 ## 🔗 Linked Issue
-Closes #
+Closes #123
 
 ## Summary
 <!-- Replace this text with a summary of the changes you're adding -->
