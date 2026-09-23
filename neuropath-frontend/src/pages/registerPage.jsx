@@ -7,9 +7,11 @@ import {
   EyeIcon,
   EyeSlashIcon,
 } from "../components/ui/icons";
+import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
+import { evaluatePasswordRules } from "../utils/password";
 
-export default function RegisterPage({ onNavigateLogin }) {
-  const { register } = useAuth();
+export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
+  const { register, login } = useAuth();
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -28,8 +30,14 @@ export default function RegisterPage({ onNavigateLogin }) {
     if (!form.lastName.trim()) e.lastName = "Last name is required.";
     if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email))
       e.email = "Enter a valid email.";
-    if (form.password.length < 6)
-      e.password = "Password must be at least 6 characters.";
+
+    const ruleResult = evaluatePasswordRules(form.password);
+    if (!ruleResult.hasLength) {
+      e.password = "Password must be at least 8 characters.";
+    } else if (!ruleResult.isValid) {
+      e.password = "Please fulfill all password requirements below.";
+    }
+
     if (form.password !== form.confirmPassword)
       e.confirmPassword = "Passwords do not match.";
     return e;
@@ -50,15 +58,27 @@ export default function RegisterPage({ onNavigateLogin }) {
 
     setLoading(true);
     try {
+      const cleanEmail = form.email.trim().toLowerCase();
       // Mapping the data to match Django's exact Serializer expectations
       await register({
-        username: form.email.trim().toLowerCase(), // Django requires a username!
-        email: form.email.trim().toLowerCase(),
+        username: cleanEmail, // Django requires a username!
+        email: cleanEmail,
         first_name: form.firstName.trim(), // Converted to snake_case
         last_name: form.lastName.trim(), // Converted to snake_case
         password: form.password,
         // role: form.role // (You can pass this if you add a role field to your backend model later)
       });
+
+      // ENH05: Automatically log in the newly registered educator
+      try {
+        await login(cleanEmail, form.password);
+        if (onRegisterSuccess) {
+          onRegisterSuccess();
+          return;
+        }
+      } catch (loginErr) {
+        console.warn("Auto-login fallback:", loginErr);
+      }
 
       onNavigateLogin(
         `Account created for ${form.firstName.trim()}! Please sign in.`,
@@ -71,6 +91,11 @@ export default function RegisterPage({ onNavigateLogin }) {
 
       if (fieldErrors?.username || fieldErrors?.email) {
         setErrors({ email: "This email is already registered." });
+      } else if (fieldErrors?.password) {
+        const passErr = Array.isArray(fieldErrors.password)
+          ? fieldErrors.password[0]
+          : fieldErrors.password;
+        setErrors({ password: passErr });
       } else {
         setErrors({ general: msg });
       }
@@ -255,12 +280,14 @@ export default function RegisterPage({ onNavigateLogin }) {
                   className="text-xs font-bold uppercase tracking-wider"
                   style={{ color: "#1a6fa8" }}
                 >
-                  First Name
+                  First Name <span className="text-rose-500" aria-hidden="true">*</span>
                 </label>
                 <input
                   id="firstName"
                   name="firstName"
                   type="text"
+                  required
+                  aria-required="true"
                   placeholder="John"
                   value={form.firstName}
                   onChange={handleChange}
@@ -284,12 +311,14 @@ export default function RegisterPage({ onNavigateLogin }) {
                   className="text-xs font-bold uppercase tracking-wider"
                   style={{ color: "#1a6fa8" }}
                 >
-                  Last Name
+                  Last Name <span className="text-rose-500" aria-hidden="true">*</span>
                 </label>
                 <input
                   id="lastName"
                   name="lastName"
                   type="text"
+                  required
+                  aria-required="true"
                   placeholder="Doe"
                   value={form.lastName}
                   onChange={handleChange}
@@ -316,12 +345,14 @@ export default function RegisterPage({ onNavigateLogin }) {
                 className="text-xs font-bold uppercase tracking-wider"
                 style={{ color: "#1a6fa8" }}
               >
-                Email Address
+                Email Address <span className="text-rose-500" aria-hidden="true">*</span>
               </label>
               <input
                 id="reg-email"
                 name="email"
                 type="email"
+                required
+                aria-required="true"
                 value={form.email}
                 onChange={handleChange}
                 className="w-full px-4 py-3 rounded-xl text-sm font-medium outline-none transition-all"
@@ -346,13 +377,15 @@ export default function RegisterPage({ onNavigateLogin }) {
                 className="text-xs font-bold uppercase tracking-wider"
                 style={{ color: "#1a6fa8" }}
               >
-                Password
+                Password <span className="text-rose-500" aria-hidden="true">*</span>
               </label>
               <div className="relative">
                 <input
                   id="reg-password"
                   name="password"
                   type={showPass ? "text" : "password"}
+                  required
+                  aria-required="true"
                   value={form.password}
                   onChange={handleChange}
                   className="w-full pl-4 pr-12 py-3 rounded-xl text-sm font-medium outline-none transition-all"
@@ -381,6 +414,8 @@ export default function RegisterPage({ onNavigateLogin }) {
                   {errors.password}
                 </span>
               )}
+              {/* ENH02 & ENH04: Live Password Strength Meter & Interactive Checklist */}
+              <PasswordStrengthMeter password={form.password} />
             </div>
 
             {/* Confirm Password */}
@@ -390,12 +425,14 @@ export default function RegisterPage({ onNavigateLogin }) {
                 className="text-xs font-bold uppercase tracking-wider"
                 style={{ color: "#1a6fa8" }}
               >
-                Confirm Password
+                Confirm Password <span className="text-rose-500" aria-hidden="true">*</span>
               </label>
               <input
                 id="confirmPassword"
                 name="confirmPassword"
                 type={showPass ? "text" : "password"}
+                required
+                aria-required="true"
                 value={form.confirmPassword}
                 onChange={handleChange}
                 className="w-full px-4 py-3 rounded-xl text-sm font-medium outline-none transition-all"

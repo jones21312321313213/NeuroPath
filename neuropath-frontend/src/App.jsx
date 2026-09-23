@@ -147,6 +147,7 @@ function AppRoutes() {
                     setSuccessMessage(msg);
                     navigate("/login");
                   }}
+                  onRegisterSuccess={() => setShowSplash(true)}
                 />
               )
             }
