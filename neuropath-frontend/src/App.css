@@ -221,9 +221,21 @@ button.sidebar-header {
 }
 
 .sidebar-nav-item.active {
-  background: rgba(255, 255, 255, 0.25);
-  color: #ffffff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  background: #ffffff;
+  color: #0369a1;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-left: 4px solid #0284c7;
+}
+
+.sidebar-nav-item.active .sidebar-icon,
+.sidebar-nav-item.active .sidebar-label {
+  color: #0369a1;
+}
+
+.sidebar-nav-item:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
 }
 
 .sidebar-icon {
@@ -283,9 +295,15 @@ button.sidebar-header {
 }
 
 .sidebar-subnav-item.active {
-  background: rgba(255, 255, 255, 0.25);
-  color: #ffffff;
+  background: rgba(255, 255, 255, 0.95);
+  color: #0369a1;
   font-weight: 700;
+  border-left: 3px solid #0284c7;
+}
+
+.sidebar-subnav-item:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
 }
 
 .subnav-bullet {
@@ -297,7 +315,7 @@ button.sidebar-header {
 }
 
 .sidebar-subnav-item.active .subnav-bullet {
-  background: #ffffff;
+  background: #0284c7;
 }
 
 /* Hover Tooltip in Collapsed Mode */
@@ -388,6 +406,11 @@ button.sidebar-header {
 .sidebar-logout-btn:hover {
   background: rgba(255, 255, 255, 0.2);
   border-color: #ffffff;
+}
+
+.sidebar-logout-btn:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
 }
 /* ── Logout Modal ─────────────────────────────────────── */
 .modal-overlay {

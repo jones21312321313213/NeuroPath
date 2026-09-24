@@ -184,6 +184,7 @@ export default function Sidebar({
                   title={collapsed ? item.label : undefined}
                   aria-expanded={item.children.length > 0 ? isCategoryExpanded : undefined}
                   aria-controls={item.children.length > 0 ? `subnav-${item.key}` : undefined}
+                  aria-current={item.children.length === 0 && active ? "page" : undefined}
                 >
                   <i className={`ti ${item.icon} sidebar-icon`} aria-hidden="true" />
                   {!collapsed && (
@@ -219,6 +220,7 @@ export default function Sidebar({
                           key={child.path}
                           type="button"
                           className={`sidebar-subnav-item ${isChildActive ? "active" : ""}`}
+                          aria-current={isChildActive ? "page" : undefined}
                           onClick={(e) => {
                             e.stopPropagation();
                             navigate(child.path);
