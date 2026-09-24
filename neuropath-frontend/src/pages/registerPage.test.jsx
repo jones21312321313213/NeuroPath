@@ -82,9 +82,8 @@ describe("RegisterPage", () => {
     expect(registerMock).not.toHaveBeenCalled();
   });
 
-  it("automatically logs in and calls onRegisterSuccess upon successful registration (ENH05)", async () => {
+  it("navigates back to login with success message and prefilled email upon successful registration", async () => {
     registerMock.mockResolvedValueOnce({ message: "Teacher account successfully created." });
-    loginMock.mockResolvedValueOnce({ token: "test-token" });
 
     const user = userEvent.setup();
     renderPage();
@@ -105,17 +104,21 @@ describe("RegisterPage", () => {
         last_name: "Teacher",
         password: "Password123!",
       });
-      expect(loginMock).toHaveBeenCalledWith("jane@school.edu", "Password123!");
-      expect(onRegisterSuccess).toHaveBeenCalledTimes(1);
+      expect(loginMock).not.toHaveBeenCalled();
+      expect(onNavigateLogin).toHaveBeenCalledWith(
+        "Account created for Jane! Please sign in.",
+        "jane@school.edu",
+      );
     });
   });
 
-  it("falls back to onNavigateLogin if auto-login fails or onRegisterSuccess is not provided", async () => {
-    registerMock.mockResolvedValueOnce({ message: "Created" });
-    loginMock.mockRejectedValueOnce(new Error("Login failed"));
+  it("displays server error message when registration fails", async () => {
+    registerMock.mockRejectedValueOnce({
+      data: { message: "Email already registered." },
+    });
 
     const user = userEvent.setup();
-    renderPage({ onRegisterSuccess: undefined });
+    renderPage();
 
     await user.type(screen.getByLabelText(/first name/i), "Jane");
     await user.type(screen.getByLabelText(/last name/i), "Teacher");
@@ -125,10 +128,9 @@ describe("RegisterPage", () => {
 
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
-    await waitFor(() => {
-      expect(onNavigateLogin).toHaveBeenCalledWith(
-        expect.stringContaining("Account created for Jane! Please sign in.")
-      );
-    });
+    expect(
+      await screen.findByText(/email already registered/i),
+    ).toBeInTheDocument();
+    expect(onNavigateLogin).not.toHaveBeenCalled();
   });
 });

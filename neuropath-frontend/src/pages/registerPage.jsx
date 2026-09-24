@@ -10,8 +10,8 @@ import {
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 import { evaluatePasswordRules } from "../utils/password";
 
-export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
-  const { register, login } = useAuth();
+export default function RegisterPage({ onNavigateLogin }) {
+  const { register } = useAuth();
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -69,19 +69,10 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
         // role: form.role // (You can pass this if you add a role field to your backend model later)
       });
 
-      // ENH05: Automatically log in the newly registered educator
-      try {
-        await login(cleanEmail, form.password);
-        if (onRegisterSuccess) {
-          onRegisterSuccess();
-          return;
-        }
-      } catch (loginErr) {
-        console.warn("Auto-login fallback:", loginErr);
-      }
-
+      // Navigate to login with success message and pre-fill email
       onNavigateLogin(
         `Account created for ${form.firstName.trim()}! Please sign in.`,
+        cleanEmail,
       );
     } catch (err) {
       const msg = err.message || err.data?.message || "Registration failed.";

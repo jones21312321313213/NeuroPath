@@ -18,10 +18,14 @@ export default function LoginPage({
   successMessage,
   onClearMessage,
   sessionNotice: initialSessionNotice,
+  initialEmail = "",
 }) {
   const location = useLocation();
   const { login } = useAuth();
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState(() => ({
+    email: initialEmail || location?.state?.email || "",
+    password: "",
+  }));
   const [error, setError] = useState("");
   const [notice, setNotice] = useState(() => {
     return (
@@ -53,6 +57,15 @@ export default function LoginPage({
       return () => clearTimeout(t);
     }
   }, [successMessage, onClearMessage]);
+
+  const prefilledEmail = initialEmail || location?.state?.email || "";
+  const [prevPrefilledEmail, setPrevPrefilledEmail] = useState(prefilledEmail);
+  if (prefilledEmail !== prevPrefilledEmail) {
+    setPrevPrefilledEmail(prefilledEmail);
+    if (prefilledEmail) {
+      setForm((prev) => ({ ...prev, email: prefilledEmail }));
+    }
+  }
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });

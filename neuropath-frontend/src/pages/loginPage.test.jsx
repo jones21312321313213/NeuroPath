@@ -223,5 +223,27 @@ describe("LoginPage", () => {
     expect(passwordInput).toBeRequired();
     expect(passwordInput).toHaveAttribute("aria-required", "true");
   });
+
+  it("pre-fills the email field when initialEmail prop is provided", () => {
+    renderPage({ initialEmail: "teacher@school.org" });
+    const emailInput = screen.getByLabelText(/email address/i);
+    expect(emailInput).toHaveValue("teacher@school.org");
+  });
+
+  it("pre-fills the email field when email is passed via location.state", () => {
+    renderPage(
+      {},
+      {
+        initialEntries: [
+          {
+            pathname: "/login",
+            state: { email: "state_user@school.org" },
+          },
+        ],
+      },
+    );
+    const emailInput = screen.getByLabelText(/email address/i);
+    expect(emailInput).toHaveValue("state_user@school.org");
+  });
 });
 
