@@ -636,5 +636,48 @@ describe("CreateStudentProfile next-step actions", () => {
       screen.queryByText(/Please fill in the evaluation \/ assessment results before saving/i),
     ).not.toBeInTheDocument();
   });
+
+  it("renders Birthdate as a standardized date picker with type=date", () => {
+    render(
+      <MemoryRouter>
+        <CreateStudentProfile onBack={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    const birthdateInput = screen.getByLabelText(/^birthdate:/i);
+    expect(birthdateInput).toHaveAttribute("type", "date");
+  });
+
+  it("rejects future birthdate and displays validation error", async () => {
+    render(
+      <MemoryRouter>
+        <CreateStudentProfile onBack={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Enter student name"), {
+      target: { value: "Juan Dela Cruz" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter age"), {
+      target: { value: "8" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter grade level"), {
+      target: { value: "2" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: /^gender:/i }), {
+      target: { value: "Male" },
+    });
+    fireEvent.click(screen.getByLabelText(/Difficulty in Seeing/i));
+    fireEvent.change(screen.getByLabelText(/^birthdate:/i), {
+      target: { value: "2099-01-01" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    expect(
+      await screen.findByText(/Birthdate must be a date in the past/i),
+    ).toBeInTheDocument();
+  });
 });
+
 

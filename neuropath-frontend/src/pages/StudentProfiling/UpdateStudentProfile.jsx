@@ -10,6 +10,7 @@ import {
   InformationCircleIcon,
 } from "../../components/ui/icons";
 import { Ra10173ConsentModal } from "../../components/Ra10173ConsentModal";
+import { toIsoDate, validatePastDate } from "../../utils/dateUtils";
 import "../../styles/UpdateStudentProfile.css";
 
 const difficultyOptions = [
@@ -239,7 +240,7 @@ export default function UpdateStudentProfile({ studentId: propStudentId, onBack 
           age: data.age || "",
           gradeLevel: data.grade || "",
           gender: data.gender || "",
-          birthdate: details.birthdate || "",
+          birthdate: toIsoDate(details.birthdate || ""),
           disabilityCategory:
             details.disabilityCategory ||
             data.diagnosis ||
@@ -302,6 +303,14 @@ export default function UpdateStudentProfile({ studentId: propStudentId, onBack 
         "Please select at least one difficulty marker (needed before Generate IEP).",
       );
       return false;
+    }
+
+    if (form.birthdate && form.birthdate.trim()) {
+      const { valid, error: dateError } = validatePastDate(form.birthdate);
+      if (!valid) {
+        setError(dateError);
+        return false;
+      }
     }
 
     if (form.parentalConsentObtained) {
@@ -549,8 +558,8 @@ export default function UpdateStudentProfile({ studentId: propStudentId, onBack 
               />
               <FormField
                 label="Birthdate"
-                placeholder="MM-DD-YYYY"
-                value={form.birthdate}
+                type="date"
+                value={toIsoDate(form.birthdate)}
                 onChange={setField("birthdate")}
               />
               <SelectField

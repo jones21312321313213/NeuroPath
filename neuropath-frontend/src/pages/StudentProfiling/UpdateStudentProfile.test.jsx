@@ -216,7 +216,9 @@ describe("UpdateStudentProfile Help Text & Difficulty Validation", () => {
     expect(screen.getByLabelText(/^age:/i)).toHaveValue(9);
     expect(screen.getByLabelText(/^grade level:/i)).toHaveValue(3);
     expect(screen.getByLabelText(/^gender:/i)).toHaveValue("Female");
-    expect(screen.getByLabelText(/^birthdate:/i)).toHaveValue("05-12-2017");
+    const birthdateInput = screen.getByLabelText(/^birthdate:/i);
+    expect(birthdateInput).toHaveAttribute("type", "date");
+    expect(birthdateInput).toHaveValue("2017-05-12");
     expect(screen.getByLabelText(/^diagnosis:/i)).toHaveValue("Autism Spectrum Disorder");
     expect(screen.getByLabelText(/assessment \/ diagnosis details/i)).toHaveValue("ASD Level 1");
 
