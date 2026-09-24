@@ -4,6 +4,7 @@ import "../../styles/ViewSelectedStudentProfile.css";
 import StudentInsightsTab from "./StudentInsightsTab";
 import { useStudent } from "../../hooks/queries";
 import { Badge } from "../../components/ui";
+import ErrorState from "../../components/ui/ErrorState";
 import { CheckIcon, WarningIcon } from "../../components/ui/icons";
 
 function getProfileDetails(student) {
@@ -61,6 +62,7 @@ export default function ViewSelectedStudentProfile({ studentId: propStudentId, s
     isLoading,
     isError,
     error: queryError,
+    refetch,
   } = useStudent(studentId);
 
   const student = selected?.data || selected;
@@ -86,8 +88,13 @@ export default function ViewSelectedStudentProfile({ studentId: propStudentId, s
   if (isError || !selected) {
     return (
       <div className="page-content">
-        <div className="placeholder-page">
-          {queryError?.message || "No student details found."}
+        <div className="form-card">
+          <ErrorState
+            title="Student Record Not Found"
+            message={queryError?.message || "We could not find the student profile record."}
+            onRetry={() => refetch()}
+            retryLabel="Try Again"
+          />
         </div>
       </div>
     );

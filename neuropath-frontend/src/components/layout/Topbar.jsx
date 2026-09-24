@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { UserIcon } from "../ui/icons";
+import Breadcrumbs from "./Breadcrumbs";
 import "../../styles/Topbar.css";
 
 export default function Topbar({ breadcrumb, setActivePage }) {
@@ -18,7 +19,7 @@ export default function Topbar({ breadcrumb, setActivePage }) {
   return (
     <header className="topbar" role="banner">
       <div className="topbar-left">
-        <span className="topbar-breadcrumb">{breadcrumb}</span>
+        <Breadcrumbs items={breadcrumb} />
       </div>
       <div className="topbar-user">
         <button

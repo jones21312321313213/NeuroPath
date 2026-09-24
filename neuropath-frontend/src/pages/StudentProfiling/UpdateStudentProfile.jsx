@@ -10,6 +10,9 @@ import {
   InformationCircleIcon,
 } from "../../components/ui/icons";
 import { Ra10173ConsentModal } from "../../components/Ra10173ConsentModal";
+import UnsavedChangesModal from "../../components/ui/UnsavedChangesModal";
+import useUnsavedChanges from "../../hooks/useUnsavedChanges";
+import { useToast } from "../../context/ToastContext";
 import "../../styles/UpdateStudentProfile.css";
 
 const difficultyOptions = [
@@ -174,6 +177,7 @@ export default function UpdateStudentProfile({ studentId: propStudentId, onBack 
   const { id } = useParams();
   const navigate = useNavigate();
   const studentId = propStudentId || id;
+  const { toast } = useToast();
 
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(null);
@@ -199,7 +203,15 @@ export default function UpdateStudentProfile({ studentId: propStudentId, onBack 
     }, 50);
   };
 
+  const [isDirty, setIsDirty] = useState(false);
+
+  const { showPrompt, promptNavigation, confirmLeave, cancelLeave } =
+    useUnsavedChanges({
+      isDirty: isDirty && !showSuccessModal,
+    });
+
   const handleConfirmConsent = () => {
+    setIsDirty(true);
     setHasReadConsent(true);
     setForm((prev) => ({
       ...prev,
@@ -208,12 +220,14 @@ export default function UpdateStudentProfile({ studentId: propStudentId, onBack 
   };
 
   const handleBack = () => {
-    if (onBack) onBack();
-    if (studentId) {
-      navigate(`/dashboard/students/${studentId}`);
-    } else {
-      navigate("/dashboard/students");
-    }
+    promptNavigation(() => {
+      if (onBack) onBack();
+      if (studentId) {
+        navigate(`/dashboard/students/${studentId}`);
+      } else {
+        navigate("/dashboard/students");
+      }
+    });
   };
 
   useEffect(() => {
@@ -270,10 +284,13 @@ export default function UpdateStudentProfile({ studentId: propStudentId, onBack 
     loadStudent();
   }, [studentId]);
 
-  const setField = (field) => (e) =>
+  const setField = (field) => (e) => {
+    setIsDirty(true);
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  };
 
   const toggleDifficulty = (difficulty) => {
+    setIsDirty(true);
     setForm((prev) => ({
       ...prev,
       difficultyMarkers: prev.difficultyMarkers.includes(difficulty)
@@ -418,6 +435,7 @@ export default function UpdateStudentProfile({ studentId: propStudentId, onBack 
 
     try {
       await studentsAPI.update(studentId, payload);
+      toast.success(`Student profile updated for ${form.learnerName}!`);
       setShowSuccessModal(true); // ← show modal instead of alert()
     } catch (err) {
       setError(err.message || "Unable to update student profile.");
@@ -428,8 +446,14 @@ export default function UpdateStudentProfile({ studentId: propStudentId, onBack 
   };
 
   const handleModalClose = () => {
+    setIsDirty(false);
     setShowSuccessModal(false);
-    handleBack();
+    if (onBack) onBack();
+    if (studentId) {
+      navigate(`/dashboard/students/${studentId}`);
+    } else {
+      navigate("/dashboard/students");
+    }
   };
 
   if (loading || !form) {
@@ -790,6 +814,11 @@ export default function UpdateStudentProfile({ studentId: propStudentId, onBack 
         isOpen={showConsentModal}
         onClose={() => setShowConsentModal(false)}
         onConfirm={handleConfirmConsent}
+      />
+      <UnsavedChangesModal
+        isOpen={showPrompt}
+        onConfirm={confirmLeave}
+        onCancel={cancelLeave}
       />
     </div>
   );
