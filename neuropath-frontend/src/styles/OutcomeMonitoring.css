@@ -952,3 +952,91 @@
   cursor: not-allowed !important;
 }
 
+/* ── Touch Target Standards (WCAG 2.5.5 / 2.5.8) ──────── */
+.va-select-btn,
+.om-filter-select,
+.rpm-btn-submit,
+.rpm-btn-cancel,
+.om-export-btn {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+/* ── Responsive Mobile & Tablet Breakpoints ──────────── */
+@media (max-width: 768px) {
+  .om-header {
+    padding: 16px 20px;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .om-card {
+    padding: 20px 16px;
+    border-radius: 0 0 12px 12px;
+  }
+
+  .om-profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .om-search-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .om-search-input {
+    min-width: 100%;
+    width: 100%;
+  }
+
+  .om-filters {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .om-filter-select {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  .om-record-actions {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .om-export-btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .om-student-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 14px 16px;
+  }
+
+  .va-select-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .om-goal-row {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .om-goal-area {
+    min-width: auto;
+    width: fit-content;
+  }
+}
+
+

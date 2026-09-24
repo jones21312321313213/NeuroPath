@@ -1378,6 +1378,7 @@ button.sidebar-header {
 .iep-table-wrap {
   width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid #dbe1e8;
   border-radius: 7px;
   margin-bottom: 14px;
