@@ -50,12 +50,11 @@
 .vsp-search {
   width: 100%;
   padding: 11px 16px 11px 38px;
-  border: 1.5px solid rgba(130, 199, 255, 0.35);
+  border: 1.5px solid rgba(2, 132, 199, 0.35);
   border-radius: 10px;
   font-size: 14px;
-  color: #1a3a4a;
+  color: #0f172a;
   background: #fff;
-  outline: none;
   transition:
     border-color 0.2s,
     box-shadow 0.2s;
@@ -63,12 +62,17 @@
 }
 
 .vsp-search:focus {
-  border-color: #82c7ff;
-  box-shadow: 0 0 0 3px rgba(130, 199, 255, 0.18);
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
+}
+
+.vsp-search:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
 }
 
 .vsp-search::placeholder {
-  color: #aac8d8;
+  color: #64748b;
 }
 
 /* ── Student grid ────────────────────────────────────── */
@@ -140,8 +144,8 @@
 
 .vsp-card-meta {
   font-size: 12.5px;
-  color: #5a9dbf;
-  font-weight: 500;
+  color: #0369a1;
+  font-weight: 600;
 }
 
 /* Pills row */
@@ -179,8 +183,8 @@
 
 .vsp-id-label {
   font-size: 12px;
-  color: #82c7ff;
-  font-weight: 500;
+  color: #0284c7;
+  font-weight: 600;
 }
 
 .vsp-view-btn {
@@ -207,6 +211,11 @@
   transform: translateX(2px);
 }
 
+.vsp-view-btn:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+}
+
 .vsp-view-btn i {
   font-size: 13px;
   transition: transform 0.2s;
@@ -220,25 +229,26 @@
 .vsp-empty {
   text-align: center;
   padding: 60px 20px;
-  color: #82c7ff;
+  color: #0369a1;
 }
 
 .vsp-empty-icon {
   font-size: 40px;
   margin-bottom: 12px;
-  opacity: 0.5;
+  color: #0284c7;
+  opacity: 0.8;
 }
 
 .vsp-empty-text {
   font-size: 15px;
-  font-weight: 600;
-  color: #4a7a94;
+  font-weight: 700;
+  color: #0f172a;
   margin: 0 0 4px;
 }
 
 .vsp-empty-sub {
   font-size: 13px;
-  color: #82c7ff;
+  color: #475569;
   margin: 0;
 }
 
@@ -266,10 +276,16 @@
   box-shadow: 0 5px 18px rgba(61, 157, 232, 0.4);
 }
 
+.vsp-empty-btn:focus-visible,
+.vsp-empty-btn-secondary:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+}
+
 .vsp-empty-btn-secondary {
   background: #f0f7fe;
-  color: #3d9de8;
-  border: 1.5px solid #cde4f7;
+  color: #0284c7;
+  border: 1.5px solid #bae6fd;
   box-shadow: none;
 }
 

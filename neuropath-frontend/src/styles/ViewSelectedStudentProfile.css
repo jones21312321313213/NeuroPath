@@ -21,25 +21,30 @@
   .btn:hover {
     opacity: 0.9;
   }
+
+  .btn:focus-visible {
+    outline: 2px solid #0284c7;
+    outline-offset: 2px;
+  }
   
   /* Back button styled consistently with sidebar blue */
   .btn-back {
-    background: #5aabf0;
+    background: #0284c7;
     color: #fff;
   }
   
   .btn-back:hover {
-    background: #4a9be0;
+    background: #0369a1;
   }
   
   /* Submit/update button styled with primary accent */
   .btn-submit {
-    background: #3d9de8;
+    background: #0284c7;
     color: #fff;
   }
   
   .btn-submit:hover {
-    background: #2c89d0;
+    background: #0369a1;
   }
   
   /* ── Tab header ───────────────────────────────────────── */
@@ -57,17 +62,23 @@
     font-size: 14.5px;
     font-weight: 600;
     cursor: pointer;
-    color: #64748b;
+    color: #475569;
     transition: color 0.2s ease, border-bottom 0.2s ease;
+  }
+
+  .tab-btn:focus-visible {
+    outline: 2px solid #0284c7;
+    outline-offset: 2px;
   }
   
   .tab-btn.active {
-    color: #2589c7;
-    border-bottom: 3px solid #2589c7;
+    color: #0369a1;
+    border-bottom: 3px solid #0284c7;
+    font-weight: 700;
   }
   
   .tab-btn:hover {
-    color: #1a6fa8;
+    color: #0284c7;
   }
   
   /* ── Tab content ─────────────────────────────────────── */
