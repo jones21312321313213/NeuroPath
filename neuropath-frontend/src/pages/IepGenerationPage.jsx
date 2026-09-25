@@ -555,7 +555,7 @@ function ViewIEPPanel({
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deletingIep, setDeletingIep] = useState(false);
 
-  const initialEditDataRef = useRef({
+  const [initialEditData, setInitialEditData] = useState({
     barrierRows: [],
     specialFactorNotes: "",
     goals: [],
@@ -620,19 +620,19 @@ function ViewIEPPanel({
     if (!isEditing) return false;
     if (goalsToDelete.length > 0) return true;
     if (
-      editSpecialFactorNotes !== initialEditDataRef.current.specialFactorNotes
+      editSpecialFactorNotes !== initialEditData.specialFactorNotes
     ) {
       return true;
     }
     if (
       JSON.stringify(editBarrierRows) !==
-      JSON.stringify(initialEditDataRef.current.barrierRows)
+      JSON.stringify(initialEditData.barrierRows)
     ) {
       return true;
     }
     if (
       JSON.stringify(editGoals) !==
-      JSON.stringify(initialEditDataRef.current.goals)
+      JSON.stringify(initialEditData.goals)
     ) {
       return true;
     }
@@ -643,6 +643,7 @@ function ViewIEPPanel({
     editSpecialFactorNotes,
     editBarrierRows,
     editGoals,
+    initialEditData,
   ]);
 
   const { showPrompt, promptNavigation, confirmLeave, cancelLeave } =
@@ -668,11 +669,11 @@ function ViewIEPPanel({
         }))
       : [emptyEditableGoal()];
 
-    initialEditDataRef.current = {
+    setInitialEditData({
       specialFactorNotes: specialNotes,
       barrierRows: JSON.parse(JSON.stringify(barrierRows)),
       goals: JSON.parse(JSON.stringify(goals)),
-    };
+    });
 
     setEditSpecialFactorNotes(specialNotes);
     setEditBarrierRows(barrierRows);

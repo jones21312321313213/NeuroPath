@@ -130,12 +130,25 @@ export default function ViewProgressDashboard() {
   }, [user?.id]);
 
   useEffect(() => {
-    loadStudents();
-  }, [loadStudents]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [search, filterGrade, filterAge]);
+    let ignore = false;
+    studentsAPI
+      .list(user?.id)
+      .then((data) => {
+        if (!ignore) {
+          setStudents(data);
+          setError("");
+        }
+      })
+      .catch(() => {
+        if (!ignore) setError("Failed to load students.");
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [user?.id]);
 
   const refreshSubjects = async (studentId) => {
     if (!studentId) return;
@@ -511,7 +524,10 @@ export default function ViewProgressDashboard() {
                   className="form-input om-search-input"
                   placeholder="Search Student Records"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
                   aria-label="Search students by name"
                 />
                 <div className="om-filters">
@@ -521,7 +537,10 @@ export default function ViewProgressDashboard() {
                     aria-label="Filter by grade"
                     className="form-select om-filter-select"
                     value={filterGrade}
-                    onChange={(e) => setFilterGrade(e.target.value)}
+                    onChange={(e) => {
+                      setFilterGrade(e.target.value);
+                      setPage(1);
+                    }}
                   >
                     <option value="">Grade</option>
                     {[1, 2, 3, 4, 5, 6].map((g) => (
@@ -535,7 +554,10 @@ export default function ViewProgressDashboard() {
                     aria-label="Filter by age"
                     className="form-select om-filter-select"
                     value={filterAge}
-                    onChange={(e) => setFilterAge(e.target.value)}
+                    onChange={(e) => {
+                      setFilterAge(e.target.value);
+                      setPage(1);
+                    }}
                   >
                     <option value="">Age</option>
                     {[6, 7, 8, 9, 10, 11, 12].map((a) => (

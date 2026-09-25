@@ -14,7 +14,6 @@ import {
   WarningIcon,
   DocumentTextIcon,
   AcademicCapIcon,
-  SchoolIcon,
   UserIcon,
   CheckIcon,
   ClipboardIcon,

@@ -14,7 +14,6 @@ import {
   UserIcon,
   CalendarIcon,
   AcademicCapIcon,
-  SchoolIcon,
   ClipboardIcon,
   SparklesIcon,
   DiskIcon,
