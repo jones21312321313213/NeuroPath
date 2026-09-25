@@ -99,6 +99,7 @@ function AppRoutes() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [successMessage, setSuccessMessage] = useState("");
+  const [registeredEmail, setRegisteredEmail] = useState("");
   const [showSplash, setShowSplash] = useState(false);
 
   return (
@@ -130,7 +131,11 @@ function AppRoutes() {
                   onNavigateRegister={() => navigate("/register")}
                   onLoginSuccess={() => setShowSplash(true)}
                   successMessage={successMessage}
-                  onClearMessage={() => setSuccessMessage("")}
+                  initialEmail={registeredEmail}
+                  onClearMessage={() => {
+                    setSuccessMessage("");
+                    setRegisteredEmail("");
+                  }}
                 />
               )
             }
@@ -143,9 +148,10 @@ function AppRoutes() {
                 <Navigate to="/dashboard" replace />
               ) : (
                 <RegisterPage
-                  onNavigateLogin={(msg) => {
+                  onNavigateLogin={(msg, email) => {
                     setSuccessMessage(msg);
-                    navigate("/login");
+                    if (email) setRegisteredEmail(email);
+                    navigate("/login", { state: { email } });
                   }}
                 />
               )
