@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import "../styles/ManageTeachingStrategies.css";
 import { iepAPI, teachingStrategiesAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import useUnsavedChanges from "../hooks/useUnsavedChanges";
+import UnsavedChangesModal from "../components/ui/UnsavedChangesModal";
 import {
   SparklesIcon,
   FolderIcon,
@@ -841,6 +844,18 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const { toast } = useToast();
+
+  const isFormDirty = Boolean(
+    editingStrategy &&
+      (formValue.title !== (editingStrategy.title || "") ||
+        formValue.strategyContent !== (editingStrategy.strategyContent || "")),
+  );
+
+  const { showPrompt, promptNavigation, confirmLeave, cancelLeave } =
+    useUnsavedChanges({
+      isDirty: isFormDirty,
+    });
 
   useEffect(() => {
     let active = true;
@@ -940,6 +955,7 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
       }
 
       setSuccessMessage("Teaching strategy saved successfully.");
+      toast.success("Teaching strategy updated successfully!");
       setEditingStrategy(null);
     } catch (err) {
       setError(err.message || "Failed to update strategy.");
@@ -967,9 +983,11 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
         setEditingStrategy(null);
       }
 
+      const deletedTitle = toDeleteStrategy.title;
       setSuccessMessage(
-        `Teaching strategy "${toDeleteStrategy.title}" was deleted.`
+        `Teaching strategy "${deletedTitle}" was deleted.`
       );
+      toast.success(`Teaching strategy "${deletedTitle}" was deleted.`);
       setToDeleteStrategy(null);
     } catch (err) {
       setError(err.message || "Failed to delete strategy.");
@@ -999,7 +1017,7 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
               ? [
                   {
                     label: viewingStrategy.title || "Teaching Strategy",
-                    onClick: () => setEditingStrategy(null),
+                    onClick: () => promptNavigation(() => setEditingStrategy(null)),
                   },
                 ]
               : []),
@@ -1055,7 +1073,7 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
           <button
             type="button"
             className="ts-btn ts-btn-ghost"
-            onClick={() => setEditingStrategy(null)}
+            onClick={() => promptNavigation(() => setEditingStrategy(null))}
             disabled={savingEdit}
           >
             Cancel
@@ -1073,6 +1091,11 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
             {savingEdit ? "Saving…" : "Save Changes"}
           </button>
         </div>
+        <UnsavedChangesModal
+          isOpen={showPrompt}
+          onConfirm={confirmLeave}
+          onCancel={cancelLeave}
+        />
       </div>
     );
   }
@@ -1303,9 +1326,13 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
 export default function ManageTeachingStrategies({ setActivePage }) {
   const [activeTab, setActiveTab] = useState("generate");
   const [, setStrategies] = useState([]);
+  const { toast } = useToast();
 
   const saveStrategy = (strategy) => {
-    if (strategy) setStrategies((prev) => [strategy, ...prev]);
+    if (strategy) {
+      setStrategies((prev) => [strategy, ...prev]);
+      toast.success("Teaching strategy saved successfully!");
+    }
   };
 
   const isManageTab =

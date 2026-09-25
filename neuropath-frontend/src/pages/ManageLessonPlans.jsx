@@ -4,6 +4,9 @@ import "../styles/ManageTeachingStrategies.css";
 import "../styles/ManageLessonPlans.css";
 import { iepAPI, lessonPlansAPI, studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import useUnsavedChanges from "../hooks/useUnsavedChanges";
+import UnsavedChangesModal from "../components/ui/UnsavedChangesModal";
 import {
   SparklesIcon,
   FolderIcon,
@@ -864,6 +867,18 @@ function ManagePlansTab({ setActivePage, onGoToGenerate }) {
   const [filterAge, setFilterAge] = useState("");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const { toast } = useToast();
+
+  const isFormDirty = Boolean(
+    editingPlan &&
+      (formValue.title !== (editingPlan.title || "") ||
+        formValue.status !== (editingPlan.status || "Draft")),
+  );
+
+  const { showPrompt, promptNavigation, confirmLeave, cancelLeave } =
+    useUnsavedChanges({
+      isDirty: isFormDirty,
+    });
 
   useEffect(() => {
     let active = true;
@@ -968,6 +983,7 @@ function ManagePlansTab({ setActivePage, onGoToGenerate }) {
       }
 
       setSuccessMessage("Lesson plan saved successfully.");
+      toast.success("Lesson plan saved successfully.");
       setEditingPlan(null);
     } catch (err) {
       setError(err.message || "Failed to update lesson plan.");
@@ -995,7 +1011,9 @@ function ManagePlansTab({ setActivePage, onGoToGenerate }) {
         setEditingPlan(null);
       }
 
-      setSuccessMessage(`Lesson plan "${toDeletePlan.title}" was deleted.`);
+      const deletedTitle = toDeletePlan.title;
+      setSuccessMessage(`Lesson plan "${deletedTitle}" was deleted.`);
+      toast.success(`Lesson plan "${deletedTitle}" was deleted.`);
       setToDeletePlan(null);
     } catch (err) {
       setError(err.message || "Failed to delete lesson plan.");
@@ -1030,7 +1048,7 @@ function ManagePlansTab({ setActivePage, onGoToGenerate }) {
               ? [
                   {
                     label: viewingPlan.title || "Lesson Plan",
-                    onClick: () => setEditingPlan(null),
+                    onClick: () => promptNavigation(() => setEditingPlan(null)),
                   },
                 ]
               : []),
@@ -1086,7 +1104,7 @@ function ManagePlansTab({ setActivePage, onGoToGenerate }) {
           <button
             type="button"
             className="ts-btn ts-btn-ghost"
-            onClick={() => setEditingPlan(null)}
+            onClick={() => promptNavigation(() => setEditingPlan(null))}
             disabled={savingEdit}
           >
             Cancel
@@ -1100,6 +1118,11 @@ function ManagePlansTab({ setActivePage, onGoToGenerate }) {
             {savingEdit ? "Saving…" : "Save Changes"}
           </button>
         </div>
+        <UnsavedChangesModal
+          isOpen={showPrompt}
+          onConfirm={confirmLeave}
+          onCancel={cancelLeave}
+        />
       </div>
     );
   }
@@ -1470,9 +1493,13 @@ function ManagePlansTab({ setActivePage, onGoToGenerate }) {
 export default function ManageLessonPlans({ setActivePage }) {
   const [activeTab, setActiveTab] = useState("generate");
   const [, setLessonPlans] = useState([]);
+  const { toast } = useToast();
 
   const saveLessonPlan = (plan) => {
-    if (plan) setLessonPlans((prev) => [plan, ...prev]);
+    if (plan) {
+      setLessonPlans((prev) => [plan, ...prev]);
+      toast.success("Lesson plan saved to library!");
+    }
   };
 
   const isManageTab =

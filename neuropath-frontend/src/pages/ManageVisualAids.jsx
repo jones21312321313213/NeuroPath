@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "../styles/ManageVisualAids.css";
 import { visualAidsAPI, studentsAPI, iepAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import {
   PhotoIcon,
   EyeIcon,
@@ -212,6 +213,7 @@ function GenerateTab({ setActivePage }) {
   const [result, setResult] = useState(null); // saved VisualAid record from DB
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
+  const { toast } = useToast();
 
   // Load students on mount
   useEffect(() => {
@@ -257,6 +259,7 @@ function GenerateTab({ setActivePage }) {
         prompt: extraPrompt.trim(),
       });
       setResult(data.data);
+      toast.success("Visual aid generated and saved successfully!");
     } catch (err) {
       setError(
         err.message ||
@@ -643,6 +646,7 @@ function DeleteTab({ setActivePage, onGoToGenerate }) {
   const [error, setError] = useState("");
   const [toDelete, setToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const { toast } = useToast();
 
   const item = aids.find((a) => a.visualAidID === toDelete);
 
@@ -681,6 +685,7 @@ function DeleteTab({ setActivePage, onGoToGenerate }) {
     try {
       await visualAidsAPI.delete(toDelete);
       setAids((prev) => prev.filter((a) => a.visualAidID !== toDelete));
+      toast.success("Visual aid deleted successfully.");
       setToDelete(null);
     } catch (err) {
       setError(err.message);

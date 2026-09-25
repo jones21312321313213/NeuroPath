@@ -318,4 +318,53 @@ describe("ViewStudentRecords Component", () => {
     expect(alertElement).toHaveTextContent("Network connection lost. Failed to export PDF.");
     expect(screen.getByRole("button", { name: /export pdf/i })).not.toBeDisabled();
   });
+
+  it("renders ErrorState with retry button when loading students fails, and clicking retry re-fetches", async () => {
+    studentsAPI.list.mockRejectedValueOnce(new Error("Network Error"));
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter>
+        <ViewStudentRecords />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Failed to Load Student Records")).toBeInTheDocument();
+    const retryBtn = screen.getByRole("button", { name: /try again/i });
+    expect(retryBtn).toBeInTheDocument();
+
+    studentsAPI.list.mockResolvedValueOnce(mockStudents);
+    await user.click(retryBtn);
+
+    expect(await screen.findByText("Alice Johnson")).toBeInTheDocument();
+  });
+
+  it("paginates students when list exceeds pageSize of 6", async () => {
+    const manyStudents = Array.from({ length: 8 }, (_, i) => ({
+      studentID: 200 + i,
+      name: `Student ${i + 1}`,
+      grade: 3,
+      age: 9,
+    }));
+    studentsAPI.list.mockResolvedValueOnce(manyStudents);
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter>
+        <ViewStudentRecords />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Student 1")).toBeInTheDocument();
+    expect(screen.getByText("Student 6")).toBeInTheDocument();
+    expect(screen.queryByText("Student 7")).not.toBeInTheDocument();
+
+    // Check pagination exists and click Next
+    const nextBtn = screen.getByRole("button", { name: /next/i });
+    await user.click(nextBtn);
+
+    expect(await screen.findByText("Student 7")).toBeInTheDocument();
+    expect(screen.getByText("Student 8")).toBeInTheDocument();
+    expect(screen.queryByText("Student 1")).not.toBeInTheDocument();
+  });
 });
