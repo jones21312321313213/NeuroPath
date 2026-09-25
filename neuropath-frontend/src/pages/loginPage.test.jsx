@@ -38,7 +38,7 @@ describe("LoginPage", () => {
     renderPage();
 
     expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^password/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /sign in/i }),
     ).toBeInTheDocument();
@@ -48,7 +48,7 @@ describe("LoginPage", () => {
     const user = userEvent.setup();
     renderPage();
 
-    const passwordInput = screen.getByLabelText(/^password$/i);
+    const passwordInput = screen.getByLabelText(/^password/i);
     expect(passwordInput).toHaveAttribute("type", "password");
 
     const toggleButton = screen.getByRole("button", { name: /show password/i });
@@ -72,7 +72,7 @@ describe("LoginPage", () => {
       screen.getByLabelText(/email address/i),
       "  Jane@Example.com  ",
     );
-    await user.type(screen.getByLabelText(/^password$/i), "secret123");
+    await user.type(screen.getByLabelText(/^password/i), "secret123");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() =>
@@ -87,7 +87,7 @@ describe("LoginPage", () => {
     renderPage();
 
     await user.type(screen.getByLabelText(/email address/i), "jane@example.com");
-    await user.type(screen.getByLabelText(/^password$/i), "wrong");
+    await user.type(screen.getByLabelText(/^password/i), "wrong");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     expect(await screen.findByText("Account locked.")).toBeInTheDocument();
@@ -100,7 +100,7 @@ describe("LoginPage", () => {
     renderPage();
 
     await user.type(screen.getByLabelText(/email address/i), "jane@example.com");
-    await user.type(screen.getByLabelText(/^password$/i), "wrong");
+    await user.type(screen.getByLabelText(/^password/i), "wrong");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     expect(
@@ -114,13 +114,13 @@ describe("LoginPage", () => {
     renderPage();
 
     await user.type(screen.getByLabelText(/email address/i), "jane@example.com");
-    await user.type(screen.getByLabelText(/^password$/i), "wrong");
+    await user.type(screen.getByLabelText(/^password/i), "wrong");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
     expect(
       await screen.findByText("fail"),
     ).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText(/^password$/i), "x");
+    await user.type(screen.getByLabelText(/^password/i), "x");
 
     expect(
       screen.queryByText("fail"),
@@ -203,4 +203,47 @@ describe("LoginPage", () => {
       screen.queryByText(/your session has expired due to 30 minutes of inactivity/i),
     ).not.toBeInTheDocument();
   });
+
+  it("opens Forgot Password modal when Forgot Password button is clicked", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /forgot password\?/i }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText(/reset your password/i)).toBeInTheDocument();
+  });
+
+  it("marks email and password as required fields", () => {
+    renderPage();
+    const emailInput = screen.getByLabelText(/email address/i);
+    const passwordInput = screen.getByLabelText(/^password/i);
+    expect(emailInput).toBeRequired();
+    expect(emailInput).toHaveAttribute("aria-required", "true");
+    expect(passwordInput).toBeRequired();
+    expect(passwordInput).toHaveAttribute("aria-required", "true");
+  });
+
+  it("pre-fills the email field when initialEmail prop is provided", () => {
+    renderPage({ initialEmail: "teacher@school.org" });
+    const emailInput = screen.getByLabelText(/email address/i);
+    expect(emailInput).toHaveValue("teacher@school.org");
+  });
+
+  it("pre-fills the email field when email is passed via location.state", () => {
+    renderPage(
+      {},
+      {
+        initialEntries: [
+          {
+            pathname: "/login",
+            state: { email: "state_user@school.org" },
+          },
+        ],
+      },
+    );
+    const emailInput = screen.getByLabelText(/email address/i);
+    expect(emailInput).toHaveValue("state_user@school.org");
+  });
 });
+

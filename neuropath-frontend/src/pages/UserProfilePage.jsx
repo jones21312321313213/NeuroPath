@@ -83,8 +83,8 @@ export default function MyProfile() {
     if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email))
       e.email = "Enter a valid email.";
     if (form.password) {
-      if (form.password.length < 6)
-        e.password = "Password must be at least 6 characters.";
+      if (form.password.length < 8)
+        e.password = "Password must be at least 8 characters.";
       if (form.password !== form.confirmPassword)
         e.confirmPassword = "Passwords do not match.";
     }
@@ -247,11 +247,15 @@ export default function MyProfile() {
                 <form className="up-form" onSubmit={handleSubmit}>
                   <div className="up-form-row">
                     <div className="form-group">
-                      <label htmlFor="user-first-name" className="form-label">First Name</label>
+                      <label htmlFor="user-first-name" className="form-label">
+                        First Name <span className="text-rose-500" aria-hidden="true">*</span>
+                      </label>
                       <input
                         id="user-first-name"
                         name="firstName"
                         type="text"
+                        required
+                        aria-required="true"
                         value={form.firstName}
                         onChange={handleChange}
                         className={`form-input ${errors.firstName ? "up-input-error" : ""}`}
@@ -261,11 +265,15 @@ export default function MyProfile() {
                       )}
                     </div>
                     <div className="form-group">
-                      <label htmlFor="user-last-name" className="form-label">Last Name</label>
+                      <label htmlFor="user-last-name" className="form-label">
+                        Last Name <span className="text-rose-500" aria-hidden="true">*</span>
+                      </label>
                       <input
                         id="user-last-name"
                         name="lastName"
                         type="text"
+                        required
+                        aria-required="true"
                         value={form.lastName}
                         onChange={handleChange}
                         className={`form-input ${errors.lastName ? "up-input-error" : ""}`}
@@ -277,11 +285,15 @@ export default function MyProfile() {
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="user-email" className="form-label">Email Address</label>
+                    <label htmlFor="user-email" className="form-label">
+                      Email Address <span className="text-rose-500" aria-hidden="true">*</span>
+                    </label>
                     <input
                       id="user-email"
                       name="email"
                       type="email"
+                      required
+                      aria-required="true"
                       value={form.email}
                       onChange={handleChange}
                       className={`form-input ${errors.email ? "up-input-error" : ""}`}
