@@ -495,6 +495,22 @@ class StudentProfileOwnershipTests(APITestCase):
         self.student_a.refresh_from_db()
         self.assertEqual(self.student_a.name, 'Updated Name')
 
+    def test_non_owner_cannot_delete_student_by_pk(self):
+        self.auth_as(self.token_b)
+        response = self.client.delete(
+            reverse('student-detail-update', args=[self.student_a.studentID])
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(StudentProfile.objects.filter(pk=self.student_a.studentID).exists())
+
+    def test_owner_can_delete_student_by_pk(self):
+        self.auth_as(self.token_a)
+        response = self.client.delete(
+            reverse('student-detail-update', args=[self.student_a.studentID])
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(StudentProfile.objects.filter(pk=self.student_a.studentID).exists())
+
 
 class TeacherRegistrationSecurityTests(APITestCase):
     """Registration security tests: password validation and email uniqueness."""

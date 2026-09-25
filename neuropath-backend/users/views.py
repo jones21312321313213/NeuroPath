@@ -100,18 +100,18 @@ class StudentProfileListCreateView(generics.ListCreateAPIView):
 
 
 # =====================================================================
-# SDD MODULE 1.2: UPDATE STUDENT PROFILE
+# SDD MODULE 1.2: UPDATE & DELETE STUDENT PROFILE
 # Component Name: ProfileUpdateController
-# Description: Intercepts HTTP PUT requests, coordinates server-side 
-#              validation, and commits data edits to PostgreSQL.
+# Description: Intercepts HTTP PUT and DELETE requests, coordinates server-side 
+#              validation, and commits data edits or deletions to PostgreSQL.
 # =====================================================================
-class ProfileUpdateController(generics.RetrieveUpdateAPIView):
+class ProfileUpdateController(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ValidationService  # Links to your update ValidationService
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         # Scope to the requesting teacher's own students so a caller can
-        # never read/write another teacher's student by guessing a pk.
+        # never read/write/delete another teacher's student by guessing a pk.
         teacher = get_teacher_for_user(self.request.user)
         if not teacher:
             return StudentProfile.objects.none()
@@ -139,6 +139,17 @@ class ProfileUpdateController(generics.RetrieveUpdateAPIView):
             "message": "Update failed. Invalid input provided.",
             "errors": serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+        except Exception:
+            return Response({"error": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        self.perform_destroy(instance)
+        return Response({
+            "message": "Student profile successfully deleted."
+        }, status=status.HTTP_200_OK)
 
 
 # =====================================================================

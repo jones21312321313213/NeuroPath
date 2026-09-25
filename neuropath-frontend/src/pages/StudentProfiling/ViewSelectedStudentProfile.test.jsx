@@ -18,6 +18,7 @@ vi.mock("react-router-dom", async () => {
 vi.mock("../../api/client", () => ({
   studentsAPI: {
     get: vi.fn(),
+    delete: vi.fn(),
   },
   iepAPI: {
     listByStudent: vi.fn().mockResolvedValue([]),
@@ -164,6 +165,45 @@ describe("ViewSelectedStudentProfile useParams and routing", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Student not found")).toBeInTheDocument();
+    });
+  });
+
+  it("opens confirmation modal and deletes student when confirmed", async () => {
+    studentsAPI.get.mockResolvedValue({
+      id: 42,
+      name: "Sam Smith",
+    });
+    studentsAPI.delete.mockResolvedValue({ message: "Student profile successfully deleted." });
+    const user = userEvent.setup();
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/dashboard/students/42"]}>
+        <Routes>
+          <Route
+            path="/dashboard/students/:id"
+            element={<ViewSelectedStudentProfile />}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Sam Smith")).toBeInTheDocument();
+    });
+
+    const deleteBtn = screen.getByRole("button", { name: "DELETE" });
+    await user.click(deleteBtn);
+
+    // Modal is opened
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText(/Are you sure you want to permanently delete/i)).toBeInTheDocument();
+
+    const confirmBtn = screen.getByRole("button", { name: /yes, delete/i });
+    await user.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(studentsAPI.delete).toHaveBeenCalledWith("42");
+      expect(mockNavigate).toHaveBeenCalledWith("/dashboard/students");
     });
   });
 });

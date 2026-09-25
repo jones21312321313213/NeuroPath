@@ -41,6 +41,16 @@
   .btn-submit:hover {
     background: #2c89d0;
   }
+
+  /* Delete button styled with danger accent */
+  .btn-danger {
+    background: #ef4444;
+    color: #fff;
+  }
+
+  .btn-danger:hover {
+    background: #dc2626;
+  }
   
   /* ── Tab header ───────────────────────────────────────── */
 .tab-header {

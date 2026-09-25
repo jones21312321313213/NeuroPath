@@ -12,6 +12,7 @@ import {
   InboxIcon,
   WarningIcon,
   DocumentTextIcon,
+  AcademicCapIcon,
   SchoolIcon,
   UserIcon,
   CheckIcon,
@@ -454,7 +455,7 @@ function GenerateTab({ onSave, setActivePage }) {
           <Loading text="Fetching students…" />
         ) : directory.length === 0 ? (
           <EmptyState
-            icon={<SchoolIcon className="w-8 h-8 text-slate-400" aria-hidden="true" />}
+            icon={<AcademicCapIcon className="w-8 h-8 text-slate-400" aria-hidden="true" />}
             message="No students found."
             description="You need at least one registered student profile before generating a teaching strategy."
             actionLabel="Create Student Profile"
@@ -1276,7 +1277,7 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
         <Loading text="Fetching students…" />
       ) : filteredStudents.length === 0 ? (
         <EmptyState
-          icon={<SchoolIcon className="w-8 h-8 text-slate-400" aria-hidden="true" />}
+          icon={<AcademicCapIcon className="w-8 h-8 text-slate-400" aria-hidden="true" />}
           message={search ? "No students match your search." : "No students found."}
           description={
             search

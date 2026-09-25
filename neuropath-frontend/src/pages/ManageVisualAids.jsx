@@ -13,6 +13,7 @@ import {
   CheckIcon,
   UserIcon,
   CalendarIcon,
+  AcademicCapIcon,
   SchoolIcon,
   ClipboardIcon,
   SparklesIcon,
@@ -299,7 +300,7 @@ function GenerateTab({ setActivePage }) {
           <Loading text="Fetching students…" />
         ) : students.length === 0 ? (
           <EmptyState
-            icon={<SchoolIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
+            icon={<AcademicCapIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
             message="No students found."
             description="You need at least one registered student profile before generating a visual aid."
             actionLabel="Create Student Profile"
@@ -583,7 +584,7 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
         <Loading text="Fetching students…" />
       ) : students.length === 0 ? (
         <EmptyState
-          icon={<SchoolIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
+          icon={<AcademicCapIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
           message="No students found."
           description="Register a student profile first to view and manage visual aids."
           actionLabel="Create Student Profile"
@@ -723,7 +724,7 @@ function DeleteTab({ setActivePage, onGoToGenerate }) {
         <Loading text="Fetching students…" />
       ) : students.length === 0 ? (
         <EmptyState
-          icon={<SchoolIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
+          icon={<AcademicCapIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
           message="No students found."
           description="Register a student profile first to manage visual aids."
           actionLabel="Create Student Profile"

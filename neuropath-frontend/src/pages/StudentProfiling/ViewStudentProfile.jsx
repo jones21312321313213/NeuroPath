@@ -5,16 +5,20 @@ import { useAuth } from "../../context/AuthContext";
 import StudentShimmer from "../../components/StudentShimmer";
 import ErrorState from "../../components/ui/ErrorState";
 import Pagination from "../../components/ui/Pagination";
-import { useStudents } from "../../hooks/queries";
+import { useStudents, useDeleteStudent } from "../../hooks/queries";
+import { useToast } from "../../context/ToastContext";
+import { Modal } from "../../components/ui";
 
 export default function ViewStudentProfile({
   setActivePage,
   setSelectedStudentId,
 }) {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("name_asc");
   const [page, setPage] = useState(1);
+  const [studentToDelete, setStudentToDelete] = useState(null);
   const pageSize = 6;
 
   const { user } = useAuth();
@@ -26,6 +30,8 @@ export default function ViewStudentProfile({
     refetch,
   } = useStudents(user?.id);
 
+  const deleteStudentMutation = useDeleteStudent();
+
   const students = useMemo(
     () => (Array.isArray(rawStudents) ? rawStudents : rawStudents?.results || []),
     [rawStudents]
@@ -35,6 +41,18 @@ export default function ViewStudentProfile({
     if (setSelectedStudentId) setSelectedStudentId(id);
     if (setActivePage) setActivePage("view-student-detail");
     navigate(`/dashboard/students/${id}`);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!studentToDelete) return;
+    const targetId = studentToDelete.studentID ?? studentToDelete.id;
+    try {
+      await deleteStudentMutation.mutateAsync(targetId);
+      toast.success(`Student profile for "${studentToDelete.name}" deleted successfully.`);
+      setStudentToDelete(null);
+    } catch (err) {
+      toast.error(err?.message || "Failed to delete student profile.");
+    }
   };
 
   const getInitials = (name = "") =>
@@ -231,11 +249,21 @@ export default function ViewStudentProfile({
                     {/* Footer */}
                     <div className="vsp-card-footer">
                       <button
+                        type="button"
                         className="vsp-view-btn"
                         onClick={() => handleView(studentId)}
                       >
                         View profile
                         <i className="ti ti-arrow-right" aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className="vsp-delete-btn"
+                        title={`Delete ${student.name}'s profile`}
+                        aria-label={`Delete ${student.name}'s profile`}
+                        onClick={() => setStudentToDelete(student)}
+                      >
+                        <i className="ti ti-trash" aria-hidden="true" />
                       </button>
                     </div>
                   </div>
@@ -253,6 +281,40 @@ export default function ViewStudentProfile({
           </>
         )}
       </div>
+
+      <Modal
+        isOpen={Boolean(studentToDelete)}
+        onClose={() => !deleteStudentMutation.isPending && setStudentToDelete(null)}
+        title="Delete Student Profile"
+        size="md"
+        footer={
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px" }}>
+            <button
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 bg-white border border-slate-200 rounded-xl transition-colors cursor-pointer"
+              onClick={() => setStudentToDelete(null)}
+              disabled={deleteStudentMutation.isPending}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+              onClick={handleConfirmDelete}
+              disabled={deleteStudentMutation.isPending}
+            >
+              {deleteStudentMutation.isPending ? "Deleting..." : "Yes, Delete"}
+            </button>
+          </div>
+        }
+      >
+        <p style={{ margin: 0, fontSize: "14px", lineHeight: "1.6", color: "#334155" }}>
+          Are you sure you want to permanently delete{" "}
+          <strong>{studentToDelete?.name}</strong>? All associated Individualized
+          Education Plans (IEPs), progress tracking logs, and generated instructional
+          resources will also be permanently removed. This action cannot be undone.
+        </p>
+      </Modal>
     </div>
   );
 }

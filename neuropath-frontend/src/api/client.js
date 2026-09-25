@@ -102,6 +102,10 @@ export const studentsAPI = {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
+  delete: (id) =>
+    request(`/users/students/${id}/`, {
+      method: "DELETE",
+    }),
 };
 
 // ── Lesson Plans ───────────────────────────────────────────────────────────────

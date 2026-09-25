@@ -19,6 +19,7 @@ vi.mock("react-router-dom", async () => {
 vi.mock("../../api/client", () => ({
   studentsAPI: {
     list: vi.fn(),
+    delete: vi.fn(),
   },
 }));
 
@@ -211,5 +212,33 @@ describe("ViewStudentProfile", () => {
 
     expect(screen.getByText("Student 07")).toBeInTheDocument();
     expect(screen.queryByText("Student 01")).not.toBeInTheDocument();
+  });
+
+  it("opens delete confirmation modal and calls delete when confirmed", async () => {
+    studentsAPI.list.mockResolvedValue([
+      { studentID: 10, name: "Alice Cooper", grade: 2, gender: "Female", age: 7 },
+    ]);
+    studentsAPI.delete.mockResolvedValueOnce({ message: "Student profile successfully deleted." });
+    const user = userEvent.setup();
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <ViewStudentProfile />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("Alice Cooper")).toBeInTheDocument();
+
+    const deleteBtn = screen.getByRole("button", { name: /delete alice cooper's profile/i });
+    await user.click(deleteBtn);
+
+    // Modal dialog is shown
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText(/Are you sure you want to permanently delete/i)).toBeInTheDocument();
+
+    const confirmBtn = screen.getByRole("button", { name: /yes, delete/i });
+    await user.click(confirmBtn);
+
+    expect(studentsAPI.delete).toHaveBeenCalledWith(10);
   });
 });
