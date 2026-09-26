@@ -183,4 +183,35 @@ describe("Sidebar component", () => {
 
     expect(mockSetActivePage).toHaveBeenCalledWith("/dashboard/students/create");
   });
+
+  it("marks active navigation item with aria-current='page' for top-level routes", () => {
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <Sidebar collapsed={false} onToggleCollapse={mockOnToggleCollapse} />
+      </MemoryRouter>
+    );
+
+    const homeBtn = screen.getByRole("button", { name: /^home$/i });
+    expect(homeBtn).toHaveAttribute("aria-current", "page");
+    expect(homeBtn).toHaveClass("active");
+
+    const profilingBtn = screen.getByRole("button", { name: /student profiling/i });
+    expect(profilingBtn).not.toHaveAttribute("aria-current");
+  });
+
+  it("marks active sub-navigation item with aria-current='page' when visiting a sub-route", () => {
+    render(
+      <MemoryRouter initialEntries={["/dashboard/students/create"]}>
+        <Sidebar collapsed={false} onToggleCollapse={mockOnToggleCollapse} />
+      </MemoryRouter>
+    );
+
+    const createBtn = screen.getByRole("button", { name: /create student profile/i });
+    expect(createBtn).toHaveAttribute("aria-current", "page");
+    expect(createBtn).toHaveClass("active");
+
+    const viewBtn = screen.getByRole("button", { name: /view student profile/i });
+    expect(viewBtn).not.toHaveAttribute("aria-current");
+  });
 });
+

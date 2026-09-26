@@ -342,9 +342,15 @@
 
 .va-form-input:focus,
 .va-form-textarea:focus {
-  border-color: #3d9de8;
+  border-color: #0284c7;
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(61, 157, 232, 0.18);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
+}
+
+.va-form-input:focus-visible,
+.va-form-textarea:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 1px;
 }
 
 .va-form-textarea {
