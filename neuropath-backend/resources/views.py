@@ -1,25 +1,30 @@
 from django.db.models import Q
 import io
+import json
 import re
-import uuid
 import requests as http_client
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.enums import TA_CENTER
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status,viewsets
-from rest_framework.permissions import IsAuthenticated 
+from rest_framework.permissions import IsAuthenticated
 from django.http import HttpResponse
-from django.contrib.auth.models import User as DjangoUser
 from users.models import Teacher,StudentProfile
+from users.utils import get_teacher_for_user
 from iep_management.models import IEPModel, IEPGoal, IEPObjectiveRow
 from .models import LessonPlan,VisualAid,TeachingStrategy
 from .services import TeachingStrategyGenerationService,LessonPlanGenerationService
-#from .permissions import UserAuthPermissions uncomment this back to check user auth and permission
+from .permissions import UserAuthPermissions
+from iep_management.privacy_utils import verify_ra10173_consent, ConsentRequiredException
+
+
+def _goal_owned_by_teacher(iep_goal, teacher):
+    return bool(teacher and iep_goal and iep_goal.iep.studentID.teacher_id == teacher.teacherID)
 
 
 def _safe_generated_details(details):
@@ -117,14 +122,41 @@ from .serializers import (
 )
 
 
-def _latest_saved_iep_for_student(student):
-    """Return the newest saved IEP/version for one student."""
+def _iep_summary_payload(iep):
+    """Structured IEP descriptor for selection menus and instructional support materials."""
+    created = iep.createdDate.strftime('%B %d, %Y') if iep.createdDate else ''
+    return {
+        "iepID": iep.pk,
+        "version": iep.version,
+        "createdDate": created,
+        "label": f"IEP Version {iep.version} ({created})" if created else f"IEP Version {iep.version}",
+        "program_type": iep.program_type or "Graded",
+        "accommodations": iep.accommodations or "",
+        "difficulties": iep.difficulties or "",
+    }
+
+
+def _saved_ieps_for_student(student):
+    """Return all saved IEPs/versions for one student, newest first."""
     return (
         IEPModel.objects
         .filter(studentID=student)
         .order_by('-version', '-createdDate', '-iepID')
-        .first()
     )
+
+
+def _latest_saved_iep_for_student(student):
+    """Return the newest saved IEP/version for one student."""
+    return _saved_ieps_for_student(student).first()
+
+
+def _get_iep_for_student(student, iep_id=None):
+    """Return specific IEP if requested and owned by student, else latest saved IEP."""
+    if iep_id:
+        iep = IEPModel.objects.filter(studentID=student, iepID=iep_id).first()
+        if iep:
+            return iep
+    return _latest_saved_iep_for_student(student)
 
 
 def _goal_option_payload(goal):
@@ -140,20 +172,31 @@ def _goal_option_payload(goal):
     }
 
 
-def _latest_goal_options_for_student(student):
-    latest_iep = _latest_saved_iep_for_student(student)
-    if not latest_iep:
+def _goal_options_for_iep(iep):
+    """Extract goal options for a specific IEP instance."""
+    if not iep:
         return []
 
-    _sync_goals_from_generated_details(latest_iep)
+    _sync_goals_from_generated_details(iep)
 
     goals = (
         IEPGoal.objects
-        .filter(iep=latest_iep)
+        .filter(iep=iep)
         .prefetch_related('objective_rows')
         .order_by('goalID')
     )
     return [_goal_option_payload(goal) for goal in goals]
+
+
+def _goal_options_for_student(student, iep_id=None):
+    """Return goal options for a student, optionally targeted to an IEP ID."""
+    iep = _get_iep_for_student(student, iep_id=iep_id)
+    return _goal_options_for_iep(iep)
+
+
+def _latest_goal_options_for_student(student):
+    return _goal_options_for_student(student, iep_id=None)
+
 
 
 
@@ -164,17 +207,11 @@ def _latest_goal_options_for_student(student):
 #              the workspace environment, and serving profile metadata.
 # =====================================================================
 class InstructionalSupportDashboardAPIView(APIView):
-    # TEMPORARY: Allow anyone to view this page during local development testing
-    permission_classes = [] 
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        # 1. Check if a real user is logged in via Django sessions/JWT
-        if request.user and request.user.is_authenticated:
-            lookup_email = request.user.email
-        else:
-            # DEVELOPMENT BYPASS: Default to your test teacher's email from your Supabase screenshot
-            lookup_email = "test@gmail.com" 
-            
+        lookup_email = request.user.email
+
         try:
             # Query the custom teacher profile database row
             teacher_profile = Teacher.objects.get(email=lookup_email)
@@ -198,6 +235,45 @@ class InstructionalSupportDashboardAPIView(APIView):
                 {"error": f"Teacher profile metadata for '{lookup_email}' not found."}, 
                 status=status.HTTP_404_NOT_FOUND
             )
+
+
+class ResourceDashboardStatsAPIView(APIView):
+    """
+    GET /api/resources/dashboard-stats/
+    Returns total count of all teacher-owned instructional resources
+    (Lesson Plans + Teaching Strategies + Visual Aids).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        teacher = get_teacher_for_user(request.user)
+        if not teacher:
+            return Response({
+                'total': 0,
+                'total_resources': 0,
+                'lesson_plans': 0,
+                'teaching_strategies': 0,
+                'visual_aids': 0,
+            }, status=status.HTTP_200_OK)
+
+        lesson_plans_count = LessonPlan.objects.filter(
+            iep_goal__iep__studentID__teacher=teacher
+        ).count()
+        teaching_strategies_count = TeachingStrategy.objects.filter(
+            iep_goal__iep__studentID__teacher=teacher
+        ).count()
+        visual_aids_count = VisualAid.objects.filter(
+            iep_goal__iep__studentID__teacher=teacher
+        ).count()
+        total = lesson_plans_count + teaching_strategies_count + visual_aids_count
+
+        return Response({
+            'total': total,
+            'total_resources': total,
+            'lesson_plans': lesson_plans_count,
+            'teaching_strategies': teaching_strategies_count,
+            'visual_aids': visual_aids_count,
+        }, status=status.HTTP_200_OK)
 
 # =====================================================================
 # SDD COMPONENT: LessonPlanManagerService
@@ -223,36 +299,44 @@ class LessonPlanManagerService:
 # =====================================================================
 class LessonPlanViewSet(viewsets.ModelViewSet):
     # ModelViewSet automatically handles list(), retrieve(), update(), and destroy()!
-    queryset = LessonPlan.objects.all()
     serializer_class = LessonPlanSerializer
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready for security
+    permission_classes = [UserAuthPermissions]
+
+    def get_queryset(self):
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return LessonPlan.objects.none()
+        return LessonPlan.objects.filter(iep_goal__iep__studentID__teacher=teacher)
 
     def create(self, request, *args, **kwargs):
-        # Action: "Generate Lesson Plan"
-        student_id = request.data.get('studentID')
-        title = request.data.get('title', 'AI Generated Lesson')
-        topic = request.data.get('topic', 'General Learning')
-        
-        # Trigger the workflow manager
-        generated_content = LessonPlanManagerService.generate_lesson_payload(student_id, topic)
-        
-        # Package the data for the database
-        payload = {
-            'studentID': student_id,
-            'title': title,
-            'content': generated_content,
-            'status': 'Generated'
-        }
-        
-        # Validate and Save Record
-        serializer = self.get_serializer(data=payload)
+        """Matches Sequence Diagram: [Generate / Save Lesson Plan]"""
+        serializer = self.get_serializer(data=request.data)
+
         if serializer.is_valid():
+            teacher = get_teacher_for_user(request.user)
+            if not _goal_owned_by_teacher(serializer.validated_data.get('iep_goal'), teacher):
+                return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if not serializer.validated_data.get('lessonContent'):
+                iep_goal = serializer.validated_data.get('iep_goal')
+                student_id = iep_goal.iep.studentID.pk
+                topic = request.data.get('topic') or serializer.validated_data.get('title') or 'General Learning'
+
+                generated_content = LessonPlanManagerService.generate_lesson_payload(student_id, topic)
+                serializer.validated_data['lessonContent'] = (
+                    json.dumps(generated_content)
+                    if isinstance(generated_content, (dict, list))
+                    else str(generated_content)
+                )
+
+            serializer.validated_data.setdefault('status', request.data.get('status', 'Generated'))
             self.perform_create(serializer)
+
             return Response({
                 "message": "Lesson Plan generated and saved successfully.",
                 "data": serializer.data
             }, status=status.HTTP_201_CREATED)
-            
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -301,7 +385,7 @@ class LessonPlanGeneratorService:
 #              Routes manual parameters to the generation service.
 # =====================================================================
 class GenerateLessonPlanAPIView(APIView):
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
 
     # =================================================================
     # GET: Populates the React Frontend Directory (Step 1 & 2)
@@ -311,21 +395,8 @@ class GenerateLessonPlanAPIView(APIView):
         Returns the directory of students and their IEP Goal Areas for the
         Generate Lesson Plan tab.
         """
-        teacher_id = request.query_params.get("teacher_id")
-        
-        # If no teacher_id is provided in query params, fallback to the authenticated user's ID
-        if not teacher_id and hasattr(request.user, 'id'):
-            teacher_id = request.user.id
-
-        if teacher_id:
-            try:
-                django_user = DjangoUser.objects.get(pk=int(teacher_id))
-                teacher = Teacher.objects.get(email=django_user.email)
-                students = StudentProfile.objects.filter(teacher=teacher)
-            except (DjangoUser.DoesNotExist, Teacher.DoesNotExist, ValueError, TypeError):
-                students = StudentProfile.objects.none()
-        else:
-            students = StudentProfile.objects.none()
+        teacher = get_teacher_for_user(request.user)
+        students = StudentProfile.objects.filter(teacher=teacher) if teacher else StudentProfile.objects.none()
 
         if not students.exists():
             return Response(
@@ -333,13 +404,29 @@ class GenerateLessonPlanAPIView(APIView):
                 status=status.HTTP_200_OK
             )
 
+        student_id = request.query_params.get('student_id') or request.query_params.get('studentID')
+        iep_id = request.query_params.get('iep_id') or request.query_params.get('iepID') or request.query_params.get('iep')
+
         directory_payload = []
         for student in students:
-            # Use the saved Section C goals from the student's latest IEP/version.
-            goal_list = _latest_goal_options_for_student(student)
+            ieps = _saved_ieps_for_student(student)
+            iep_list = [_iep_summary_payload(iep) for iep in ieps]
+
+            target_iep = None
+            if iep_id and student_id and str(student.pk) == str(student_id):
+                target_iep = ieps.filter(pk=iep_id).first()
+            elif iep_id and not student_id:
+                target_iep = ieps.filter(pk=iep_id).first()
+
+            if not target_iep:
+                target_iep = ieps.first()
+
+            goal_list = _goal_options_for_iep(target_iep) if target_iep else []
             directory_payload.append({
                 "studentID": student.pk,
                 "studentName": student.name,
+                "availableIEPs": iep_list,
+                "selectedIEPID": target_iep.pk if target_iep else None,
                 "availableGoals": goal_list,
             })
 
@@ -354,11 +441,31 @@ class GenerateLessonPlanAPIView(APIView):
         
         if serializer.is_valid():
             goal_id = serializer.validated_data['goalID']
+            teacher = get_teacher_for_user(request.user)
+
+            try:
+                target_goal = IEPGoal.objects.select_related('iep__studentID').get(pk=goal_id)
+            except IEPGoal.DoesNotExist:
+                return Response(
+                    {"error": "Targeted IEP Goal could not be located."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            if not teacher or not _goal_owned_by_teacher(target_goal, teacher):
+                return Response(
+                    {"error": "Targeted IEP Goal could not be located."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            try:
+                verify_ra10173_consent(target_goal.iep.studentID)
+            except ConsentRequiredException as e:
+                return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
             try:
                 # 2. Trigger the new Service to generate the JSON Array
                 generated_data = LessonPlanGenerationService.execute_generation(
-                    goal_id=goal_id, 
+                    goal_id=goal_id,
                     teacher_instance=request.user
                 )
                 
@@ -416,10 +523,18 @@ class LessonPlanFilterService:
 # =====================================================================
 class LessonPlanReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = LessonPlanDetailSerializer
+    permission_classes = [UserAuthPermissions]
 
     def get_queryset(self):
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return LessonPlan.objects.none()
         # 🚀 REWIRED: select_related must follow the new chain to optimize database speed
-        base_queryset = LessonPlan.objects.all().select_related('iep_goal__iep__studentID').order_by('-dateCreated')
+        base_queryset = (
+            LessonPlan.objects.filter(iep_goal__iep__studentID__teacher=teacher)
+            .select_related('iep_goal__iep__studentID')
+            .order_by('-dateCreated')
+        )
         filtered_queryset = LessonPlanFilterService.apply_filters(base_queryset, self.request.query_params)
         return filtered_queryset
     
@@ -447,25 +562,27 @@ class LessonPlanUpdateService:
 #              and PUT (to receive updated payloads and execute modifications).
 # =====================================================================
 class LessonPlanEditAPIView(APIView):
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
 
     def get(self, request, pk, *args, **kwargs):
         """Matches Class Diagram: retrieveCurrentPlan(lessonID)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            # Locate the exact record in Supabase
-            lesson_plan = LessonPlan.objects.get(pk=pk)
-            
+            # Locate the exact record, scoped to the requesting teacher's own students
+            lesson_plan = LessonPlan.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
+
             # Re-use our read-only serializer to send the data safely
             serializer = LessonPlanDetailSerializer(lesson_plan)
             return Response(serializer.data, status=status.HTTP_200_OK)
-            
+
         except LessonPlan.DoesNotExist:
             return Response({"error": "Lesson Plan not found."}, status=status.HTTP_404_NOT_FOUND)
 
     def put(self, request, pk, *args, **kwargs):
         """Matches Class Diagram: validateAndSubmitEdits(lessonID, updatedPayload)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            lesson_plan = LessonPlan.objects.get(pk=pk)
+            lesson_plan = LessonPlan.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except LessonPlan.DoesNotExist:
             return Response({"error": "Lesson Plan not found."}, status=status.HTTP_404_NOT_FOUND)
         
@@ -508,22 +625,20 @@ class LessonPlanDeletionService:
 # =====================================================================
 class LessonPlanDeleteAPIView(APIView):
     # Enforces the UserAuthPermissions security component
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
 
     def delete(self, request, pk, *args, **kwargs):
         """Matches Class Diagram: executeDeletion(lessonID)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            lesson_plan = LessonPlan.objects.get(pk=pk)
+            # 1. SDD Security Check: verifyAuthorization(userID, lessonID) — scope the
+            #    lookup itself to the requesting teacher's own students.
+            lesson_plan = LessonPlan.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except LessonPlan.DoesNotExist:
             return Response(
-                {"error": "Lesson Plan not found or already deleted."}, 
+                {"error": "Lesson Plan not found or already deleted."},
                 status=status.HTTP_404_NOT_FOUND
             )
-            
-        # 1. SDD Security Check: verifyAuthorization(userID, lessonID)
-        # Note: Once authentication is fully turned on, you would ensure:
-        # if lesson_plan.student.teacher != request.user:
-        #     return Response({"error": "Unauthorized"}, status=403)
 
         # 2. Trigger Business Logic Service
         LessonPlanDeletionService.execute_deletion(lesson_plan)
@@ -539,9 +654,14 @@ class LessonPlanDeleteAPIView(APIView):
 # =====================================================================
 class VisualAidViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'delete']
-    queryset = VisualAid.objects.all().order_by('-dateCreated')
     serializer_class = VisualAidSerializer
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
+
+    def get_queryset(self):
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return VisualAid.objects.none()
+        return VisualAid.objects.filter(iep_goal__iep__studentID__teacher=teacher).order_by('-dateCreated')
 
     def list(self, request, *args, **kwargs):
         """Return saved visual aids, optionally filtered by student.
@@ -564,13 +684,7 @@ class VisualAidViewSet(viewsets.ModelViewSet):
             return Response([], status=status.HTTP_200_OK)
             
         serializer = self.get_serializer(queryset, many=True)
-        response_data = serializer.data
-        
-        # Route every image URL through the MediaStreamingService
-        for item in response_data:
-            item['imageUrl'] = MediaStreamingService.resolve_secure_stream_url(item['imageUrl'])
-            
-        return Response(response_data, status=status.HTTP_200_OK)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def retrieve(self, request, *args, **kwargs):
         """Matches Sequence Diagram: handleSelectVisualAid(aidId) -> return storageUrl String"""
@@ -580,31 +694,30 @@ class VisualAidViewSet(viewsets.ModelViewSet):
             return Response({"error": "Visual aid asset not found."}, status=status.HTTP_404_NOT_FOUND)
             
         serializer = self.get_serializer(instance)
-        response_data = serializer.data
-        
-        # Route the specific image URL through the MediaStreamingService
-        response_data['imageUrl'] = MediaStreamingService.resolve_secure_stream_url(instance.imageUrl)
-        
-        return Response(response_data, status=status.HTTP_200_OK)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
         """Matches Sequence Diagram: [Tab Option Selected = "Generate Visual Aid"]"""
         serializer = self.get_serializer(data=request.data)
-        
+
         if serializer.is_valid():
+            teacher = get_teacher_for_user(request.user)
+            if not _goal_owned_by_teacher(serializer.validated_data.get('iep_goal'), teacher):
+                return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
+
             self.perform_create(serializer)
             # Matches Sequence Diagram: "Return parsed JSON asset descriptors"
             return Response({
                 "message": "Visual Aid generated and saved successfully.",
                 "data": serializer.data
             }, status=status.HTTP_201_CREATED)
-            
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, *args, **kwargs):
         """
         Matches Sequence Diagram: [confirmDelete == true] -> handleConfirmDeletion(aidId)
-        Executes permission checks, drops the database row, and triggers cloud cleanup.
+        Executes permission checks and drops the database row.
         """
         try:
             instance = self.get_object()
@@ -614,34 +727,14 @@ class VisualAidViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # 1. Capture the file path URL before we erase the record from the database
-        target_image_url = instance.imageUrl
-
-        # 2. Drop the row from the Supabase PostgreSQL table (Classic Django ORM Link)
+        # Drop the row from the database
         self.perform_destroy(instance)
 
-        # 3. Trigger SDD Component: StorageCleanupWorker to maintain cloud hygiene
-        StorageCleanupWorker.purge_orphan_file(target_image_url)
-
-        # 4. Return successful execution state (204 No Content is standard for clean API deletes)
+        # Return successful execution state (204 No Content is standard for clean API deletes)
         return Response(
-            {"message": "Visual Aid database entry and storage file successfully deleted."},
+            {"message": "Visual Aid database entry successfully deleted."},
             status=status.HTTP_204_NO_CONTENT
         )
-        
-        
-# =====================================================================
-# SDD COMPONENT: SupabaseStorageManager
-# Description: Establishes secure cloud connections, managing binary data 
-#              streams and bucket directory paths for the visual assets.
-# =====================================================================
-class SupabaseStorageManager:
-    @staticmethod
-    def upload_temp_image(binary_data, filename_hint):
-        # In a production environment, this integrates with the supabase-py client 
-        # to push the binary image into your storage bucket.
-        # For now, we simulate a successful cloud upload returning a public URL.
-        return f"https://your-supabase-project.supabase.co/storage/v1/object/public/visual-aids/preview_{filename_hint}.png"
     
     
 
@@ -729,9 +822,9 @@ class VisualAidGeneratorService:
     POLLINATIONS_BASE = "https://image.pollinations.ai/prompt"
 
     @staticmethod
-    def build_prompt(goal_text, extra_prompt, category, student_name):
+    def build_prompt(goal_text, extra_prompt, category, student_name=None):
         parts = [
-            f"Educational visual aid for a student named {student_name}",
+            "Educational visual aid for an elementary learner",
             f"IEP Goal: {goal_text}",
         ]
         if extra_prompt:
@@ -754,34 +847,12 @@ class VisualAidGeneratorService:
         resp.raise_for_status()
         return resp.content, resp.headers.get("Content-Type", "image/jpeg"), url
 
-    @staticmethod
-    def upload_to_supabase(image_bytes, filename, content_type):
-        """Upload image bytes to Supabase Storage. Returns public URL."""
-        from django.conf import settings
-        supabase_url = getattr(settings, "SUPABASE_URL", None)
-        supabase_key = getattr(settings, "SUPABASE_SERVICE_KEY", None)
-        bucket = getattr(settings, "SUPABASE_STORAGE_BUCKET", "visual-aids")
-
-        if not supabase_url or not supabase_key:
-            return None  # Not configured — caller will use Pollinations URL directly
-
-        upload_url = f"{supabase_url}/storage/v1/object/{bucket}/{filename}"
-        headers = {
-            "Authorization": f"Bearer {supabase_key}",
-            "Content-Type": content_type,
-            "x-upsert": "true",
-        }
-        resp = http_client.post(upload_url, data=image_bytes, headers=headers, timeout=30)
-        resp.raise_for_status()
-        # Build the public URL
-        public_url = f"{supabase_url}/storage/v1/object/public/{bucket}/{filename}"
-        return public_url
-
-
 # =====================================================================
 # SDD CONTROLLER: GenerateVisualAidAPIView
 # =====================================================================
 class GenerateVisualAidAPIView(APIView):
+    permission_classes = [UserAuthPermissions]
+
     def post(self, request, *args, **kwargs):
         iep_goal_id = request.data.get("iep_goal_id")
         extra_prompt = request.data.get("prompt", "").strip()
@@ -793,6 +864,7 @@ class GenerateVisualAidAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        teacher = get_teacher_for_user(request.user)
         try:
             target_goal = IEPGoal.objects.select_related("iep__studentID").get(pk=iep_goal_id)
             student = target_goal.iep.studentID
@@ -801,33 +873,34 @@ class GenerateVisualAidAPIView(APIView):
         except Exception as e:
             return Response({"error": f"Goal lookup failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+        if not _goal_owned_by_teacher(target_goal, teacher):
+            return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Enforce RA 10173 Consent Check
+        try:
+            verify_ra10173_consent(student)
+        except ConsentRequiredException as e:
+            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
+
         # Build the image prompt
         try:
             goal_text = target_goal.annual_goal or "learning and development"
             full_prompt = VisualAidGeneratorService.build_prompt(
-                goal_text, extra_prompt, category, student.name
+                goal_text, extra_prompt, category, None
             )
         except Exception as e:
             return Response({"error": f"Prompt build failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         # Fetch image from Pollinations (server-side — no CORS)
         try:
-            image_bytes, content_type, pollinations_url = VisualAidGeneratorService.fetch_image_from_pollinations(full_prompt)
+            _, _, pollinations_url = VisualAidGeneratorService.fetch_image_from_pollinations(full_prompt)
         except Exception as e:
             return Response(
                 {"error": f"Image generation failed: {str(e)}"},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        # Try to upload to Supabase Storage for a permanent URL
-        filename = f"visual-aid-{student.studentID}-{uuid.uuid4().hex[:8]}.jpg"
-        final_url = pollinations_url  # default fallback
-        try:
-            supabase_result = VisualAidGeneratorService.upload_to_supabase(image_bytes, filename, content_type)
-            if supabase_result:
-                final_url = supabase_result
-        except Exception:
-            pass  # Supabase not configured — use Pollinations URL directly
+        final_url = pollinations_url
 
         # Build a descriptive title
         category_label = f"{category} — " if category else ""
@@ -864,9 +937,12 @@ class GenerateVisualAidAPIView(APIView):
 #              PDF Export Engine to return a downloadable file response.
 # =====================================================================
 class ExportVisualAidAPIView(APIView):
+    permission_classes = [UserAuthPermissions]
+
     def get(self, request, pk, *args, **kwargs):
+        teacher = get_teacher_for_user(request.user)
         try:
-            visual_aid = VisualAid.objects.get(pk=pk)
+            visual_aid = VisualAid.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except VisualAid.DoesNotExist:
             return Response({"error": "Saved Visual Aid not found."}, status=status.HTTP_404_NOT_FOUND)
             
@@ -878,46 +954,8 @@ class ExportVisualAidAPIView(APIView):
         response['Content-Disposition'] = f'attachment; filename="VisualAid_{visual_aid.visualAidID}.pdf"'
         
         return response
-    
-    
-# =====================================================================
-# SDD COMPONENT: MediaStreamingService
-# Description: Utility module handling cloud file retrieval workflows. 
-#              Resolves raw binary paths into secure URL streams.
-# =====================================================================
-class MediaStreamingService:
-    @staticmethod
-    def resolve_secure_stream_url(raw_storage_url):
-        if not raw_storage_url:
-            return None
-            
-        # In a fully integrated production environment, you would use the 
-        # supabase-py client here to request a signed, time-limited URL.
-        # For now, we simulate the security handshake by appending a mock stream token.
-        secure_stream_url = f"{raw_storage_url}?stream_auth=verified_token_123"
-        return secure_stream_url
-    
-    
-# =====================================================================
-# SDD COMPONENT: StorageCleanupWorker
-# Description: Post-delete handler that communicates with Supabase 
-#              storage buckets to permanently purge orphan binary files.
-# =====================================================================
-class StorageCleanupWorker:
-    @staticmethod
-    def purge_orphan_file(image_url):
-        if not image_url:
-            return False
-            
-        # In your production setup with the real supabase client, you'd extract 
-        # the file path from the URL and run:
-        # supabase.storage.from_('visual-aids').remove(['path/to/file.png'])
-        
-        # Simulating cloud storage file extraction and successful removal log
-        print(f"[StorageCleanupWorker] Successfully purged orphan asset from Supabase: {image_url}")
-        return True
-    
-    
+
+
 # =====================================================================
 # SDD COMPONENT: StrategyGenerationManagerService
 # Description: Orchestrates automated strategy generation sequences.
@@ -926,20 +964,7 @@ class StorageCleanupWorker:
 class StrategyGenerationManagerService:
     @staticmethod
     def generate_strategy_content(title, student_profile):
-        # 1. Format the target prompt for the AI Core Engine
-        ai_prompt = (
-            f"☁️system☁️Act as a Special Education Behavioral Specialist.☁️/system☁️\n"
-            f"☁️user☁️\n"
-            f"Generate an actionable teaching strategy focusing on: {title}.\n"
-            f"Student Profile Context:\n"
-            f"- Diagnosis: {student_profile.diagnosis}\n"
-            f"- Support Needs: {student_profile.support_needs}\n"
-            f"- Sensory Profile: {student_profile.sensory_preferences}\n"
-            f"- Interests/Reinforcers: {student_profile.interests}\n"
-            f"☁️/user☁️"
-        )
-        
-        # 2. Simulate the AI processing the pedagogical criteria
+        # Simulate the AI processing the pedagogical criteria
         mock_generated_text = (
             f"Strategy Overview for {title}:\n"
             f"- Break down the target task into smaller, manageable micro-steps tailored to a {student_profile.learning_style} learner.\n"
@@ -954,20 +979,33 @@ class StrategyGenerationManagerService:
 # Description: Centralized API controller handling inbound pathways.
 # =====================================================================
 class TeachingStrategyViewSet(viewsets.ModelViewSet):
-    queryset = TeachingStrategy.objects.all().order_by('-dateCreated')
     serializer_class = TeachingStrategySerializer
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
+
+    def get_queryset(self):
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return TeachingStrategy.objects.none()
+        return TeachingStrategy.objects.filter(iep_goal__iep__studentID__teacher=teacher).order_by('-dateCreated')
 
     def create(self, request, *args, **kwargs):
         """Matches Sequence Diagram: [Strategy Route Option = "Generate Teaching Strategy" Tab]"""
-        serializer = self.get_serializer(data=request.data)
-        
+        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        if 'iep_goal' not in data and 'goalID' in data:
+            data['iep_goal'] = data['goalID']
+        serializer = self.get_serializer(data=data)
+
         if serializer.is_valid():
+            teacher = get_teacher_for_user(request.user)
+            if not _goal_owned_by_teacher(serializer.validated_data.get('iep_goal'), teacher):
+                return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
+
             if not serializer.validated_data.get('strategyContent'):
-                student_profile = serializer.validated_data['student']
+                iep_goal = serializer.validated_data.get('iep_goal')
+                student_profile = iep_goal.iep.studentID
                 title = serializer.validated_data['title']
                 
-                # NEW: Pass the entire student_profile object, not just the name string!
+                # Pass the student_profile object resolved from the IEP goal foreign key
                 generated_content = StrategyGenerationManagerService.generate_strategy_content(
                     title=title, 
                     student_profile=student_profile 
@@ -977,9 +1015,10 @@ class TeachingStrategyViewSet(viewsets.ModelViewSet):
             
             self.perform_create(serializer)
             
+            res_serializer = StrategyRetrievalSerializer(serializer.instance)
             return Response({
-                "message": "Teaching Strategy successfully generated and securely saved.",
-                "data": serializer.data
+                "message": "Teaching Strategy successfully saved.",
+                "data": res_serializer.data
             }, status=status.HTTP_201_CREATED)
             
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -990,23 +1029,13 @@ class TeachingStrategyViewSet(viewsets.ModelViewSet):
 #              directory requests and POST execution requests.
 # =====================================================================
 class TeachingStrategyGenerationController(APIView):
-    # 🎯 1. THE BOUNCER: This forces the user to be logged in. 
+    # 🎯 1. THE BOUNCER: This forces the user to be logged in.
     # If there is no valid session/token, it instantly blocks them with a 401 Unauthorized error.
-    # permission_classes = [IsAuthenticated] 
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        from django.contrib.auth.models import User as DjangoUser
-
-        teacher_id = request.query_params.get("teacher_id")
-        if teacher_id:
-            try:
-                django_user = DjangoUser.objects.get(pk=int(teacher_id))
-                teacher = Teacher.objects.get(email=django_user.email)
-                students = StudentProfile.objects.filter(teacher=teacher)
-            except (DjangoUser.DoesNotExist, Teacher.DoesNotExist, ValueError, TypeError):
-                students = StudentProfile.objects.none()
-        else:
-            students = StudentProfile.objects.none()
+        teacher = get_teacher_for_user(request.user)
+        students = StudentProfile.objects.filter(teacher=teacher) if teacher else StudentProfile.objects.none()
 
         if not students.exists():
             return Response(
@@ -1014,13 +1043,29 @@ class TeachingStrategyGenerationController(APIView):
                 status=status.HTTP_200_OK
             )
 
+        student_id = request.query_params.get('student_id') or request.query_params.get('studentID')
+        iep_id = request.query_params.get('iep_id') or request.query_params.get('iepID') or request.query_params.get('iep')
+
         directory_payload = []
         for student in students:
-            # Use the saved Section C goals from the student's latest IEP/version.
-            goal_list = _latest_goal_options_for_student(student)
+            ieps = _saved_ieps_for_student(student)
+            iep_list = [_iep_summary_payload(iep) for iep in ieps]
+
+            target_iep = None
+            if iep_id and student_id and str(student.pk) == str(student_id):
+                target_iep = ieps.filter(pk=iep_id).first()
+            elif iep_id and not student_id:
+                target_iep = ieps.filter(pk=iep_id).first()
+
+            if not target_iep:
+                target_iep = ieps.first()
+
+            goal_list = _goal_options_for_iep(target_iep) if target_iep else []
             directory_payload.append({
                 "studentID": student.pk,
                 "studentName": student.name,
+                "availableIEPs": iep_list,
+                "selectedIEPID": target_iep.pk if target_iep else None,
                 "availableGoals": goal_list
             })
 
@@ -1043,27 +1088,32 @@ class TeachingStrategyGenerationController(APIView):
                 
             except IEPGoal.DoesNotExist:
                 return Response(
-                    {"error": "Targeted IEP Goal could not be located."}, 
+                    {"error": "Targeted IEP Goal could not be located."},
                     status=status.HTTP_404_NOT_FOUND
                 )
-                
+
+            teacher = get_teacher_for_user(request.user)
+            if not _goal_owned_by_teacher(target_goal, teacher):
+                return Response(
+                    {"error": "Targeted IEP Goal could not be located."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
             try:
-                # 2. Trigger the AI Generation & Database Save via our new Service
+                # 2. Trigger the AI Generation without saving to the database
                 # request.user contains the teacher automatically due to your auth middleware
-                saved_strategy = TeachingStrategyGenerationService.generate_and_save_strategy(
+                draft_strategy = TeachingStrategyGenerationService.generate_strategy(
                     goal_instance=target_goal,
                     teacher_instance=request.user
                 )
                 
-                # 3. Route the new database record through your existing UI serializer
-                # This ensures the React frontend gets the exact schema it expects
-                res_serializer = StrategyRetrievalSerializer(saved_strategy)
-                
                 return Response({
-                    "message": "Teaching strategy successfully generated and saved.",
-                    "data": res_serializer.data
-                }, status=status.HTTP_201_CREATED)
+                    "message": "Teaching strategy successfully generated.",
+                    "data": draft_strategy
+                }, status=status.HTTP_200_OK)
                 
+            except ConsentRequiredException as e:
+                return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
             except Exception as e:
                 return Response(
                     {"error": f"AI Generation Pipeline Failed: {str(e)}"}, 
@@ -1281,36 +1331,42 @@ class StrategyBinaryExportEngine:
     
     
 class TeachingStrategyQueryController(viewsets.ViewSet):
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
 
     def getSavedStrategies(self, request):
         """Matches Class Diagram: getSavedStrategies(studentID)"""
         student_id = request.query_params.get('studentID')
-        
-        # Pull base query and run it through the Filter Service
-        base_queryset = TeachingStrategy.objects.all()
+        teacher = get_teacher_for_user(request.user)
+
+        if not teacher:
+            return Response([], status=status.HTTP_200_OK)
+
+        # Pull base query (scoped to the requesting teacher) and run it through the Filter Service
+        base_queryset = TeachingStrategy.objects.filter(iep_goal__iep__studentID__teacher=teacher)
         filtered_queryset = StrategyQueryFilterService.get_filtered_strategies(base_queryset, student_id)
-        
+
         if not filtered_queryset.exists():
             return Response([], status=status.HTTP_200_OK)
-            
+
         serializer = StrategyRetrievalSerializer(filtered_queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def getStrategyDetails(self, request, pk=None):
         """Matches Class Diagram: getStrategyDetails(strategyID)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            strategy = TeachingStrategy.objects.get(pk=pk)
+            strategy = TeachingStrategy.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except TeachingStrategy.DoesNotExist:
             return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
-            
+
         serializer = StrategyRetrievalSerializer(strategy)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def exportStrategyGuide(self, request, pk=None):
         """Matches Class Diagram: exportStrategyGuide(strategyID)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            strategy = TeachingStrategy.objects.get(pk=pk)
+            strategy = TeachingStrategy.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except TeachingStrategy.DoesNotExist:
             return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
             
@@ -1351,23 +1407,25 @@ class StrategyModificationService:
 #              pathways. Handles GET for preloading and PUT/PATCH for mutations.
 # =====================================================================
 class TeachingStrategyUpdateController(APIView):
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
 
     def get(self, request, pk, *args, **kwargs):
         """Matches Sequence Diagram: Populating historical data arrays"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            strategy = TeachingStrategy.objects.get(pk=pk)
+            strategy = TeachingStrategy.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except TeachingStrategy.DoesNotExist:
             return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
-            
+
         # Use the read-only retrieval serializer to securely format the dates/names
         serializer = StrategyRetrievalSerializer(strategy)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, pk, *args, **kwargs):
         """Matches Sequence Diagram: saveStrategyEdits(strategyID, updatedContent)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            strategy = TeachingStrategy.objects.get(pk=pk)
+            strategy = TeachingStrategy.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except TeachingStrategy.DoesNotExist:
             return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -1396,11 +1454,10 @@ class TeachingStrategyUpdateController(APIView):
 class StrategyRemovalService:
     @staticmethod
     def execute_extraction(strategy_record):
-        # SDD Security Enforcement: Multi-tenant boundary safety
-        # In a fully authenticated production state, you would check:
-        # if strategy_record.student.teacher != request.user: 
-        #     raise PermissionDenied("You do not have authorization to delete this record.")
-        
+        # Multi-tenant boundary safety is enforced by the caller (see
+        # TeachingStrategyDeleteController.delete), which only looks up
+        # strategy_record scoped to the requesting teacher's own students.
+
         # Execute the raw physical row deletion to the Supabase Postgres cluster
         strategy_record.delete()
         
@@ -1414,29 +1471,31 @@ class StrategyRemovalService:
 #              hydration and DELETE operations for destructive pipeline actions.
 # =====================================================================
 class TeachingStrategyDeleteController(APIView):
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
 
     def get(self, request, pk=None, *args, **kwargs):
+        teacher = get_teacher_for_user(request.user)
         if pk:
             try:
-                strategy = TeachingStrategy.objects.get(pk=pk)
+                strategy = TeachingStrategy.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
                 serializer = StrategyRetrievalSerializer(strategy)
                 return Response(serializer.data, status=status.HTTP_200_OK)
             except TeachingStrategy.DoesNotExist:
                 return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
         else:
             serializer = StrategyDeleteValidationSerializer(data=request.query_params)
-            
+
             if serializer.is_valid():
                 student_id = serializer.validated_data.get('studentID')
                 if not student_id:
                     return Response({"error": "studentID parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
-                    
-                # 🚀 REWIRED: Traverse the new architectural chain!
+
+                # 🚀 REWIRED: Traverse the new architectural chain! (scoped to this teacher)
                 strategies = TeachingStrategy.objects.filter(
-                    iep_goal__iep__studentID__pk=student_id
+                    iep_goal__iep__studentID__pk=student_id,
+                    iep_goal__iep__studentID__teacher=teacher,
                 ).order_by('-dateCreated')
-                
+
                 if not strategies.exists():
                     return Response([], status=status.HTTP_200_OK)
                     
@@ -1447,11 +1506,12 @@ class TeachingStrategyDeleteController(APIView):
 
     def delete(self, request, pk, *args, **kwargs):
         """Matches Sequence Diagram: executeStrategyDeletion(strategyID)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            strategy = TeachingStrategy.objects.get(pk=pk)
+            strategy = TeachingStrategy.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except TeachingStrategy.DoesNotExist:
             return Response(
-                {"error": "Strategy record does not exist or has already been removed."}, 
+                {"error": "Strategy record does not exist or has already been removed."},
                 status=status.HTTP_404_NOT_FOUND
             )
             

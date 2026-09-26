@@ -1,146 +1,138 @@
-import { useState } from "react";
-import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { useState, useMemo } from "react";
+import { Routes, Route, Navigate, useNavigate, useLocation, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-import LandingPage from "./pages/LandingPage";
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
+import { ToastProvider } from "./context/ToastContext";
+import ToastContainer from "./components/ui/ToastContainer";
+import LandingPage from "./pages/landingPage";
+import LoginPage from "./pages/loginPage";
+import RegisterPage from "./pages/registerPage";
 import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
+import SkipLink from "./components/layout/SkipLink";
 import Overview from "./pages/Overview";
-import UserProfile from "./pages/UserProfilePage"; // 👈 Updated path to match UserProfilePage exactly
+import UserProfile from "./pages/UserProfilePage";
 import ManageLessonPlans from "./pages/ManageLessonPlans";
 import ManageVisualAids from "./pages/ManageVisualAids";
 import ManageTeachingStrategies from "./pages/ManageTeachingStrategies";
 import ViewStudentRecords from "./pages/ViewStudentRecords";
 import ViewProgressDashboard from "./pages/ViewProgressDashboard";
 import CreateStudentProfile from "./pages/CreateStudentProfile";
-import IEPGenerationPage from "./pages/IEPGenerationPage";
+import IEPGenerationPage from "./pages/IepGenerationPage";
 import ViewStudentProfile from "./pages/StudentProfiling/ViewStudentProfile";
 import ViewSelectedStudentProfile from "./pages/StudentProfiling/ViewSelectedStudentProfile";
 import UpdateStudentProfile from "./pages/StudentProfiling/UpdateStudentProfile";
 import LoginSplash from "./components/LoginSplash";
+import TeacherTutorialModal from "./components/TeacherTutorialModal";
+import NotFoundPage from "./pages/NotFoundPage";
+import SessionTimeoutManager from "./components/session/SessionTimeoutManager";
 import "./App.css";
 
-const breadcrumbMap = {
-  overview: "DASHBOARD/Overview",
-  "my-profile": "DASHBOARD/My Profile", // Added profile breadcrumb config
-  "create-student-profile": "DASHBOARD/Student Profiling",
-  "view-student-profile": "DASHBOARD/Student Profiling",
-  "update-student-profile": "DASHBOARD/Student Profiling",
-  "ai-insight": "DASHBOARD/Student Profiling",
-  "iep-generation": "DASHBOARD/AI-Based IEP Generation",
-  "generate-iep": "DASHBOARD/AI-Based IEP Generation/ Generate IEP",
-  "view-iep": "DASHBOARD/AI-Based IEP Generation/ View IEP",
-  "manage-lesson-plans": "DASHBOARD/Instructional Support",
-  "manage-visual-aids": "DASHBOARD/Instructional Support",
-  "manage-teaching-strategies": "DASHBOARD/Instructional Support",
-  "view-student-records": "DASHBOARD/Outcome Monitoring/ View Student Record",
-  "view-progress-dashboard":
-    "DASHBOARD/Outcome Monitoring/ View Progress Dashboard",
-};
+function getBreadcrumb(pathname) {
+  const home = { label: "Dashboard", to: "/dashboard" };
 
-function Placeholder({ title }) {
-  return (
-    <div className="page-content">
-      <div className="placeholder-page">
-        <h2>{title}</h2>
-        <p>This page is under construction.</p>
-      </div>
-    </div>
-  );
-}
-
-function renderPage(
-  activePage,
-  setActivePage,
-  selectedStudentId,
-  setSelectedStudentId,
-) {
-  switch (activePage) {
-    case "overview":
-      return <Overview setActivePage={setActivePage} />;
-    case "my-profile":
-      return <UserProfile />; // Wired up the switch statement destination
-    case "create-student-profile":
-      return <CreateStudentProfile onBack={() => setActivePage("overview")} />;
-    case "view-student-profile":
-      return (
-        <ViewStudentProfile
-          setActivePage={setActivePage}
-          setSelectedStudentId={setSelectedStudentId}
-        />
-      );
-    case "view-student-detail":
-      return (
-        <ViewSelectedStudentProfile
-          studentId={selectedStudentId}
-          setActivePage={setActivePage}
-        />
-      );
-    case "update-student-profile":
-      return (
-        <UpdateStudentProfile
-          studentId={selectedStudentId}
-          onBack={() => setActivePage("view-student-profile")}
-        />
-      );
-    case "ai-insight":
-      return <Placeholder title="Analyze & Generate AI Insight" />;
-    case "iep-generation":
-    case "generate-iep":
-      return <IEPGenerationPage mode="generate" />;
-    case "view-iep":
-      return <IEPGenerationPage mode="view" />;
-    case "manage-lesson-plans":
-      return <ManageLessonPlans />;
-    case "manage-visual-aids":
-      return <ManageVisualAids />;
-    case "manage-teaching-strategies":
-      return <ManageTeachingStrategies />;
-
-    default:
-      return <Overview setActivePage={setActivePage} />;
-    case "view-student-records":
-      return <ViewStudentRecords />;
-    case "view-progress-dashboard":
-      return <ViewProgressDashboard />;
+  if (pathname === "/dashboard" || pathname === "/dashboard/") return [{ label: "Dashboard" }];
+  if (pathname === "/dashboard/profile") return [home, { label: "My Profile" }];
+  if (pathname === "/dashboard/students") {
+    return [home, { label: "Student Profiling", to: "/dashboard/students" }, { label: "View Profiles" }];
   }
+  if (pathname === "/dashboard/students/create") {
+    return [home, { label: "Student Profiling", to: "/dashboard/students" }, { label: "Create Profile" }];
+  }
+  if (pathname.startsWith("/dashboard/students/") && pathname.endsWith("/edit")) {
+    return [home, { label: "Student Profiling", to: "/dashboard/students" }, { label: "Edit Profile" }];
+  }
+  if (pathname.startsWith("/dashboard/students/") && pathname.endsWith("/iep")) {
+    return [home, { label: "AI-Based IEP Generation", to: "/dashboard/iep" }, { label: "Generate IEP" }];
+  }
+  if (pathname.startsWith("/dashboard/students/")) {
+    return [home, { label: "Student Profiling", to: "/dashboard/students" }, { label: "Student Detail" }];
+  }
+  if (pathname === "/dashboard/iep" || pathname === "/dashboard/iep/generate") {
+    return [home, { label: "AI-Based IEP Generation", to: "/dashboard/iep" }, { label: "Generate IEP" }];
+  }
+  if (pathname === "/dashboard/iep/view") {
+    return [home, { label: "AI-Based IEP Generation", to: "/dashboard/iep" }, { label: "View IEP" }];
+  }
+  if (pathname === "/dashboard/lessons") {
+    return [home, { label: "Instructional Support", to: "/dashboard/lessons" }, { label: "Lesson Plans" }];
+  }
+  if (pathname === "/dashboard/visual-aids") {
+    return [home, { label: "Instructional Support", to: "/dashboard/lessons" }, { label: "Visual Aids" }];
+  }
+  if (pathname === "/dashboard/strategies") {
+    return [home, { label: "Instructional Support", to: "/dashboard/lessons" }, { label: "Teaching Strategies" }];
+  }
+  if (pathname === "/dashboard/records") {
+    return [home, { label: "Outcome Monitoring", to: "/dashboard/monitoring" }, { label: "Student Records" }];
+  }
+  if (pathname === "/dashboard/monitoring") {
+    return [home, { label: "Outcome Monitoring", to: "/dashboard/monitoring" }, { label: "Progress Dashboard" }];
+  }
+  return [{ label: "Dashboard" }];
 }
 
-function Dashboard() {
-  const [activePage, setActivePage] = useState("overview");
-  const [selectedStudentId, setSelectedStudentId] = useState(null);
+function DashboardLayout() {
+  const { user, markTutorialComplete } = useAuth();
+  const location = useLocation();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    return localStorage.getItem("neuropath_sidebar_collapsed") === "true";
+  });
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("neuropath_sidebar_collapsed", String(next));
+      return next;
+    });
+  };
+
+  const breadcrumb = useMemo(() => getBreadcrumb(location.pathname), [location.pathname]);
+  const showTutorial = user && user.has_completed_tutorial === false;
 
   return (
-    <div className="app-layout">
-      <Sidebar activePage={activePage} setActivePage={setActivePage} />
+    <div className={`app-layout ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+      <SkipLink targetId="main-content" />
+      {showTutorial && (
+        <TeacherTutorialModal onComplete={markTutorialComplete} />
+      )}
+      <Sidebar
+        collapsed={isSidebarCollapsed}
+        onToggleCollapse={toggleSidebar}
+      />
       <div className="main-area">
         <Topbar
-          breadcrumb={breadcrumbMap[activePage] || "DASHBOARD"}
-          setActivePage={setActivePage}
+          breadcrumb={breadcrumb}
+          collapsed={isSidebarCollapsed}
+          onToggleCollapse={toggleSidebar}
         />
-        {renderPage(
-          activePage,
-          setActivePage,
-          selectedStudentId,
-          setSelectedStudentId,
-        )}
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="main-content focus:outline-none"
+          aria-label="Main content"
+        >
+          <Outlet />
+        </main>
       </div>
     </div>
   );
 }
+
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
   return user ? children : <Navigate to="/login" replace />;
 }
+
 function AppRoutes() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [successMessage, setSuccessMessage] = useState("");
+  const [registeredEmail, setRegisteredEmail] = useState("");
   const [showSplash, setShowSplash] = useState(false);
 
   return (
     <>
+      <SessionTimeoutManager />
       {showSplash && (
         <LoginSplash
           onComplete={() => {
@@ -167,7 +159,11 @@ function AppRoutes() {
                   onNavigateRegister={() => navigate("/register")}
                   onLoginSuccess={() => setShowSplash(true)}
                   successMessage={successMessage}
-                  onClearMessage={() => setSuccessMessage("")}
+                  initialEmail={registeredEmail}
+                  onClearMessage={() => {
+                    setSuccessMessage("");
+                    setRegisteredEmail("");
+                  }}
                 />
               )
             }
@@ -180,84 +176,57 @@ function AppRoutes() {
                 <Navigate to="/dashboard" replace />
               ) : (
                 <RegisterPage
-                  onNavigateLogin={(msg) => {
+                  onNavigateLogin={(msg, email) => {
                     setSuccessMessage(msg);
-                    navigate("/login");
+                    if (email) setRegisteredEmail(email);
+                    navigate("/login", { state: { email } });
                   }}
                 />
               )
             }
           />
 
+          {/* Protected Dashboard Nested Routes */}
           <Route
-            path="/dashboard/*"
+            path="/dashboard"
             element={
               <ProtectedRoute>
-                <Dashboard />
+                <DashboardLayout />
               </ProtectedRoute>
             }
-          />
+          >
+            <Route index element={<Overview />} />
+            <Route path="profile" element={<UserProfile />} />
+            <Route path="students" element={<ViewStudentProfile />} />
+            <Route path="students/create" element={<CreateStudentProfile />} />
+            <Route path="students/:id" element={<ViewSelectedStudentProfile />} />
+            <Route path="students/:id/edit" element={<UpdateStudentProfile />} />
+            <Route path="students/:id/iep" element={<IEPGenerationPage mode="generate" />} />
+            <Route path="iep" element={<IEPGenerationPage mode="generate" />} />
+            <Route path="iep/generate" element={<IEPGenerationPage mode="generate" />} />
+            <Route path="iep/view" element={<IEPGenerationPage mode="view" />} />
+            <Route path="lessons" element={<ManageLessonPlans />} />
+            <Route path="visual-aids" element={<ManageVisualAids />} />
+            <Route path="strategies" element={<ManageTeachingStrategies />} />
+            <Route path="records" element={<ViewStudentRecords />} />
+            <Route path="monitoring" element={<ViewProgressDashboard />} />
+          </Route>
 
           {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       )}
     </>
   );
 }
-// function Router() {
-//   const { user } = useAuth();
-//   const [page, setPage] = useState("landing");
-//   const [successMessage, setSuccessMessage] = useState("");
-//   const [showSplash, setShowSplash] = useState(false);
-
-//   const navigate = (to, msg = "") => {
-//     setSuccessMessage(msg);
-//     setPage(to);
-//   };
-
-//   const handleLoginSuccess = () => {
-//     setShowSplash(true);
-//   };
-
-//   if (showSplash && !user) {
-//     // User object not set yet but splash is showing — still show splash
-//   }
-
-//   if ((user || page === "dashboard") && !showSplash) return <Dashboard />;
-
-//   return (
-//     <>
-//       {showSplash && (
-//         <LoginSplash
-//           onComplete={() => {
-//             setShowSplash(false);
-//             navigate("dashboard");
-//           }}
-//         />
-//       )}
-//       {!showSplash && page === "landing" && (
-//         <LandingPage onGetStarted={() => navigate("login")} />
-//       )}
-//       {!showSplash && page === "login" && (
-//         <LoginPage
-//           onNavigateRegister={() => navigate("register")}
-//           onLoginSuccess={handleLoginSuccess}
-//           successMessage={successMessage}
-//           onClearMessage={() => setSuccessMessage("")}
-//         />
-//       )}
-//       {!showSplash && page === "register" && (
-//         <RegisterPage onNavigateLogin={(msg) => navigate("login", msg)} />
-//       )}
-//     </>
-//   );
-// }
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <AppRoutes />
+        <ToastContainer />
+      </AuthProvider>
+    </ToastProvider>
   );
 }

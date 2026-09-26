@@ -1,9 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import "../styles/OutcomeMonitoring.css";
 import "../styles/ViewStudentRecords.css";
-import { iepAPI, studentsAPI } from "../api/client";
+import { iepAPI, studentsAPI, trackingAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import StudentShimmer from "../components/StudentShimmer";
+import ErrorState from "../components/ui/ErrorState";
+import Pagination from "../components/ui/Pagination";
+import { InboxIcon, CheckIcon, WarningIcon } from "../components/ui/icons";
 
 // ── Placeholder data shown when backend fields are missing ─────────────────
 const PLACEHOLDER = {
@@ -34,13 +38,26 @@ const PLACEHOLDER = {
   iepDate: "",
 };
 
-function EmptyState({ message }) {
+function EmptyState({ message, description, actionLabel, onAction }) {
   return (
     <div className="om-empty">
-      <span style={{ fontSize: 32, display: "block", marginBottom: 8 }}>
-        📭
+      <span className="om-empty-icon flex items-center justify-center">
+        <InboxIcon className="w-8 h-8 text-slate-400" aria-hidden="true" />
       </span>
-      {message}
+      <p className="om-empty-title">{message}</p>
+      {description && (
+        <p className="om-empty-desc">
+          {description}
+        </p>
+      )}
+      {actionLabel && onAction && (
+        <button
+          className="btn btn-primary om-empty-action-btn"
+          onClick={onAction}
+        >
+          {actionLabel}
+        </button>
+      )}
     </div>
   );
 }
@@ -151,7 +168,13 @@ function StepIndicator({ step }) {
           key={i}
           className={`vsr-step ${i + 1 === step ? "vsr-step-active" : i + 1 < step ? "vsr-step-done" : ""}`}
         >
-          <div className="vsr-step-circle">{i + 1 < step ? "✓" : i + 1}</div>
+          <div className="vsr-step-circle">
+            {i + 1 < step ? (
+              <CheckIcon className="w-4 h-4 text-white" aria-hidden="true" />
+            ) : (
+              i + 1
+            )}
+          </div>
           <span className="vsr-step-label">{label}</span>
           {i < steps.length - 1 && <div className="vsr-step-line" />}
         </div>
@@ -253,81 +276,35 @@ function PagePresentLevels({ d, onNext, onBack }) {
 }
 
 // ── PAGE 3: Section B + AI + Section C ────────────────────────────────────
-function PageSectionBC({ d, onBack }) {
-  const handleExport = () => {
-    const goalHtml = (d.learnerGoals || [])
-      .map(
-        (goal) => `
-          <section class="pdf-card">
-            <h3>${goal.type || "Goal"} — Annual Goal / Long Term</h3>
-            <p>${goal.annualGoal || "—"}</p>
-            ${
-              goal.rows?.length
-                ? `<table><thead><tr><th>Enroute Objectives / Procedure</th><th>Interventions / Activities / Procedure</th><th>Timeline / Session</th><th>Individuals Responsible</th><th>Progress / Instructional Evaluation</th><th>Remarks</th></tr></thead><tbody>${goal.rows
-                    .map(
-                      (row) => `<tr><td>${row.objective || "—"}</td><td>${row.interventions || "—"}</td><td>${row.timeline || "—"}</td><td>${row.responsible || "—"}</td><td>${row.evaluation || "—"}</td><td>${row.remarks || "—"}</td></tr>`,
-                    )
-                    .join("")}</tbody></table>`
-                : ""
-            }
-          </section>`,
-      )
-      .join("");
+function PageSectionBC({ d, studentId, studentName, onBack, setActivePage }) {
+  const navigate = useNavigate();
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
 
-    const barrierHtml = (d.barrierRows || []).length
-      ? (d.barrierRows || [])
-          .map(
-            (row) => `<tr><td>${row.difficulty || "—"}</td><td>${row.barrierQualifier || "—"}</td><td>${row.facilitator || "—"}</td><td>${row.accommodation || "—"}</td></tr>`,
-          )
-          .join("")
-      : `<tr><td colspan="4">No Section B details available.</td></tr>`;
+  const handleExport = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    setExportError("");
 
-    const html = `<!doctype html><html><head><title>Student Record</title><style>
-      @page { size: A4; margin: 14mm; }
-      body { font-family: Arial, Helvetica, sans-serif; color: #111; font-size: 11px; line-height: 1.45; }
-      h1 { font-size: 18px; margin: 0 0 8px; color: #111; }
-      h2 { font-size: 14px; margin: 18px 0 8px; color: #111; }
-      h3 { font-size: 12px; margin: 0 0 8px; color: #111; }
-      .meta { margin-bottom: 12px; color: #111; }
-      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; margin-bottom: 14px; }
-      .field strong { display: inline-block; min-width: 110px; }
-      .box, .pdf-card { border: 1px solid #cfd8e3; border-radius: 6px; padding: 10px; margin-bottom: 10px; page-break-inside: avoid; }
-      table { width: 100%; border-collapse: collapse; margin-top: 8px; page-break-inside: auto; }
-      th, td { border: 1px solid #cfd8e3; padding: 7px; vertical-align: top; color: #111; }
-      th { background: #f2f4f7; font-weight: 700; }
-      p { margin: 4px 0 8px; }
-    </style></head><body>
-      <h1>Student Record</h1>
-      <div class="meta">IEP Version: ${d.iepVersion || "—"} ${d.iepDate ? `• ${d.iepDate}` : ""}</div>
-      <div class="grid">
-        <div class="field"><strong>Name:</strong> ${d.name || "—"}</div>
-        <div class="field"><strong>Age:</strong> ${d.age || "—"}</div>
-        <div class="field"><strong>Grade:</strong> ${d.grade || "—"}</div>
-        <div class="field"><strong>Gender:</strong> ${d.gender || "—"}</div>
-        <div class="field"><strong>School:</strong> ${d.school || "—"}</div>
-        <div class="field"><strong>School Year:</strong> ${d.schoolYear || "—"}</div>
-        <div class="field"><strong>Birthdate:</strong> ${d.birthdate || "—"}</div>
-        <div class="field"><strong>Diagnosis:</strong> ${d.disabilityCategory || "—"}</div>
-      </div>
-      <h2>Present Levels</h2>
-      <div class="box"><strong>Evaluation:</strong><p>${d.presentEvaluation || "—"}</p></div>
-      <div class="box"><strong>Strengths:</strong><p>${d.academicStrengths || "—"}</p></div>
-      <div class="box"><strong>Needs:</strong><p>${d.academicNeeds || "—"}</p></div>
-      <div class="box"><strong>Parental Concerns:</strong><p>${d.parentalConcerns || "—"}</p></div>
-      <div class="box"><strong>Curriculum Impact:</strong><p>${d.curriculumImpact || "—"}</p></div>
-      <h2>Section B: Difficulties, Barriers, and Enabling Supports</h2>
-      <table><thead><tr><th>Difficulty</th><th>Learning Barriers</th><th>Learning Facilitators</th><th>Accommodation</th></tr></thead><tbody>${barrierHtml}</tbody></table>
-      ${d.aiAccommodations ? `<div class="box"><strong>AI-Generated Accommodations / Resources</strong><p>${d.aiAccommodations}</p></div>` : ""}
-      <h2>Section C: Learner's Goals</h2>
-      ${goalHtml || "<p>No learner goals available.</p>"}
-      <script>window.onload = () => { window.print(); };</script>
-    </body></html>`;
-
-    const win = window.open("", "_blank");
-    if (!win) return;
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
+    try {
+      const targetId = studentId || d?.studentID;
+      const blob = await trackingAPI.exportStudentRecordPDF(targetId);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const cleanName = (studentName || d?.name || "Student").replace(/\s+/g, "_");
+      link.download = `StudentRecord_${cleanName}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+    } catch (err) {
+      setExportError(err.message || "Failed to export PDF. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -378,8 +355,17 @@ function PageSectionBC({ d, onBack }) {
           </div>
         ))
       ) : (
-        <div className="vsr-goals-box">
-          <p className="vsr-goals-empty">No learner goals available.</p>
+        <div className="vsr-goals-box" style={{ textAlign: "center", padding: "28px 16px" }}>
+          <p className="vsr-goals-empty" style={{ marginBottom: 14 }}>No learner goals available for this student.</p>
+          <button
+            className="btn btn-primary om-empty-action-btn"
+            onClick={() => {
+              navigate("/dashboard/iep/generate");
+              if (setActivePage) setActivePage("iep-generation");
+            }}
+          >
+            Generate IEP Goals
+          </button>
         </div>
       )}
 
@@ -387,16 +373,27 @@ function PageSectionBC({ d, onBack }) {
         <button className="btn btn-back" onClick={onBack}>
           ← Previous
         </button>
-        <button className="btn om-export-btn vsr-export-pdf-btn" onClick={handleExport}>
-          EXPORT PDF
+        <button
+          className="btn om-export-btn vsr-export-pdf-btn"
+          onClick={handleExport}
+          disabled={isExporting}
+        >
+          {isExporting ? "Exporting PDF..." : "EXPORT PDF"}
         </button>
       </div>
+      {exportError && (
+        <div role="alert" className="vsr-export-error flex items-center gap-2">
+          <WarningIcon className="w-4 h-4 text-red-600 flex-shrink-0" aria-hidden="true" />
+          <span>{exportError}</span>
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
-export default function ViewStudentRecords() {
+export default function ViewStudentRecords({ setActivePage }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -404,6 +401,8 @@ export default function ViewStudentRecords() {
   const [search, setSearch] = useState("");
   const [filterGrade, setFilterGrade] = useState("");
   const [filterAge, setFilterAge] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
 
   // Record detail state
   const [selected, setSelected] = useState(null); // raw student row
@@ -411,13 +410,36 @@ export default function ViewStudentRecords() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [recordStep, setRecordStep] = useState(1); // 1 | 2 | 3
 
-  useEffect(() => {
+  const loadStudents = useCallback(() => {
+    setLoading(true);
+    setError("");
     studentsAPI
       .list(user?.id)
       .then(setStudents)
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [user?.id]);
+
+  useEffect(() => {
+    let ignore = false;
+    studentsAPI
+      .list(user?.id)
+      .then((data) => {
+        if (!ignore) {
+          setStudents(data);
+          setError("");
+        }
+      })
+      .catch(() => {
+        if (!ignore) setError("Failed to load students.");
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [user?.id]);
 
   const handleSelect = (s) => {
     setSelected(s);
@@ -430,7 +452,7 @@ export default function ViewStudentRecords() {
         const raw = res.data || res;
         const pd = raw.profileDetails || {};
 
-        let latestIep = null;
+        let latestIep;
         let learnerGoals = [];
         try {
           const iepRes = await iepAPI.listByStudent(s.studentID, user?.id);
@@ -498,12 +520,20 @@ export default function ViewStudentRecords() {
     setRecordStep(1);
   };
 
-  const filtered = students.filter((s) => {
-    const matchName = s.name.toLowerCase().includes(search.toLowerCase());
-    const matchGrade = filterGrade ? s.grade === parseInt(filterGrade) : true;
-    const matchAge = filterAge ? s.age === parseInt(filterAge) : true;
-    return matchName && matchGrade && matchAge;
-  });
+  const filtered = useMemo(() => {
+    return students.filter((s) => {
+      const matchName = (s.name || "").toLowerCase().includes(search.toLowerCase());
+      const matchGrade = filterGrade ? s.grade === parseInt(filterGrade) : true;
+      const matchAge = filterAge ? s.age === parseInt(filterAge) : true;
+      return matchName && matchGrade && matchAge;
+    });
+  }, [students, search, filterGrade, filterAge]);
+
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const paginatedStudents = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
 
   // ── Record detail view (3 steps) ──────────────────────────────────────
   if (selected) {
@@ -539,7 +569,10 @@ export default function ViewStudentRecords() {
                 {recordStep === 3 && (
                   <PageSectionBC
                     d={recordData}
+                    studentId={selected?.studentID}
+                    studentName={recordData?.name || selected?.name}
                     onBack={() => setRecordStep(2)}
+                    setActivePage={setActivePage}
                   />
                 )}
               </>
@@ -559,70 +592,122 @@ export default function ViewStudentRecords() {
       <div className="om-body">
         <div className="om-card">
           <h2 className="om-list-title">List of Students</h2>
-          {error && (
-            <p style={{ color: "#c0392b", fontSize: 13, marginBottom: 8 }}>
-              ⚠️ {error}
-            </p>
-          )}
-          <div className="om-search-bar">
-            <input
-              className="form-input om-search-input"
-              placeholder="Search Student Records"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+          {error ? (
+            <ErrorState
+              title="Failed to Load Student Records"
+              message={error}
+              onRetry={loadStudents}
+              retryLabel="Try Again"
             />
-            <div className="om-filters">
-              <span className="om-filter-label">Filter:</span>
-              <select
-                className="form-select om-filter-select"
-                value={filterGrade}
-                onChange={(e) => setFilterGrade(e.target.value)}
-              >
-                <option value="">Grade</option>
-                {[1, 2, 3, 4, 5, 6].map((g) => (
-                  <option key={g} value={g}>
-                    Grade {g}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="form-select om-filter-select"
-                value={filterAge}
-                onChange={(e) => setFilterAge(e.target.value)}
-              >
-                <option value="">Age</option>
-                {[6, 7, 8, 9, 10, 11, 12].map((a) => (
-                  <option key={a} value={a}>
-                    {a}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="om-student-list">
-            {loading ? (
-              <StudentShimmer />
-            ) : filtered.length === 0 ? (
-              <EmptyState message="No students found." />
-            ) : (
-              filtered.map((s) => (
-                <div key={s.studentID} className="om-student-row">
-                  <div className="va-student-avatar" />
-                  <div className="va-student-info">
-                    <span className="va-student-name">{s.name}</span>
-                    <span className="va-student-grade">Grade – {s.grade}</span>
-                  </div>
-                  <button
-                    className="va-select-btn"
-                    onClick={() => handleSelect(s)}
+          ) : (
+            <>
+              <div className="om-search-bar">
+                <input
+                  id="search-students-input"
+                  className="form-input om-search-input"
+                  placeholder="Search Student Records"
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  aria-label="Search students by name"
+                />
+                <div className="om-filters">
+                  <span className="om-filter-label">Filter:</span>
+                  <select
+                    id="filter-grade-select"
+                    aria-label="Filter by grade"
+                    className="form-select om-filter-select"
+                    value={filterGrade}
+                    onChange={(e) => {
+                      setFilterGrade(e.target.value);
+                      setPage(1);
+                    }}
                   >
-                    Select
-                  </button>
+                    <option value="">Grade</option>
+                    {[1, 2, 3, 4, 5, 6].map((g) => (
+                      <option key={g} value={g}>
+                        Grade {g}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    id="filter-age-select"
+                    aria-label="Filter by age"
+                    className="form-select om-filter-select"
+                    value={filterAge}
+                    onChange={(e) => {
+                      setFilterAge(e.target.value);
+                      setPage(1);
+                    }}
+                  >
+                    <option value="">Age</option>
+                    {[6, 7, 8, 9, 10, 11, 12].map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              ))
-            )}
-          </div>
+              </div>
+
+              <div className="om-student-list">
+                {loading ? (
+                  <StudentShimmer />
+                ) : filtered.length === 0 ? (
+                  students.length === 0 ? (
+                    <EmptyState
+                      message="No students registered yet"
+                      description="Get started by creating a student profile to view records and track IEPs."
+                      actionLabel="+ Create Student"
+                      onAction={() => {
+                        navigate("/dashboard/students/create");
+                        if (setActivePage) setActivePage("create-student-profile");
+                      }}
+                    />
+                  ) : (
+                    <EmptyState
+                      message="No students found matching your search"
+                      description="Try adjusting your search criteria or clear your filters."
+                      actionLabel="Clear Filters"
+                      onAction={() => {
+                        setSearch("");
+                        setFilterGrade("");
+                        setFilterAge("");
+                        setPage(1);
+                      }}
+                    />
+                  )
+                ) : (
+                  <>
+                    {paginatedStudents.map((s) => (
+                      <div key={s.studentID} className="om-student-row">
+                        <div className="va-student-avatar" />
+                        <div className="va-student-info">
+                          <span className="va-student-name">{s.name}</span>
+                          <span className="va-student-grade">Grade – {s.grade}</span>
+                        </div>
+                        <button
+                          className="va-select-btn"
+                          onClick={() => handleSelect(s)}
+                        >
+                          Select
+                        </button>
+                      </div>
+                    ))}
+                    <Pagination
+                      currentPage={page}
+                      totalPages={totalPages}
+                      totalItems={filtered.length}
+                      pageSize={pageSize}
+                      onPageChange={setPage}
+                    />
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

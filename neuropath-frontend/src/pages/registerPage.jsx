@@ -1,5 +1,14 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import {
+  BoltIcon,
+  LockIcon,
+  WarningIcon,
+  EyeIcon,
+  EyeSlashIcon,
+} from "../components/ui/icons";
+import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
+import { evaluatePasswordRules } from "../utils/password";
 
 export default function RegisterPage({ onNavigateLogin }) {
   const { register } = useAuth();
@@ -21,8 +30,14 @@ export default function RegisterPage({ onNavigateLogin }) {
     if (!form.lastName.trim()) e.lastName = "Last name is required.";
     if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email))
       e.email = "Enter a valid email.";
-    if (form.password.length < 6)
-      e.password = "Password must be at least 6 characters.";
+
+    const ruleResult = evaluatePasswordRules(form.password);
+    if (!ruleResult.hasLength) {
+      e.password = "Password must be at least 8 characters.";
+    } else if (!ruleResult.isValid) {
+      e.password = "Please fulfill all password requirements below.";
+    }
+
     if (form.password !== form.confirmPassword)
       e.confirmPassword = "Passwords do not match.";
     return e;
@@ -43,28 +58,35 @@ export default function RegisterPage({ onNavigateLogin }) {
 
     setLoading(true);
     try {
+      const cleanEmail = form.email.trim().toLowerCase();
       // Mapping the data to match Django's exact Serializer expectations
-      const data = await register({
-        username: form.email.trim().toLowerCase(), // Django requires a username!
-        email: form.email.trim().toLowerCase(),
+      await register({
+        username: cleanEmail, // Django requires a username!
+        email: cleanEmail,
         first_name: form.firstName.trim(), // Converted to snake_case
         last_name: form.lastName.trim(), // Converted to snake_case
         password: form.password,
         // role: form.role // (You can pass this if you add a role field to your backend model later)
       });
 
+      // Navigate to login with success message and pre-fill email
       onNavigateLogin(
         `Account created for ${form.firstName.trim()}! Please sign in.`,
+        cleanEmail,
       );
     } catch (err) {
-      const msg =
-        err.response?.data?.message || err.message || "Registration failed.";
+      const msg = err.message || err.data?.message || "Registration failed.";
 
       // Django often returns a dictionary of specific field errors
-      const fieldErrors = err.response?.data?.errors;
+      const fieldErrors = err.data?.errors;
 
       if (fieldErrors?.username || fieldErrors?.email) {
         setErrors({ email: "This email is already registered." });
+      } else if (fieldErrors?.password) {
+        const passErr = Array.isArray(fieldErrors.password)
+          ? fieldErrors.password[0]
+          : fieldErrors.password;
+        setErrors({ password: passErr });
       } else {
         setErrors({ general: msg });
       }
@@ -127,7 +149,7 @@ export default function RegisterPage({ onNavigateLogin }) {
         >
           {/* Logo inside card */}
           <div className="flex items-center gap-2 select-none mb-6">
-            <span className="text-2xl">⚡</span>
+            <BoltIcon className="w-6 h-6 text-white" aria-hidden="true" />
             <span className="text-xl font-bold tracking-tight text-white">
               NeuroPath
             </span>
@@ -199,10 +221,11 @@ export default function RegisterPage({ onNavigateLogin }) {
 
           {/* Footer note inside card */}
           <p
-            className="text-xs mt-6"
-            style={{ color: "rgba(255,255,255,0.5)" }}
+            className="text-xs mt-6 flex items-center gap-1.5"
+            style={{ color: "rgba(255,255,255,0.7)" }}
           >
-            🔒 FERPA Compliant Documentation Platform
+            <LockIcon className="w-3.5 h-3.5 text-white/70" aria-hidden="true" />
+            <span>FERPA Compliant Documentation Platform</span>
           </p>
         </div>
       </div>
@@ -220,7 +243,7 @@ export default function RegisterPage({ onNavigateLogin }) {
             >
               Create your account
             </h1>
-            <p className="text-sm font-medium" style={{ color: "#5a9dbf" }}>
+            <p className="text-sm font-medium" style={{ color: "#1e78a6" }}>
               Join NeuroPath and start building better IEPs
             </p>
           </div>
@@ -234,7 +257,7 @@ export default function RegisterPage({ onNavigateLogin }) {
                 color: "#c0392b",
               }}
             >
-              <span className="text-base">⚠️</span>
+              <WarningIcon className="w-4 h-4 text-rose-700 shrink-0" aria-hidden="true" />
               <p className="font-medium">{errors.general}</p>
             </div>
           )}
@@ -248,12 +271,14 @@ export default function RegisterPage({ onNavigateLogin }) {
                   className="text-xs font-bold uppercase tracking-wider"
                   style={{ color: "#1a6fa8" }}
                 >
-                  First Name
+                  First Name <span className="text-rose-500" aria-hidden="true">*</span>
                 </label>
                 <input
                   id="firstName"
                   name="firstName"
                   type="text"
+                  required
+                  aria-required="true"
                   placeholder="John"
                   value={form.firstName}
                   onChange={handleChange}
@@ -277,12 +302,14 @@ export default function RegisterPage({ onNavigateLogin }) {
                   className="text-xs font-bold uppercase tracking-wider"
                   style={{ color: "#1a6fa8" }}
                 >
-                  Last Name
+                  Last Name <span className="text-rose-500" aria-hidden="true">*</span>
                 </label>
                 <input
                   id="lastName"
                   name="lastName"
                   type="text"
+                  required
+                  aria-required="true"
                   placeholder="Doe"
                   value={form.lastName}
                   onChange={handleChange}
@@ -309,12 +336,14 @@ export default function RegisterPage({ onNavigateLogin }) {
                 className="text-xs font-bold uppercase tracking-wider"
                 style={{ color: "#1a6fa8" }}
               >
-                Email Address
+                Email Address <span className="text-rose-500" aria-hidden="true">*</span>
               </label>
               <input
                 id="reg-email"
                 name="email"
                 type="email"
+                required
+                aria-required="true"
                 value={form.email}
                 onChange={handleChange}
                 className="w-full px-4 py-3 rounded-xl text-sm font-medium outline-none transition-all"
@@ -339,13 +368,15 @@ export default function RegisterPage({ onNavigateLogin }) {
                 className="text-xs font-bold uppercase tracking-wider"
                 style={{ color: "#1a6fa8" }}
               >
-                Password
+                Password <span className="text-rose-500" aria-hidden="true">*</span>
               </label>
               <div className="relative">
                 <input
                   id="reg-password"
                   name="password"
                   type={showPass ? "text" : "password"}
+                  required
+                  aria-required="true"
                   value={form.password}
                   onChange={handleChange}
                   className="w-full pl-4 pr-12 py-3 rounded-xl text-sm font-medium outline-none transition-all"
@@ -357,9 +388,13 @@ export default function RegisterPage({ onNavigateLogin }) {
                   type="button"
                   className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-sm transition-all"
                   onClick={() => setShowPass(!showPass)}
-                  aria-label="Toggle password visibility"
+                  aria-label={showPass ? "Hide password" : "Show password"}
                 >
-                  {showPass ? "🙈" : "👁️"}
+                  {showPass ? (
+                    <EyeSlashIcon className="w-4 h-4 text-slate-500" aria-hidden="true" />
+                  ) : (
+                    <EyeIcon className="w-4 h-4 text-slate-500" aria-hidden="true" />
+                  )}
                 </button>
               </div>
               {errors.password && (
@@ -370,6 +405,8 @@ export default function RegisterPage({ onNavigateLogin }) {
                   {errors.password}
                 </span>
               )}
+              {/* ENH02 & ENH04: Live Password Strength Meter & Interactive Checklist */}
+              <PasswordStrengthMeter password={form.password} />
             </div>
 
             {/* Confirm Password */}
@@ -379,12 +416,14 @@ export default function RegisterPage({ onNavigateLogin }) {
                 className="text-xs font-bold uppercase tracking-wider"
                 style={{ color: "#1a6fa8" }}
               >
-                Confirm Password
+                Confirm Password <span className="text-rose-500" aria-hidden="true">*</span>
               </label>
               <input
                 id="confirmPassword"
                 name="confirmPassword"
                 type={showPass ? "text" : "password"}
+                required
+                aria-required="true"
                 value={form.confirmPassword}
                 onChange={handleChange}
                 className="w-full px-4 py-3 rounded-xl text-sm font-medium outline-none transition-all"
@@ -444,7 +483,7 @@ export default function RegisterPage({ onNavigateLogin }) {
 
           <p
             className="text-sm font-medium text-center"
-            style={{ color: "#5a9dbf" }}
+            style={{ color: "#1e78a6" }}
           >
             Already have an account?{" "}
             <button

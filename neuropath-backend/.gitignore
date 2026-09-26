@@ -1,5 +1,10 @@
 # Security
 .env
+.env.staging
+.env.production
+.env.local
+.env.*.local
+!.env*.example
 
 # Environments
 venv/
@@ -11,6 +16,7 @@ __pycache__/
 *.pyo
 *.pyd
 db.sqlite3
+staticfiles/
 
 # OS Files
 .DS_Store

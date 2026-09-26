@@ -1,5 +1,9 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
+from django.db.models import Q
 from .models import StudentProfile, Teacher
 
 
@@ -21,14 +25,10 @@ def get_default_teacher():
 
 
 class StudentProfileSerializer(serializers.ModelSerializer):
-    teacher = serializers.PrimaryKeyRelatedField(
-        queryset=Teacher.objects.all(),
-        required=False,
-        allow_null=True,
-    )
-    # Accepts the Django User ID from the frontend (login response gives user.id)
-    # This is write-only — it's only used during create to look up the Teacher row.
-    teacher_user_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    # The owning teacher is always derived server-side from the authenticated
+    # request user (see create() below) — never accepted from the client, so
+    # one teacher cannot assign/reassign a student to another teacher.
+    teacher = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = StudentProfile
@@ -68,6 +68,19 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             if errors:
                 raise serializers.ValidationError(errors)
 
+        # RA 10173 (Data Privacy Act of 2012) Minor Consent Validation
+        consent_obtained = data.get('parental_consent_obtained')
+        if consent_obtained:
+            guardian_name = (data.get('guardian_name') or '').strip()
+            consent_date = data.get('consent_date')
+            consent_errors = {}
+            if not guardian_name:
+                consent_errors['guardian_name'] = 'Parent or legal guardian name is required when consent is marked as obtained.'
+            if not consent_date:
+                consent_errors['consent_date'] = 'Consent verification date is required when consent is marked as obtained.'
+            if consent_errors:
+                raise serializers.ValidationError(consent_errors)
+
         return data
 
     def validate_age(self, value):
@@ -85,23 +98,13 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        from django.contrib.auth.models import User as DjangoUser
+        from .utils import get_teacher_for_user
 
-        # Pop the write-only helper field — it is not a model field.
-        teacher_user_id = validated_data.pop('teacher_user_id', None)
-
-        # If the frontend supplied a Django User ID, resolve it to the
-        # matching Teacher row (linked by email at registration time).
-        if teacher_user_id and not validated_data.get('teacher'):
-            try:
-                django_user = DjangoUser.objects.get(pk=teacher_user_id)
-                validated_data['teacher'] = Teacher.objects.get(email=django_user.email)
-            except (DjangoUser.DoesNotExist, Teacher.DoesNotExist):
-                pass
+        request = self.context.get('request')
+        teacher = get_teacher_for_user(request.user) if request else None
 
         # Last resort: fall back to the demo teacher so the record still saves.
-        if not validated_data.get('teacher'):
-            validated_data['teacher'] = get_default_teacher()
+        validated_data['teacher'] = teacher or get_default_teacher()
 
         return super().create(validated_data)
 
@@ -132,22 +135,46 @@ class ValidationService(serializers.ModelSerializer):
 
 
 class TeacherSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(required=True)
+
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'password', 'first_name', 'last_name']
-        extra_kwargs = {'password': {'write_only': True}}
+        extra_kwargs = {
+            'password': {'write_only': True, 'required': True},
+            'username': {'required': False},
+        }
 
+    def validate_email(self, value):
+        email = value.strip().lower()
+        if not email:
+            raise serializers.ValidationError('This field may not be blank.')
+        if User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).exists() or Teacher.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError('An account with this email already exists.')
+        return email
+
+    def validate_password(self, value):
+        try:
+            validate_password(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(list(exc.messages))
+        return value
+
+    @transaction.atomic
     def create(self, validated_data):
+        email = validated_data['email'].strip().lower()
+        validated_data['email'] = email
+        if not validated_data.get('username'):
+            validated_data['username'] = email
+
         user = User.objects.create_user(**validated_data)
         first = validated_data.get('first_name', '')
         last = validated_data.get('last_name', '')
         full_name = f'{first} {last}'.strip() if first or last else user.username
 
-        Teacher.objects.get_or_create(
-            email=validated_data.get('email', ''),
-            defaults={
-                'name': full_name,
-                'passwordHash': user.password,
-            },
+        Teacher.objects.create(
+            email=email,
+            name=full_name,
+            passwordHash=user.password,
         )
         return user

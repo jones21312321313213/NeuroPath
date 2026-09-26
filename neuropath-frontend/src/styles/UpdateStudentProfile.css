@@ -31,16 +31,34 @@
 }
 
 .form-label {
-  font-weight: bold;
-  margin-bottom: 5px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 6px;
 }
 
 .form-input,
 .form-select,
 .form-textarea {
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14.5px;
+  color: #1e293b;
+  background: #f8fafc;
+  line-height: 1.5;
+  font-family: inherit;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  border-color: #38bdf8;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
 }
 
 /* Make textareas larger by default */
@@ -57,19 +75,24 @@
 }
 
 .btn {
-  padding: 8px 14px;
+  padding: 10px 22px;
   border: none;
-  border-radius: 5px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: all 0.15s ease;
 }
 
 .btn-back {
-  background: #ccc;
-  color: #333;
+  background: #cbd5e1;
+  color: #334155;
 }
 
 .btn-back:hover {
-  background: #b3b3b3;
+  background: #94a3b8;
+  color: #0f172a;
 }
 
 .btn-submit {
@@ -81,16 +104,23 @@
   background: #2c89d0;
 }
 
-/* Very light gray for prefilled values */
+/* High-contrast, clean readability for prefilled values */
 .form-input.gray-input,
 .form-textarea.gray-input {
-  color: #aaa; /* lighter gray than before */
+  color: #1e293b;
+  background: #f8fafc;
 }
 
-/* When user focuses/edits, switch to black */
+.form-input.gray-input::placeholder,
+.form-textarea.gray-input::placeholder {
+  color: #94a3b8;
+}
+
+/* When user focuses/edits, highlight active field */
 .form-input.gray-input:focus,
 .form-textarea.gray-input:focus {
-  color: #000;
+  color: #0f172a;
+  background: #fff;
 }
 
 /* ── Success Modal ─────────────────────────────────────── */

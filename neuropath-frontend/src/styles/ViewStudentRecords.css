@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════════════════════════
    ViewStudentRecords.css
-   Theme: NeuroPath Blue  (#5aabf0 / #3d9de8 / #1e6fbf)
+   Theme: NeuroPath Clean Indigo/Blue
 ══════════════════════════════════════════════════════════ */
 
 /* ── Step indicator ─────────────────────────────────────── */
@@ -9,103 +9,105 @@
   align-items: center;
   justify-content: center;
   gap: 0;
-  padding: 22px 24px 18px;
-  background: #fff;
-  border-radius: 0;
-  border-bottom: 1.5px solid #e8eef6;
+  padding: 20px 24px 18px;
+  background: #ffffff;
+  border-bottom: 1.5px solid #e2e8f0;
   margin-bottom: 0;
 }
 
 .vsr-step {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   position: relative;
 }
 
 .vsr-step-circle {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12.5px;
-  font-weight: 800;
-  background: #f0f4f8;
-  color: #a0aab4;
-  border: 2px solid #d0dce8;
+  font-size: 13.5px;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #64748b;
+  border: 2px solid #cbd5e1;
   transition: all 0.25s ease;
   flex-shrink: 0;
   font-family: "Plus Jakarta Sans", sans-serif;
 }
 
 .vsr-step-active .vsr-step-circle {
-  background: linear-gradient(135deg, #5aabf0, #3d9de8);
-  color: #fff;
-  border-color: #3d9de8;
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
   box-shadow:
-    0 0 0 4px rgba(90, 171, 240, 0.2),
-    0 2px 8px rgba(90, 171, 240, 0.35);
+    0 0 0 4px rgba(2, 132, 199, 0.18),
+    0 2px 8px rgba(2, 132, 199, 0.3);
 }
 
 .vsr-step-done .vsr-step-circle {
-  background: linear-gradient(135deg, #43d9a2, #27b589);
-  color: #fff;
-  border-color: #27b589;
-  box-shadow: 0 2px 8px rgba(39, 181, 137, 0.3);
+  background: #10b981;
+  color: #ffffff;
+  border-color: #10b981;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
 }
 
 .vsr-step-label {
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 600;
-  color: #a0aab4;
+  color: #64748b;
   white-space: nowrap;
   font-family: "Plus Jakarta Sans", sans-serif;
   transition: color 0.2s;
 }
 
 .vsr-step-active .vsr-step-label {
-  color: #3d9de8;
+  color: #0284c7;
+  font-weight: 700;
 }
+
 .vsr-step-done .vsr-step-label {
-  color: #27b589;
+  color: #059669;
+  font-weight: 700;
 }
 
 .vsr-step-line {
   width: 56px;
   height: 2px;
-  background: linear-gradient(90deg, #d0dce8, #e8eef6);
-  margin: 0 8px;
+  background: #e2e8f0;
+  margin: 0 12px;
   flex-shrink: 0;
   border-radius: 2px;
 }
 
 /* ── Outer wrapper ──────────────────────────────────────── */
 .vsr-record-wrap {
-  background: #fff;
-  border-radius: 0 0 14px 14px;
-  box-shadow: 0 4px 24px rgba(30, 111, 191, 0.08);
+  background: #ffffff;
+  border-radius: 0 0 16px 16px;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
   overflow: hidden;
 }
 
 /* ── Page container ─────────────────────────────────────── */
 .vsr-page {
-  padding: 28px 32px 24px;
+  padding: 32px 36px 28px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 20px;
 }
 
 /* ── Section title ──────────────────────────────────────── */
 .vsr-section-title {
-  font-size: 15px;
-  font-weight: 800;
-  color: #1a2b40;
-  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px;
   padding-bottom: 12px;
-  border-bottom: 2px solid #eef3f9;
-  letter-spacing: -0.2px;
+  border-bottom: 2px solid #e2e8f0;
+  letter-spacing: -0.01em;
   font-family: "Plus Jakarta Sans", sans-serif;
 }
 
@@ -113,14 +115,20 @@
 .vsr-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px 24px;
+  gap: 16px 24px;
+}
+
+@media (max-width: 768px) {
+  .vsr-grid-2 {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── Field group ────────────────────────────────────────── */
 .vsr-field-group {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 
 .vsr-field-full {
@@ -128,42 +136,50 @@
 }
 
 .vsr-field-label {
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
-  color: #5aabf0;
+  color: #0369a1;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-family: "Plus Jakarta Sans", sans-serif;
 }
 
 .vsr-field-input {
-  background: #f7fafd;
-  border: 1.5px solid #e3eaf2;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
   border-radius: 8px;
-  padding: 10px 14px;
-  font-size: 13.5px;
-  color: #1a2b40;
-  min-height: 40px;
+  padding: 10px 16px;
+  font-size: 14.5px;
+  color: #0f172a;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
   font-family: "Plus Jakarta Sans", sans-serif;
   font-weight: 500;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
+
 .vsr-field-input:hover {
-  border-color: #bdd6f0;
+  border-color: #94a3b8;
 }
 
 .vsr-field-textarea {
-  background: #f7fafd;
-  border: 1.5px solid #e3eaf2;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
   border-radius: 8px;
-  padding: 12px 14px;
-  font-size: 13.5px;
-  color: #1a2b40;
-  line-height: 1.65;
-  min-height: 80px;
+  padding: 14px 16px;
+  font-size: 14.5px;
+  color: #0f172a;
+  line-height: 1.7;
+  min-height: 84px;
   white-space: pre-wrap;
   font-family: "Plus Jakarta Sans", sans-serif;
   font-weight: 400;
+  transition: border-color 0.15s;
+}
+
+.vsr-field-textarea:hover {
+  border-color: #94a3b8;
 }
 
 /* ── Difficulty chips ───────────────────────────────────── */
@@ -171,85 +187,94 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 12px 14px;
-  background: #f7fafd;
-  border: 1.5px solid #e3eaf2;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
   border-radius: 8px;
   min-height: 44px;
 }
 
 .vsr-difficulty-chip {
-  background: rgba(90, 171, 240, 0.12);
-  border: 1.5px solid rgba(90, 171, 240, 0.3);
-  color: #2d7fc4;
+  background: rgba(2, 132, 199, 0.08);
+  border: 1.5px solid rgba(2, 132, 199, 0.25);
+  color: #0369a1;
   border-radius: 20px;
-  padding: 4px 14px;
-  font-size: 12.5px;
+  padding: 5px 14px;
+  font-size: 13px;
   font-weight: 700;
   font-family: "Plus Jakarta Sans", sans-serif;
   letter-spacing: 0.2px;
 }
 
-/* ── Section B table ────────────────────────────────────── */
+/* ── Tables ─────────────────────────────────────────────── */
+.vsr-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  margin-top: 10px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+}
+
 .vsr-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13.5px;
-  border: 1.5px solid #e3eaf2;
-  border-radius: 10px;
-  overflow: hidden;
+  font-size: 14px;
+  color: #334155;
+  font-family: "Plus Jakarta Sans", sans-serif;
 }
 
 .vsr-table thead tr {
-  background: linear-gradient(90deg, #1e4d7d, #2d6aad);
-  color: #fff;
+  background: #1e293b;
+  color: #ffffff;
 }
 
 .vsr-table th {
-  padding: 11px 16px;
+  padding: 13px 18px;
   font-weight: 700;
   text-align: left;
   font-size: 13px;
   font-family: "Plus Jakarta Sans", sans-serif;
   letter-spacing: 0.3px;
+  color: #ffffff !important;
+  white-space: nowrap;
 }
 
 .vsr-table td {
-  padding: 11px 16px;
-  color: #4a5568;
-  border-top: 1px solid #e8eef6;
+  padding: 14px 18px;
+  color: #334155;
+  border-top: 1px solid #f1f5f9;
+  line-height: 1.6;
+  vertical-align: top;
+}
+
+.vsr-table tbody tr:hover {
+  background-color: #f8fafc;
 }
 
 .vsr-table-empty {
-  color: #a0aab4;
+  color: #64748b;
   font-style: italic;
-  font-size: 13px;
+  font-size: 14px;
   text-align: center;
-  padding: 20px !important;
+  padding: 24px 16px !important;
 }
 
 /* ── AI Accommodations box ──────────────────────────────── */
 .vsr-ai-box {
-  background: linear-gradient(135deg, #eef6ff, #f0f9ff);
-  border: 1.5px solid #bdd6f5;
-  border-radius: 10px;
-  padding: 16px 20px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #0284c7;
+  border-radius: 8px;
+  padding: 18px 22px;
   position: relative;
-  overflow: hidden;
-}
-.vsr-ai-box::before {
-  content: "✦";
-  position: absolute;
-  right: 16px;
-  top: 12px;
-  font-size: 22px;
-  color: rgba(90, 171, 240, 0.2);
 }
 
 .vsr-ai-title {
   font-size: 13px;
   font-weight: 800;
-  color: #2d7fc4;
+  color: #0369a1;
   margin: 0 0 8px;
   text-transform: uppercase;
   letter-spacing: 0.8px;
@@ -257,26 +282,56 @@
 }
 
 .vsr-ai-text {
-  font-size: 13.5px;
-  color: #3a4a5c;
+  font-size: 14.5px;
+  color: #1e293b;
   line-height: 1.7;
   margin: 0;
 }
 
 /* ── Section C goals box ────────────────────────────────── */
+.vsr-goal-card {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transition: box-shadow 0.2s;
+}
+
+.vsr-goal-card:hover {
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.07);
+}
+
+.vsr-goal-card h4 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 8px;
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+
+.vsr-goal-card p {
+  font-size: 14.5px;
+  color: #475569;
+  line-height: 1.65;
+  margin: 0 0 16px;
+}
+
 .vsr-goals-box {
-  border: 1.5px solid #e3eaf2;
+  border: 1.5px solid #e2e8f0;
   border-radius: 10px;
   overflow: hidden;
+  background: #ffffff;
 }
 
 .vsr-goals-header {
-  background: linear-gradient(90deg, #ddeeff, #eef6fd);
-  border-bottom: 1.5px solid #d4e8f7;
-  padding: 9px 16px;
-  font-size: 12.5px;
+  background: #f1f5f9;
+  border-bottom: 1.5px solid #e2e8f0;
+  padding: 10px 18px;
+  font-size: 13px;
   font-weight: 800;
-  color: #1e6fbf;
+  color: #0f172a;
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -284,9 +339,9 @@
 }
 
 .vsr-goals-empty {
-  padding: 20px 16px;
-  color: #a0aab4;
-  font-size: 13.5px;
+  padding: 24px 18px;
+  color: #64748b;
+  font-size: 14px;
   font-style: italic;
   margin: 0;
 }
@@ -296,14 +351,33 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 8px;
-  padding-top: 18px;
-  border-top: 1.5px solid #eef3f9;
+  margin-top: 12px;
+  padding-top: 20px;
+  border-top: 1.5px solid #e2e8f0;
 }
 
 .vsr-section table thead th,
 .vsr-table thead th,
 .vsr-record-table thead th {
   color: #ffffff !important;
+}
+
+.vsr-export-pdf-btn {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 24px;
+  letter-spacing: 0.3px;
+}
+
+.vsr-export-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 13.5px;
+  font-weight: 600;
+  margin-top: 12px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  text-align: right;
 }
 

@@ -1,200 +1,388 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { studentsAPI, iepAPI } from "../api/client";
-import CountUp from "../components/ui/CountUp";
-import GlareHover from "../components/ui/GlareHover";
+import {
+  useStudents,
+  useIepDashboardStats,
+  useResourceDashboardStats,
+} from "../hooks/queries";
+import { Card, CountUp } from "../components/ui";
 
 const stats = [
   {
     label: "Total Students",
     key: "students",
     icon: "ti-users",
-    color: "#378ADD",
-  },
-  { label: "Active IEPs", key: "ieps", icon: "ti-file-text", color: "#1D9E75" },
-  {
-    label: "AI Insights Generated",
-    key: "insights",
-    icon: "ti-brain",
-    color: "#7F77DD",
+    color: "#0284c7",
   },
   {
-    label: "Upcoming Reviews",
-    key: "reviews",
-    icon: "ti-calendar-event",
-    color: "#BA7517",
+    label: "Active IEPs",
+    key: "ieps",
+    icon: "ti-file-text",
+    color: "#16a34a",
+  },
+  {
+    label: "Classroom Resources",
+    key: "resources",
+    icon: "ti-books",
+    color: "#d97706",
   },
 ];
 
 const quickActions = [
   {
     label: "Create Student Profile",
-    page: "create-student-profile",
-    desc: "Add a new student with ASD background and learning preferences.",
+    path: "/dashboard/students/create",
+    desc: "Add a new student profile and set up individual learning preferences.",
     icon: "ti-user-plus",
-    color: "#378ADD",
+    color: "#0284c7",
+    requiresStudents: false,
   },
   {
     label: "View All Students",
-    page: "view-student-profile",
+    path: "/dashboard/students",
     desc: "Browse and manage existing student records.",
     icon: "ti-users",
-    color: "#1D9E75",
+    color: "#059669",
+    requiresStudents: true,
   },
   {
     label: "Generate IEP",
-    page: "iep-generation",
+    path: "/dashboard/iep/generate",
     desc: "Use AI to generate a personalized education plan.",
     icon: "ti-sparkles",
-    color: "#7F77DD",
+    color: "#7c3aed",
+    requiresStudents: true,
   },
 ];
 
 export default function Overview({ setActivePage }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const [greeting, setGreeting] = useState("Good morning");
-  const [counts, setCounts] = useState({
-    students: 0,
-    ieps: 0,
-    insights: 0,
-    reviews: 0,
+  const [greeting] = useState(() => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 17) return "Good afternoon";
+    return "Good evening";
+  });
+  const todayFormatted = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date());
+
+  const [currentTime, setCurrentTime] = useState(() => {
+    return new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(new Date());
   });
 
   useEffect(() => {
-    const h = new Date().getHours();
-    if (h < 12) setGreeting("Good morning");
-    else if (h < 17) setGreeting("Good afternoon");
-    else setGreeting("Good evening");
+    const timer = setInterval(() => {
+      setCurrentTime(
+        new Intl.DateTimeFormat("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        }).format(new Date()),
+      );
+    }, 1000);
+    return () => clearInterval(timer);
   }, []);
 
-  // Fetch total students
-  useEffect(() => {
-    if (!user?.id) return;
-    studentsAPI
-      .list(user.id)
-      .then((data) => {
-        const students = Array.isArray(data) ? data : [];
-        setCounts((prev) => ({ ...prev, students: students.length }));
-      })
-      .catch(() => {});
-  }, [user]);
+  const { data: students = [] } = useStudents(user?.id);
+  const { data: iepStats } = useIepDashboardStats();
+  const { data: resourceStats } = useResourceDashboardStats();
 
-  // Fetch active IEPs and AI insights counts from the dashboard-stats endpoint
-  useEffect(() => {
-    if (!user?.id) return;
-    iepAPI
-      .dashboardStats()
-      .then((data) => {
-        setCounts((prev) => ({
-          ...prev,
-          ieps: data.active_ieps ?? 0,
-          insights: data.ai_insights ?? 0,
-        }));
-      })
-      .catch(() => {});
-  }, [user]);
+  const studentList = Array.isArray(students) ? students : (students?.results || []);
+
+  const counts = {
+    students: studentList.length,
+    ieps: iepStats?.active_ieps ?? 0,
+    resources:
+      typeof resourceStats === "number"
+        ? resourceStats
+        : (resourceStats?.total ?? resourceStats?.total_resources ?? 0),
+  };
+
+  const hasStudents = counts.students > 0;
+  const hasIeps = counts.ieps > 0;
+
+  const gettingStartedSteps = [
+    {
+      stepNumber: 1,
+      title: "1. Add a student",
+      desc: "Create a student profile to start personalizing learning plans.",
+      icon: "ti-user-plus",
+      color: "#0284c7",
+      path: "/dashboard/students/create",
+      page: "create-student-profile",
+      actionLabel: "Add Student",
+      isUnlocked: true,
+      isCompleted: hasStudents,
+      lockReason: "",
+    },
+    {
+      stepNumber: 2,
+      title: "2. Generate an IEP",
+      desc: "Use AI to create an individualized education plan with target goals.",
+      icon: "ti-sparkles",
+      color: "#7c3aed",
+      path: "/dashboard/iep/generate",
+      page: "iep-generation",
+      actionLabel: "Generate IEP",
+      isUnlocked: hasStudents,
+      isCompleted: hasIeps,
+      lockReason: "Requires at least one student profile",
+    },
+    {
+      stepNumber: 3,
+      title: "3. Use classroom tools",
+      desc: "Generate tailored lesson plans, visual aids, and teaching strategies.",
+      icon: "ti-books",
+      color: "#059669",
+      path: "/dashboard/lessons",
+      page: "manage-lesson-plans",
+      actionLabel: "Open Tools",
+      isUnlocked: hasIeps,
+      isCompleted: false,
+      lockReason: "Requires a saved IEP",
+    },
+  ];
+
+  const handleNavigate = (path, page) => {
+    if (path) navigate(path);
+    if (setActivePage) setActivePage(path || page);
+  };
 
   return (
     <div className="page-content">
       <div className="overview-wrapper">
-        {/* Welcome */}
-        <div className="overview-welcome">
-          <h1 className="overview-title">{greeting}, Teacher!</h1>
-          <p className="overview-subtitle">
-            Here's a summary of your NeuroPath dashboard. Manage student
-            profiles, track progress, and generate AI-powered IEPs tailored for
-            students with Autism Spectrum Disorder.
-          </p>
-        </div>
-
-        {/* Stats */}
-        <p className="overview-section-label">At a glance</p>
-        <div className="overview-stats">
-          {stats.map((s) => (
-            <div
-              key={s.label}
-              className="stat-card"
-              style={{ borderLeft: `3px solid ${s.color}` }}
-            >
-              <i
-                className={`ti ${s.icon} stat-icon`}
-                aria-hidden="true"
-                style={{ color: s.color }}
-              />
-              <span className="stat-value">
-                <CountUp
-                  from={0}
-                  to={counts[s.key]}
-                  duration={1.5}
-                  delay={0}
-                  direction="up"
-                />
-              </span>
-              <span className="stat-label">{s.label}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Quick Actions */}
-        <p className="overview-section-label">Quick actions</p>
-        <div className="quick-actions">
-          {quickActions.map((a) => (
-            <button
-              key={a.page}
-              className="quick-action-card"
-              onClick={() => setActivePage(a.page)}
-            >
-              <i
-                className={`ti ${a.icon} quick-action-icon`}
-                aria-hidden="true"
-                style={{ color: a.color }}
-              />
-              <div className="quick-action-header">
-                <span className="quick-action-label">{a.label}</span>
-                <i
-                  className="ti ti-arrow-right quick-action-arrow"
-                  aria-hidden="true"
-                />
-              </div>
-              <span className="quick-action-desc">{a.desc}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* About */}
-        <p className="overview-section-label">About NeuroPath</p>
-        <GlareHover
-          width="100%"
-          height="auto"
-          background="#f0f8ff"
-          borderRadius="12px"
-          borderColor="rgba(130, 199, 255, 0.25)"
-          glareColor="#82C7FF"
-          glareOpacity={0.25}
-          glareAngle={-30}
-          glareSize={300}
-          transitionDuration={800}
-          playOnce={false}
-          style={{ display: "block" }}
-        >
-          <div
-            style={{
-              padding: "1.25rem 1.5rem",
-              textAlign: "left",
-              width: "100%",
-              boxSizing: "border-box",
-            }}
-          >
-            <p className="overview-body">
-              NeuroPath is a specialized platform designed to support educators
-              and specialists working with students diagnosed with Autism
-              Spectrum Disorder. It streamlines the creation and management of
-              student profiles, tracks behavioral and academic progress, and
-              leverages AI to generate individualized education plans — helping
-              every student reach their full potential.
+        {/* Colorful Greeting Hero Banner */}
+        <header className="overview-welcome">
+          <div className="hero-content-left">
+            <h1 className="overview-title">
+              {greeting}, Teacher{user?.first_name ? ` ${user.first_name}` : ""}!
+            </h1>
+            <p className="overview-subtitle">
+              Ready to support your learners today? Check on your students' individual learning goals,
+              review recent IEP progress, or prepare your instructional materials below.
             </p>
           </div>
-        </GlareHover>
+          <div className="hero-datetime-block">
+            <span className="hero-time-text">{currentTime}</span>
+            <span className="hero-date-text">{todayFormatted}</span>
+          </div>
+        </header>
+
+        {/* Section: Stats Grid */}
+        <div className="overview-glance-strip">
+          {stats.map((s) => (
+            <Card
+              as="article"
+              key={s.label}
+              className="stat-card glance-stat-col"
+            >
+              <div className="glance-stat-header">
+                <span className="glance-stat-dot" style={{ background: s.color }} />
+                <span className="glance-stat-label stat-label">{s.label}</span>
+              </div>
+              <div className="glance-stat-body">
+                <span className="glance-stat-value stat-value">
+                  <CountUp
+                    from={0}
+                    to={counts[s.key]}
+                    duration={1.5}
+                    delay={0}
+                    direction="up"
+                  />
+                </span>
+                <i
+                  className={`ti ${s.icon} glance-stat-icon stat-icon`}
+                  aria-hidden="true"
+                  style={{ color: s.color }}
+                />
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        {/* Section: Quick Actions */}
+        <div>
+          <p className="overview-section-label">Quick actions</p>
+          <div className="quick-actions" data-testid="quick-actions-container">
+            {quickActions.map((a) => {
+              const isDisabled = Boolean(a.requiresStudents && !hasStudents);
+              return (
+                <button
+                  key={a.path || a.label}
+                  className={`quick-action-card ${isDisabled ? "disabled" : ""}`}
+                  disabled={isDisabled}
+                  aria-disabled={isDisabled}
+                  title={
+                    isDisabled
+                      ? "Create a student profile first to enable this action"
+                      : undefined
+                  }
+                  onClick={() => !isDisabled && handleNavigate(a.path, a.page)}
+                >
+                  <div
+                    className="quick-action-icon-wrap"
+                    style={{ background: `${a.color}15`, color: a.color }}
+                  >
+                    <i
+                      className={`ti ${a.icon} quick-action-icon`}
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <div className="quick-action-content">
+                    <div className="quick-action-header">
+                      <span className="quick-action-label">{a.label}</span>
+                      <i
+                        className={`ti ${isDisabled ? "ti-lock" : "ti-arrow-right"} quick-action-arrow`}
+                        aria-hidden="true"
+                      />
+                    </div>
+                    <span className="quick-action-desc">
+                      {isDisabled
+                        ? "Requires at least one student profile."
+                        : a.desc}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Section: Classroom Setup Workflow */}
+        <div
+          className="overview-getting-started-section"
+          data-testid="getting-started-section"
+        >
+          <div className="overview-getting-started-header">
+            <div>
+              <p className="overview-section-label" style={{ marginBottom: 0 }}>
+                Classroom setup workflow
+              </p>
+              <span className="overview-getting-started-hint">
+                3-step path to personalize, plan, and support your learners
+              </span>
+            </div>
+          </div>
+
+          {/* Connected Timeline Workflow Container */}
+          <div className="workflow-timeline-card">
+            <div className="workflow-timeline-connector-line" aria-hidden="true" />
+            <div className="getting-started-steps">
+              {gettingStartedSteps.map((step) => {
+                const isLocked = !step.isUnlocked;
+                return (
+                  <div
+                    key={step.stepNumber}
+                    data-testid={`getting-started-step-${step.stepNumber}`}
+                    className={`getting-started-step-node ${isLocked ? "locked" : "active"} ${step.isCompleted ? "completed" : ""}`}
+                  >
+                    {/* Circular status indicator */}
+                    <div className="workflow-step-circle-wrap">
+                      {step.isCompleted ? (
+                        <div className="workflow-circle completed" title="Completed">
+                          <i className="ti ti-check" aria-hidden="true" />
+                        </div>
+                      ) : isLocked ? (
+                        <div className="workflow-circle locked" title="Locked">
+                          <i className="ti ti-lock" aria-hidden="true" />
+                        </div>
+                      ) : (
+                        <div className="workflow-circle active" title="Active">
+                          <i className="ti ti-point-filled" aria-hidden="true" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Status badge pill */}
+                    <div className="workflow-step-badge-wrap">
+                      {step.isCompleted ? (
+                        <span className="step-badge completed">
+                          <i className="ti ti-check" aria-hidden="true" /> Completed
+                        </span>
+                      ) : isLocked ? (
+                        <span className="step-badge locked">Locked</span>
+                      ) : (
+                        <span className="step-badge pending">Pending</span>
+                      )}
+                    </div>
+
+                    {/* Step Title and Description */}
+                    <div className="getting-started-card-content">
+                      <h3 className="getting-started-card-title">{step.title}</h3>
+                      <p className="getting-started-card-desc">{step.desc}</p>
+                    </div>
+
+                    {/* Step Action Button */}
+                    <div className="getting-started-card-footer">
+                      {step.isCompleted ? (
+                        <button
+                          type="button"
+                          className="getting-started-btn done-btn"
+                          disabled
+                          aria-disabled="true"
+                        >
+                          <i className="ti ti-check" aria-hidden="true" /> Done
+                        </button>
+                      ) : isLocked ? (
+                        <div className="getting-started-lock-info">
+                          <button
+                            type="button"
+                            className="getting-started-btn disabled"
+                            disabled
+                            aria-disabled="true"
+                          >
+                            {step.actionLabel}
+                          </button>
+                          <span className="getting-started-lock-text">
+                            {step.lockReason}
+                          </span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="getting-started-btn primary-action-btn"
+                          onClick={() => handleNavigate(step.path, step.page)}
+                        >
+                          <span>{step.actionLabel}</span>
+                          <i
+                            className="ti ti-arrow-right getting-started-btn-arrow"
+                            aria-hidden="true"
+                          />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Section: About NeuroPath */}
+        <div className="overview-about-strip">
+          <div className="overview-about-icon">
+            <i className="ti ti-bulb" aria-hidden="true" />
+          </div>
+          <div className="overview-about-content">
+            <h4 className="overview-about-title">Built for Special Education</h4>
+            <p className="overview-body">
+              NeuroPath is an adaptive instructional platform for special education teachers
+              handling elementary students with diverse needs. It streamlines
+              student profile management, tracks IEP progress, and generates functional,
+              curriculum-aligned lesson plans and visual aids for classroom instruction.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

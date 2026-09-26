@@ -5,12 +5,15 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authtoken.models import Token
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from .models import StudentProfile
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
+from django.db.models import Q
+from .models import StudentProfile, Teacher
+from .utils import get_teacher_for_user
 from django.contrib.auth.models import User
-from .serializers import StudentProfileSerializer, ValidationService,TeacherSerializer
-from django.contrib.auth import authenticate, login
-import requests
-import json
+from .serializers import StudentProfileSerializer, ValidationService, TeacherSerializer
+from django.contrib.auth import authenticate
 # =====================================================================
 # SDD MODULE: TEACHER REGISTRATION
 # Component Name: TeacherCreateController
@@ -21,6 +24,13 @@ import json
 class TeacherCreateController(generics.ListCreateAPIView):
     queryset = User.objects.all()
     serializer_class = TeacherSerializer
+
+    def get_permissions(self):
+        # Registration (POST) must stay open to anonymous users; listing every
+        # registered account (GET) must not be exposed to the public.
+        if self.request.method == 'POST':
+            return [AllowAny()]
+        return [IsAuthenticated()]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -44,31 +54,34 @@ class TeacherCreateController(generics.ListCreateAPIView):
 # =====================================================================
 class StudentProfileListCreateView(generics.ListCreateAPIView):
     serializer_class = StudentProfileSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         """
         Return only the students that belong to the requesting teacher.
 
-        The frontend passes the logged-in teacher's Django User ID as the
-        ?teacher_id= query parameter.  We resolve that User → Teacher record
-        and filter the queryset accordingly.  If no valid teacher_id is
-        supplied we return an empty queryset so no data leaks.
+        The requesting teacher is derived from the authenticated request
+        user (never from a client-supplied id/query param), so a caller can
+        never list another teacher's students. If the authenticated user has
+        no matching Teacher row we return an empty queryset so no data leaks.
         """
-        from django.contrib.auth.models import User
-        from .models import Teacher
-
-        teacher_id = self.request.query_params.get('teacher_id')
-        if not teacher_id:
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
             return StudentProfile.objects.none()
-
-        try:
-            user = User.objects.get(pk=int(teacher_id))
-            teacher = Teacher.objects.get(email=user.email)
-            return StudentProfile.objects.filter(teacher=teacher)
-        except (User.DoesNotExist, Teacher.DoesNotExist, ValueError, TypeError):
-            return StudentProfile.objects.none()
+        return StudentProfile.objects.filter(teacher=teacher)
 
     def create(self, request, *args, **kwargs):
+        # 0. Force the new profile onto the authenticated teacher's own
+        #    account — never trust a client-supplied teacher id. The
+        #    `teacher` field is read-only on the serializer (see
+        #    StudentProfileSerializer.create), so this check exists purely
+        #    to reject up front instead of silently falling back.
+        teacher = get_teacher_for_user(request.user)
+        if not teacher:
+            return Response({
+                "message": "Unable to verify teacher account."
+            }, status=status.HTTP_403_FORBIDDEN)
+
         # 1. Receive data from the React Form
         serializer = self.get_serializer(data=request.data)
 
@@ -87,14 +100,22 @@ class StudentProfileListCreateView(generics.ListCreateAPIView):
 
 
 # =====================================================================
-# SDD MODULE 1.2: UPDATE STUDENT PROFILE
+# SDD MODULE 1.2: UPDATE & DELETE STUDENT PROFILE
 # Component Name: ProfileUpdateController
-# Description: Intercepts HTTP PUT requests, coordinates server-side 
-#              validation, and commits data edits to PostgreSQL.
+# Description: Intercepts HTTP PUT and DELETE requests, coordinates server-side 
+#              validation, and commits data edits or deletions to PostgreSQL.
 # =====================================================================
-class ProfileUpdateController(generics.RetrieveUpdateAPIView):
-    queryset = StudentProfile.objects.all()
+class ProfileUpdateController(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ValidationService  # Links to your update ValidationService
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Scope to the requesting teacher's own students so a caller can
+        # never read/write/delete another teacher's student by guessing a pk.
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return StudentProfile.objects.none()
+        return StudentProfile.objects.filter(teacher=teacher)
 
     def update(self, request, *args, **kwargs):
         # 1. ProfileService context: Verify record existence
@@ -119,6 +140,17 @@ class ProfileUpdateController(generics.RetrieveUpdateAPIView):
             "errors": serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+        except Exception:
+            return Response({"error": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        self.perform_destroy(instance)
+        return Response({
+            "message": "Student profile successfully deleted."
+        }, status=status.HTTP_200_OK)
+
 
 # =====================================================================
 # SDD MODULE 1.3: VIEW STUDENT PROFILE
@@ -127,8 +159,16 @@ class ProfileUpdateController(generics.RetrieveUpdateAPIView):
 #              isolate specific student records safely.
 # =====================================================================
 class ProfileViewController(generics.RetrieveAPIView):
-    queryset = StudentProfile.objects.all()
     serializer_class = StudentProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Scope to the requesting teacher's own students so a caller can
+        # never read another teacher's student by guessing a pk.
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return StudentProfile.objects.none()
+        return StudentProfile.objects.filter(teacher=teacher)
 
     def retrieve(self, request, *args, **kwargs):
         # 1. ProfileService context: Retrieve targeted profile record
@@ -174,15 +214,6 @@ class ValidationService:
 class AIGenerationService:
     @staticmethod
     def generate_insight(student):
-        prompt = (
-            f"Analyze the following student profile for {student.name}. "
-            f"Age: {student.age}, Grade: {student.grade}. "
-            f"ASD Background: {student.ASDBackground}. "
-            f"Preferences: {student.preferences}. "
-            f"Assessment Results: {student.assessmentResults}. "
-            f"Provide actionable pedagogical insights."
-        )
-        
         # Mock AI generation response pattern matching your design documentation flow
         mock_ai_response = (
             f"Based on the data provided for {student.name}, the AI recommends "
@@ -203,10 +234,10 @@ class AIInsightController(APIView):
         
         
     def post(self, request, pk, format=None):
-        
         # 1. Coordinate data isolation via Manager layer
         student = StudentProfileManager.get_student_record(pk)
-        if not student:
+        teacher = get_teacher_for_user(request.user)
+        if not student or not teacher or student.teacher_id != teacher.teacherID:
             return Response({
                 "error": "Profile not found. Cannot generate insights."
             }, status=status.HTTP_404_NOT_FOUND)
@@ -246,6 +277,7 @@ class TeacherLoginController(APIView):
         if user is not None:
             # 🎯 Generate or fetch the Token
             token, created = Token.objects.get_or_create(user=user)
+            teacher = get_teacher_for_user(user)
             
             return Response({
                 "message": "Login successful",
@@ -254,7 +286,8 @@ class TeacherLoginController(APIView):
                     "id": user.id,
                     "email": user.email,
                     "first_name": user.first_name,
-                    "last_name": user.last_name
+                    "last_name": user.last_name,
+                    "has_completed_tutorial": teacher.has_completed_tutorial if teacher else False,
                 }
             }, status=status.HTTP_200_OK)
         else:
@@ -263,26 +296,20 @@ class TeacherLoginController(APIView):
 # =====================================================================
 # TEACHER PROFILE UPDATE
 # PATCH /api/users/profile/update/
-# Accepts: { id, first_name, last_name, email, password? }
-# Identifies the teacher by the Django User id sent in the request body.
+# Accepts: { first_name, last_name, email, password? }
+# Identifies the teacher from the authenticated request user — never from a
+# client-supplied id — so a caller can only ever update their own account.
+# Any `id` in the request body is deliberately ignored: trusting it let an
+# unauthenticated caller rewrite another user's name, email and password.
 # Also keeps the Teacher mirror-row (name, email) in sync.
 # =====================================================================
 class TeacherProfileUpdateController(APIView):
-    def patch(self, request, *args, **kwargs):
-        user_id = request.data.get("id")
-        if not user_id:
-            return Response(
-                {"detail": "User ID is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+    permission_classes = [IsAuthenticated]
 
-        try:
-            user = User.objects.get(pk=user_id)
-        except User.DoesNotExist:
-            return Response(
-                {"detail": "User not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+    def patch(self, request, *args, **kwargs):
+        # Always operate on the authenticated caller's own account — never a
+        # client-supplied id — so one teacher cannot edit another's profile.
+        user = request.user
 
         first_name = request.data.get("first_name", user.first_name).strip()
         last_name  = request.data.get("last_name",  user.last_name).strip()
@@ -296,41 +323,100 @@ class TeacherProfileUpdateController(APIView):
             errors["last_name"] = "Last name is required."
         if not email or "@" not in email:
             errors["email"] = "A valid email address is required."
-        if password and len(password) < 6:
-            errors["password"] = "Password must be at least 6 characters."
+        if password:
+            try:
+                validate_password(password, user=user)
+            except DjangoValidationError as exc:
+                errors["password"] = list(exc.messages)
         if errors:
             return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check email uniqueness (exclude the current user)
-        if User.objects.filter(email=email).exclude(pk=user_id).exists():
+        # Check email uniqueness (exclude the current user and teacher)
+        if User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).exclude(pk=user.pk).exists() or \
+           Teacher.objects.filter(email__iexact=email).exclude(email__iexact=user.email).exists():
             return Response(
                 {"errors": {"email": "This email is already in use."}},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Update the Django User row
-        user.first_name = first_name
-        user.last_name  = last_name
-        user.email      = email
-        user.username   = email   # username == email convention used at registration
-        if password:
-            user.set_password(password)
-        user.save()
+        old_email = user.email
 
-        # Keep the Teacher mirror-row in sync
-        from .models import Teacher
-        Teacher.objects.filter(email__iexact=user.email).update(
-            name=f"{first_name} {last_name}".strip(),
-            email=email,
-        )
+        with transaction.atomic():
+            # Update the Django User row
+            user.first_name = first_name
+            user.last_name  = last_name
+            user.email      = email
+            user.username   = email   # username == email convention used at registration
+            if password:
+                user.set_password(password)
+            user.save()
+
+            # Keep the Teacher mirror-row in sync
+            Teacher.objects.filter(email__iexact=old_email).update(
+                name=f"{first_name} {last_name}".strip(),
+                email=email,
+            )
+
+        teacher = get_teacher_for_user(user)
 
         return Response(
             {
-                "id":         user.id,
-                "first_name": user.first_name,
-                "last_name":  user.last_name,
-                "email":      user.email,
+                "id":                     user.id,
+                "first_name":             user.first_name,
+                "last_name":              user.last_name,
+                "email":                  user.email,
+                "has_completed_tutorial": teacher.has_completed_tutorial if teacher else False,
             },
             status=status.HTTP_200_OK,
         )
-        
+
+
+# =====================================================================
+# TEACHER LOGOUT
+# POST /api/users/logout/
+# Deletes the caller's DRF auth token so the credential can no longer
+# be replayed. Requires Authorization: Token <key>.
+# =====================================================================
+class TeacherLogoutController(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        Token.objects.filter(user=request.user).delete()
+        return Response(
+            {"message": "Logout successful."},
+            status=status.HTTP_200_OK,
+        )
+
+
+# =====================================================================
+# TEACHER TUTORIAL COMPLETE
+# POST /api/users/tutorial-complete/
+# Marks has_completed_tutorial = True for the authenticated teacher.
+# =====================================================================
+class TeacherTutorialCompleteController(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        teacher = get_teacher_for_user(request.user)
+        if not teacher:
+            teacher, _ = Teacher.objects.get_or_create(
+                email=request.user.email.strip().lower(),
+                defaults={
+                    "name": f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username,
+                    "passwordHash": request.user.password,
+                    "has_completed_tutorial": True,
+                },
+            )
+
+        teacher.has_completed_tutorial = True
+        teacher.save(update_fields=["has_completed_tutorial"])
+
+        return Response(
+            {
+                "message": "Tutorial marked as completed.",
+                "has_completed_tutorial": True,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+

@@ -1,23 +1,50 @@
 # resources/services.py
-import ollama
 import json
 from .models import TeachingStrategy, LessonPlan
 from iep_management.models import IEPGoal
+from iep_management.ai_engine import AIEngineService
+from iep_management.privacy_utils import (
+    anonymize_student_context,
+    scrub_pii_from_text,
+    verify_ra10173_consent,
+)
+
+
 class TeachingStrategyGenerationService:
     
     @staticmethod
-    def generate_and_save_strategy(goal_instance, teacher_instance):
+    def generate_strategy(goal_instance, teacher_instance):
         """
-        Generates a practical teaching strategy and SAVES it directly to the database.
+        Generates a practical teaching strategy draft WITHOUT saving it to the database.
         """
         # 1. Safely traverse the database relationships to gather context
-        iep = goal_instance.iep
-        student = iep.studentID
+        iep = getattr(goal_instance, 'iep', None) or getattr(goal_instance, 'parent_iep', None)
+        student = getattr(iep, 'studentID', None) if iep else None
         
+        # Enforce RA 10173 Consent Check
+        verify_ra10173_consent(student)
+
+        student_desc = anonymize_student_context(student)
+        pii_tokens = [
+            getattr(student, 'name', ''),
+            getattr(student, 'guardian_name', '')
+        ]
+
+        # Extract specialFactorNotes from generatedDetails if present
+        details = getattr(iep, 'generatedDetails', None) or {}
+        if isinstance(details, str):
+            try:
+                details = json.loads(details)
+            except Exception:
+                details = {}
+        special_notes = details.get('specialFactorNotes', '') if isinstance(details, dict) else ''
+        special_notes = scrub_pii_from_text(special_notes, pii_tokens)
+        special_notes_line = f"- Special Factors / Behavioral & Sensory: {special_notes}\n" if special_notes else ""
+
         # 2. Extract and format the nested enroute objectives (Section C rows)
-        rows = goal_instance.objective_rows.all()
+        rows = goal_instance.objective_rows.all() if hasattr(goal_instance, 'objective_rows') else []
         objectives_text = "\n".join(
-            [f"- {row.enroute_objectives}" for row in rows if row.enroute_objectives]
+            [f"- {row.enroute_objectives}" for row in rows if getattr(row, 'enroute_objectives', None)]
         )
         if not objectives_text.strip():
             objectives_text = "No specific enroute objectives provided. Focus on the annual goal."
@@ -26,10 +53,10 @@ class TeachingStrategyGenerationService:
         prompt = f"""☁️system☁️Act as an elite Special Education Instructional Designer. You provide concise, highly actionable teaching methods. No fluff.☁️/system☁️
 ☁️user☁️
 STUDENT CONTEXT (SECTION B):
-- Name: {getattr(student, 'name', 'The student')}
+- Learner: {student_desc}
 - Difficulties/Barriers: {getattr(iep, 'difficulties', 'None')} | {getattr(iep, 'learning_barriers', 'None')}
 - Accommodations/Facilitators: {getattr(iep, 'accommodations', 'None')} | {getattr(iep, 'learning_facilitators', 'None')}
-
+{special_notes_line}
 TARGET GOAL: {getattr(goal_instance, 'annual_goal', 'Not specified')}
 
 ENROUTE OBJECTIVES:
@@ -53,34 +80,43 @@ Strict Rules:
 ☁️/user☁️"""
 
         try:
-            # 4. Route to Local Llama Model
-            response = ollama.chat(
-                model='llama3.2:3b', 
-                messages=[
-                    {
-                        'role': 'user', 
-                        'content': prompt
-                    }
-                ],
-                options={"temperature": 0.25} # Lowered slightly for more direct, less creative text
-            )
-            
-            strategy_content = response['message']['content'].strip()
+            # 4. Route to AIEngineService
+            strategy_content, _ = AIEngineService.generate_text(prompt=prompt)
+            strategy_content = strategy_content.strip()
             
             # 5. Create a dynamic title based on the IEP Goal Name
-            strategy_title = f"Strategy for: {getattr(goal_instance, 'goalName', 'Target Goal')}"
+            goal_name = getattr(goal_instance, 'goalName', None) or getattr(goal_instance, 'annual_goal', 'Target Goal')
+            strategy_title = f"Strategy for: {goal_name}"
             
-            # 6. SAVE to the database automatically using the correct relational column
-            new_strategy = TeachingStrategy.objects.create(
-                iep_goal=goal_instance,
-                title=strategy_title,
-                strategyContent=strategy_content
-            )
+            goal_id = getattr(goal_instance, 'goalID', None) or getattr(goal_instance, 'pk', None)
+            student_id = getattr(student, 'pk', None) if student else None
+            student_name = getattr(student, 'name', 'Unknown Student') if student else 'Unknown Student'
             
-            return new_strategy
+            return {
+                "title": strategy_title,
+                "strategyContent": strategy_content,
+                "goalID": goal_id,
+                "goalName": goal_name,
+                "studentName": student_name,
+                "studentID": student_id,
+            }
             
         except Exception as e:
             raise Exception(f"Teaching Strategy Generation failed: {str(e)}")
+
+    @staticmethod
+    def generate_and_save_strategy(goal_instance, teacher_instance):
+        """
+        Generates a practical teaching strategy and SAVES it directly to the database.
+        Retained for backward compatibility.
+        """
+        draft = TeachingStrategyGenerationService.generate_strategy(goal_instance, teacher_instance)
+        new_strategy = TeachingStrategy.objects.create(
+            iep_goal=goal_instance,
+            title=draft["title"],
+            strategyContent=draft["strategyContent"]
+        )
+        return new_strategy
         
 
 # =====================================================================
@@ -98,6 +134,11 @@ class LessonPlanGenerationService:
             iep = goal_instance.iep if hasattr(goal_instance, 'iep') else goal_instance.parent_iep
             student = iep.studentID
             
+            # Enforce RA 10173 Consent Check
+            verify_ra10173_consent(student)
+
+            student_desc = anonymize_student_context(student)
+            
             # 2. Extract all Enroute Objectives for this specific goal
             rows = goal_instance.objective_rows.all()
             objectives_text = ""
@@ -114,7 +155,7 @@ class LessonPlanGenerationService:
 You MUST output ONLY a valid JSON object containing an array of lesson plans. Do not include markdown formatting or conversational filler.☁️/system☁️
 ☁️user☁️
 STUDENT CONTEXT (SECTION A & B):
-- Name: {getattr(student, 'name', 'The student')}
+- Learner: {student_desc}
 - Baseline/Barriers: {getattr(iep, 'baselineData', 'None specified')}
 - Accommodations: {getattr(iep, 'accommodations', 'None specified')}
 
@@ -139,20 +180,25 @@ Generate a highly tailored lesson plan for EACH Enroute Objective listed above. 
 ☁️/user☁️"""
 
         try:
-            # 4. Route to Local Llama Model with JSON strict mode
-            response = ollama.chat(
-                model='llama3.2:3b', 
-                messages=[{'role': 'user', 'content': prompt}],
-                options={"temperature": 0.25},
-                format='json'
-            )
+            # 4. Route to AIEngineService with JSON strict mode
+            raw_content, _ = AIEngineService.generate_text(prompt=prompt, json_mode=True)
             
-            raw_content = response['message']['content'].strip()
+            if isinstance(raw_content, dict):
+                parsed_json = raw_content
+            else:
+                clean_content = str(raw_content).strip()
+                if clean_content.startswith('```'):
+                    lines = clean_content.splitlines()
+                    if lines and lines[0].startswith('```'):
+                        lines = lines[1:]
+                    if lines and lines[-1].startswith('```'):
+                        lines = lines[:-1]
+                    clean_content = '\n'.join(lines).strip()
+                parsed_json = json.loads(clean_content)
+            if not isinstance(parsed_json, dict) or 'lesson_plans' not in parsed_json:
+                raise ValueError("Parsed JSON missing 'lesson_plans' key.")
             
-            # Parse the JSON string into a native Python dictionary
-            parsed_json = json.loads(raw_content)
-            
-            # 🎯 NEW: SAVE TO DATABASE AUTOMATICALLY
+            # 5. SAVE TO DATABASE AUTOMATICALLY
             # Extract a safe name for the title
             goal_area = getattr(goal_instance, 'subject_category', None) or "Target Goal"
             
@@ -160,13 +206,13 @@ Generate a highly tailored lesson plan for EACH Enroute Objective listed above. 
             LessonPlan.objects.create(
                 iep_goal=goal_instance,
                 title=f"Lesson Sequence: {goal_area}",
-                lessonContent=json.dumps(parsed_json), # Converts the dict to a string for your TextField!
+                lessonContent=json.dumps(parsed_json),
                 status="Draft"
             )
             
             return parsed_json
             
-        except json.JSONDecodeError:
-            raise Exception("AI failed to construct a valid JSON array. Please try generating again.")
         except Exception as e:
             raise Exception(f"Lesson Plan Generation failed: {str(e)}")
+
+

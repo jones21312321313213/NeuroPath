@@ -1,13 +1,18 @@
 import { createContext, useContext, useState, useCallback } from "react";
-import axios from "axios";
+import { authAPI, usersAPI } from "../api/client";
+import { queryClient } from "../queryClient";
+import {
+  STORAGE_KEYS,
+  SESSION_CHANNEL_NAME,
+  BROADCAST_ACTIONS,
+} from "../constants/session";
 
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
-      const stored = localStorage.getItem("neuropath_user");
+      const stored = localStorage.getItem(STORAGE_KEYS.USER);
       return stored ? JSON.parse(stored) : null;
     } catch {
       return null;
@@ -15,85 +20,153 @@ export function AuthProvider({ children }) {
   });
 
   const login = async (email, password) => {
-    const response = await axios.post(
-       "http://127.0.0.1:8000/api/users/login/",
-      //`${BASE_URL}/users/login/`,
-      { email, password },
-    );
-    const data = response.data;
-    localStorage.setItem("neuropath_access_token", data.token); 
-    localStorage.setItem("neuropath_user", JSON.stringify(data.teacher));
+    const data = await authAPI.login({ email, password });
+    localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.token);
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.teacher));
+    localStorage.setItem(STORAGE_KEYS.LAST_ACTIVE, String(Date.now()));
     setUser(data.teacher);
     return data;
   };
 
-  const register = async (userData) => {
-    const response = await axios.post(
-       "http://127.0.0.1:8000/api/users/register/",
-      //`${BASE_URL}/users/register/`,
-      userData,
-    );
-    return response.data;
-  };
+  const register = async (userData) => authAPI.register(userData);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem("neuropath_user");
-    localStorage.removeItem("neuropath_access_token"); // 🎯 Clear token
+  const logout = useCallback((options = {}) => {
+    const reason = options?.reason || "manual";
+    const skipBroadcast = options?.skipBroadcast || false;
+    const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+
+    // 1. Immediately clear local storage, query cache, and user state before network call
+    localStorage.removeItem(STORAGE_KEYS.USER);
+    localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.LAST_ACTIVE);
+    try {
+      localStorage.setItem(
+        STORAGE_KEYS.LOGOUT_EVENT,
+        JSON.stringify({ reason, timestamp: Date.now() })
+      );
+    } catch {
+      // Ignore storage errors
+    }
+    queryClient.clear();
     setUser(null);
+
+    // 2. Broadcast logout across all other open tabs
+    if (!skipBroadcast && typeof BroadcastChannel !== "undefined") {
+      try {
+        const channel = new BroadcastChannel(SESSION_CHANNEL_NAME);
+        channel.postMessage({
+          type: BROADCAST_ACTIONS.LOGOUT,
+          reason,
+          timestamp: Date.now(),
+        });
+        channel.close();
+      } catch (err) {
+        console.warn("Failed to broadcast logout message:", err);
+      }
+    }
+
+    // 3. Fire-and-forget backend notification with 4s AbortSignal timeout so hung requests never keep local state alive
+    if (token) {
+      let controller = null;
+      let timeoutId = null;
+      if (typeof AbortController !== "undefined") {
+        controller = new AbortController();
+        timeoutId = setTimeout(() => {
+          try {
+            controller.abort();
+          } catch {
+            // Ignore abort errors
+          }
+        }, 4000);
+      }
+
+      authAPI
+        .logout({
+          headers: { Authorization: `Token ${token}` },
+          signal: controller?.signal,
+        })
+        .catch((error) => {
+          // Token already invalid, network timed out, or backend unreachable — local state is already cleared.
+          console.error("Logout failed:", error);
+        })
+        .finally(() => {
+          if (timeoutId) clearTimeout(timeoutId);
+        });
+    }
+
+    return Promise.resolve();
   }, []);
 
   // ── Update teacher profile ─────────────────────────────
-  // Sends JSON to PATCH /api/users/profile/update/
-  // The backend identifies the user via session cookie (withCredentials)
-  // and falls back to the `id` field if the session isn't set.
+  // PATCH /api/users/profile/update/ — the backend resolves the account from
+  // the Token header, so no user id is sent (it would be ignored anyway).
   const updateUser = useCallback(
     async (formData) => {
-      // Convert FormData → plain object so we can send JSON
-      const body = {
-        id: user?.id,
-        first_name: formData.get("first_name") || "",
-        last_name: formData.get("last_name") || "",
-        email: formData.get("email") || "",
-      };
-
-      // Only include password if the user actually typed one
-      const password = formData.get("password");
-      if (password) body.password = password;
-
-      const token = localStorage.getItem("neuropath_access_token");
-      
-      const response = await fetch(`${BASE_URL}/users/profile/update/`, {
-        method: "PATCH",
-        headers: { 
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Token ${token}` } : {}) // 🎯 Add Token header
-        },
-        body: JSON.stringify(body),
-        // 🎯 Removed credentials: "include"
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        const errors = data.errors || data.detail || data;
-        let message = "Failed to update profile.";
-        if (typeof errors === "string") message = errors;
-        else if (typeof errors === "object") {
-          const msgs = Object.values(errors).flat();
-          message = msgs[0] || message;
+      let profilePicture = null;
+      if (typeof FormData !== "undefined" && formData instanceof FormData) {
+        const pic = formData.get("profile_picture");
+        if (typeof File !== "undefined" && pic instanceof File && pic.size > 0) {
+          profilePicture = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(pic);
+          });
         }
-        throw new Error(message);
       }
 
+      const data = await usersAPI.updateProfile(formData);
+
+      // Unpack response payload before merging (handles { user: ... }, { teacher: ... }, or flat)
+      const updatedUser = (data && (data.user || data.teacher)) || data || {};
+
       // Merge updated fields back into React state + localStorage
-      const updated = { ...user, ...data };
-      localStorage.setItem("neuropath_user", JSON.stringify(updated));
+      const updated = {
+        ...user,
+        ...updatedUser,
+        ...(profilePicture ? { profile_picture: profilePicture } : {}),
+      };
+
+      try {
+        localStorage.setItem("neuropath_user", JSON.stringify(updated));
+      } catch (e) {
+        console.warn("Failed to persist user profile to localStorage:", e);
+        try {
+          const fallbackUser = { ...updated };
+          delete fallbackUser.profile_picture;
+          localStorage.setItem("neuropath_user", JSON.stringify(fallbackUser));
+        } catch {
+          // Ignore further storage errors (e.g. QuotaExceededError)
+        }
+      }
+
       setUser(updated);
 
       return data;
     },
     [user],
   );
+
+  // ── Mark tutorial complete ──────────────────────────────
+  const markTutorialComplete = useCallback(async () => {
+    try {
+      await usersAPI.completeTutorial();
+    } catch (err) {
+      console.error("Failed to persist tutorial completion to server:", err);
+    } finally {
+      // Optimistically update local React state and localStorage so the user is never re-prompted
+      const updated = {
+        ...user,
+        has_completed_tutorial: true,
+      };
+      try {
+        localStorage.setItem("neuropath_user", JSON.stringify(updated));
+      } catch (e) {
+        console.warn("Failed to persist updated user to localStorage:", e);
+      }
+      setUser(updated);
+    }
+  }, [user]);
 
   return (
     <AuthContext.Provider
@@ -103,6 +176,7 @@ export function AuthProvider({ children }) {
         register,
         logout,
         updateUser,
+        markTutorialComplete,
         isAuthenticated: !!user,
       }}
     >
@@ -111,6 +185,7 @@ export function AuthProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
