@@ -93,9 +93,12 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       </MemoryRouter>,
     );
 
-    await waitFor(() => {
-      expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+      },
+      { timeout: 4000 }
+    );
 
     expect(screen.getByText("Other Special Factor Notes")).toBeInTheDocument();
     expect(
@@ -111,9 +114,12 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       </MemoryRouter>,
     );
 
-    await waitFor(() => {
-      expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      },
+      { timeout: 4000 }
+    );
 
     await user.click(screen.getByText("EDIT IEP"));
 

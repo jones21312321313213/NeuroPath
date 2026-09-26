@@ -10,6 +10,7 @@ import {
   EyeIcon,
   EyeSlashIcon,
 } from "../components/ui/icons";
+import ForgotPasswordModal from "../components/auth/ForgotPasswordModal";
 
 export default function LoginPage({
   onNavigateRegister,
@@ -17,10 +18,14 @@ export default function LoginPage({
   successMessage,
   onClearMessage,
   sessionNotice: initialSessionNotice,
+  initialEmail = "",
 }) {
   const location = useLocation();
   const { login } = useAuth();
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState(() => ({
+    email: initialEmail || location?.state?.email || "",
+    password: "",
+  }));
   const [error, setError] = useState("");
   const [notice, setNotice] = useState(() => {
     return (
@@ -34,6 +39,7 @@ export default function LoginPage({
   });
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
+  const [showForgotModal, setShowForgotModal] = useState(false);
 
   useEffect(() => {
     try {
@@ -51,6 +57,15 @@ export default function LoginPage({
       return () => clearTimeout(t);
     }
   }, [successMessage, onClearMessage]);
+
+  const prefilledEmail = initialEmail || location?.state?.email || "";
+  const [prevPrefilledEmail, setPrevPrefilledEmail] = useState(prefilledEmail);
+  if (prefilledEmail !== prevPrefilledEmail) {
+    setPrevPrefilledEmail(prefilledEmail);
+    if (prefilledEmail) {
+      setForm((prev) => ({ ...prev, email: prefilledEmail }));
+    }
+  }
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -229,12 +244,14 @@ export default function LoginPage({
                 className="text-xs font-bold uppercase tracking-wider"
                 style={{ color: "#1a6fa8" }}
               >
-                Email Address
+                Email Address <span className="text-rose-500" aria-hidden="true">*</span>
               </label>
               <input
                 id="email"
                 name="email"
                 type="email"
+                required
+                aria-required="true"
                 value={form.email}
                 onChange={handleChange}
                 autoComplete="email"
@@ -258,18 +275,30 @@ export default function LoginPage({
 
             {/* Password */}
             <div className="space-y-1.5">
-              <label
-                htmlFor="password"
-                className="text-xs font-bold uppercase tracking-wider"
-                style={{ color: "#1a6fa8" }}
-              >
-                Password
-              </label>
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="password"
+                  className="text-xs font-bold uppercase tracking-wider"
+                  style={{ color: "#1a6fa8" }}
+                >
+                  Password <span className="text-rose-500" aria-hidden="true">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotModal(true)}
+                  className="text-xs font-bold hover:underline transition-colors outline-none"
+                  style={{ color: "#2589c7" }}
+                >
+                  Forgot Password?
+                </button>
+              </div>
               <div className="relative">
                 <input
                   id="password"
                   name="password"
                   type={showPass ? "text" : "password"}
+                  required
+                  aria-required="true"
                   value={form.password}
                   onChange={handleChange}
                   autoComplete="current-password"
@@ -362,6 +391,11 @@ export default function LoginPage({
           </p>
         </div>
       </div>
+
+      <ForgotPasswordModal
+        isOpen={showForgotModal}
+        onClose={() => setShowForgotModal(false)}
+      />
     </div>
   );
 }

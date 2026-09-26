@@ -678,6 +678,43 @@ describe("CreateStudentProfile next-step actions", () => {
       await screen.findByText(/Birthdate must be a date in the past/i),
     ).toBeInTheDocument();
   });
+
+  it("prompts unsaved changes modal when form is dirty and back button is clicked", () => {
+    render(
+      <MemoryRouter>
+        <CreateStudentProfile
+          onBack={onBack}
+          setActivePage={setActivePage}
+          setSelectedStudentId={setSelectedStudentId}
+        />
+      </MemoryRouter>,
+    );
+
+    // Enter name to make form dirty
+    fireEvent.change(screen.getByPlaceholderText("Enter student name"), {
+      target: { value: "Juan Dela Cruz" },
+    });
+
+    // Click BACK button
+    fireEvent.click(screen.getByRole("button", { name: /^back$/i }));
+
+    // Modal should appear
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /unsaved changes/i }),
+    ).toBeInTheDocument();
+
+    // Clicking Stay on Page keeps the user on page without navigating
+    fireEvent.click(screen.getByRole("button", { name: /stay on page/i }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    // Click BACK button again and click Discard & Leave
+    fireEvent.click(screen.getByRole("button", { name: /^back$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /discard & leave/i }));
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/students");
+  });
 });
+
 
 

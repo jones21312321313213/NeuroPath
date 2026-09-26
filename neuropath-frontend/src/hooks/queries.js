@@ -118,3 +118,25 @@ export function useGenerateStudentInsight(studentId, options = {}) {
     ...restOptions,
   });
 }
+
+export function useDeleteStudent(options = {}) {
+  const queryClient = useQueryClient();
+  const { onSuccess, ...restOptions } = options;
+
+  return useMutation({
+    mutationFn: (studentId) => studentsAPI.delete(studentId),
+    onSuccess: async (data, variables, context) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["students"] }),
+        queryClient.invalidateQueries({ queryKey: ["student", variables] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.iepStats() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.resourceStats() }),
+      ]);
+      if (onSuccess) {
+        await onSuccess(data, variables, context);
+      }
+    },
+    ...restOptions,
+  });
+}
+

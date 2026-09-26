@@ -36,6 +36,7 @@ const quickActions = [
     desc: "Add a new student profile and set up individual learning preferences.",
     icon: "ti-user-plus",
     color: "#0284c7",
+    requiresStudents: false,
   },
   {
     label: "View All Students",
@@ -43,6 +44,7 @@ const quickActions = [
     desc: "Browse and manage existing student records.",
     icon: "ti-users",
     color: "#059669",
+    requiresStudents: true,
   },
   {
     label: "Generate IEP",
@@ -50,6 +52,7 @@ const quickActions = [
     desc: "Use AI to generate a personalized education plan.",
     icon: "ti-sparkles",
     color: "#7c3aed",
+    requiresStudents: true,
   },
 ];
 
@@ -210,34 +213,48 @@ export default function Overview({ setActivePage }) {
         {/* Section: Quick Actions */}
         <div>
           <p className="overview-section-label">Quick actions</p>
-          <div className="quick-actions">
-            {quickActions.map((a) => (
-              <button
-                key={a.path || a.label}
-                className="quick-action-card"
-                onClick={() => handleNavigate(a.path, a.page)}
-              >
-                <div
-                  className="quick-action-icon-wrap"
-                  style={{ background: `${a.color}15`, color: a.color }}
+          <div className="quick-actions" data-testid="quick-actions-container">
+            {quickActions.map((a) => {
+              const isDisabled = Boolean(a.requiresStudents && !hasStudents);
+              return (
+                <button
+                  key={a.path || a.label}
+                  className={`quick-action-card ${isDisabled ? "disabled" : ""}`}
+                  disabled={isDisabled}
+                  aria-disabled={isDisabled}
+                  title={
+                    isDisabled
+                      ? "Create a student profile first to enable this action"
+                      : undefined
+                  }
+                  onClick={() => !isDisabled && handleNavigate(a.path, a.page)}
                 >
-                  <i
-                    className={`ti ${a.icon} quick-action-icon`}
-                    aria-hidden="true"
-                  />
-                </div>
-                <div className="quick-action-content">
-                  <div className="quick-action-header">
-                    <span className="quick-action-label">{a.label}</span>
+                  <div
+                    className="quick-action-icon-wrap"
+                    style={{ background: `${a.color}15`, color: a.color }}
+                  >
                     <i
-                      className="ti ti-arrow-right quick-action-arrow"
+                      className={`ti ${a.icon} quick-action-icon`}
                       aria-hidden="true"
                     />
                   </div>
-                  <span className="quick-action-desc">{a.desc}</span>
-                </div>
-              </button>
-            ))}
+                  <div className="quick-action-content">
+                    <div className="quick-action-header">
+                      <span className="quick-action-label">{a.label}</span>
+                      <i
+                        className={`ti ${isDisabled ? "ti-lock" : "ti-arrow-right"} quick-action-arrow`}
+                        aria-hidden="true"
+                      />
+                    </div>
+                    <span className="quick-action-desc">
+                      {isDisabled
+                        ? "Requires at least one student profile."
+                        : a.desc}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 

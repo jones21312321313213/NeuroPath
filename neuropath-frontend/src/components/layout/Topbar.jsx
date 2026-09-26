@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { UserIcon } from "../ui/icons";
+import Breadcrumbs from "./Breadcrumbs";
 import "../../styles/Topbar.css";
 
 export default function Topbar({
@@ -34,7 +35,7 @@ export default function Topbar({
             <i className="ti ti-menu-2" aria-hidden="true" />
           </button>
         )}
-        <span className="topbar-breadcrumb">{breadcrumb}</span>
+        <Breadcrumbs items={breadcrumb} />
       </div>
       <div className="topbar-user">
         <button

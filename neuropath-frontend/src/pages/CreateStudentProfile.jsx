@@ -11,6 +11,9 @@ import {
 } from "../components/ui/icons";
 import { Ra10173ConsentModal } from "../components/Ra10173ConsentModal";
 import { toIsoDate, validatePastDate } from "../utils/dateUtils";
+import UnsavedChangesModal from "../components/ui/UnsavedChangesModal";
+import useUnsavedChanges from "../hooks/useUnsavedChanges";
+import { useToast } from "../context/ToastContext";
 
 const difficultyOptions = [
   "Difficulty in Seeing",
@@ -34,6 +37,7 @@ function FormField({
   type = "text",
   min,
   max,
+  required = false,
 }) {
   const inputId = label
     ? `field-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
@@ -41,7 +45,7 @@ function FormField({
   return (
     <div className="form-group">
       <label htmlFor={inputId} className="form-label">
-        {label}:
+        {label}:{required && <span className="text-rose-500 ml-1" aria-hidden="true">*</span>}
       </label>
       <input
         id={inputId}
@@ -52,25 +56,29 @@ function FormField({
         className="form-input"
         min={min}
         max={max}
+        required={required}
+        aria-required={required ? "true" : undefined}
       />
     </div>
   );
 }
 
-function SelectField({ label, options, value, onChange }) {
+function SelectField({ label, options, value, onChange, required = false }) {
   const selectId = label
     ? `select-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
     : undefined;
   return (
     <div className="form-group">
       <label htmlFor={selectId} className="form-label">
-        {label}:
+        {label}:{required && <span className="text-rose-500 ml-1" aria-hidden="true">*</span>}
       </label>
       <select
         id={selectId}
         value={value}
         onChange={onChange}
         className="form-select"
+        required={required}
+        aria-required={required ? "true" : undefined}
       >
         <option value="">Choose</option>
         {options.map((option) => (
@@ -90,6 +98,7 @@ function TextAreaField({
   onChange,
   rows = 3,
   helpText,
+  required = false,
 }) {
   const areaId = label
     ? `area-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
@@ -97,7 +106,7 @@ function TextAreaField({
   return (
     <div className="form-group">
       <label htmlFor={areaId} className="form-label">
-        {label}
+        {label}{required && <span className="text-rose-500 ml-1" aria-hidden="true">*</span>}
       </label>
       {helpText && <span className="iep-field-help">{helpText}</span>}
       <textarea
@@ -107,6 +116,8 @@ function TextAreaField({
         value={value}
         onChange={onChange}
         className="form-textarea"
+        required={required}
+        aria-required={required ? "true" : undefined}
       />
     </div>
   );
@@ -280,14 +291,21 @@ export default function CreateStudentProfile({
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [isDirty, setIsDirty] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdStudent, setCreatedStudent] = useState(null);
   const [hasReadConsent, setHasReadConsent] = useState(false);
   const [showConsentModal, setShowConsentModal] = useState(false);
   const errorRef = useRef(null);
+
+  const { showPrompt, promptNavigation, confirmLeave, cancelLeave } =
+    useUnsavedChanges({
+      isDirty: isDirty && !showSuccessModal,
+    });
 
   const scrollToError = () => {
     setTimeout(() => {
@@ -304,6 +322,7 @@ export default function CreateStudentProfile({
   };
 
   const handleConfirmConsent = () => {
+    setIsDirty(true);
     setHasReadConsent(true);
     setForm((prev) => ({
       ...prev,
@@ -312,16 +331,21 @@ export default function CreateStudentProfile({
   };
 
   const handleBack = () => {
-    if (onBack) onBack();
-    navigate("/dashboard/students");
+    promptNavigation(() => {
+      if (onBack) onBack();
+      navigate("/dashboard/students");
+    });
   };
 
   const [form, setForm] = useState(initialFormState);
 
-  const setField = (field) => (e) =>
+  const setField = (field) => (e) => {
+    setIsDirty(true);
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  };
 
   const toggleDifficulty = (difficulty) => {
+    setIsDirty(true);
     setForm((prev) => ({
       ...prev,
       difficultyMarkers: prev.difficultyMarkers.includes(difficulty)
@@ -537,6 +561,8 @@ export default function CreateStudentProfile({
         created?.data?.id ??
         null;
       setCreatedStudent({ id: createdId, name: form.learnerName });
+      setIsDirty(false);
+      toast.success(`Student profile created for ${form.learnerName}!`);
       setShowSuccessModal(true);
     } catch (err) {
       setError(err.message || "Unable to save student profile.");
@@ -574,6 +600,7 @@ export default function CreateStudentProfile({
   };
 
   const handleAddAnother = () => {
+    setIsDirty(false);
     setShowSuccessModal(false);
     setStep(1);
     setError("");
@@ -628,6 +655,7 @@ export default function CreateStudentProfile({
                 <FormField
                   label="Student Name"
                   placeholder="Enter student name"
+                  required={true}
                   value={form.learnerName}
                   onChange={setField("learnerName")}
                 />
@@ -649,6 +677,7 @@ export default function CreateStudentProfile({
                   type="number"
                   min={2}
                   max={18}
+                  required={true}
                   value={form.age}
                   onChange={setField("age")}
                 />
@@ -658,11 +687,13 @@ export default function CreateStudentProfile({
                   type="number"
                   min={1}
                   max={10}
+                  required={true}
                   value={form.gradeLevel}
                   onChange={setField("gradeLevel")}
                 />
                 <SelectField
                   label="Gender"
+                  required={true}
                   value={form.gender}
                   onChange={setField("gender")}
                   options={genderOptions}
@@ -787,11 +818,13 @@ export default function CreateStudentProfile({
                   <FormField
                     label="Guardian Full Name"
                     placeholder="Enter parent or guardian name"
+                    required={true}
                     value={form.guardianName}
                     onChange={setField("guardianName")}
                   />
                   <SelectField
                     label="Guardian Relationship"
+                    required={true}
                     value={form.guardianRelationship}
                     onChange={setField("guardianRelationship")}
                     options={["Parent", "Mother", "Father", "Legal Guardian", "Other"]}
@@ -799,6 +832,7 @@ export default function CreateStudentProfile({
                   <FormField
                     label="Consent Verification Date"
                     type="date"
+                    required={true}
                     value={form.consentDate}
                     onChange={setField("consentDate")}
                   />
@@ -842,6 +876,7 @@ export default function CreateStudentProfile({
               <TextAreaField
                 label="Results of initial or most recent evaluation and results of school assessments"
                 placeholder="Example: The learner fails to finish tasks most of the time, has difficulty in concentrating and paying attention, and may be unable to get what he wants."
+                required={true}
                 value={form.presentEvaluation}
                 onChange={setField("presentEvaluation")}
                 rows={4}
@@ -849,6 +884,7 @@ export default function CreateStudentProfile({
               <TextAreaField
                 label="Description of academic, developmental, and/or functional strengths"
                 placeholder="Example: The learner can spell random words using alphabet blocks and arranges alphabet sequentially."
+                required={true}
                 value={form.academicStrengths}
                 onChange={setField("academicStrengths")}
                 rows={4}
@@ -856,6 +892,7 @@ export default function CreateStudentProfile({
               <TextAreaField
                 label="Description of academic, developmental, and/or functional needs"
                 placeholder="Example: Needs structured routines, visual task supports, shortened activities, sensory breaks, and positive reinforcement."
+                required={true}
                 value={form.academicNeeds}
                 onChange={setField("academicNeeds")}
                 rows={4}
@@ -863,6 +900,7 @@ export default function CreateStudentProfile({
               <TextAreaField
                 label="Parental concerns regarding the child’s education"
                 placeholder="Write concerns shared by the parent or guardian."
+                required={true}
                 value={form.parentalConcerns}
                 onChange={setField("parentalConcerns")}
                 rows={3}
@@ -870,6 +908,7 @@ export default function CreateStudentProfile({
               <TextAreaField
                 label="Impact of the disability on involvement and progress in the general education curriculum"
                 placeholder="Example: The learner has difficulty concentrating and needs support to listen well."
+                required={true}
                 value={form.curriculumImpact}
                 onChange={setField("curriculumImpact")}
                 rows={3}
@@ -926,6 +965,11 @@ export default function CreateStudentProfile({
         isOpen={showConsentModal}
         onClose={() => setShowConsentModal(false)}
         onConfirm={handleConfirmConsent}
+      />
+      <UnsavedChangesModal
+        isOpen={showPrompt}
+        onConfirm={confirmLeave}
+        onCancel={cancelLeave}
       />
     </div>
   );

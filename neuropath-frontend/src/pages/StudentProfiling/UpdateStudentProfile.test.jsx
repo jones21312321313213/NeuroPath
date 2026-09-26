@@ -372,4 +372,40 @@ describe("UpdateStudentProfile Help Text & Difficulty Validation", () => {
       screen.queryByText(/Please fill in the evaluation \/ assessment results before saving/i),
     ).not.toBeInTheDocument();
   });
+
+  it("prompts unsaved changes modal when form is dirty and back button is clicked", async () => {
+    studentsAPI.get.mockResolvedValueOnce({ data: mockStudent });
+
+    render(
+      <MemoryRouter>
+        <UpdateStudentProfile studentId="student-123" onBack={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue("Maria Clara");
+
+    // Modify a field to mark form dirty
+    fireEvent.change(screen.getByLabelText(/^student name:/i), {
+      target: { value: "Maria Clara Updated" },
+    });
+
+    // Click BACK button (←)
+    fireEvent.click(screen.getByRole("button", { name: "←" }));
+
+    // Modal should appear
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /unsaved changes/i })
+    ).toBeInTheDocument();
+
+    // Clicking Stay on Page keeps user on page
+    fireEvent.click(screen.getByRole("button", { name: /stay on page/i }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    // Click BACK button again and Discard & Leave
+    fireEvent.click(screen.getByRole("button", { name: "←" }));
+    fireEvent.click(screen.getByRole("button", { name: /discard & leave/i }));
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/students/student-123");
+  });
 });

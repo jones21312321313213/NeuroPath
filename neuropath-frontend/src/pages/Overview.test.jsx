@@ -190,7 +190,7 @@ describe("Overview - Getting Started 3-Step Path", () => {
     expect(mockSetActivePage).toHaveBeenCalledWith("/dashboard/lessons");
   });
 
-  it("navigates correctly when clicking quick action cards", async () => {
+  it("disables View All Students and Generate IEP quick actions when no students exist", async () => {
     studentsAPI.list.mockResolvedValue([]);
     iepAPI.dashboardStats.mockResolvedValue({ active_ieps: 0, ai_insights: 0 });
 
@@ -201,15 +201,54 @@ describe("Overview - Getting Started 3-Step Path", () => {
       </MemoryRouter>,
     );
 
-    const createProfileCard = screen.getByRole("button", { name: /create student profile/i });
+    await waitFor(() => {
+      expect(studentsAPI.list).toHaveBeenCalled();
+    });
+
+    const quickActionsContainer = screen.getByTestId("quick-actions-container");
+    const createProfileCard = within(quickActionsContainer).getByRole("button", { name: /create student profile/i });
+    expect(createProfileCard).toBeEnabled();
     await user.click(createProfileCard);
     expect(mockNavigate).toHaveBeenCalledWith("/dashboard/students/create");
 
-    const viewProfilesCard = screen.getByRole("button", { name: /view all students/i });
+    const viewProfilesCard = within(quickActionsContainer).getByRole("button", { name: /view all students/i });
+    expect(viewProfilesCard).toBeDisabled();
+    await user.click(viewProfilesCard);
+    expect(mockNavigate).not.toHaveBeenCalledWith("/dashboard/students");
+
+    const generateIepCard = within(quickActionsContainer).getByRole("button", { name: /generate iep/i });
+    expect(generateIepCard).toBeDisabled();
+    await user.click(generateIepCard);
+    expect(mockNavigate).not.toHaveBeenCalledWith("/dashboard/iep/generate");
+  });
+
+  it("navigates correctly when clicking quick action cards when students exist", async () => {
+    studentsAPI.list.mockResolvedValue([{ id: 101, name: "Student A" }]);
+    iepAPI.dashboardStats.mockResolvedValue({ active_ieps: 1, ai_insights: 0 });
+
+    const user = userEvent.setup();
+    renderWithQueryClient(
+      <MemoryRouter>
+        <Overview setActivePage={mockSetActivePage} />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(studentsAPI.list).toHaveBeenCalled();
+    });
+
+    const quickActionsContainer = screen.getByTestId("quick-actions-container");
+    const createProfileCard = within(quickActionsContainer).getByRole("button", { name: /create student profile/i });
+    await user.click(createProfileCard);
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/students/create");
+
+    const viewProfilesCard = within(quickActionsContainer).getByRole("button", { name: /view all students/i });
+    expect(viewProfilesCard).toBeEnabled();
     await user.click(viewProfilesCard);
     expect(mockNavigate).toHaveBeenCalledWith("/dashboard/students");
 
-    const generateIepCard = screen.getByRole("button", { name: /generate iep use ai/i });
+    const generateIepCard = within(quickActionsContainer).getByRole("button", { name: /generate iep/i });
+    expect(generateIepCard).toBeEnabled();
     await user.click(generateIepCard);
     expect(mockNavigate).toHaveBeenCalledWith("/dashboard/iep/generate");
   });
