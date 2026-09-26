@@ -47,6 +47,9 @@ function DashboardLayout() {
   const { user, markTutorialComplete } = useAuth();
   const location = useLocation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (typeof window !== "undefined" && window.innerWidth <= 768) {
+      return true;
+    }
     return localStorage.getItem("neuropath_sidebar_collapsed") === "true";
   });
 
@@ -58,6 +61,14 @@ function DashboardLayout() {
     });
   };
 
+  const [prevPathname, setPrevPathname] = useState(location.pathname);
+  if (location.pathname !== prevPathname) {
+    setPrevPathname(location.pathname);
+    if (typeof window !== "undefined" && window.innerWidth <= 768) {
+      setIsSidebarCollapsed(true);
+    }
+  }
+
   const breadcrumb = useMemo(() => getBreadcrumb(location.pathname), [location.pathname]);
   const showTutorial = user && user.has_completed_tutorial === false;
 
@@ -66,6 +77,13 @@ function DashboardLayout() {
       <SkipLink targetId="main-content" />
       {showTutorial && (
         <TeacherTutorialModal onComplete={markTutorialComplete} />
+      )}
+      {!isSidebarCollapsed && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setIsSidebarCollapsed(true)}
+          aria-hidden="true"
+        />
       )}
       <Sidebar
         collapsed={isSidebarCollapsed}

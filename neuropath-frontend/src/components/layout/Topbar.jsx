@@ -3,7 +3,12 @@ import { useAuth } from "../../context/AuthContext";
 import { UserIcon } from "../ui/icons";
 import "../../styles/Topbar.css";
 
-export default function Topbar({ breadcrumb, setActivePage }) {
+export default function Topbar({
+  breadcrumb,
+  setActivePage,
+  collapsed = false,
+  onToggleCollapse,
+}) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const teacherName = `Teacher ${user?.first_name || ""}`;
@@ -18,6 +23,17 @@ export default function Topbar({ breadcrumb, setActivePage }) {
   return (
     <header className="topbar" role="banner">
       <div className="topbar-left">
+        {onToggleCollapse && (
+          <button
+            type="button"
+            className="topbar-toggle-btn"
+            onClick={onToggleCollapse}
+            aria-label={collapsed ? "Expand sidebar navigation" : "Collapse sidebar navigation"}
+            title={collapsed ? "Expand sidebar navigation" : "Collapse sidebar navigation"}
+          >
+            <i className="ti ti-menu-2" aria-hidden="true" />
+          </button>
+        )}
         <span className="topbar-breadcrumb">{breadcrumb}</span>
       </div>
       <div className="topbar-user">

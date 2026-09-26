@@ -119,4 +119,33 @@
     margin-bottom: 5px;
     line-height: 1.5;
   }
+
+/* ── Responsive Mobile & Tablet Breakpoints ──────────── */
+@media (max-width: 640px) {
+  .tab-header {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    gap: 4px;
+  }
+
+  .tab-btn {
+    padding: 10px 14px;
+    flex-shrink: 0;
+    min-height: 44px;
+  }
+
+  .form-actions {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .btn {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
   

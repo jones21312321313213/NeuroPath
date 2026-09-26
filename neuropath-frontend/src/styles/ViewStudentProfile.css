@@ -295,3 +295,27 @@
   box-shadow: none;
 }
 
+/* ── Responsive Mobile & Tablet Breakpoints ──────────── */
+@media (max-width: 640px) {
+  .vsp-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .vsp-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .vsp-card {
+    padding: 16px 14px;
+  }
+
+  .vsp-view-btn {
+    min-height: 40px;
+    padding: 8px 16px;
+  }
+}
+
+
