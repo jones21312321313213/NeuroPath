@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ToastProvider } from "./context/ToastContext";
+import ToastContainer from "./components/ui/ToastContainer";
 import LandingPage from "./pages/landingPage";
 import LoginPage from "./pages/loginPage";
 import RegisterPage from "./pages/registerPage";
@@ -26,21 +28,47 @@ import SessionTimeoutManager from "./components/session/SessionTimeoutManager";
 import "./App.css";
 
 function getBreadcrumb(pathname) {
-  if (pathname === "/dashboard" || pathname === "/dashboard/") return "DASHBOARD / Home";
-  if (pathname === "/dashboard/profile") return "DASHBOARD / My Profile";
-  if (pathname === "/dashboard/students") return "DASHBOARD / Student Profiling / View Profiles";
-  if (pathname === "/dashboard/students/create") return "DASHBOARD / Student Profiling / Create Profile";
-  if (pathname.startsWith("/dashboard/students/") && pathname.endsWith("/edit")) return "DASHBOARD / Student Profiling / Edit Profile";
-  if (pathname.startsWith("/dashboard/students/") && pathname.endsWith("/iep")) return "DASHBOARD / AI-Based IEP Generation / Generate IEP";
-  if (pathname.startsWith("/dashboard/students/")) return "DASHBOARD / Student Profiling / Student Detail";
-  if (pathname === "/dashboard/iep" || pathname === "/dashboard/iep/generate") return "DASHBOARD / AI-Based IEP Generation / Generate IEP";
-  if (pathname === "/dashboard/iep/view") return "DASHBOARD / AI-Based IEP Generation / View IEP";
-  if (pathname === "/dashboard/lessons") return "DASHBOARD / Instructional Support / Lesson Plans";
-  if (pathname === "/dashboard/visual-aids") return "DASHBOARD / Instructional Support / Visual Aids";
-  if (pathname === "/dashboard/strategies") return "DASHBOARD / Instructional Support / Teaching Strategies";
-  if (pathname === "/dashboard/records") return "DASHBOARD / Outcome Monitoring / Student Records";
-  if (pathname === "/dashboard/monitoring") return "DASHBOARD / Outcome Monitoring / Progress Dashboard";
-  return "DASHBOARD / Home";
+  const home = { label: "Dashboard", to: "/dashboard" };
+
+  if (pathname === "/dashboard" || pathname === "/dashboard/") return [{ label: "Dashboard" }];
+  if (pathname === "/dashboard/profile") return [home, { label: "My Profile" }];
+  if (pathname === "/dashboard/students") {
+    return [home, { label: "Student Profiling", to: "/dashboard/students" }, { label: "View Profiles" }];
+  }
+  if (pathname === "/dashboard/students/create") {
+    return [home, { label: "Student Profiling", to: "/dashboard/students" }, { label: "Create Profile" }];
+  }
+  if (pathname.startsWith("/dashboard/students/") && pathname.endsWith("/edit")) {
+    return [home, { label: "Student Profiling", to: "/dashboard/students" }, { label: "Edit Profile" }];
+  }
+  if (pathname.startsWith("/dashboard/students/") && pathname.endsWith("/iep")) {
+    return [home, { label: "AI-Based IEP Generation", to: "/dashboard/iep" }, { label: "Generate IEP" }];
+  }
+  if (pathname.startsWith("/dashboard/students/")) {
+    return [home, { label: "Student Profiling", to: "/dashboard/students" }, { label: "Student Detail" }];
+  }
+  if (pathname === "/dashboard/iep" || pathname === "/dashboard/iep/generate") {
+    return [home, { label: "AI-Based IEP Generation", to: "/dashboard/iep" }, { label: "Generate IEP" }];
+  }
+  if (pathname === "/dashboard/iep/view") {
+    return [home, { label: "AI-Based IEP Generation", to: "/dashboard/iep" }, { label: "View IEP" }];
+  }
+  if (pathname === "/dashboard/lessons") {
+    return [home, { label: "Instructional Support", to: "/dashboard/lessons" }, { label: "Lesson Plans" }];
+  }
+  if (pathname === "/dashboard/visual-aids") {
+    return [home, { label: "Instructional Support", to: "/dashboard/lessons" }, { label: "Visual Aids" }];
+  }
+  if (pathname === "/dashboard/strategies") {
+    return [home, { label: "Instructional Support", to: "/dashboard/lessons" }, { label: "Teaching Strategies" }];
+  }
+  if (pathname === "/dashboard/records") {
+    return [home, { label: "Outcome Monitoring", to: "/dashboard/monitoring" }, { label: "Student Records" }];
+  }
+  if (pathname === "/dashboard/monitoring") {
+    return [home, { label: "Outcome Monitoring", to: "/dashboard/monitoring" }, { label: "Progress Dashboard" }];
+  }
+  return [{ label: "Dashboard" }];
 }
 
 function DashboardLayout() {
@@ -194,8 +222,11 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <AppRoutes />
+        <ToastContainer />
+      </AuthProvider>
+    </ToastProvider>
   );
 }

@@ -42,3 +42,14 @@
   color: #185fa5;
   white-space: nowrap;
 }
+
+.topbar-breadcrumbs {
+  display: flex;
+  align-items: center;
+}
+
+.topbar-breadcrumbs ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}

@@ -10,6 +10,9 @@ import {
   InformationCircleIcon,
 } from "../components/ui/icons";
 import { Ra10173ConsentModal } from "../components/Ra10173ConsentModal";
+import UnsavedChangesModal from "../components/ui/UnsavedChangesModal";
+import useUnsavedChanges from "../hooks/useUnsavedChanges";
+import { useToast } from "../context/ToastContext";
 
 const difficultyOptions = [
   "Difficulty in Seeing",
@@ -287,14 +290,21 @@ export default function CreateStudentProfile({
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [isDirty, setIsDirty] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdStudent, setCreatedStudent] = useState(null);
   const [hasReadConsent, setHasReadConsent] = useState(false);
   const [showConsentModal, setShowConsentModal] = useState(false);
   const errorRef = useRef(null);
+
+  const { showPrompt, promptNavigation, confirmLeave, cancelLeave } =
+    useUnsavedChanges({
+      isDirty: isDirty && !showSuccessModal,
+    });
 
   const scrollToError = () => {
     setTimeout(() => {
@@ -311,6 +321,7 @@ export default function CreateStudentProfile({
   };
 
   const handleConfirmConsent = () => {
+    setIsDirty(true);
     setHasReadConsent(true);
     setForm((prev) => ({
       ...prev,
@@ -319,16 +330,21 @@ export default function CreateStudentProfile({
   };
 
   const handleBack = () => {
-    if (onBack) onBack();
-    navigate("/dashboard/students");
+    promptNavigation(() => {
+      if (onBack) onBack();
+      navigate("/dashboard/students");
+    });
   };
 
   const [form, setForm] = useState(initialFormState);
 
-  const setField = (field) => (e) =>
+  const setField = (field) => (e) => {
+    setIsDirty(true);
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  };
 
   const toggleDifficulty = (difficulty) => {
+    setIsDirty(true);
     setForm((prev) => ({
       ...prev,
       difficultyMarkers: prev.difficultyMarkers.includes(difficulty)
@@ -551,6 +567,8 @@ export default function CreateStudentProfile({
         created?.data?.id ??
         null;
       setCreatedStudent({ id: createdId, name: form.learnerName });
+      setIsDirty(false);
+      toast.success(`Student profile created for ${form.learnerName}!`);
       setShowSuccessModal(true);
     } catch (err) {
       setError(err.message || "Unable to save student profile.");
@@ -588,6 +606,7 @@ export default function CreateStudentProfile({
   };
 
   const handleAddAnother = () => {
+    setIsDirty(false);
     setShowSuccessModal(false);
     setStep(1);
     setError("");
@@ -952,6 +971,11 @@ export default function CreateStudentProfile({
         isOpen={showConsentModal}
         onClose={() => setShowConsentModal(false)}
         onConfirm={handleConfirmConsent}
+      />
+      <UnsavedChangesModal
+        isOpen={showPrompt}
+        onConfirm={confirmLeave}
+        onCancel={cancelLeave}
       />
     </div>
   );

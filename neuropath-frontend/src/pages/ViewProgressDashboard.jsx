@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import "../styles/OutcomeMonitoring.css";
 import { studentsAPI, trackingAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import StudentShimmer from "../components/StudentShimmer";
+import ErrorState from "../components/ui/ErrorState";
+import Pagination from "../components/ui/Pagination";
 import RecordProgressModal from "../components/RecordProgressModal";
 import {
   InboxIcon,
@@ -108,6 +110,8 @@ export default function ViewProgressDashboard() {
   const [search, setSearch] = useState("");
   const [filterGrade, setFilterGrade] = useState("");
   const [filterAge, setFilterAge] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [subjects, setSubjects] = useState([]);
@@ -115,7 +119,9 @@ export default function ViewProgressDashboard() {
   const [subjectsError, setSubjectsError] = useState("");
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
 
-  useEffect(() => {
+  const loadStudents = useCallback(() => {
+    setLoading(true);
+    setError("");
     studentsAPI
       .list(user?.id)
       .then(setStudents)
@@ -123,9 +129,31 @@ export default function ViewProgressDashboard() {
       .finally(() => setLoading(false));
   }, [user?.id]);
 
+  useEffect(() => {
+    let ignore = false;
+    studentsAPI
+      .list(user?.id)
+      .then((data) => {
+        if (!ignore) {
+          setStudents(data);
+          setError("");
+        }
+      })
+      .catch(() => {
+        if (!ignore) setError("Failed to load students.");
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [user?.id]);
+
   const refreshSubjects = async (studentId) => {
     if (!studentId) return;
     try {
+      setSubjectsError("");
       const data = await trackingAPI.getProgressDashboard(studentId);
       setSubjects(data || []);
       setSelectedSubject((prev) => {
@@ -181,12 +209,20 @@ export default function ViewProgressDashboard() {
     };
   }, [selectedStudent?.studentID]);
 
-  const filtered = students.filter((s) => {
-    const matchName = s.name.toLowerCase().includes(search.toLowerCase());
-    const matchGrade = filterGrade ? s.grade === parseInt(filterGrade) : true;
-    const matchAge = filterAge ? s.age === parseInt(filterAge) : true;
-    return matchName && matchGrade && matchAge;
-  });
+  const filtered = useMemo(() => {
+    return students.filter((s) => {
+      const matchName = (s.name || "").toLowerCase().includes(search.toLowerCase());
+      const matchGrade = filterGrade ? s.grade === parseInt(filterGrade) : true;
+      const matchAge = filterAge ? s.age === parseInt(filterAge) : true;
+      return matchName && matchGrade && matchAge;
+    });
+  }, [students, search, filterGrade, filterAge]);
+
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const paginatedStudents = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
 
   // ── Executive KPI Metric Computations ───────────────────
   const totalSubjectsCount = subjects.length;
@@ -406,10 +442,18 @@ export default function ViewProgressDashboard() {
             {subjectsLoading ? (
               <StudentShimmer />
             ) : subjectsError ? (
-              <div role="alert" className="om-error-banner flex items-center gap-2">
-                <WarningIcon className="w-4 h-4 text-red-600 flex-shrink-0" aria-hidden="true" />
-                <span>{subjectsError}</span>
-              </div>
+              <ErrorState
+                title="Failed to Load Progress Data"
+                message={subjectsError}
+                onRetry={() => {
+                  setSubjectsLoading(true);
+                  setSubjectsError("");
+                  refreshSubjects(selectedStudent.studentID).finally(() => {
+                    setSubjectsLoading(false);
+                  });
+                }}
+                retryLabel="Try Again"
+              />
             ) : subjects.length === 0 ? (
               <EmptyState message="No progress data found for this student." />
             ) : (
@@ -465,81 +509,104 @@ export default function ViewProgressDashboard() {
       <div className="om-body">
         <div className="om-card">
           <h2 className="om-list-title">List of Students</h2>
-          {error && (
-            <div role="alert" className="om-error-banner flex items-center gap-2">
-              <WarningIcon className="w-4 h-4 text-red-600 flex-shrink-0" aria-hidden="true" />
-              <span>{error}</span>
-            </div>
-          )}
-          <div className="om-search-bar">
-            <input
-              id="search-students-input"
-              className="form-input om-search-input"
-              placeholder="Search Student Records"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              aria-label="Search students by name"
+          {error ? (
+            <ErrorState
+              title="Failed to Load Students"
+              message={error}
+              onRetry={loadStudents}
+              retryLabel="Try Again"
             />
-            <div className="om-filters">
-              <span className="om-filter-label">Filter:</span>
-              <select
-                id="filter-grade-select"
-                aria-label="Filter by grade"
-                className="form-select om-filter-select"
-                value={filterGrade}
-                onChange={(e) => setFilterGrade(e.target.value)}
-              >
-                <option value="">Grade</option>
-                {[1, 2, 3, 4, 5, 6].map((g) => (
-                  <option key={g} value={g}>
-                    Grade {g}
-                  </option>
-                ))}
-              </select>
-              <select
-                id="filter-age-select"
-                aria-label="Filter by age"
-                className="form-select om-filter-select"
-                value={filterAge}
-                onChange={(e) => setFilterAge(e.target.value)}
-              >
-                <option value="">Age</option>
-                {[6, 7, 8, 9, 10, 11, 12].map((a) => (
-                  <option key={a} value={a}>
-                    {a}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="om-student-list">
-            {loading ? (
-              <StudentShimmer />
-            ) : filtered.length === 0 ? (
-              <EmptyState message="No students found." />
-            ) : (
-              filtered.map((s) => (
-                <div key={s.studentID} className="om-student-row">
-                  <div className="va-student-avatar" />
-                  <div className="va-student-info">
-                    <span className="va-student-name">{s.name}</span>
-                    <span className="va-student-grade">Grade – {s.grade}</span>
-                  </div>
-                  <button
-                    className="va-select-btn"
-                    onClick={() => {
-                      setSelectedStudent(s);
-                      setSelectedSubject(null);
-                      setSubjects([]);
+          ) : (
+            <>
+              <div className="om-search-bar">
+                <input
+                  id="search-students-input"
+                  className="form-input om-search-input"
+                  placeholder="Search Student Records"
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  aria-label="Search students by name"
+                />
+                <div className="om-filters">
+                  <span className="om-filter-label">Filter:</span>
+                  <select
+                    id="filter-grade-select"
+                    aria-label="Filter by grade"
+                    className="form-select om-filter-select"
+                    value={filterGrade}
+                    onChange={(e) => {
+                      setFilterGrade(e.target.value);
+                      setPage(1);
                     }}
                   >
-                    Select
-                  </button>
+                    <option value="">Grade</option>
+                    {[1, 2, 3, 4, 5, 6].map((g) => (
+                      <option key={g} value={g}>
+                        Grade {g}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    id="filter-age-select"
+                    aria-label="Filter by age"
+                    className="form-select om-filter-select"
+                    value={filterAge}
+                    onChange={(e) => {
+                      setFilterAge(e.target.value);
+                      setPage(1);
+                    }}
+                  >
+                    <option value="">Age</option>
+                    {[6, 7, 8, 9, 10, 11, 12].map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              ))
-            )}
-          </div>
+              </div>
+
+              <div className="om-student-list">
+                {loading ? (
+                  <StudentShimmer />
+                ) : filtered.length === 0 ? (
+                  <EmptyState message="No students found." />
+                ) : (
+                  <>
+                    {paginatedStudents.map((s) => (
+                      <div key={s.studentID} className="om-student-row">
+                        <div className="va-student-avatar" />
+                        <div className="va-student-info">
+                          <span className="va-student-name">{s.name}</span>
+                          <span className="va-student-grade">Grade – {s.grade}</span>
+                        </div>
+                        <button
+                          className="va-select-btn"
+                          onClick={() => {
+                            setSelectedStudent(s);
+                            setSelectedSubject(null);
+                            setSubjects([]);
+                          }}
+                        >
+                          Select
+                        </button>
+                      </div>
+                    ))}
+                    <Pagination
+                      currentPage={page}
+                      totalPages={totalPages}
+                      totalItems={filtered.length}
+                      pageSize={pageSize}
+                      onPageChange={setPage}
+                    />
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

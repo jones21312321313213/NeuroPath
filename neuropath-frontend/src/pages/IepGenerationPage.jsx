@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { iepAPI, studentsAPI } from "../api/client";
 import { Callout, ErrorModal, IepLoadingModal, IepPostGenerationModal } from "../components/ui";
+import UnsavedChangesModal from "../components/ui/UnsavedChangesModal";
+import { useToast } from "../context/ToastContext";
+import { useUnsavedChanges } from "../hooks/useUnsavedChanges";
 import { queryClient } from "../queryClient";
 import { queryKeys } from "../hooks/queries";
 import { sanitizeDifficulties } from "../utils/difficultyUtils";
@@ -540,6 +543,7 @@ function ViewIEPPanel({
     : [];
 
   const details = normalizeGeneratedDetails(selectedIep);
+  const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [editBarrierRows, setEditBarrierRows] = useState([]);
   const [editSpecialFactorNotes, setEditSpecialFactorNotes] = useState("");
@@ -550,6 +554,12 @@ function ViewIEPPanel({
   const [goalsToDelete, setGoalsToDelete] = useState([]);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deletingIep, setDeletingIep] = useState(false);
+
+  const [initialEditData, setInitialEditData] = useState({
+    barrierRows: [],
+    specialFactorNotes: "",
+    goals: [],
+  });
 
   // Fetch goals from DB whenever selected IEP changes
   useEffect(() => {
@@ -606,30 +616,68 @@ function ViewIEPPanel({
   const goalsToRender =
     iepGoals.length > 0 ? iepGoals : details?.learnerGoals || [];
 
+  const isFormDirty = useMemo(() => {
+    if (!isEditing) return false;
+    if (goalsToDelete.length > 0) return true;
+    if (
+      editSpecialFactorNotes !== initialEditData.specialFactorNotes
+    ) {
+      return true;
+    }
+    if (
+      JSON.stringify(editBarrierRows) !==
+      JSON.stringify(initialEditData.barrierRows)
+    ) {
+      return true;
+    }
+    if (
+      JSON.stringify(editGoals) !==
+      JSON.stringify(initialEditData.goals)
+    ) {
+      return true;
+    }
+    return false;
+  }, [
+    isEditing,
+    goalsToDelete,
+    editSpecialFactorNotes,
+    editBarrierRows,
+    editGoals,
+    initialEditData,
+  ]);
+
+  const { showPrompt, promptNavigation, confirmLeave, cancelLeave } =
+    useUnsavedChanges({ isDirty: isFormDirty });
+
   const openEdit = () => {
-    setEditSpecialFactorNotes(
-      details?.specialFactorNotes || details?.special_factor_notes || "",
-    );
-    setEditBarrierRows(
-      barrierRowsToRender.length
-        ? barrierRowsToRender.map((r) => ({ ...r }))
-        : [
-            {
-              difficulty: "",
-              barrierQualifier: "Moderate barrier",
-              facilitator: "",
-              accommodation: "",
-            },
-          ],
-    );
-    setEditGoals(
-      goalsToRender.length
-        ? goalsToRender.map((goal) => ({
-            ...goal,
-            rows: (goal.rows || []).map((row) => ({ ...row })),
-          }))
-        : [emptyEditableGoal()],
-    );
+    const specialNotes =
+      details?.specialFactorNotes || details?.special_factor_notes || "";
+    const barrierRows = barrierRowsToRender.length
+      ? barrierRowsToRender.map((r) => ({ ...r }))
+      : [
+          {
+            difficulty: "",
+            barrierQualifier: "Moderate barrier",
+            facilitator: "",
+            accommodation: "",
+          },
+        ];
+    const goals = goalsToRender.length
+      ? goalsToRender.map((goal) => ({
+          ...goal,
+          rows: (goal.rows || []).map((row) => ({ ...row })),
+        }))
+      : [emptyEditableGoal()];
+
+    setInitialEditData({
+      specialFactorNotes: specialNotes,
+      barrierRows: JSON.parse(JSON.stringify(barrierRows)),
+      goals: JSON.parse(JSON.stringify(goals)),
+    });
+
+    setEditSpecialFactorNotes(specialNotes);
+    setEditBarrierRows(barrierRows);
+    setEditGoals(goals);
     setGoalsToDelete([]);
     setIsEditing(true);
   };
@@ -723,7 +771,12 @@ function ViewIEPPanel({
     setDeletingIep(true);
     try {
       await onDeleteIep(deleteTarget);
+      toast.success(
+        `IEP Version ${deleteTarget?.version || ""} deleted successfully.`,
+      );
       setDeleteTarget(null);
+    } catch (err) {
+      toast.error(err.message || "Failed to delete IEP record.");
     } finally {
       setDeletingIep(false);
     }
@@ -781,6 +834,9 @@ function ViewIEPPanel({
       }
       setIepGoals(savedGoals);
       setIsEditing(false);
+      toast.success("IEP changes saved successfully!");
+    } catch (err) {
+      toast.error(err.message || "Failed to save IEP changes.");
     } finally {
       setSavingEdit(false);
     }
@@ -807,6 +863,14 @@ function ViewIEPPanel({
     );
   };
 
+  const handleCancelClick = () => {
+    if (isFormDirty) {
+      promptNavigation(handleCancelEdit);
+    } else {
+      handleCancelEdit();
+    }
+  };
+
   return (
     <div className="form-card iep-card">
       <SectionHeader
@@ -819,7 +883,13 @@ function ViewIEPPanel({
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           selectedStudent={selectedStudent}
-          onSelect={setSelectedStudent}
+          onSelect={(student) => {
+            if (isFormDirty) {
+              promptNavigation(() => setSelectedStudent(student));
+            } else {
+              setSelectedStudent(student);
+            }
+          }}
           filteredStudents={filteredStudents}
           loadingStudents={loadingStudents}
         />
@@ -830,13 +900,17 @@ function ViewIEPPanel({
               value={selectedIep?.iepID || ""}
               className="form-select"
               disabled={loadingIeps}
-              onChange={(e) =>
-                setSelectedIep(
+              onChange={(e) => {
+                const targetIep =
                   studentIeps.find(
                     (iep) => String(iep.iepID) === e.target.value,
-                  ) || null,
-                )
-              }
+                  ) || null;
+                if (isFormDirty) {
+                  promptNavigation(() => setSelectedIep(targetIep));
+                } else {
+                  setSelectedIep(targetIep);
+                }
+              }}
             >
               {studentIeps.map((iep) => (
                 <option key={iep.iepID} value={iep.iepID}>
@@ -1252,7 +1326,7 @@ function ViewIEPPanel({
                 <button
                   type="button"
                   className="btn btn-back"
-                  onClick={handleCancelEdit}
+                  onClick={handleCancelClick}
                 >
                   CANCEL
                 </button>
@@ -1403,6 +1477,12 @@ function ViewIEPPanel({
           </div>
         </div>
       )}
+
+      <UnsavedChangesModal
+        isOpen={showPrompt}
+        onConfirm={confirmLeave}
+        onCancel={cancelLeave}
+      />
     </div>
   );
 }
@@ -1417,6 +1497,7 @@ export default function IEPGenerationPage({
 }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const effectiveStudentId = id || initialStudentId;
   const activeView = mode;
 
@@ -1933,6 +2014,7 @@ export default function IEPGenerationPage({
       setAiGeneratedGoals((prev) => [...prev, newGoal]);
       setGenerationDone(true);
       setGoalSaveStatus("saved");
+      toast.success("Goal added successfully!");
       setManualGoal({
         type: "",
         annualGoal: "",
@@ -2142,6 +2224,13 @@ export default function IEPGenerationPage({
 
     setAiGeneratedGoals((prev) => [...prev, ...pendingGeneratedGoals]);
     setGoalSaveStatus(allSaved ? "saved" : "error");
+    if (allSaved) {
+      toast.success(
+        "Generated IEP goals saved successfully to student record!",
+      );
+    } else {
+      toast.error("Some IEP goals could not be saved.");
+    }
     setGenerationDone(true);
     setSavingGoals(false);
     setIsSavingPendingGoals(false);

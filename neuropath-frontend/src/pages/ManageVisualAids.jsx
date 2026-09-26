@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "../styles/ManageVisualAids.css";
 import { visualAidsAPI, studentsAPI, iepAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import {
   PhotoIcon,
   EyeIcon,
@@ -12,7 +13,7 @@ import {
   CheckIcon,
   UserIcon,
   CalendarIcon,
-  SchoolIcon,
+  AcademicCapIcon,
   ClipboardIcon,
   SparklesIcon,
   DiskIcon,
@@ -212,6 +213,7 @@ function GenerateTab({ setActivePage }) {
   const [result, setResult] = useState(null); // saved VisualAid record from DB
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
+  const { toast } = useToast();
 
   // Load students on mount
   useEffect(() => {
@@ -257,6 +259,7 @@ function GenerateTab({ setActivePage }) {
         prompt: extraPrompt.trim(),
       });
       setResult(data.data);
+      toast.success("Visual aid generated and saved successfully!");
     } catch (err) {
       setError(
         err.message ||
@@ -296,7 +299,7 @@ function GenerateTab({ setActivePage }) {
           <Loading text="Fetching students…" />
         ) : students.length === 0 ? (
           <EmptyState
-            icon={<SchoolIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
+            icon={<AcademicCapIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
             message="No students found."
             description="You need at least one registered student profile before generating a visual aid."
             actionLabel="Create Student Profile"
@@ -580,7 +583,7 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
         <Loading text="Fetching students…" />
       ) : students.length === 0 ? (
         <EmptyState
-          icon={<SchoolIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
+          icon={<AcademicCapIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
           message="No students found."
           description="Register a student profile first to view and manage visual aids."
           actionLabel="Create Student Profile"
@@ -643,6 +646,7 @@ function DeleteTab({ setActivePage, onGoToGenerate }) {
   const [error, setError] = useState("");
   const [toDelete, setToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const { toast } = useToast();
 
   const item = aids.find((a) => a.visualAidID === toDelete);
 
@@ -681,6 +685,7 @@ function DeleteTab({ setActivePage, onGoToGenerate }) {
     try {
       await visualAidsAPI.delete(toDelete);
       setAids((prev) => prev.filter((a) => a.visualAidID !== toDelete));
+      toast.success("Visual aid deleted successfully.");
       setToDelete(null);
     } catch (err) {
       setError(err.message);
@@ -718,7 +723,7 @@ function DeleteTab({ setActivePage, onGoToGenerate }) {
         <Loading text="Fetching students…" />
       ) : students.length === 0 ? (
         <EmptyState
-          icon={<SchoolIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
+          icon={<AcademicCapIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
           message="No students found."
           description="Register a student profile first to manage visual aids."
           actionLabel="Create Student Profile"

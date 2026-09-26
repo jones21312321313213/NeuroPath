@@ -266,5 +266,89 @@ describe("ViewProgressDashboard", () => {
     // Verify dashboard refreshed and new subject appears
     expect(await screen.findByText("Social Skills")).toBeInTheDocument();
   });
+
+  it("renders ErrorState with retry button when loading students fails, and clicking retry re-fetches", async () => {
+    studentsAPI.list.mockRejectedValueOnce(new Error("Network Error"));
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter>
+        <ViewProgressDashboard />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Failed to Load Students")).toBeInTheDocument();
+    const retryBtn = screen.getByRole("button", { name: /try again/i });
+    expect(retryBtn).toBeInTheDocument();
+
+    studentsAPI.list.mockResolvedValueOnce(mockStudents);
+    await user.click(retryBtn);
+
+    expect(await screen.findByText("Alice Wonderland")).toBeInTheDocument();
+  });
+
+  it("renders ErrorState with retry button when loading subjects fails, and clicking retry re-fetches", async () => {
+    studentsAPI.list.mockResolvedValueOnce(mockStudents);
+    trackingAPI.getProgressDashboard.mockRejectedValueOnce(new Error("Subject load error"));
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter>
+        <ViewProgressDashboard />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("Alice Wonderland");
+    const selectButtons = screen.getAllByRole("button", { name: /select/i });
+    await user.click(selectButtons[0]);
+
+    expect(await screen.findByText("Failed to Load Progress Data")).toBeInTheDocument();
+    const retryBtn = screen.getByRole("button", { name: /try again/i });
+    expect(retryBtn).toBeInTheDocument();
+
+    trackingAPI.getProgressDashboard.mockResolvedValueOnce([
+      {
+        id: 10,
+        name: "Communication Skills",
+        progress: 85,
+        status: "On Track",
+        lastUpdated: "May 15, 2026",
+        currentLevel: "Proficient",
+        chartData: [85],
+        months: ["May"],
+      },
+    ]);
+    await user.click(retryBtn);
+
+    expect(await screen.findByText("Communication Skills")).toBeInTheDocument();
+  });
+
+  it("paginates student list when students exceed pageSize of 6", async () => {
+    const manyStudents = Array.from({ length: 9 }, (_, i) => ({
+      studentID: 50 + i,
+      name: `Dashboard Student ${i + 1}`,
+      grade: 4,
+      age: 10,
+    }));
+    studentsAPI.list.mockResolvedValueOnce(manyStudents);
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter>
+        <ViewProgressDashboard />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Dashboard Student 1")).toBeInTheDocument();
+    expect(screen.getByText("Dashboard Student 6")).toBeInTheDocument();
+    expect(screen.queryByText("Dashboard Student 7")).not.toBeInTheDocument();
+
+    const nextBtn = screen.getByRole("button", { name: /next/i });
+    await user.click(nextBtn);
+
+    expect(await screen.findByText("Dashboard Student 7")).toBeInTheDocument();
+    expect(screen.getByText("Dashboard Student 9")).toBeInTheDocument();
+    expect(screen.queryByText("Dashboard Student 1")).not.toBeInTheDocument();
+  });
 });
 

@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/OutcomeMonitoring.css";
 import "../styles/ViewStudentRecords.css";
 import { iepAPI, studentsAPI, trackingAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import StudentShimmer from "../components/StudentShimmer";
+import ErrorState from "../components/ui/ErrorState";
+import Pagination from "../components/ui/Pagination";
 import { InboxIcon, CheckIcon, WarningIcon } from "../components/ui/icons";
 
 // ── Placeholder data shown when backend fields are missing ─────────────────
@@ -399,6 +401,8 @@ export default function ViewStudentRecords({ setActivePage }) {
   const [search, setSearch] = useState("");
   const [filterGrade, setFilterGrade] = useState("");
   const [filterAge, setFilterAge] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
 
   // Record detail state
   const [selected, setSelected] = useState(null); // raw student row
@@ -406,12 +410,35 @@ export default function ViewStudentRecords({ setActivePage }) {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [recordStep, setRecordStep] = useState(1); // 1 | 2 | 3
 
-  useEffect(() => {
+  const loadStudents = useCallback(() => {
+    setLoading(true);
+    setError("");
     studentsAPI
       .list(user?.id)
       .then(setStudents)
       .catch(() => setError("Failed to load students."))
       .finally(() => setLoading(false));
+  }, [user?.id]);
+
+  useEffect(() => {
+    let ignore = false;
+    studentsAPI
+      .list(user?.id)
+      .then((data) => {
+        if (!ignore) {
+          setStudents(data);
+          setError("");
+        }
+      })
+      .catch(() => {
+        if (!ignore) setError("Failed to load students.");
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
   }, [user?.id]);
 
   const handleSelect = (s) => {
@@ -493,12 +520,20 @@ export default function ViewStudentRecords({ setActivePage }) {
     setRecordStep(1);
   };
 
-  const filtered = students.filter((s) => {
-    const matchName = s.name.toLowerCase().includes(search.toLowerCase());
-    const matchGrade = filterGrade ? s.grade === parseInt(filterGrade) : true;
-    const matchAge = filterAge ? s.age === parseInt(filterAge) : true;
-    return matchName && matchGrade && matchAge;
-  });
+  const filtered = useMemo(() => {
+    return students.filter((s) => {
+      const matchName = (s.name || "").toLowerCase().includes(search.toLowerCase());
+      const matchGrade = filterGrade ? s.grade === parseInt(filterGrade) : true;
+      const matchAge = filterAge ? s.age === parseInt(filterAge) : true;
+      return matchName && matchGrade && matchAge;
+    });
+  }, [students, search, filterGrade, filterAge]);
+
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const paginatedStudents = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
 
   // ── Record detail view (3 steps) ──────────────────────────────────────
   if (selected) {
@@ -557,98 +592,122 @@ export default function ViewStudentRecords({ setActivePage }) {
       <div className="om-body">
         <div className="om-card">
           <h2 className="om-list-title">List of Students</h2>
-          {error && (
-            <div role="alert" className="om-error-banner flex items-center gap-2">
-              <WarningIcon className="w-4 h-4 text-red-600 flex-shrink-0" aria-hidden="true" />
-              <span>{error}</span>
-            </div>
-          )}
-          <div className="om-search-bar">
-            <input
-              id="search-students-input"
-              className="form-input om-search-input"
-              placeholder="Search Student Records"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              aria-label="Search students by name"
+          {error ? (
+            <ErrorState
+              title="Failed to Load Student Records"
+              message={error}
+              onRetry={loadStudents}
+              retryLabel="Try Again"
             />
-            <div className="om-filters">
-              <span className="om-filter-label">Filter:</span>
-              <select
-                id="filter-grade-select"
-                aria-label="Filter by grade"
-                className="form-select om-filter-select"
-                value={filterGrade}
-                onChange={(e) => setFilterGrade(e.target.value)}
-              >
-                <option value="">Grade</option>
-                {[1, 2, 3, 4, 5, 6].map((g) => (
-                  <option key={g} value={g}>
-                    Grade {g}
-                  </option>
-                ))}
-              </select>
-              <select
-                id="filter-age-select"
-                aria-label="Filter by age"
-                className="form-select om-filter-select"
-                value={filterAge}
-                onChange={(e) => setFilterAge(e.target.value)}
-              >
-                <option value="">Age</option>
-                {[6, 7, 8, 9, 10, 11, 12].map((a) => (
-                  <option key={a} value={a}>
-                    {a}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="om-student-list">
-            {loading ? (
-              <StudentShimmer />
-            ) : filtered.length === 0 ? (
-              students.length === 0 ? (
-                <EmptyState
-                  message="No students registered yet"
-                  description="Get started by creating a student profile to view records and track IEPs."
-                  actionLabel="+ Create Student"
-                  onAction={() => {
-                    navigate("/dashboard/students/create");
-                    if (setActivePage) setActivePage("create-student-profile");
+          ) : (
+            <>
+              <div className="om-search-bar">
+                <input
+                  id="search-students-input"
+                  className="form-input om-search-input"
+                  placeholder="Search Student Records"
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
                   }}
+                  aria-label="Search students by name"
                 />
-              ) : (
-                <EmptyState
-                  message="No students found matching your search"
-                  description="Try adjusting your search criteria or clear your filters."
-                  actionLabel="Clear Filters"
-                  onAction={() => {
-                    setSearch("");
-                    setFilterGrade("");
-                    setFilterAge("");
-                  }}
-                />
-              )
-            ) : (
-              filtered.map((s) => (
-                <div key={s.studentID} className="om-student-row">
-                  <div className="va-student-avatar" />
-                  <div className="va-student-info">
-                    <span className="va-student-name">{s.name}</span>
-                    <span className="va-student-grade">Grade – {s.grade}</span>
-                  </div>
-                  <button
-                    className="va-select-btn"
-                    onClick={() => handleSelect(s)}
+                <div className="om-filters">
+                  <span className="om-filter-label">Filter:</span>
+                  <select
+                    id="filter-grade-select"
+                    aria-label="Filter by grade"
+                    className="form-select om-filter-select"
+                    value={filterGrade}
+                    onChange={(e) => {
+                      setFilterGrade(e.target.value);
+                      setPage(1);
+                    }}
                   >
-                    Select
-                  </button>
+                    <option value="">Grade</option>
+                    {[1, 2, 3, 4, 5, 6].map((g) => (
+                      <option key={g} value={g}>
+                        Grade {g}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    id="filter-age-select"
+                    aria-label="Filter by age"
+                    className="form-select om-filter-select"
+                    value={filterAge}
+                    onChange={(e) => {
+                      setFilterAge(e.target.value);
+                      setPage(1);
+                    }}
+                  >
+                    <option value="">Age</option>
+                    {[6, 7, 8, 9, 10, 11, 12].map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              ))
-            )}
-          </div>
+              </div>
+
+              <div className="om-student-list">
+                {loading ? (
+                  <StudentShimmer />
+                ) : filtered.length === 0 ? (
+                  students.length === 0 ? (
+                    <EmptyState
+                      message="No students registered yet"
+                      description="Get started by creating a student profile to view records and track IEPs."
+                      actionLabel="+ Create Student"
+                      onAction={() => {
+                        navigate("/dashboard/students/create");
+                        if (setActivePage) setActivePage("create-student-profile");
+                      }}
+                    />
+                  ) : (
+                    <EmptyState
+                      message="No students found matching your search"
+                      description="Try adjusting your search criteria or clear your filters."
+                      actionLabel="Clear Filters"
+                      onAction={() => {
+                        setSearch("");
+                        setFilterGrade("");
+                        setFilterAge("");
+                        setPage(1);
+                      }}
+                    />
+                  )
+                ) : (
+                  <>
+                    {paginatedStudents.map((s) => (
+                      <div key={s.studentID} className="om-student-row">
+                        <div className="va-student-avatar" />
+                        <div className="va-student-info">
+                          <span className="va-student-name">{s.name}</span>
+                          <span className="va-student-grade">Grade – {s.grade}</span>
+                        </div>
+                        <button
+                          className="va-select-btn"
+                          onClick={() => handleSelect(s)}
+                        >
+                          Select
+                        </button>
+                      </div>
+                    ))}
+                    <Pagination
+                      currentPage={page}
+                      totalPages={totalPages}
+                      totalItems={filtered.length}
+                      pageSize={pageSize}
+                      onPageChange={setPage}
+                    />
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

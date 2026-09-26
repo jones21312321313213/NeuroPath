@@ -216,6 +216,38 @@
   transform: translateX(3px);
 }
 
+.vsp-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vsp-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1.5px solid rgba(239, 68, 68, 0.25);
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    color 0.2s,
+    transform 0.1s;
+}
+
+.vsp-delete-btn:hover {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
 /* ── Empty state ─────────────────────────────────────── */
 .vsp-empty {
   text-align: center;
