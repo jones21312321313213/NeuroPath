@@ -174,4 +174,25 @@ describe("Automated WCAG 2.1 AA Accessibility Audit (axe-core)", () => {
     const results = await runAxeAudit(container);
     expect(results.violations).toEqual([]);
   });
+
+  it("interactive controls and focusable elements have zero axe violations", async () => {
+    const { container } = renderWithProviders(
+      <div>
+        <label htmlFor="search-input">Search Students</label>
+        <input id="search-input" className="form-input" placeholder="Search..." />
+        <label htmlFor="filter-select">Grade Level</label>
+        <select id="filter-select" className="form-select">
+          <option value="1">Grade 1</option>
+          <option value="2">Grade 2</option>
+        </select>
+        <button type="button" className="btn btn-primary">
+          Submit Form
+        </button>
+      </div>
+    );
+
+    const results = await runAxeAudit(container);
+    expect(results.violations).toEqual([]);
+  });
 });
+

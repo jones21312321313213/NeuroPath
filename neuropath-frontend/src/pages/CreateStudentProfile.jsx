@@ -10,6 +10,7 @@ import {
   InformationCircleIcon,
 } from "../components/ui/icons";
 import { Ra10173ConsentModal } from "../components/Ra10173ConsentModal";
+import { toIsoDate, validatePastDate } from "../utils/dateUtils";
 import UnsavedChangesModal from "../components/ui/UnsavedChangesModal";
 import useUnsavedChanges from "../hooks/useUnsavedChanges";
 import { useToast } from "../context/ToastContext";
@@ -401,17 +402,10 @@ export default function CreateStudentProfile({
       return false;
     }
 
-    if (form.birthdate.trim()) {
-      const dateRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])-\d{4}$/;
-      if (!dateRegex.test(form.birthdate.trim())) {
-        setError("Birthdate must be in MM-DD-YYYY format.");
-        return false;
-      }
-
-      const [month, day, year] = form.birthdate.split("-").map(Number);
-      const birthDate = new Date(year, month - 1, day);
-      if (birthDate >= new Date()) {
-        setError("Birthdate must be a date in the past.");
+    if (form.birthdate && form.birthdate.trim()) {
+      const { valid, error: dateError } = validatePastDate(form.birthdate);
+      if (!valid) {
+        setError(dateError);
         return false;
       }
     }
@@ -706,8 +700,8 @@ export default function CreateStudentProfile({
                 />
                 <FormField
                   label="Birthdate"
-                  placeholder="MM-DD-YYYY"
-                  value={form.birthdate}
+                  type="date"
+                  value={toIsoDate(form.birthdate)}
                   onChange={setField("birthdate")}
                 />
                 <SelectField

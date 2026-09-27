@@ -290,3 +290,43 @@
 .up-file-hidden {
   display: none;
 }
+
+/* ── Responsive Mobile & Tablet Breakpoints ──────────── */
+@media (max-width: 640px) {
+  .up-card {
+    padding: 20px 16px;
+  }
+
+  .up-form-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .up-form-actions {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .up-form-actions button,
+  .up-edit-btn {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .up-field-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .up-divider {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+

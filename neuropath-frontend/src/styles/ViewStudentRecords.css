@@ -210,6 +210,7 @@
 .vsr-table-scroll {
   width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1.5px solid #e2e8f0;
   border-radius: 10px;
   background: #ffffff;
@@ -219,6 +220,7 @@
 
 .vsr-table {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
   font-size: 14px;
   color: #334155;
@@ -380,4 +382,25 @@
   border-radius: 8px;
   text-align: right;
 }
+
+@media (max-width: 768px) {
+  .vsr-page {
+    padding: 20px 16px 20px;
+  }
+
+  .vsr-page-actions {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .vsr-page-actions button {
+    width: 100%;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
 
