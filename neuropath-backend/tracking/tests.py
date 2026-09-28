@@ -395,14 +395,14 @@ class RecentActivityAPITestCase(TestCase):
         self._auth(self.token1)
 
         # Create IEP for student 1
-        iep = IEPModel.objects.create(
+        IEPModel.objects.create(
             studentID=self.student1,
             version=1,
             baselineData='Baseline data test',
         )
 
         # Create progress for student 1
-        prog = StudentProgress.objects.create(
+        StudentProgress.objects.create(
             student=self.student1,
             subjectName='Mathematics',
             performanceScore=85,
