@@ -69,10 +69,10 @@ describe("CreateStudentProfile Help Text & Difficulty Validation", () => {
     fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
 
     expect(
-      await screen.findByText(
+      (await screen.findAllByText(
         /Please select at least one difficulty marker \(needed before Generate IEP\)\./i,
-      ),
-    ).toBeInTheDocument();
+      )).length,
+    ).toBeGreaterThanOrEqual(1);
     expect(
       screen.getByText(/Section A: Personal Information/i),
     ).toBeInTheDocument();
@@ -427,8 +427,8 @@ describe("CreateStudentProfile next-step actions", () => {
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
     expect(
-      await screen.findByText(/Guardian name is required/i),
-    ).toBeInTheDocument();
+      (await screen.findAllByText(/Guardian name is required/i)).length,
+    ).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
   });
 
@@ -461,8 +461,8 @@ describe("CreateStudentProfile next-step actions", () => {
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
     expect(
-      await screen.findByText(/Guardian relationship is required/i),
-    ).toBeInTheDocument();
+      (await screen.findAllByText(/Guardian relationship is required/i)).length,
+    ).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
   });
 
@@ -495,8 +495,8 @@ describe("CreateStudentProfile next-step actions", () => {
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
     expect(
-      await screen.findByText(/Consent date is required/i),
-    ).toBeInTheDocument();
+      (await screen.findAllByText(/Consent date is required/i)).length,
+    ).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
   });
 
@@ -527,8 +527,8 @@ describe("CreateStudentProfile next-step actions", () => {
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
     expect(
-      await screen.findByText(/Parental\/guardian consent agreement \/ statement is required/i),
-    ).toBeInTheDocument();
+      (await screen.findAllByText(/Parental\/guardian consent agreement \/ statement is required/i)).length,
+    ).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Section A: Personal Information/i)).toBeInTheDocument();
   });
 
@@ -584,7 +584,7 @@ describe("CreateStudentProfile next-step actions", () => {
     // Press next without filling any required inputs
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
-    expect(await screen.findByText(/Student name is required/i)).toBeInTheDocument();
+    expect((await screen.findAllByText(/Student name is required/i)).length).toBeGreaterThanOrEqual(1);
     await vi.waitFor(() => {
       expect(scrollIntoViewMock).toHaveBeenCalled();
     });
@@ -675,8 +675,8 @@ describe("CreateStudentProfile next-step actions", () => {
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
     expect(
-      await screen.findByText(/Birthdate must be a date in the past/i),
-    ).toBeInTheDocument();
+      (await screen.findAllByText(/Birthdate must be a date in the past/i)).length,
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it("prompts unsaved changes modal when form is dirty and back button is clicked", () => {
@@ -713,6 +713,131 @@ describe("CreateStudentProfile next-step actions", () => {
     fireEvent.click(screen.getByRole("button", { name: /^back$/i }));
     fireEvent.click(screen.getByRole("button", { name: /discard & leave/i }));
     expect(mockNavigate).toHaveBeenCalledWith("/dashboard/students");
+  });
+});
+
+describe("Issue #204: Input bounds, accessible validation feedback, and save confirmation modal", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAuth.mockReturnValue({ user: { id: 1, email: "teacher@test.com" } });
+  });
+
+  function renderComponent() {
+    return render(
+      <MemoryRouter>
+        <CreateStudentProfile onBack={vi.fn()} />
+      </MemoryRouter>,
+    );
+  }
+
+  it("enforces input maxLength bounds and live character counters", async () => {
+    renderComponent();
+
+    // Check Step 1 input maxLength and number bounds
+    expect(screen.getByPlaceholderText("Enter student name")).toHaveAttribute("maxLength", "255");
+    expect(screen.getByPlaceholderText("School name")).toHaveAttribute("maxLength", "255");
+    expect(screen.getByPlaceholderText("2025 - 2026")).toHaveAttribute("maxLength", "50");
+    expect(screen.getByPlaceholderText("Enter age")).toHaveAttribute("min", "2");
+    expect(screen.getByPlaceholderText("Enter age")).toHaveAttribute("max", "18");
+    expect(screen.getByPlaceholderText("Enter grade level")).toHaveAttribute("min", "1");
+    expect(screen.getByPlaceholderText("Enter grade level")).toHaveAttribute("max", "10");
+    expect(screen.getByPlaceholderText(/Enter parent or guardian name/i)).toHaveAttribute("maxLength", "255");
+
+    // Advance to Step 2
+    fireEvent.change(screen.getByPlaceholderText("Enter student name"), { target: { value: "Maria Clara" } });
+    fireEvent.change(screen.getByPlaceholderText("Enter age"), { target: { value: "8" } });
+    fireEvent.change(screen.getByPlaceholderText("Enter grade level"), { target: { value: "3" } });
+    fireEvent.change(screen.getByRole("combobox", { name: /^gender:/i }), { target: { value: "Female" } });
+    fireEvent.click(screen.getByLabelText(/Difficulty in Seeing/i));
+    fireEvent.change(screen.getByPlaceholderText(/Enter parent or guardian name/i), { target: { value: "Jane Clara" } });
+    fireEvent.click(screen.getByRole("button", { name: /read full consent agreement/i }));
+    fireEvent.click(screen.getByRole("button", { name: /i have read & understood the terms/i }));
+    fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
+
+    // On Step 2, check narrative textarea maxLength and live counter
+    const evalTextarea = await screen.findByPlaceholderText(/the learner fails to finish tasks/i);
+    expect(evalTextarea).toHaveAttribute("maxLength", "2000");
+
+    // Initially 5 narrative textareas are 0 / 2000
+    expect(screen.getAllByText("0 / 2000").length).toBe(5);
+
+    // Typing updates character counter
+    fireEvent.change(evalTextarea, { target: { value: "Evaluated with ASD Level 1." } });
+    expect(screen.getByText("27 / 2000")).toBeInTheDocument();
+  });
+
+  it("provides accessible inline error feedback with aria-invalid and aria-describedby", async () => {
+    renderComponent();
+
+    const nameInput = screen.getByPlaceholderText("Enter student name");
+    expect(nameInput.getAttribute("aria-invalid")).toBeFalsy();
+
+    // Click NEXT with empty fields
+    fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
+
+    expect(nameInput).toHaveAttribute("aria-invalid", "true");
+    expect(nameInput).toHaveAttribute("aria-describedby", "field-student-name-error");
+
+    const errorMsg = document.getElementById("field-student-name-error");
+    expect(errorMsg).toBeInTheDocument();
+    expect(errorMsg).toHaveTextContent("Student name is required.");
+    expect(errorMsg).toHaveAttribute("role", "alert");
+
+    // Typing into the field clears inline error
+    fireEvent.change(nameInput, { target: { value: "Maria Clara" } });
+    expect(nameInput.getAttribute("aria-invalid")).toBeFalsy();
+    expect(document.getElementById("field-student-name-error")).toBeNull();
+  });
+
+  it("standardizes range error messages for age and grade level", async () => {
+    renderComponent();
+
+    // Out of range age
+    fireEvent.change(screen.getByPlaceholderText("Enter age"), { target: { value: "1" } });
+    fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
+
+    expect((await screen.findAllByText("Age must be between 2 and 18.")).length).toBeGreaterThanOrEqual(1);
+
+    // Out of range grade
+    fireEvent.change(screen.getByPlaceholderText("Enter grade level"), { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
+
+    expect((await screen.findAllByText("Grade level must be between 1 and 10.")).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("submits valid student profile immediately on clicking SUBMIT without intermediate confirmation modal", async () => {
+    studentsAPI.create.mockResolvedValueOnce({
+      studentID: 204,
+      name: "Juan Luna",
+    });
+
+    renderComponent();
+
+    // Step 1
+    fireEvent.change(screen.getByPlaceholderText("Enter student name"), { target: { value: "Juan Luna" } });
+    fireEvent.change(screen.getByPlaceholderText("School name"), { target: { value: "Manila Elementary" } });
+    fireEvent.change(screen.getByPlaceholderText("Enter age"), { target: { value: "9" } });
+    fireEvent.change(screen.getByPlaceholderText("Enter grade level"), { target: { value: "4" } });
+    fireEvent.change(screen.getByRole("combobox", { name: /^gender:/i }), { target: { value: "Male" } });
+    fireEvent.click(screen.getByLabelText(/Difficulty in Hearing/i));
+    fireEvent.change(screen.getByPlaceholderText(/Enter parent or guardian name/i), { target: { value: "Leonora Luna" } });
+    fireEvent.click(screen.getByRole("button", { name: /read full consent agreement/i }));
+    fireEvent.click(screen.getByRole("button", { name: /i have read & understood the terms/i }));
+    fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
+
+    // Step 2
+    fireEvent.change(screen.getByPlaceholderText(/the learner fails to finish tasks/i), { target: { value: "Detailed evaluation" } });
+    fireEvent.change(screen.getByPlaceholderText(/the learner can spell random words/i), { target: { value: "Strong visual memory" } });
+    fireEvent.change(screen.getByPlaceholderText(/needs structured routines/i), { target: { value: "Requires sign language" } });
+    fireEvent.change(screen.getByPlaceholderText(/write concerns shared by the parent/i), { target: { value: "Wants child to socialize" } });
+    fireEvent.change(screen.getByPlaceholderText(/the learner has difficulty concentrating/i), { target: { value: "Impacts listening activities" } });
+
+    // Click SUBMIT -> directly calls studentsAPI.create and opens SuccessModal without confirmation modal
+    fireEvent.click(screen.getByRole("button", { name: /SUBMIT/i }));
+
+    expect(studentsAPI.create).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("heading", { name: /Confirm Student Profile Creation/i })).not.toBeInTheDocument();
+    expect(await screen.findByText(/Profile Created!/i)).toBeInTheDocument();
   });
 });
 

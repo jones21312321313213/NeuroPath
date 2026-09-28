@@ -85,8 +85,8 @@ describe("UpdateStudentProfile Help Text & Difficulty Validation", () => {
     fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
 
     expect(
-      await screen.findByText(/Please select at least one difficulty marker \(needed before Generate IEP\)\./i)
-    ).toBeInTheDocument();
+      (await screen.findAllByText(/Please select at least one difficulty marker \(needed before Generate IEP\)\./i)).length
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it("does not show AI goal drafting help texts in Step 2", async () => {
@@ -153,7 +153,7 @@ describe("UpdateStudentProfile Help Text & Difficulty Validation", () => {
     // Advance to step 2
     await user.click(screen.getByRole("button", { name: /NEXT/i }));
 
-    // Click Save
+    // Click Save -> directly saves
     const saveBtn = await screen.findByRole("button", { name: /SAVE/i });
     await user.click(saveBtn);
 
@@ -341,8 +341,8 @@ describe("UpdateStudentProfile Help Text & Difficulty Validation", () => {
     fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
 
     expect(
-      await screen.findByText(/Student name is required/i)
-    ).toBeInTheDocument();
+      (await screen.findAllByText(/Student name is required/i)).length
+    ).toBeGreaterThanOrEqual(1);
     await vi.waitFor(() => {
       expect(scrollIntoViewMock).toHaveBeenCalled();
     });
@@ -407,5 +407,126 @@ describe("UpdateStudentProfile Help Text & Difficulty Validation", () => {
     fireEvent.click(screen.getByRole("button", { name: "←" }));
     fireEvent.click(screen.getByRole("button", { name: /discard & leave/i }));
     expect(mockNavigate).toHaveBeenCalledWith("/dashboard/students/student-123");
+  });
+});
+
+describe("Issue #204: Input bounds, accessible validation feedback, and update confirmation modal", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("enforces input bounds, character counters, and age/grade ranges", async () => {
+    studentsAPI.get.mockResolvedValueOnce({ data: mockStudent });
+
+    render(
+      <MemoryRouter>
+        <UpdateStudentProfile studentId="student-123" onBack={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue("Maria Clara");
+
+    // Step 1 input attributes
+    expect(screen.getByLabelText(/^student name:/i)).toHaveAttribute("maxLength", "255");
+    expect(screen.getByLabelText(/^school:/i)).toHaveAttribute("maxLength", "255");
+    expect(screen.getByLabelText(/^school year:/i)).toHaveAttribute("maxLength", "50");
+    expect(screen.getByLabelText(/^age:/i)).toHaveAttribute("min", "2");
+    expect(screen.getByLabelText(/^age:/i)).toHaveAttribute("max", "18");
+    expect(screen.getByLabelText(/^grade level:/i)).toHaveAttribute("min", "1");
+    expect(screen.getByLabelText(/^grade level:/i)).toHaveAttribute("max", "10");
+
+    // Advance to Step 2
+    fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
+
+    const evalTextarea = await screen.findByLabelText(/results of initial or most recent evaluation/i);
+    expect(evalTextarea).toHaveAttribute("maxLength", "2000");
+
+    // Character counter is displayed
+    const charCounter = document.getElementById("usp-area-results-of-initial-or-most-recent-evaluation-and-results-of-school-assessments-char-count");
+    expect(charCounter).toBeInTheDocument();
+    expect(charCounter).toHaveTextContent("/ 2000");
+  });
+
+  it("provides accessible inline error feedback with aria-invalid and aria-describedby", async () => {
+    studentsAPI.get.mockResolvedValueOnce({ data: mockStudent });
+
+    render(
+      <MemoryRouter>
+        <UpdateStudentProfile studentId="student-123" onBack={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    const nameInput = await screen.findByDisplayValue("Maria Clara");
+    expect(nameInput.getAttribute("aria-invalid")).toBeFalsy();
+
+    // Clear name and click NEXT
+    fireEvent.change(nameInput, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
+
+    expect(nameInput).toHaveAttribute("aria-invalid", "true");
+    expect(nameInput).toHaveAttribute("aria-describedby", "usp-field-student-name-error");
+
+    const errorMsg = document.getElementById("usp-field-student-name-error");
+    expect(errorMsg).toBeInTheDocument();
+    expect(errorMsg).toHaveTextContent("Student name is required.");
+    expect(errorMsg).toHaveAttribute("role", "alert");
+
+    // Typing into the field clears inline error
+    fireEvent.change(nameInput, { target: { value: "Maria Clara Fixed" } });
+    expect(nameInput.getAttribute("aria-invalid")).toBeFalsy();
+    expect(document.getElementById("usp-field-student-name-error")).toBeNull();
+  });
+
+  it("validates age (2-18) and grade (1-10) ranges and age/grade coherence", async () => {
+    studentsAPI.get.mockResolvedValueOnce({ data: mockStudent });
+
+    render(
+      <MemoryRouter>
+        <UpdateStudentProfile studentId="student-123" onBack={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue("Maria Clara");
+
+    // Out of range age
+    fireEvent.change(screen.getByLabelText(/^age:/i), { target: { value: "1" } });
+    fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
+    expect((await screen.findAllByText("Age must be between 2 and 18.")).length).toBeGreaterThanOrEqual(1);
+
+    // Out of range grade
+    fireEvent.change(screen.getByLabelText(/^age:/i), { target: { value: "8" } });
+    fireEvent.change(screen.getByLabelText(/^grade level:/i), { target: { value: "15" } });
+    fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
+    expect((await screen.findAllByText("Grade level must be between 1 and 10.")).length).toBeGreaterThanOrEqual(1);
+
+    // Incoherent age / grade
+    fireEvent.change(screen.getByLabelText(/^age:/i), { target: { value: "4" } });
+    fireEvent.change(screen.getByLabelText(/^grade level:/i), { target: { value: "8" } });
+    fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
+    expect((await screen.findAllByText("A student under 6 years old is unlikely to be above Grade 1.")).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("saves valid student profile immediately on clicking SAVE without intermediate confirmation modal", async () => {
+    studentsAPI.get.mockResolvedValueOnce({ data: mockStudent });
+    studentsAPI.update.mockResolvedValueOnce({ success: true });
+
+    render(
+      <MemoryRouter>
+        <UpdateStudentProfile studentId="student-123" onBack={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue("Maria Clara");
+
+    // Advance to Step 2
+    fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
+
+    // Click SAVE PROFILE -> directly saves and opens SuccessModal without confirmation modal
+    const saveBtn = await screen.findByRole("button", { name: /SAVE/i });
+    fireEvent.click(saveBtn);
+
+    expect(studentsAPI.update).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("heading", { name: /Confirm Student Profile Update/i })).not.toBeInTheDocument();
+    expect(await screen.findByText(/Profile Updated!/i)).toBeInTheDocument();
   });
 });

@@ -916,6 +916,114 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       // Must be replaced with ["test"], NOT ["Sensory Processing", "test"]
       expect(savedMarkers).toEqual(["test"]);
     });
+
+    it("synchronizes empty difficulties when all Section B difficulty rows are deleted (ENH19)", async () => {
+      const user = userEvent.setup();
+      iepAPI.update.mockResolvedValue({
+        iepID: 101,
+        difficulties: "",
+        generatedDetails: {
+          barrierRows: [],
+        },
+      });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("EDIT IEP"));
+      expect(screen.getByText(/Editing IEP/i)).toBeInTheDocument();
+
+      // Find the Remove button for the existing Section B row and click it
+      const sectionBTable = screen.getAllByRole("table")[0];
+      const removeBtn = within(sectionBTable).getByRole("button", { name: /^Remove$/i });
+      await user.click(removeBtn);
+
+      // Click SAVE CHANGES
+      await user.click(screen.getByRole("button", { name: /^SAVE CHANGES$/i }));
+
+      await waitFor(() => {
+        expect(iepAPI.update).toHaveBeenCalled();
+      });
+
+      // Verify studentsAPI.update was called with empty difficultyMarkers: []
+      expect(studentsAPI.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          profileDetails: expect.objectContaining({
+            difficultyMarkers: [],
+          }),
+        }),
+      );
+    });
+  });
+
+  describe("Immediate Cache & State Reactivity for Difficulties in Generate IEP (ENH20)", () => {
+    it("immediately reflects difficulties updated via queryClient.setQueryData in Generate IEP tab without reload", async () => {
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      // Verify initial difficulty is loaded
+      await waitFor(() => {
+        expect(screen.getAllByText("Sensory Processing").length).toBeGreaterThanOrEqual(1);
+      });
+
+      // Update student in query cache with new difficulty markers
+      const updatedStudent = {
+        ...mockStudent,
+        difficultyMarkers: ["Difficulty in Hearing", "Difficulty in Seeing"],
+        profileDetails: {
+          difficultyMarkers: ["Difficulty in Hearing", "Difficulty in Seeing"],
+        },
+      };
+
+      queryClient.setQueryData(["student", 1], updatedStudent);
+
+      // Verify that Generate IEP immediately updates difficulties list and Section B
+      await waitFor(() => {
+        expect(screen.getAllByText("Difficulty in Hearing").length).toBeGreaterThanOrEqual(1);
+        expect(screen.getAllByText("Difficulty in Seeing").length).toBeGreaterThanOrEqual(1);
+      });
+      expect(screen.queryAllByText("Sensory Processing")).toHaveLength(0);
+    });
+
+    it("reacts to query invalidation on student query by refetching and updating difficulty markers in Generate IEP", async () => {
+      const refetchedStudent = {
+        ...mockStudent,
+        difficultyMarkers: ["Difficulty in Mobility"],
+        profileDetails: {
+          difficultyMarkers: ["Difficulty in Mobility"],
+        },
+      };
+      studentsAPI.get.mockResolvedValueOnce(refetchedStudent);
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getAllByText("Sensory Processing").length).toBeGreaterThanOrEqual(1);
+      });
+
+      // Invalidate student query
+      queryClient.invalidateQueries({ queryKey: ["student", 1] });
+
+      await waitFor(() => {
+        expect(studentsAPI.get).toHaveBeenCalledWith(1);
+        expect(screen.getAllByText("Difficulty in Mobility").length).toBeGreaterThanOrEqual(1);
+      });
+    });
   });
 
   describe("ErrorModal Integration in IEPGenerationPage", () => {

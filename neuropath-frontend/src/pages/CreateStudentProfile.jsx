@@ -37,11 +37,15 @@ function FormField({
   type = "text",
   min,
   max,
+  maxLength = type === "number" || type === "date" ? undefined : 255,
   required = false,
+  error,
 }) {
   const inputId = label
     ? `field-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
     : undefined;
+  const errorId = inputId ? `${inputId}-error` : undefined;
+
   return (
     <div className="form-group">
       <label htmlFor={inputId} className="form-label">
@@ -53,20 +57,37 @@ function FormField({
         placeholder={placeholder}
         value={value}
         onChange={onChange}
-        className="form-input"
+        className={`form-input ${error ? "has-error border-rose-500" : ""}`}
         min={min}
         max={max}
+        maxLength={maxLength}
         required={required}
         aria-required={required ? "true" : undefined}
+        aria-invalid={error ? "true" : undefined}
+        aria-describedby={error ? errorId : undefined}
       />
+      {error && (
+        <p id={errorId} className="form-field-error" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
 
-function SelectField({ label, options, value, onChange, required = false }) {
+function SelectField({
+  label,
+  options,
+  value,
+  onChange,
+  required = false,
+  error,
+}) {
   const selectId = label
     ? `select-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
     : undefined;
+  const errorId = selectId ? `${selectId}-error` : undefined;
+
   return (
     <div className="form-group">
       <label htmlFor={selectId} className="form-label">
@@ -76,9 +97,11 @@ function SelectField({ label, options, value, onChange, required = false }) {
         id={selectId}
         value={value}
         onChange={onChange}
-        className="form-select"
+        className={`form-select ${error ? "has-error border-rose-500" : ""}`}
         required={required}
         aria-required={required ? "true" : undefined}
+        aria-invalid={error ? "true" : undefined}
+        aria-describedby={error ? errorId : undefined}
       >
         <option value="">Choose</option>
         {options.map((option) => (
@@ -87,6 +110,11 @@ function SelectField({ label, options, value, onChange, required = false }) {
           </option>
         ))}
       </select>
+      {error && (
+        <p id={errorId} className="form-field-error" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -94,20 +122,45 @@ function SelectField({ label, options, value, onChange, required = false }) {
 function TextAreaField({
   label,
   placeholder,
-  value,
+  value = "",
   onChange,
   rows = 3,
   helpText,
+  maxLength,
+  showCharCount = Boolean(maxLength),
   required = false,
+  error,
 }) {
   const areaId = label
     ? `area-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
     : undefined;
+  const errorId = areaId ? `${areaId}-error` : undefined;
+  const charCountId = areaId ? `${areaId}-char-count` : undefined;
+  const currentLength = typeof value === "string" ? value.length : 0;
+
+  const describedBy = [
+    error ? errorId : null,
+    maxLength && showCharCount ? charCountId : null,
+  ]
+    .filter(Boolean)
+    .join(" ") || undefined;
+
   return (
     <div className="form-group">
-      <label htmlFor={areaId} className="form-label">
-        {label}{required && <span className="text-rose-500 ml-1" aria-hidden="true">*</span>}
-      </label>
+      <div className="flex justify-between items-baseline gap-2">
+        <label htmlFor={areaId} className="form-label">
+          {label}{required && <span className="text-rose-500 ml-1" aria-hidden="true">*</span>}
+        </label>
+        {maxLength && showCharCount && (
+          <span
+            id={charCountId}
+            className="form-char-count text-xs text-slate-500 font-mono shrink-0"
+            aria-live="polite"
+          >
+            {currentLength} / {maxLength}
+          </span>
+        )}
+      </div>
       {helpText && <span className="iep-field-help">{helpText}</span>}
       <textarea
         id={areaId}
@@ -115,10 +168,18 @@ function TextAreaField({
         placeholder={placeholder}
         value={value}
         onChange={onChange}
-        className="form-textarea"
+        maxLength={maxLength}
+        className={`form-textarea ${error ? "has-error border-rose-500" : ""}`}
         required={required}
         aria-required={required ? "true" : undefined}
+        aria-invalid={error ? "true" : undefined}
+        aria-describedby={describedBy}
       />
+      {error && (
+        <p id={errorId} className="form-field-error" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -295,6 +356,7 @@ export default function CreateStudentProfile({
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [isDirty, setIsDirty] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdStudent, setCreatedStudent] = useState(null);
@@ -328,6 +390,13 @@ export default function CreateStudentProfile({
       ...prev,
       parentalConsentObtained: true,
     }));
+    if (fieldErrors.parentalConsentObtained) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next.parentalConsentObtained;
+        return next;
+      });
+    }
   };
 
   const handleBack = () => {
@@ -342,6 +411,16 @@ export default function CreateStudentProfile({
   const setField = (field) => (e) => {
     setIsDirty(true);
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+    if (error) {
+      setError("");
+    }
   };
 
   const toggleDifficulty = (difficulty) => {
@@ -352,9 +431,20 @@ export default function CreateStudentProfile({
         ? prev.difficultyMarkers.filter((item) => item !== difficulty)
         : [...prev.difficultyMarkers, difficulty],
     }));
+    if (fieldErrors.difficultyMarkers) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next.difficultyMarkers;
+        return next;
+      });
+    }
+    if (error) {
+      setError("");
+    }
   };
 
   const validateStepOne = () => {
+    const errors = {};
     const requiredFields = [
       ["learnerName", "Student name is required."],
       ["age", "Age is required."],
@@ -365,85 +455,87 @@ export default function CreateStudentProfile({
 
     for (const [field, message] of requiredFields) {
       if (!String(form[field] || "").trim()) {
-        setError(message);
-        return false;
+        errors[field] = message;
       }
     }
 
-    if (!/^[a-zA-Z\s.'-]+$/.test(form.learnerName.trim())) {
-      setError("Student name should contain letters only.");
-      return false;
+    if (!errors.learnerName && form.learnerName) {
+      if (!/^[a-zA-Z\s.'-]+$/.test(form.learnerName.trim())) {
+        errors.learnerName = "Student name should contain letters only.";
+      }
     }
 
-    const age = Number(form.age);
-    if (age < 2 || age > 18) {
-      setError("Age must be between 2 and 18.");
-      return false;
+    if (!errors.age && form.age !== "") {
+      const age = Number(form.age);
+      if (isNaN(age) || age < 2 || age > 18) {
+        errors.age = "Age must be between 2 and 18.";
+      }
     }
 
-    const grade = Number(form.gradeLevel);
-    if (grade < 1 || grade > 10) {
-      setError("Grade level must be between 1 and 10.");
-      return false;
+    if (!errors.gradeLevel && form.gradeLevel !== "") {
+      const grade = Number(form.gradeLevel);
+      if (isNaN(grade) || grade < 1 || grade > 10) {
+        errors.gradeLevel = "Grade level must be between 1 and 10.";
+      }
     }
 
-    if (age < 4 && grade > 0) {
-      setError(
-        "A student under 4 years old cannot be in a grade higher than Kindergarten.",
-      );
-      return false;
-    }
-    if (age < 6 && grade > 1) {
-      setError("A student under 6 years old is unlikely to be above Grade 1.");
-      return false;
-    }
-    if (age > 12 && grade < 4) {
-      setError("Grade level seems too low for the student's age.");
-      return false;
+    const ageNum = Number(form.age);
+    const gradeNum = Number(form.gradeLevel);
+    if (!errors.age && !errors.gradeLevel) {
+      if (ageNum < 4 && gradeNum > 0) {
+        errors.gradeLevel =
+          "A student under 4 years old cannot be in a grade higher than Kindergarten.";
+      } else if (ageNum < 6 && gradeNum > 1) {
+        errors.gradeLevel =
+          "A student under 6 years old is unlikely to be above Grade 1.";
+      } else if (ageNum > 12 && gradeNum < 4) {
+        errors.gradeLevel =
+          "Grade level seems too low for the student's age.";
+      }
     }
 
     if (form.birthdate && form.birthdate.trim()) {
       const { valid, error: dateError } = validatePastDate(form.birthdate);
       if (!valid) {
-        setError(dateError);
-        return false;
+        errors.birthdate = dateError;
       }
     }
 
-    if (form.schoolYear.trim()) {
+    if (form.schoolYear && form.schoolYear.trim()) {
       const syRegex = /^\d{4}\s*-\s*\d{4}$/;
       if (!syRegex.test(form.schoolYear.trim())) {
-        setError(
-          "School year must be in YYYY - YYYY format (e.g. 2025 - 2026).",
-        );
-        return false;
+        errors.schoolYear =
+          "School year must be in YYYY - YYYY format (e.g. 2025 - 2026).";
       }
     }
 
     if (!form.difficultyMarkers || form.difficultyMarkers.length === 0) {
-      setError(
-        "Please select at least one difficulty marker (needed before Generate IEP).",
-      );
-      return false;
+      errors.difficultyMarkers =
+        "Please select at least one difficulty marker (needed before Generate IEP).";
     }
 
     if (!String(form.guardianName || "").trim()) {
-      setError("Guardian name is required.");
-      return false;
+      errors.guardianName = "Guardian name is required.";
     }
 
     if (!String(form.guardianRelationship || "").trim()) {
-      setError("Guardian relationship is required.");
-      return false;
+      errors.guardianRelationship = "Guardian relationship is required.";
     }
 
     if (!String(form.consentDate || "").trim()) {
-      setError("Consent date is required.");
-      return false;
+      errors.consentDate = "Consent date is required.";
     }
 
     if (!form.parentalConsentObtained) {
-      setError("Parental/guardian consent agreement / statement is required.");
+      errors.parentalConsentObtained =
+        "Parental/guardian consent agreement / statement is required.";
+    }
+
+    setFieldErrors(errors);
+
+    const firstError = Object.values(errors)[0];
+    if (firstError) {
+      setError(firstError);
       return false;
     }
 
@@ -452,31 +544,27 @@ export default function CreateStudentProfile({
   };
 
   const validateStepTwo = () => {
+    const errors = {};
     const requiredFields = [
-      [
-        "presentEvaluation",
-        "Please fill in the evaluation / assessment results before saving.",
-      ],
-      [
-        "academicStrengths",
-        "Please fill in the learner strengths before saving.",
-      ],
-      ["academicNeeds", "Please fill in the learner needs before saving."],
-      [
-        "parentalConcerns",
-        "Please fill in the parental concerns before saving.",
-      ],
-      [
-        "curriculumImpact",
-        "Please fill in the curriculum impact before saving.",
-      ],
+      ["presentEvaluation", "Evaluation / assessment results are required."],
+      ["academicStrengths", "Learner strengths are required."],
+      ["academicNeeds", "Learner needs are required."],
+      ["parentalConcerns", "Parental concerns are required."],
+      ["curriculumImpact", "Curriculum impact is required."],
     ];
 
     for (const [field, message] of requiredFields) {
       if (!String(form[field] || "").trim()) {
-        setError(message);
-        return false;
+        errors[field] = message;
       }
+    }
+
+    setFieldErrors(errors);
+
+    const firstError = Object.values(errors)[0];
+    if (firstError) {
+      setError(firstError);
+      return false;
     }
 
     setError("");
@@ -492,6 +580,7 @@ export default function CreateStudentProfile({
       return;
     }
     setError("");
+    setFieldErrors({});
     setStep(2);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -566,6 +655,7 @@ export default function CreateStudentProfile({
       setShowSuccessModal(true);
     } catch (err) {
       setError(err.message || "Unable to save student profile.");
+      scrollToError();
     } finally {
       setSaving(false);
     }
@@ -656,20 +746,26 @@ export default function CreateStudentProfile({
                   label="Student Name"
                   placeholder="Enter student name"
                   required={true}
+                  maxLength={255}
                   value={form.learnerName}
                   onChange={setField("learnerName")}
+                  error={fieldErrors.learnerName}
                 />
                 <FormField
                   label="School"
                   placeholder="School name"
+                  maxLength={255}
                   value={form.school}
                   onChange={setField("school")}
+                  error={fieldErrors.school}
                 />
                 <FormField
                   label="School Year"
                   placeholder="2025 - 2026"
+                  maxLength={50}
                   value={form.schoolYear}
                   onChange={setField("schoolYear")}
+                  error={fieldErrors.schoolYear}
                 />
                 <FormField
                   label="Age"
@@ -680,6 +776,7 @@ export default function CreateStudentProfile({
                   required={true}
                   value={form.age}
                   onChange={setField("age")}
+                  error={fieldErrors.age}
                 />
                 <FormField
                   label="Grade Level"
@@ -690,6 +787,7 @@ export default function CreateStudentProfile({
                   required={true}
                   value={form.gradeLevel}
                   onChange={setField("gradeLevel")}
+                  error={fieldErrors.gradeLevel}
                 />
                 <SelectField
                   label="Gender"
@@ -697,18 +795,21 @@ export default function CreateStudentProfile({
                   value={form.gender}
                   onChange={setField("gender")}
                   options={genderOptions}
+                  error={fieldErrors.gender}
                 />
                 <FormField
                   label="Birthdate"
                   type="date"
                   value={toIsoDate(form.birthdate)}
                   onChange={setField("birthdate")}
+                  error={fieldErrors.birthdate}
                 />
                 <SelectField
                   label="Diagnosis"
                   value={form.disabilityCategory}
                   onChange={setField("disabilityCategory")}
                   options={diagnosisOptions}
+                  error={fieldErrors.disabilityCategory}
                 />
               </div>
               <TextAreaField
@@ -716,7 +817,9 @@ export default function CreateStudentProfile({
                 placeholder="Write the medical assessment, diagnosis, or other important learner information."
                 value={form.diagnosisDetails}
                 onChange={setField("diagnosisDetails")}
+                maxLength={1000}
                 rows={3}
+                error={fieldErrors.diagnosisDetails}
               />
               <div>
                 <h3 className="iep-small-title">
@@ -735,6 +838,11 @@ export default function CreateStudentProfile({
                     />
                   ))}
                 </div>
+                {fieldErrors.difficultyMarkers && (
+                  <p className="form-field-error" role="alert">
+                    {fieldErrors.difficultyMarkers}
+                  </p>
+                )}
               </div>
 
               <div
@@ -819,8 +927,10 @@ export default function CreateStudentProfile({
                     label="Guardian Full Name"
                     placeholder="Enter parent or guardian name"
                     required={true}
+                    maxLength={255}
                     value={form.guardianName}
                     onChange={setField("guardianName")}
+                    error={fieldErrors.guardianName}
                   />
                   <SelectField
                     label="Guardian Relationship"
@@ -828,6 +938,7 @@ export default function CreateStudentProfile({
                     value={form.guardianRelationship}
                     onChange={setField("guardianRelationship")}
                     options={["Parent", "Mother", "Father", "Legal Guardian", "Other"]}
+                    error={fieldErrors.guardianRelationship}
                   />
                   <FormField
                     label="Consent Verification Date"
@@ -835,6 +946,7 @@ export default function CreateStudentProfile({
                     required={true}
                     value={form.consentDate}
                     onChange={setField("consentDate")}
+                    error={fieldErrors.consentDate}
                   />
                 </div>
                 <div style={{ marginTop: "1rem" }}>
@@ -842,13 +954,26 @@ export default function CreateStudentProfile({
                     label="Consent Agreement / Statement: I confirm that parental/guardian consent has been verified and obtained for this learner in compliance with Republic Act 10173."
                     checked={Boolean(form.parentalConsentObtained)}
                     disabled={!hasReadConsent}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const checked = e.target.checked;
                       setForm((prev) => ({
                         ...prev,
-                        parentalConsentObtained: e.target.checked,
-                      }))
-                    }
+                        parentalConsentObtained: checked,
+                      }));
+                      if (checked && fieldErrors.parentalConsentObtained) {
+                        setFieldErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.parentalConsentObtained;
+                          return next;
+                        });
+                      }
+                    }}
                   />
+                  {fieldErrors.parentalConsentObtained && (
+                    <p className="form-field-error" role="alert">
+                      {fieldErrors.parentalConsentObtained}
+                    </p>
+                  )}
                   {!hasReadConsent && (
                     <p
                       style={{
@@ -877,41 +1002,51 @@ export default function CreateStudentProfile({
                 label="Results of initial or most recent evaluation and results of school assessments"
                 placeholder="Example: The learner fails to finish tasks most of the time, has difficulty in concentrating and paying attention, and may be unable to get what he wants."
                 required={true}
+                maxLength={2000}
                 value={form.presentEvaluation}
                 onChange={setField("presentEvaluation")}
                 rows={4}
+                error={fieldErrors.presentEvaluation}
               />
               <TextAreaField
                 label="Description of academic, developmental, and/or functional strengths"
                 placeholder="Example: The learner can spell random words using alphabet blocks and arranges alphabet sequentially."
                 required={true}
+                maxLength={2000}
                 value={form.academicStrengths}
                 onChange={setField("academicStrengths")}
                 rows={4}
+                error={fieldErrors.academicStrengths}
               />
               <TextAreaField
                 label="Description of academic, developmental, and/or functional needs"
                 placeholder="Example: Needs structured routines, visual task supports, shortened activities, sensory breaks, and positive reinforcement."
                 required={true}
+                maxLength={2000}
                 value={form.academicNeeds}
                 onChange={setField("academicNeeds")}
                 rows={4}
+                error={fieldErrors.academicNeeds}
               />
               <TextAreaField
                 label="Parental concerns regarding the child’s education"
                 placeholder="Write concerns shared by the parent or guardian."
                 required={true}
+                maxLength={2000}
                 value={form.parentalConcerns}
                 onChange={setField("parentalConcerns")}
                 rows={3}
+                error={fieldErrors.parentalConcerns}
               />
               <TextAreaField
                 label="Impact of the disability on involvement and progress in the general education curriculum"
                 placeholder="Example: The learner has difficulty concentrating and needs support to listen well."
                 required={true}
+                maxLength={2000}
                 value={form.curriculumImpact}
                 onChange={setField("curriculumImpact")}
                 rows={3}
+                error={fieldErrors.curriculumImpact}
               />
             </section>
           )}
@@ -921,7 +1056,11 @@ export default function CreateStudentProfile({
               <button
                 type="button"
                 className="btn btn-back"
-                onClick={() => setStep(step - 1)}
+                onClick={() => {
+                  setFieldErrors({});
+                  setError("");
+                  setStep(step - 1);
+                }}
               >
                 BACK
               </button>
@@ -953,6 +1092,7 @@ export default function CreateStudentProfile({
           </div>
         </form>
       </div>
+
       {showSuccessModal && (
         <SuccessModal
           studentName={createdStudent?.name || form.learnerName}

@@ -345,6 +345,12 @@ function normalizeTextList(value) {
 
 function getStudentProfileDifficulties(student) {
   const p = getStudentProfileDetails(student);
+  if (Array.isArray(p?.difficultyMarkers)) {
+    return normalizeTextList(p.difficultyMarkers);
+  }
+  if (Array.isArray(student?.difficultyMarkers)) {
+    return normalizeTextList(student.difficultyMarkers);
+  }
   const candidates = [
     p.difficultyMarkers,
     p.difficulties,
@@ -1625,6 +1631,8 @@ export default function IEPGenerationPage({
     });
   }, [activeView, effectiveStudentId]);
 
+  const lastLoadedStudentIdRef = useRef(null);
+
   // Auto-select student if effectiveStudentId is provided
   useEffect(() => {
     if (!effectiveStudentId || !students.length) return;
@@ -1639,6 +1647,97 @@ export default function IEPGenerationPage({
       });
     }
   }, [effectiveStudentId, students, activeView, setSelectedStudentId]);
+
+  // Subscribe to React Query Cache for immediate reactivity (ENH20)
+  useEffect(() => {
+    if (!queryClient) return;
+
+    const queryCache = queryClient.getQueryCache();
+    const unsubscribe = queryCache.subscribe(async (event) => {
+      const key = event?.query?.queryKey;
+      if (!key || !Array.isArray(key)) return;
+
+      const sid = getStudentId(selectedStudent) || effectiveStudentId;
+
+      // 1. Direct student query update: ['student', studentId]
+      if (key[0] === "student" && sid && String(key[1]) === String(sid)) {
+        if (event.action?.type === "invalidate") {
+          try {
+            const fetched = await studentsAPI.get(sid);
+            const studentData = fetched?.data || fetched;
+            if (studentData) {
+              setSelectedStudent((prev) => ({ ...prev, ...studentData }));
+              setStudents((prev) =>
+                prev.map((s) =>
+                  String(getStudentId(s)) === String(sid)
+                    ? { ...s, ...studentData }
+                    : s,
+                ),
+              );
+            }
+          } catch (err) {
+            console.error("Failed to refetch student after cache invalidation:", err);
+          }
+        } else if (event.type === "updated") {
+          const rawData = event.query?.state?.data;
+          const studentData = rawData?.data || rawData;
+          if (studentData) {
+            setSelectedStudent((prev) => ({ ...prev, ...studentData }));
+            setStudents((prev) =>
+              prev.map((s) =>
+                String(getStudentId(s)) === String(sid)
+                  ? { ...s, ...studentData }
+                  : s,
+              ),
+            );
+          }
+        }
+      }
+
+      // 2. Students list query update: ['students', currentUserId]
+      if (
+        key[0] === "students" &&
+        currentUserId &&
+        String(key[1]) === String(currentUserId)
+      ) {
+        if (event.action?.type === "invalidate") {
+          try {
+            const fetched = await studentsAPI.list(currentUserId);
+            const list = Array.isArray(fetched)
+              ? fetched
+              : fetched?.results || fetched?.data || [];
+            setStudents(list);
+            if (sid) {
+              const found = list.find(
+                (s) => String(getStudentId(s)) === String(sid),
+              );
+              if (found) setSelectedStudent(found);
+            }
+          } catch (err) {
+            console.error("Failed to refetch students after cache invalidation:", err);
+          }
+        } else if (event.type === "updated") {
+          const rawList = event.query?.state?.data;
+          const list = Array.isArray(rawList)
+            ? rawList
+            : rawList?.results || rawList?.data || [];
+          if (Array.isArray(list) && list.length) {
+            setStudents(list);
+            if (sid) {
+              const found = list.find(
+                (s) => String(getStudentId(s)) === String(sid),
+              );
+              if (found) setSelectedStudent(found);
+            }
+          }
+        }
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [selectedStudent, effectiveStudentId, currentUserId]);
 
   // Load students
   useEffect(() => {
@@ -1656,6 +1755,15 @@ export default function IEPGenerationPage({
           : data.results || data.data || [];
         if (mounted) {
           setStudents(list);
+          if (queryClient) {
+            queryClient.setQueryData(queryKeys.students(currentUserId), list);
+            list.forEach((s) => {
+              const sid = getStudentId(s);
+              if (sid) {
+                queryClient.setQueryData(queryKeys.student(sid), s);
+              }
+            });
+          }
           if (effectiveStudentId) {
             const found = list.find(
               (s) => String(getStudentId(s)) === String(effectiveStudentId),
@@ -1735,6 +1843,9 @@ export default function IEPGenerationPage({
     if (activeView !== "generate" || !selectedStudent) return;
     const p = getStudentProfileDetails(selectedStudent);
     const profileDifficulties = getStudentProfileDifficulties(selectedStudent);
+    const sid = getStudentId(selectedStudent);
+    const isNewStudent = String(lastLoadedStudentIdRef.current) !== String(sid);
+    lastLoadedStudentIdRef.current = sid;
 
     queueMicrotask(() => {
       setForm((prev) => ({
@@ -1779,17 +1890,19 @@ export default function IEPGenerationPage({
           prev.barrierRows,
         ),
       }));
-      // Reset generation state on student switch
-      setGenerationDone(false);
-      setAiGeneratedGoals([]);
-      setGoalSaveStatus("");
-      setActiveGeneratedIepId(null);
-      setTeacherPrompt("");
-      setSelectedGoalCategory("");
-      setGeneratedAccommodations("");
-      setShowManualGoal(false);
-      setSavingManualGoal(false);
-      setStep(1);
+      if (isNewStudent) {
+        // Reset generation state on student switch
+        setGenerationDone(false);
+        setAiGeneratedGoals([]);
+        setGoalSaveStatus("");
+        setActiveGeneratedIepId(null);
+        setTeacherPrompt("");
+        setSelectedGoalCategory("");
+        setGeneratedAccommodations("");
+        setShowManualGoal(false);
+        setSavingManualGoal(false);
+        setStep(1);
+      }
     });
   }, [activeView, selectedStudent]);
 
@@ -2314,83 +2427,78 @@ export default function IEPGenerationPage({
             : []);
         const sanitizedDifficulties = sanitizeDifficulties(rows);
 
-        if (sanitizedDifficulties.length > 0) {
-          const currentProfileDetails = getStudentProfileDetails(targetStudent);
-          const updatedProfileDetails = {
-            ...currentProfileDetails,
-            difficultyMarkers: sanitizedDifficulties,
-          };
+        const currentProfileDetails = getStudentProfileDetails(targetStudent);
+        const updatedProfileDetails = {
+          presentEvaluation: targetStudent.assessmentResult || "Evaluation on file",
+          academicStrengths: "Strengths on file",
+          academicNeeds: targetStudent.support_needs || "Needs on file",
+          parentalConcerns: "Parental concerns on file",
+          curriculumImpact: "Curriculum impact on file",
+          ...currentProfileDetails,
+          difficultyMarkers: sanitizedDifficulties,
+        };
 
-          const studentPayload = {
-            name: getStudentName(targetStudent),
-            age: Number(targetStudent.age) || 0,
-            grade: Number(targetStudent.grade) || 0,
-            gender: targetStudent.gender || "",
-            diagnosis: targetStudent.diagnosis || "",
-            support_needs: targetStudent.support_needs || "",
-            asdBackground: targetStudent.asdBackground || "",
-            assessmentResult: targetStudent.assessmentResult || "",
-            preferences: JSON.stringify(updatedProfileDetails),
-            profileDetails: updatedProfileDetails,
-            learning_style: targetStudent.learning_style || "",
-            interests: targetStudent.interests || "",
-            sensory_preferences: targetStudent.sensory_preferences || "",
-          };
+        const studentPayload = {
+          preferences: JSON.stringify(updatedProfileDetails),
+          profileDetails: updatedProfileDetails,
+        };
 
-          try {
-            await studentsAPI.update(sid, studentPayload);
-          } catch (err) {
-            console.error("Failed to update student profile difficulties:", err);
-          }
+        try {
+          await studentsAPI.update(sid, studentPayload);
+        } catch (err) {
+          console.error("Failed to update student profile difficulties:", err);
+        }
 
-          const mergedStudent = {
-            ...targetStudent,
-            ...studentPayload,
-            profileDetails: updatedProfileDetails,
-            difficultyMarkers: sanitizedDifficulties,
-          };
+        const mergedStudent = {
+          ...targetStudent,
+          preferences: JSON.stringify(updatedProfileDetails),
+          profileDetails: updatedProfileDetails,
+          difficultyMarkers: sanitizedDifficulties,
+        };
 
-          setSelectedStudent(mergedStudent);
-          setStudents((prev) =>
-            prev.map((s) =>
-              String(getStudentId(s)) === String(sid) ? mergedStudent : s,
-            ),
+        setSelectedStudent(mergedStudent);
+        setStudents((prev) =>
+          prev.map((s) =>
+            String(getStudentId(s)) === String(sid) ? mergedStudent : s,
+          ),
+        );
+
+        setForm((prev) => ({
+          ...prev,
+          difficultyMarkers: sanitizedDifficulties,
+          barrierRows: buildProfileBarrierRows(
+            sanitizedDifficulties,
+            prev.barrierRows,
+          ),
+        }));
+
+        if (queryClient) {
+          queryClient.setQueryData(queryKeys.student(sid), (old) =>
+            old ? { ...old, ...mergedStudent } : mergedStudent,
           );
-
-          setForm((prev) => ({
-            ...prev,
-            difficultyMarkers: sanitizedDifficulties,
-            barrierRows: buildProfileBarrierRows(
-              sanitizedDifficulties,
-              prev.barrierRows,
-            ),
-          }));
-
-
-          if (queryClient) {
-            queryClient.setQueryData(queryKeys.student(sid), (old) =>
+          queryClient.setQueryData(queryKeys.student(String(sid)), (old) =>
+            old ? { ...old, ...mergedStudent } : mergedStudent,
+          );
+          if (typeof sid === "string" && !isNaN(Number(sid))) {
+            queryClient.setQueryData(queryKeys.student(Number(sid)), (old) =>
               old ? { ...old, ...mergedStudent } : mergedStudent,
             );
-            if (currentUserId) {
-              queryClient.setQueryData(
-                queryKeys.students(currentUserId),
-                (old) =>
-                  Array.isArray(old)
-                    ? old.map((s) =>
-                        String(getStudentId(s)) === String(sid)
-                          ? { ...s, ...mergedStudent }
-                          : s,
-                      )
-                    : old,
-              );
-              queryClient.invalidateQueries({
-                queryKey: queryKeys.students(currentUserId),
-              });
-            }
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.student(sid),
-            });
           }
+          if (currentUserId) {
+            queryClient.setQueryData(
+              queryKeys.students(currentUserId),
+              (old) =>
+                Array.isArray(old)
+                  ? old.map((s) =>
+                      String(getStudentId(s)) === String(sid)
+                        ? { ...s, ...mergedStudent }
+                        : s,
+                    )
+                  : old,
+            );
+          }
+          queryClient.invalidateQueries({ queryKey: ["students"] });
+          queryClient.invalidateQueries({ queryKey: ["student"] });
         }
       }
     } catch (err) {
