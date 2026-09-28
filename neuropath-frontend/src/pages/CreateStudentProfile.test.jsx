@@ -183,7 +183,6 @@ describe("CreateStudentProfile next-step actions", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /submit/i }));
-    fireEvent.click(screen.getByRole("button", { name: /confirm & create/i }));
   }
 
   it("shows success modal with primary, secondary, and tertiary next-step CTAs upon successful creation", async () => {
@@ -396,7 +395,6 @@ describe("CreateStudentProfile next-step actions", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /submit/i }));
-    fireEvent.click(screen.getByRole("button", { name: /confirm & create/i }));
 
     expect(studentsAPI.create).toHaveBeenCalledTimes(1);
     const sentPayload = studentsAPI.create.mock.calls[0][0];
@@ -807,7 +805,7 @@ describe("Issue #204: Input bounds, accessible validation feedback, and save con
     expect((await screen.findAllByText("Grade level must be between 1 and 10.")).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("opens accessible confirmation modal on submit, displays summary details, allows review, and confirms", async () => {
+  it("submits valid student profile immediately on clicking SUBMIT without intermediate confirmation modal", async () => {
     studentsAPI.create.mockResolvedValueOnce({
       studentID: 204,
       name: "Juan Luna",
@@ -834,27 +832,11 @@ describe("Issue #204: Input bounds, accessible validation feedback, and save con
     fireEvent.change(screen.getByPlaceholderText(/write concerns shared by the parent/i), { target: { value: "Wants child to socialize" } });
     fireEvent.change(screen.getByPlaceholderText(/the learner has difficulty concentrating/i), { target: { value: "Impacts listening activities" } });
 
-    // Click SUBMIT -> Opens Confirmation Modal
+    // Click SUBMIT -> directly calls studentsAPI.create and opens SuccessModal without confirmation modal
     fireEvent.click(screen.getByRole("button", { name: /SUBMIT/i }));
-
-    // Verify confirmation modal content
-    const modalHeading = await screen.findByRole("heading", { name: /Confirm Student Profile Creation/i });
-    expect(modalHeading).toBeInTheDocument();
-    expect(screen.getByText("Juan Luna")).toBeInTheDocument();
-    expect(screen.getByText(/Grade 4 · 9 years old/i)).toBeInTheDocument();
-    expect(screen.getByText("Difficulty in Hearing")).toBeInTheDocument();
-    expect(screen.getByText("Manila Elementary")).toBeInTheDocument();
-
-    // Click "Review Form" to dismiss and continue editing
-    fireEvent.click(screen.getByRole("button", { name: /Review Form/i }));
-    expect(screen.queryByRole("heading", { name: /Confirm Student Profile Creation/i })).not.toBeInTheDocument();
-    expect(studentsAPI.create).not.toHaveBeenCalled();
-
-    // Click SUBMIT again, then "Confirm & Create"
-    fireEvent.click(screen.getByRole("button", { name: /SUBMIT/i }));
-    fireEvent.click(screen.getByRole("button", { name: /Confirm & Create/i }));
 
     expect(studentsAPI.create).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("heading", { name: /Confirm Student Profile Creation/i })).not.toBeInTheDocument();
     expect(await screen.findByText(/Profile Created!/i)).toBeInTheDocument();
   });
 });

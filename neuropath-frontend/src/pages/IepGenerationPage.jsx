@@ -2851,32 +2851,18 @@ export default function IEPGenerationPage({
 
         const currentProfileDetails = getStudentProfileDetails(targetStudent);
         const updatedProfileDetails = {
+          presentEvaluation: targetStudent.assessmentResult || "Evaluation on file",
+          academicStrengths: "Strengths on file",
+          academicNeeds: targetStudent.support_needs || "Needs on file",
+          parentalConcerns: "Parental concerns on file",
+          curriculumImpact: "Curriculum impact on file",
           ...currentProfileDetails,
           difficultyMarkers: sanitizedDifficulties,
         };
 
         const studentPayload = {
-          name: getStudentName(targetStudent),
-          age: Number(targetStudent.age) || 0,
-          grade: Number(targetStudent.grade) || 0,
-          gender: targetStudent.gender || "",
-          diagnosis: targetStudent.diagnosis || "",
-          support_needs: targetStudent.support_needs || "",
-          asdBackground: targetStudent.asdBackground || "",
-          assessmentResult: targetStudent.assessmentResult || "",
           preferences: JSON.stringify(updatedProfileDetails),
           profileDetails: updatedProfileDetails,
-          learning_style: targetStudent.learning_style || "",
-          interests: targetStudent.interests || "",
-          sensory_preferences: targetStudent.sensory_preferences || "",
-          ...(targetStudent.parental_consent_obtained !== undefined
-            ? {
-                parental_consent_obtained: targetStudent.parental_consent_obtained,
-                consent_date: targetStudent.consent_date,
-                guardian_name: targetStudent.guardian_name,
-                guardian_relationship: targetStudent.guardian_relationship,
-              }
-            : {}),
         };
 
         try {
@@ -2887,7 +2873,7 @@ export default function IEPGenerationPage({
 
         const mergedStudent = {
           ...targetStudent,
-          ...studentPayload,
+          preferences: JSON.stringify(updatedProfileDetails),
           profileDetails: updatedProfileDetails,
           difficultyMarkers: sanitizedDifficulties,
         };
@@ -2912,6 +2898,14 @@ export default function IEPGenerationPage({
           queryClient.setQueryData(queryKeys.student(sid), (old) =>
             old ? { ...old, ...mergedStudent } : mergedStudent,
           );
+          queryClient.setQueryData(queryKeys.student(String(sid)), (old) =>
+            old ? { ...old, ...mergedStudent } : mergedStudent,
+          );
+          if (typeof sid === "string" && !isNaN(Number(sid))) {
+            queryClient.setQueryData(queryKeys.student(Number(sid)), (old) =>
+              old ? { ...old, ...mergedStudent } : mergedStudent,
+            );
+          }
           if (currentUserId) {
             queryClient.setQueryData(
               queryKeys.students(currentUserId),
@@ -2924,13 +2918,9 @@ export default function IEPGenerationPage({
                     )
                   : old,
             );
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.students(currentUserId),
-            });
           }
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.student(sid),
-          });
+          queryClient.invalidateQueries({ queryKey: ["students"] });
+          queryClient.invalidateQueries({ queryKey: ["student"] });
         }
       }
     } catch (err) {
