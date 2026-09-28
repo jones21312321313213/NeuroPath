@@ -2873,4 +2873,204 @@ button.sidebar-header {
   border-color: #94a3b8;
 }
 
+/* ── Issue #205: Section A-B-C Wizard Stepper, Version Badges, and Archiving ── */
+.iep-wizard-stepper {
+  margin-bottom: 20px;
+}
+.iep-wizard-stepper-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 768px) {
+  .iep-wizard-stepper-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.iep-wizard-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease-in-out;
+}
+.iep-wizard-step:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+.iep-wizard-step:focus-visible {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
+}
+.iep-wizard-step.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.1);
+}
+.iep-wizard-step.completed {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+.iep-wizard-step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.iep-wizard-step.active .iep-wizard-step-indicator {
+  background: #2563eb;
+  color: #ffffff;
+}
+.iep-wizard-step.completed .iep-wizard-step-indicator {
+  background: #10b981;
+  color: #ffffff;
+}
+.iep-wizard-step-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.iep-wizard-step-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.iep-wizard-step.active .iep-wizard-step-title {
+  color: #1d4ed8;
+}
+.iep-wizard-step-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  width: fit-content;
+}
+.iep-wizard-step-badge.badge-completed {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+.iep-wizard-step-badge.badge-in-progress {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+.iep-wizard-step-badge.badge-pending {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+/* ── Status and Version Badges (ENH28) ── */
+.iep-view-meta-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.iep-status-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  line-height: 1.4;
+}
+.iep-version-badge.badge-active {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+.iep-version-badge.badge-superseded {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+.iep-version-badge.badge-archived {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+.iep-date-badge {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  font-weight: 500;
+}
+.iep-student-version-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+/* ── Archived IEPs Accordion (ENH29) ── */
+.iep-archived-accordion {
+  margin-top: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
+}
+.iep-archived-summary {
+  padding: 10px 14px;
+  background: #f8fafc;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.iep-archived-summary:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+.iep-archived-list {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.iep-archived-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  gap: 8px;
+}
+.iep-archived-item.selected {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+
 
