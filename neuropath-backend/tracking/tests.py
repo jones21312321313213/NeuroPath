@@ -362,3 +362,84 @@ class TrackingAuthAndTenantIsolationTests(TestCase):
         self.assertEqual(math_data['status'], 'On Track')
 
 
+class RecentActivityAPITestCase(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user1, self.teacher1, self.token1 = create_teacher_with_login('teacher1@neuropath.com')
+        self.user2, self.teacher2, self.token2 = create_teacher_with_login('teacher2@neuropath.com')
+
+        self.student1 = StudentProfile.objects.create(
+            name='Alice Cooper',
+            age=8,
+            grade=2,
+            teacher=self.teacher1,
+            diagnosis='Autism Spectrum Disorder',
+        )
+        self.student2 = StudentProfile.objects.create(
+            name='Bob Marley',
+            age=10,
+            grade=4,
+            teacher=self.teacher2,
+            diagnosis='ADHD',
+        )
+
+    def _auth(self, token):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+    def test_unauthenticated_request_rejected(self):
+        response = self.client.get('/api/tracking/recent-activity/')
+        self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
+
+    def test_authenticated_teacher_gets_recent_activity(self):
+        from iep_management.models import IEPModel
+        self._auth(self.token1)
+
+        # Create IEP for student 1
+        iep = IEPModel.objects.create(
+            studentID=self.student1,
+            version=1,
+            baselineData='Baseline data test',
+        )
+
+        # Create progress for student 1
+        prog = StudentProgress.objects.create(
+            student=self.student1,
+            subjectName='Mathematics',
+            performanceScore=85,
+        )
+
+        # Create IEP for student 2 (other teacher)
+        IEPModel.objects.create(
+            studentID=self.student2,
+            version=1,
+            baselineData='Teacher 2 baseline',
+        )
+
+        response = self.client.get('/api/tracking/recent-activity/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data
+        self.assertIsInstance(data, list)
+        self.assertGreaterEqual(len(data), 2)
+
+        # Check tenant isolation: no student2 activities should be present
+        for item in data:
+            self.assertNotEqual(item.get('student_name'), 'Bob Marley')
+            self.assertNotEqual(item.get('student_id'), self.student2.pk)
+
+        # Check fields present
+        first = data[0]
+        self.assertIn('id', first)
+        self.assertIn('type', first)
+        self.assertIn('title', first)
+        self.assertIn('description', first)
+        self.assertIn('timestamp', first)
+        self.assertIn('student_id', first)
+        self.assertIn('student_name', first)
+        self.assertIn('target_path', first)
+
+        types = [item['type'] for item in data]
+        self.assertIn('iep', types)
+        self.assertIn('progress', types)
+
+
+

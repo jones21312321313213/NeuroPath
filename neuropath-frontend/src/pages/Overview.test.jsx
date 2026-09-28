@@ -11,6 +11,7 @@ import {
   lessonPlansAPI,
   visualAidsAPI,
   resourcesAPI,
+  trackingAPI,
 } from "../api/client";
 
 const mockNavigate = vi.fn();
@@ -42,7 +43,11 @@ vi.mock("../api/client", () => ({
   resourcesAPI: {
     dashboardStats: vi.fn(),
   },
+  trackingAPI: {
+    getRecentActivity: vi.fn(),
+  },
 }));
+
 
 // Mock CountUp and GlareHover to keep tests lightweight
 vi.mock("../components/ui/CountUp", () => ({
@@ -70,7 +75,9 @@ describe("Overview - Getting Started 3-Step Path", () => {
       teaching_strategies: 0,
       visual_aids: 0,
     });
+    trackingAPI.getRecentActivity.mockResolvedValue([]);
   });
+
 
   it("renders Getting Started heading and all 3 steps", async () => {
     studentsAPI.list.mockResolvedValue([]);
@@ -324,4 +331,85 @@ describe("Overview - At a Glance Stats (Option 2: Classroom & Resource Readiness
       expect(screen.getByText("7")).toBeInTheDocument();
     });
   });
+
+  describe("Recent Activity Feed (ENH30)", () => {
+    it("renders empty state when there is no recent activity", async () => {
+      trackingAPI.getRecentActivity.mockResolvedValue([]);
+
+      renderWithQueryClient(
+        <MemoryRouter>
+          <Overview setActivePage={vi.fn()} />
+        </MemoryRouter>,
+      );
+
+      expect(screen.getByTestId("recent-activity-section")).toBeInTheDocument();
+      expect(await screen.findByTestId("recent-activity-empty")).toBeInTheDocument();
+      expect(screen.getByText("No recent activity yet")).toBeInTheDocument();
+    });
+
+    it("renders activity feed items with title, description, and relative time", async () => {
+      const mockActivities = [
+        {
+          id: "iep-1",
+          type: "iep",
+          title: "IEP v1 for Alice Cooper",
+          description: "Individualized Education Plan (Active)",
+          timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+          target_path: "/dashboard/iep",
+        },
+        {
+          id: "student-10",
+          type: "student",
+          title: "Profile updated: Bob Marley",
+          description: "Grade 4 • ADHD",
+          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+          target_path: "/dashboard/students/10",
+        },
+      ];
+      trackingAPI.getRecentActivity.mockResolvedValue(mockActivities);
+
+      renderWithQueryClient(
+        <MemoryRouter>
+          <Overview setActivePage={vi.fn()} />
+        </MemoryRouter>,
+      );
+
+      expect(await screen.findByText("IEP v1 for Alice Cooper")).toBeInTheDocument();
+      expect(screen.getByText("Individualized Education Plan (Active)")).toBeInTheDocument();
+      expect(screen.getByText("5m ago")).toBeInTheDocument();
+
+      expect(screen.getByText("Profile updated: Bob Marley")).toBeInTheDocument();
+      expect(screen.getByText("Grade 4 • ADHD")).toBeInTheDocument();
+      expect(screen.getByText("2h ago")).toBeInTheDocument();
+    });
+
+    it("navigates to target_path when View button is clicked", async () => {
+      const mockActivities = [
+        {
+          id: "iep-1",
+          type: "iep",
+          title: "IEP v1 for Alice Cooper",
+          description: "Individualized Education Plan (Active)",
+          timestamp: new Date().toISOString(),
+          target_path: "/dashboard/iep",
+        },
+      ];
+      trackingAPI.getRecentActivity.mockResolvedValue(mockActivities);
+      const user = userEvent.setup();
+
+      renderWithQueryClient(
+        <MemoryRouter>
+          <Overview setActivePage={vi.fn()} />
+        </MemoryRouter>,
+      );
+
+      const viewBtn = await screen.findByRole("button", {
+        name: /view details for iep v1 for alice cooper/i,
+      });
+      await user.click(viewBtn);
+
+      expect(mockNavigate).toHaveBeenCalledWith("/dashboard/iep");
+    });
+  });
 });
+

@@ -574,9 +574,10 @@ button.sidebar-header {
 /* ── Form card ────────────────────────────────────────── */
 .form-card {
   background: #fff;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 28px 32px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f1f5f9;
   display: flex;
   flex-direction: column;
   gap: 28px;
@@ -624,9 +625,10 @@ button.sidebar-header {
 .form-input,
 .form-select,
 .form-textarea {
+  min-height: 44px;
   padding: 10px 14px;
   border: 1px solid #cbd5e1;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 14.5px;
   color: #1e293b;
   background: #f8fafc;
@@ -634,6 +636,9 @@ button.sidebar-header {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
   font-family: inherit;
   line-height: 1.5;
+}
+.form-textarea {
+  min-height: 88px;
 }
 .form-input:focus,
 .form-select:focus,
@@ -726,17 +731,25 @@ button.sidebar-header {
 }
 
 .btn {
-  padding: 9px 28px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px 24px;
   border: none;
-  border-radius: 5px;
+  border-radius: 8px;
   font-size: 13.5px;
   font-weight: 700;
   cursor: pointer;
   letter-spacing: 0.5px;
-  transition: opacity 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.15s ease-in-out;
 }
 .btn:hover {
-  opacity: 0.88;
+  opacity: 0.92;
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
 }
 
 .btn-back {
@@ -1119,7 +1132,184 @@ button.sidebar-header {
   transform: translateX(3px);
 }
 
+/* ── Overview Recent Activity Feed (ENH30) ───────────────────────── */
+.overview-activity-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.overview-activity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.overview-activity-hint {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.overview-activity-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+}
+
+.overview-activity-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.overview-activity-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f5f9;
+  gap: 16px;
+  transition: background 0.15s ease;
+}
+
+.overview-activity-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.overview-activity-item:first-child {
+  padding-top: 0;
+}
+
+.overview-activity-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1;
+}
+
+.overview-activity-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.overview-activity-icon.iep {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.overview-activity-icon.student {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.overview-activity-icon.progress {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.overview-activity-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.overview-activity-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.overview-activity-desc {
+  font-size: 12.5px;
+  color: #64748b;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.overview-activity-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.overview-activity-time {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.overview-activity-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0284c7;
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.overview-activity-link:hover {
+  background: #f0f9ff;
+  color: #0369a1;
+}
+
+.overview-activity-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  text-align: center;
+  gap: 8px;
+}
+
+.overview-activity-empty-icon {
+  font-size: 32px;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+
+.overview-activity-empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+  margin: 0;
+}
+
+.overview-activity-empty-text {
+  font-size: 13px;
+  color: #64748b;
+  max-width: 420px;
+  margin: 0;
+}
+
 /* ── About NeuroPath Horizontal Strip ────────────────── */
+
 .overview-about-strip {
   background: #ffffff;
   border: 1px solid #e2e8f0;

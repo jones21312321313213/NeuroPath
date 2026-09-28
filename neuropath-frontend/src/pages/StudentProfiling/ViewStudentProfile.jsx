@@ -8,6 +8,7 @@ import Pagination from "../../components/ui/Pagination";
 import { useStudents, useDeleteStudent } from "../../hooks/queries";
 import { useToast } from "../../context/ToastContext";
 import { Modal } from "../../components/ui";
+import { formatRelativeTime } from "../../utils/dateUtils";
 
 export default function ViewStudentProfile({
   setActivePage,
@@ -244,6 +245,12 @@ export default function ViewStudentProfile({
                       {student.age && (
                         <span className="vsp-pill">{student.age} yrs</span>
                       )}
+                    </div>
+
+                    {/* Recently Updated Indicator */}
+                    <div className="vsp-card-updated">
+                      <i className="ti ti-clock" aria-hidden="true" />
+                      <span>Updated {formatRelativeTime(student.updated_at || student.created_at)}</span>
                     </div>
 
                     {/* Footer */}

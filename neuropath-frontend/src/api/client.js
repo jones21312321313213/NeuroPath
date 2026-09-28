@@ -273,6 +273,36 @@ export const iepAPI = {
 
   // Dashboard overview stats: active IEP count + AI insights count
   dashboardStats: () => request("/iep/dashboard-stats/"),
+
+  // Direct IEP PDF Export (ENH22)
+  exportPDF: async (iepId) => {
+    const token = localStorage.getItem("neuropath_access_token");
+    const headers = {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+    };
+
+    const response = await fetch(`${BASE_URL}/iep/${iepId}/export/`, {
+      headers,
+    });
+
+    if (!response.ok) {
+      if (response.status === 401 && token) {
+        forceReauth();
+      }
+      let message = "Failed to export IEP PDF.";
+      try {
+        const data = await response.json();
+        message = data.errors || data.detail || data.error || message;
+      } catch {
+        // Fallback to default message
+      }
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.blob();
+  },
 };
 
 // ── Users / Teacher Profile ────────────────────────────────────────────────────
@@ -298,6 +328,7 @@ export const usersAPI = {
 
 // ── Tracking & Outcome Monitoring ──────────────────────────────────────────────
 export const trackingAPI = {
+  getRecentActivity: () => request("/tracking/recent-activity/"),
   getProgressDashboard: (studentId) =>
     request(`/tracking/progress-dashboard/?studentID=${studentId}`),
   getAnalytics: (studentId, subject) => {

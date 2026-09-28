@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { toIsoDate, validatePastDate } from "./dateUtils";
+import { toIsoDate, validatePastDate, formatRelativeTime, formatDateTime } from "./dateUtils";
+
 
 describe("dateUtils", () => {
   describe("toIsoDate", () => {
@@ -68,4 +69,58 @@ describe("dateUtils", () => {
       expect(result.error).toMatch(/not a valid calendar date/i);
     });
   });
+
+  describe("formatRelativeTime", () => {
+    it("handles null, undefined, or empty values", () => {
+      expect(formatRelativeTime(null)).toBe("Recently");
+      expect(formatRelativeTime(undefined)).toBe("Recently");
+      expect(formatRelativeTime("invalid-date")).toBe("Recently");
+    });
+
+    it("returns just now for very recent timestamps", () => {
+      const now = new Date();
+      expect(formatRelativeTime(now.toISOString())).toBe("just now");
+      expect(formatRelativeTime(new Date(now.getTime() - 30 * 1000))).toBe("just now");
+    });
+
+    it("returns minutes ago for timestamps under 1 hour", () => {
+      const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000);
+      expect(formatRelativeTime(tenMinsAgo)).toBe("10m ago");
+    });
+
+    it("returns hours ago for timestamps under 24 hours", () => {
+      const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
+      expect(formatRelativeTime(threeHoursAgo)).toBe("3h ago");
+    });
+
+    it("returns Yesterday for timestamps 1 day ago", () => {
+      const oneDayAgo = new Date(Date.now() - 25 * 60 * 60 * 1000);
+      expect(formatRelativeTime(oneDayAgo)).toBe("Yesterday");
+    });
+
+    it("returns days ago for timestamps within a week", () => {
+      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+      expect(formatRelativeTime(threeDaysAgo)).toBe("3d ago");
+    });
+
+    it("returns weeks ago for timestamps within a month", () => {
+      const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+      expect(formatRelativeTime(twoWeeksAgo)).toBe("2w ago");
+    });
+  });
+
+  describe("formatDateTime", () => {
+    it("handles empty or invalid inputs", () => {
+      expect(formatDateTime(null)).toBe("");
+      expect(formatDateTime("")).toBe("");
+      expect(formatDateTime("invalid")).toBe("");
+    });
+
+    it("formats a valid date string", () => {
+      const formatted = formatDateTime("2026-09-28T10:00:00Z");
+      expect(formatted).toBeTruthy();
+      expect(formatted).toMatch(/2026/);
+    });
+  });
 });
+

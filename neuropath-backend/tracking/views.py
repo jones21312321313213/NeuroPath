@@ -1,4 +1,6 @@
 import io
+import datetime
+from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import viewsets, status
@@ -574,3 +576,105 @@ class StudentProgressDashboardView(APIView):
             })
 
         return Response(results, status=status.HTTP_200_OK)
+
+
+# =====================================================================
+# SDD COMPONENT: RecentActivityAPIView (ENH30)
+# Description: Aggregates recent classroom events across IEP generation,
+#              student profiles, and progress monitoring into a unified feed.
+# =====================================================================
+class RecentActivityAPIView(APIView):
+    permission_classes = [SessionAuthenticationGuard]
+
+    def get(self, request, *args, **kwargs):
+        teacher = get_teacher_for_user(request.user)
+        if not teacher:
+            return Response([], status=status.HTTP_200_OK)
+
+        activities = []
+
+        # 1. Recent IEPs for teacher's students
+        from iep_management.models import IEPModel
+        recent_ieps = (
+            IEPModel.objects.filter(studentID__teacher=teacher)
+            .select_related('studentID')
+            .order_by('-createdDate')[:10]
+        )
+        for iep in recent_ieps:
+            student_name = iep.studentID.name if iep.studentID else "Student"
+            status_desc = "Archived" if iep.is_archived else "Active"
+            activities.append({
+                "id": f"iep-{iep.iepID}",
+                "type": "iep",
+                "title": f"IEP v{iep.version} for {student_name}",
+                "description": f"Individualized Education Plan ({status_desc})",
+                "timestamp": iep.createdDate.isoformat() if iep.createdDate else None,
+                "student_id": iep.studentID_id,
+                "student_name": student_name,
+                "target_path": "/dashboard/iep",
+                "_sort_key": iep.createdDate,
+            })
+
+        # 2. Recent Student Profiles
+        recent_students = (
+            StudentProfile.objects.filter(teacher=teacher)
+            .order_by('-updated_at')[:10]
+        )
+        for student in recent_students:
+            timestamp = student.updated_at or student.created_at
+            desc_parts = []
+            if student.grade is not None:
+                desc_parts.append(f"Grade {student.grade}")
+            if student.diagnosis:
+                desc_parts.append(student.diagnosis)
+            description = " • ".join(desc_parts) if desc_parts else "Student Profile configured"
+
+            activities.append({
+                "id": f"student-{student.studentID}",
+                "type": "student",
+                "title": f"Profile updated: {student.name}",
+                "description": description,
+                "timestamp": timestamp.isoformat() if timestamp else None,
+                "student_id": student.studentID,
+                "student_name": student.name,
+                "target_path": f"/dashboard/students/{student.studentID}",
+                "_sort_key": timestamp,
+            })
+
+        # 3. Recent Progress Logs
+        recent_progress = (
+            StudentProgress.objects.filter(student__teacher=teacher)
+            .select_related('student')
+            .order_by('-dateLogged')[:10]
+        )
+        for prog in recent_progress:
+            student_name = prog.student.name if prog.student else "Student"
+            activities.append({
+                "id": f"progress-{prog.progressID}",
+                "type": "progress",
+                "title": f"Progress logged for {student_name}",
+                "description": f"{prog.subjectName}: {prog.performanceScore}%",
+                "timestamp": prog.dateLogged.isoformat() if prog.dateLogged else None,
+                "student_id": prog.student_id,
+                "student_name": student_name,
+                "target_path": "/dashboard/progress-monitoring",
+                "_sort_key": prog.dateLogged,
+            })
+
+        def get_sort_key(item):
+            val = item.get("_sort_key")
+            if not val:
+                return timezone.make_aware(datetime.datetime(1970, 1, 1))
+            if timezone.is_naive(val):
+                return timezone.make_aware(val)
+            return val
+
+        activities.sort(key=get_sort_key, reverse=True)
+
+        response_data = []
+        for item in activities[:10]:
+            clean_item = {k: v for k, v in item.items() if k != "_sort_key"}
+            response_data.append(clean_item)
+
+        return Response(response_data, status=status.HTTP_200_OK)
+

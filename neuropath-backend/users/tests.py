@@ -639,3 +639,49 @@ class TeacherTutorialEndpointTests(APITestCase):
         self.assertTrue(response.data["teacher"]["has_completed_tutorial"])
 
 
+class StudentProfileTimestampTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="timestamptest@example.com",
+            email="timestamptest@example.com",
+            password="securepassword123",
+        )
+        self.teacher = Teacher.objects.create(
+            email="timestamptest@example.com",
+            name="Timestamp Teacher",
+            passwordHash=self.user.password,
+        )
+        self.token = Token.objects.create(user=self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
+
+    def test_student_profile_created_at_and_updated_at_populated(self):
+        student = StudentProfile.objects.create(
+            name="Timmy Test",
+            age=8,
+            grade=2,
+            teacher=self.teacher,
+            diagnosis="ASD",
+        )
+        self.assertIsNotNone(student.created_at)
+        self.assertIsNotNone(student.updated_at)
+
+        orig_updated_at = student.updated_at
+        student.grade = 3
+        student.save()
+        student.refresh_from_db()
+        self.assertGreaterEqual(student.updated_at, orig_updated_at)
+
+    def test_student_profile_serializer_exposes_timestamps(self):
+        student = StudentProfile.objects.create(
+            name="Serializer Test",
+            age=9,
+            grade=3,
+            teacher=self.teacher,
+        )
+        response = self.client.get(f"/api/users/students/{student.studentID}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("created_at", response.data)
+        self.assertIn("updated_at", response.data)
+
+
+

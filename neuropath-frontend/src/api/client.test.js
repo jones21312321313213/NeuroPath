@@ -225,10 +225,26 @@ describe("api client", () => {
   });
 
   describe("trackingAPI", () => {
+    it("fetches recent activity feed", async () => {
+      const mockActivity = [
+        { id: "iep-1", type: "iep", title: "IEP v1 for Alice" },
+      ];
+      fetch.mockResolvedValueOnce(jsonResponse(mockActivity));
+
+      const result = await trackingAPI.getRecentActivity();
+
+      expect(result).toEqual(mockActivity);
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/tracking/recent-activity/",
+        expect.anything(),
+      );
+    });
+
     it("fetches progress dashboard for a student", async () => {
       fetch.mockResolvedValueOnce(jsonResponse([{ name: "Math", progress: 85 }]));
 
       const result = await trackingAPI.getProgressDashboard(12);
+
 
       expect(result).toEqual([{ name: "Math", progress: 85 }]);
       expect(fetch).toHaveBeenCalledWith(
@@ -467,6 +483,34 @@ describe("api client", () => {
           body: JSON.stringify({ is_archived: false }),
         }),
       );
+    });
+
+    it("exports an IEP as PDF blob", async () => {
+      const mockBlob = new Blob(["%PDF-1.4 test"], { type: "application/pdf" });
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        blob: vi.fn().mockResolvedValueOnce(mockBlob),
+      });
+
+      const result = await iepAPI.exportPDF(42);
+
+      expect(result).toBe(mockBlob);
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/iep/42/export/",
+        expect.objectContaining({
+          headers: expect.any(Object),
+        }),
+      );
+    });
+
+    it("throws an error when exportPDF fails", async () => {
+      fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: vi.fn().mockResolvedValueOnce({ error: "IEP document not found." }),
+      });
+
+      await expect(iepAPI.exportPDF(999)).rejects.toThrow("IEP document not found.");
     });
   });
 });

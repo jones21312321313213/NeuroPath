@@ -241,4 +241,25 @@ describe("ViewStudentProfile", () => {
 
     expect(studentsAPI.delete).toHaveBeenCalledWith(10);
   });
+
+  it("renders recently updated indicator on student cards", async () => {
+    studentsAPI.list.mockResolvedValueOnce([
+      {
+        studentID: 55,
+        name: "Elena Gilbert",
+        grade: 5,
+        updated_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      },
+    ]);
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <ViewStudentProfile />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("Elena Gilbert")).toBeInTheDocument();
+    expect(screen.getByText(/Updated 2h ago/i)).toBeInTheDocument();
+  });
 });
+
