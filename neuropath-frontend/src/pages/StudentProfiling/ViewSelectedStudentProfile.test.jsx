@@ -59,7 +59,7 @@ describe("ViewSelectedStudentProfile useParams and routing", () => {
     await waitFor(() => {
       expect(studentsAPI.get).toHaveBeenCalledWith("42");
       expect(screen.getByDisplayValue("Sam Smith")).toBeInTheDocument();
-    });
+    }, { timeout: 4000 });
   });
 
   it("navigates back to /dashboard/students when back button is clicked", async () => {

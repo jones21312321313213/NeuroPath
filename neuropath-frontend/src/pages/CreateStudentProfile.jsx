@@ -2,7 +2,6 @@ import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { studentsAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import { Modal, Button } from "../components/ui";
 import {
   CheckIcon,
   CloseIcon,
@@ -359,7 +358,6 @@ export default function CreateStudentProfile({
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
   const [isDirty, setIsDirty] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdStudent, setCreatedStudent] = useState(null);
   const [hasReadConsent, setHasReadConsent] = useState(false);
@@ -587,7 +585,7 @@ export default function CreateStudentProfile({
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     if (e?.preventDefault) e.preventDefault();
 
     if (step !== 2) return;
@@ -597,11 +595,6 @@ export default function CreateStudentProfile({
       return;
     }
 
-    setError("");
-    setShowConfirmModal(true);
-  };
-
-  const handleConfirmSubmit = async () => {
     setSaving(true);
     setError("");
 
@@ -658,12 +651,10 @@ export default function CreateStudentProfile({
         null;
       setCreatedStudent({ id: createdId, name: form.learnerName });
       setIsDirty(false);
-      setShowConfirmModal(false);
       toast.success(`Student profile created for ${form.learnerName}!`);
       setShowSuccessModal(true);
     } catch (err) {
       setError(err.message || "Unable to save student profile.");
-      setShowConfirmModal(false);
       scrollToError();
     } finally {
       setSaving(false);
@@ -1101,87 +1092,6 @@ export default function CreateStudentProfile({
           </div>
         </form>
       </div>
-
-      {/* Confirmation Modal (ENH18) */}
-      <Modal
-        isOpen={showConfirmModal}
-        onClose={() => !saving && setShowConfirmModal(false)}
-        title="Confirm Student Profile Creation"
-        size="md"
-        footer={
-          <>
-            <Button
-              variant="outline"
-              onClick={() => setShowConfirmModal(false)}
-              disabled={saving}
-            >
-              Review Form
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleConfirmSubmit}
-              disabled={saving}
-            >
-              {saving ? "Creating Profile..." : "Confirm & Create"}
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4 text-slate-700">
-          <p className="text-sm text-slate-600">
-            Please review the student profile details below before finalizing the creation:
-          </p>
-          <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 text-sm space-y-2.5">
-            <div className="flex justify-between py-1 border-b border-slate-200/60">
-              <span className="font-medium text-slate-500">Student Name</span>
-              <span className="font-semibold text-slate-800">{form.learnerName}</span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-slate-200/60">
-              <span className="font-medium text-slate-500">Grade & Age</span>
-              <span className="font-semibold text-slate-800">
-                Grade {form.gradeLevel} · {form.age} years old
-              </span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-slate-200/60">
-              <span className="font-medium text-slate-500">Gender</span>
-              <span className="font-semibold text-slate-800">{form.gender || "—"}</span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-slate-200/60">
-              <span className="font-medium text-slate-500">Diagnosis</span>
-              <span className="font-semibold text-slate-800">{form.disabilityCategory}</span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-slate-200/60">
-              <span className="font-medium text-slate-500">School</span>
-              <span className="font-semibold text-slate-800">{form.school || "—"}</span>
-            </div>
-            <div className="py-1">
-              <span className="font-medium text-slate-500 block mb-1">Difficulties</span>
-              <div className="flex flex-wrap gap-1">
-                {form.difficultyMarkers?.length > 0 ? (
-                  form.difficultyMarkers.map((diff) => (
-                    <span
-                      key={diff}
-                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                    >
-                      {diff}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-slate-400 italic">None selected</span>
-                )}
-              </div>
-            </div>
-            {form.guardianName && (
-              <div className="flex justify-between py-1 border-t border-slate-200/60 pt-2">
-                <span className="font-medium text-slate-500">Guardian & Consent</span>
-                <span className="font-semibold text-slate-800 text-right">
-                  {form.guardianName} ({form.guardianRelationship}) · Verified
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </Modal>
 
       {showSuccessModal && (
         <SuccessModal
