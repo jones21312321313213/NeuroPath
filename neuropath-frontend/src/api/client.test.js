@@ -7,6 +7,7 @@ import {
   lessonPlansAPI,
   teachingStrategiesAPI,
   resourcesAPI,
+  iepAPI,
 } from "./client";
 
 
@@ -429,6 +430,42 @@ describe("api client", () => {
       expect(fetch).toHaveBeenCalledWith(
         "http://localhost:8000/api/resources/dashboard-stats/",
         expect.any(Object),
+      );
+    });
+  });
+
+  describe("iepAPI", () => {
+    it("archives an IEP with default is_archived=true", async () => {
+      fetch.mockResolvedValueOnce(
+        jsonResponse({ iepID: 42, is_archived: true }),
+      );
+
+      const result = await iepAPI.archive(42);
+
+      expect(result).toEqual({ iepID: 42, is_archived: true });
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/iep/edit/42/",
+        expect.objectContaining({
+          method: "PUT",
+          body: JSON.stringify({ is_archived: true }),
+        }),
+      );
+    });
+
+    it("unarchives an IEP when is_archived is set to false", async () => {
+      fetch.mockResolvedValueOnce(
+        jsonResponse({ iepID: 42, is_archived: false }),
+      );
+
+      const result = await iepAPI.archive(42, false);
+
+      expect(result).toEqual({ iepID: 42, is_archived: false });
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/iep/edit/42/",
+        expect.objectContaining({
+          method: "PUT",
+          body: JSON.stringify({ is_archived: false }),
+        }),
       );
     });
   });

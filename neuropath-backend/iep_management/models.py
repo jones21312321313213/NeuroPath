@@ -26,6 +26,7 @@ class IEPModel(models.Model):
     accommodations = models.TextField(blank=True, default='')
     generatedDetails = models.JSONField(blank=True, default=dict)
     version = models.IntegerField(default=1)
+    is_archived = models.BooleanField(default=False)
     createdDate = models.DateTimeField(auto_now_add=True)
 
     # --- NEW SECTION B: DEPED MACRO-ENVIRONMENT FACTORS ---

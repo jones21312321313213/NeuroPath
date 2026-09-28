@@ -30,6 +30,7 @@ vi.mock("../api/client", () => ({
     save: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    archive: vi.fn(),
     generateGoalsFromIep: vi.fn(),
     saveGoal: vi.fn(),
     updateGoal: vi.fn(),
@@ -1480,6 +1481,382 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
       expect(screen.getByText(/Behavioral Skills — Annual Goal \/ Long Term/i)).toBeInTheDocument();
       expect(screen.getByText("Take deep breaths when overwhelmed.")).toBeInTheDocument();
+    });
+  });
+
+  describe("Workflow & Lifecycle Enhancements (#205 - ENH25 to ENH29)", () => {
+    // ENH27: Wizard Stepper
+    describe("Section A-B-C Visual Wizard Stepper (ENH27)", () => {
+      it("renders Section A, B, and C stepper items with active and completion states", async () => {
+        render(
+          <MemoryRouter>
+            <IEPGenerationPage mode="generate" initialStudentId={1} />
+          </MemoryRouter>,
+        );
+
+        await waitFor(() => {
+          expect(screen.getByRole("navigation", { name: /IEP Section Navigation/i })).toBeInTheDocument();
+        });
+
+        const stepper = screen.getByRole("navigation", { name: /IEP Section Navigation/i });
+        expect(stepper).toBeInTheDocument();
+        expect(within(stepper).getByText("Section A: Learner Profile")).toBeInTheDocument();
+        expect(within(stepper).getByText("Section B: Special Factors & Barriers")).toBeInTheDocument();
+        expect(within(stepper).getByText("Section C: Annual Goals & Objectives")).toBeInTheDocument();
+
+        // Step 1: Section A has Completed badge because initialStudentId is loaded
+        await waitFor(() => {
+          expect(within(stepper).getAllByText("Completed").length).toBeGreaterThanOrEqual(1);
+        });
+      });
+
+      it("supports direct navigation between wizard sections", async () => {
+        const user = userEvent.setup();
+        render(
+          <MemoryRouter>
+            <IEPGenerationPage mode="generate" initialStudentId={1} />
+          </MemoryRouter>,
+        );
+
+        await waitFor(() => {
+          expect(screen.getByRole("navigation", { name: /IEP Section Navigation/i })).toBeInTheDocument();
+        });
+
+        const stepper = screen.getByRole("navigation", { name: /IEP Section Navigation/i });
+        const stepCBtn = within(stepper).getByText("Section C: Annual Goals & Objectives").closest("button");
+        await user.click(stepCBtn);
+
+        await waitFor(() => {
+          expect(screen.getByText("Section C: Learner's Goals")).toBeInTheDocument();
+        });
+
+        const stepABtn = within(stepper).getByText("Section A: Learner Profile").closest("button");
+        await user.click(stepABtn);
+
+        await waitFor(() => {
+          expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+        });
+      });
+    });
+
+    // ENH25: Regeneration Confirmation Modal
+    describe("Regeneration Confirmation Modal (ENH25)", () => {
+      it("opens confirmation modal when clicking Regenerate Goals with existing goals, warning of unsaved draft replacement", async () => {
+        const user = userEvent.setup();
+        iepAPI.generateGoalsFromIep.mockResolvedValue({
+          goals: [
+            {
+              goalID: 501,
+              subject_category: "Mathematical Skills",
+              annual_goal: "Master single digit addition.",
+              rows: [],
+            },
+          ],
+        });
+        iepAPI.save.mockResolvedValue({ iepID: 301, studentID: 1 });
+        iepAPI.saveGoal.mockResolvedValue({ goalID: 501 });
+
+        render(
+          <MemoryRouter>
+            <IEPGenerationPage mode="generate" initialStudentId={1} />
+          </MemoryRouter>,
+        );
+
+        await waitFor(() => {
+          expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+        });
+
+        await user.click(screen.getByText("NEXT"));
+
+        // Select goal area and generate
+        await user.selectOptions(screen.getByRole("combobox"), "Mathematical Skills");
+        await user.click(screen.getByRole("button", { name: /generate final iep/i }));
+
+        // Accept & save
+        await screen.findByText("Review Generated IEP Draft");
+        await user.click(screen.getByRole("button", { name: /accept & save iep/i }));
+
+        await waitFor(() => {
+          expect(screen.getByText("IEP Generated Successfully!")).toBeInTheDocument();
+        });
+
+        // Click Add Another Goal to return to section C with existing goals
+        await user.click(screen.getByTestId("add-another-goal-btn"));
+
+        await waitFor(() => {
+          expect(screen.getByText(/Goals already added to this IEP/i)).toBeInTheDocument();
+        });
+
+        // Find "Regenerate Goals" button and click it
+        const regenBtn = screen.getAllByRole("button", { name: "Regenerate Goals" })[0];
+        await user.click(regenBtn);
+
+        // Verification: Modal opens with confirmation message
+        expect(screen.getByText("Are you sure you want to regenerate goals?")).toBeInTheDocument();
+        expect(
+          screen.getByText(/Any unsaved custom modifications to the active draft will be replaced\./i)
+        ).toBeInTheDocument();
+
+        // Clicking Cancel dismisses modal without calling generateGoalsFromIep again
+        const cancelBtn = screen.getByRole("button", { name: /cancel/i });
+        await user.click(cancelBtn);
+
+        expect(screen.queryByText("Are you sure you want to regenerate goals?")).not.toBeInTheDocument();
+      });
+
+      it("re-generates draft goals when confirmed in modal", async () => {
+        const user = userEvent.setup();
+        iepAPI.generateGoalsFromIep.mockResolvedValue({
+          goals: [
+            {
+              goalID: 502,
+              subject_category: "Mathematical Skills",
+              annual_goal: "Master multiplication tables.",
+              rows: [],
+            },
+          ],
+        });
+        iepAPI.save.mockResolvedValue({ iepID: 302, studentID: 1 });
+        iepAPI.saveGoal.mockResolvedValue({ goalID: 502 });
+
+        render(
+          <MemoryRouter>
+            <IEPGenerationPage mode="generate" initialStudentId={1} />
+          </MemoryRouter>,
+        );
+
+        await waitFor(() => {
+          expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+        });
+
+        await user.click(screen.getByText("NEXT"));
+        await user.selectOptions(screen.getByRole("combobox"), "Mathematical Skills");
+        await user.click(screen.getByRole("button", { name: /generate final iep/i }));
+
+        await screen.findByText("Review Generated IEP Draft");
+        await user.click(screen.getByRole("button", { name: /accept & save iep/i }));
+        await user.click(screen.getByTestId("add-another-goal-btn"));
+
+        await waitFor(() => {
+          expect(screen.getByText(/Goals already added to this IEP/i)).toBeInTheDocument();
+        });
+
+        // Select category so handleGenerateFinalIep has a target area
+        await user.selectOptions(screen.getByRole("combobox"), "Mathematical Skills");
+
+        // Open confirm modal and confirm
+        const regenButtons = screen.getAllByRole("button", { name: "Regenerate Goals" });
+        await user.click(regenButtons[0]);
+
+        await waitFor(() => {
+          expect(screen.getByRole("dialog")).toBeInTheDocument();
+        });
+
+        const modalRegenBtn = within(screen.getByRole("dialog")).getByRole("button", { name: /regenerate goals/i });
+        await user.click(modalRegenBtn);
+
+        await waitFor(() => {
+          expect(iepAPI.generateGoalsFromIep).toHaveBeenCalledTimes(2);
+        });
+      });
+    });
+
+    // ENH26: Granular Single-Goal Regeneration
+    describe("Granular Single-Goal Regeneration (ENH26)", () => {
+      it("opens prompt tweaks modal for individual goal card and regenerates only that targeted goal", async () => {
+        const user = userEvent.setup();
+        iepAPI.generateGoalsFromIep
+          .mockResolvedValueOnce({
+            goals: [
+              {
+                goalID: 601,
+                subject_category: "Communication Skills",
+                annual_goal: "Initial communication goal.",
+                rows: [],
+              },
+            ],
+          })
+          .mockResolvedValueOnce({
+            goals: [
+              {
+                goalID: 601,
+                subject_category: "Communication Skills",
+                annual_goal: "Updated granular communication goal with AAC support.",
+                rows: [],
+              },
+            ],
+          });
+        iepAPI.save.mockResolvedValue({ iepID: 401, studentID: 1 });
+        iepAPI.saveGoal.mockResolvedValue({ goalID: 601 });
+        iepAPI.updateGoal.mockResolvedValue({ goalID: 601 });
+
+        render(
+          <MemoryRouter>
+            <IEPGenerationPage mode="generate" initialStudentId={1} />
+          </MemoryRouter>,
+        );
+
+        await waitFor(() => {
+          expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+        });
+
+        await user.click(screen.getByText("NEXT"));
+        await user.selectOptions(screen.getByRole("combobox"), "Communication Skills");
+        await user.click(screen.getByRole("button", { name: /generate final iep/i }));
+
+        await screen.findByText("Review Generated IEP Draft");
+        await user.click(screen.getByRole("button", { name: /accept & save iep/i }));
+
+        // Now in result preview, find "Regenerate Goal" button on the goal card
+        await waitFor(() => {
+          expect(screen.getByText("Regenerate Goal")).toBeInTheDocument();
+        });
+
+        await user.click(screen.getByText("Regenerate Goal"));
+
+        // Verify single goal prompt modal opened
+        await waitFor(() => {
+          expect(screen.getByRole("dialog")).toBeInTheDocument();
+        });
+
+        const modal = screen.getByRole("dialog");
+        expect(within(modal).getByText(/Regenerate Goal: Communication Skills/i)).toBeInTheDocument();
+        expect(within(modal).getByText("Initial communication goal.")).toBeInTheDocument();
+
+        // Type custom prompt tweak
+        const promptInput = screen.getByPlaceholderText(/Focus on visual schedule transitions/i);
+        fireEvent.change(promptInput, {
+          target: { value: "Emphasize PECS board icon requests during group play" },
+        });
+
+        // Click Regenerate Goal inside modal
+        const confirmBtn = within(screen.getByRole("dialog")).getByRole("button", { name: "Regenerate Goal" });
+        await user.click(confirmBtn);
+
+        await waitFor(() => {
+          expect(iepAPI.generateGoalsFromIep).toHaveBeenCalledWith(
+            expect.objectContaining({
+              goal_area: "Communication Skills",
+              teacher_prompt: "Emphasize PECS board icon requests during group play",
+            }),
+          );
+          expect(iepAPI.updateGoal).toHaveBeenCalledWith(
+            601,
+            expect.objectContaining({
+              annual_goal: "Updated granular communication goal with AAC support.",
+            }),
+          );
+          expect(screen.getByText("Updated granular communication goal with AAC support.")).toBeInTheDocument();
+        });
+      });
+    });
+
+    // ENH28: High-Contrast Version Badges & History Presentation
+    describe("High-Contrast Version Badges & History Presentation (ENH28)", () => {
+      it("renders high-contrast Version (Active) and Last Updated badges in View IEP mode", async () => {
+        render(
+          <MemoryRouter>
+            <IEPGenerationPage mode="view" initialStudentId={1} />
+          </MemoryRouter>,
+        );
+
+        await waitFor(() => {
+          expect(screen.getByText(/Version 1 \(Active\)/i)).toBeInTheDocument();
+          expect(screen.getByText(/Last Updated: September 8, 2026/i)).toBeInTheDocument();
+        });
+
+        const activeBadge = screen.getByText(/Version 1 \(Active\)/i);
+        expect(activeBadge).toHaveClass("badge-active");
+      });
+
+      it("displays version status tags in version selector dropdown", async () => {
+        const olderIep = {
+          ...mockIep,
+          iepID: 100,
+          version: 1,
+          formattedDate: "August 1, 2026",
+          is_archived: false,
+        };
+        const newerIep = {
+          ...mockIep,
+          iepID: 101,
+          version: 2,
+          formattedDate: "September 8, 2026",
+          is_archived: false,
+        };
+
+        iepAPI.listByStudent.mockResolvedValue([newerIep, olderIep]);
+
+        render(
+          <MemoryRouter>
+            <IEPGenerationPage mode="view" initialStudentId={1} />
+          </MemoryRouter>,
+        );
+
+        await waitFor(() => {
+          expect(screen.getByRole("combobox")).toBeInTheDocument();
+        });
+
+        const versionSelect = screen.getByRole("combobox");
+        expect(versionSelect).toBeInTheDocument();
+        expect(within(versionSelect).getByText(/Version 2 \(Active\)/i)).toBeInTheDocument();
+        expect(within(versionSelect).getByText(/Version 1 \(Superseded\)/i)).toBeInTheDocument();
+      });
+    });
+
+    // ENH29: Archiving Mechanism & Expandable Accordion
+    describe("Archiving Mechanism & Expandable Accordion (ENH29)", () => {
+      it("archives an IEP version via ARCHIVE VERSION button and moves it to Archived IEPs accordion", async () => {
+        const user = userEvent.setup();
+        iepAPI.archive.mockResolvedValue({ message: "IEP archived successfully." });
+
+        render(
+          <MemoryRouter>
+            <IEPGenerationPage mode="view" initialStudentId={1} />
+          </MemoryRouter>,
+        );
+
+        await waitFor(() => {
+          expect(screen.getByRole("button", { name: "ARCHIVE VERSION" })).toBeInTheDocument();
+        });
+
+        await user.click(screen.getByRole("button", { name: "ARCHIVE VERSION" }));
+
+        await waitFor(() => {
+          expect(iepAPI.archive).toHaveBeenCalledWith(101, true);
+          expect(screen.getByRole("button", { name: "UNARCHIVE VERSION" })).toBeInTheDocument();
+          expect(screen.getAllByText(/Version 1 \(Archived\)/i).length).toBeGreaterThanOrEqual(1);
+        });
+      });
+
+      it("unarchives an archived IEP version via UNARCHIVE VERSION button", async () => {
+        const user = userEvent.setup();
+        const archivedIep = {
+          ...mockIep,
+          iepID: 105,
+          version: 1,
+          is_archived: true,
+        };
+        iepAPI.listByStudent.mockResolvedValue([archivedIep]);
+        iepAPI.archive.mockResolvedValue({ message: "IEP unarchived successfully." });
+
+        render(
+          <MemoryRouter>
+            <IEPGenerationPage mode="view" initialStudentId={1} />
+          </MemoryRouter>,
+        );
+
+        await waitFor(() => {
+          expect(screen.getByRole("button", { name: "UNARCHIVE VERSION" })).toBeInTheDocument();
+        });
+
+        await user.click(screen.getByRole("button", { name: "UNARCHIVE VERSION" }));
+
+        await waitFor(() => {
+          expect(iepAPI.archive).toHaveBeenCalledWith(105, false);
+          expect(screen.getByRole("button", { name: "ARCHIVE VERSION" })).toBeInTheDocument();
+        });
+      });
     });
   });
 });

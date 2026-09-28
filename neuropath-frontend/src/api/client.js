@@ -225,6 +225,11 @@ export const iepAPI = {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
+  archive: (id, is_archived = true) =>
+    request(`/iep/edit/${id}/`, {
+      method: "PUT",
+      body: JSON.stringify({ is_archived }),
+    }),
   delete: (id) => request(`/iep/delete/${id}/`, { method: "DELETE" }),
 
   // Fetch all IEPGoal rows (with nested objective_rows) for a specific IEP
