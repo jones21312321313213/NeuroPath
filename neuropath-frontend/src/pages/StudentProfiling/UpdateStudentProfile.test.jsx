@@ -153,13 +153,9 @@ describe("UpdateStudentProfile Help Text & Difficulty Validation", () => {
     // Advance to step 2
     await user.click(screen.getByRole("button", { name: /NEXT/i }));
 
-    // Click Save -> confirmation modal opens
+    // Click Save -> directly saves
     const saveBtn = await screen.findByRole("button", { name: /SAVE/i });
     await user.click(saveBtn);
-
-    // Confirm save in modal
-    const confirmBtn = await screen.findByRole("button", { name: /Confirm & Save/i });
-    await user.click(confirmBtn);
 
     expect(studentsAPI.update).toHaveBeenCalledWith("student-123", expect.any(Object));
 
@@ -192,10 +188,6 @@ describe("UpdateStudentProfile Help Text & Difficulty Validation", () => {
     await user.click(screen.getByRole("button", { name: /NEXT/i }));
     const saveBtn = await screen.findByRole("button", { name: /SAVE/i });
     await user.click(saveBtn);
-
-    // Confirm save in modal
-    const confirmBtn = await screen.findByRole("button", { name: /Confirm & Save/i });
-    await user.click(confirmBtn);
 
     // Modal dialog is present with accessible attributes
     const dialog = await screen.findByRole("dialog");
@@ -514,7 +506,7 @@ describe("Issue #204: Input bounds, accessible validation feedback, and update c
     expect((await screen.findAllByText("A student under 6 years old is unlikely to be above Grade 1.")).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("opens accessible confirmation modal on save, displays summary details, allows review, and confirms", async () => {
+  it("saves valid student profile immediately on clicking SAVE without intermediate confirmation modal", async () => {
     studentsAPI.get.mockResolvedValueOnce({ data: mockStudent });
     studentsAPI.update.mockResolvedValueOnce({ success: true });
 
@@ -529,26 +521,12 @@ describe("Issue #204: Input bounds, accessible validation feedback, and update c
     // Advance to Step 2
     fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
 
-    // Click SAVE PROFILE -> opens confirmation modal
+    // Click SAVE PROFILE -> directly saves and opens SuccessModal without confirmation modal
     const saveBtn = await screen.findByRole("button", { name: /SAVE/i });
     fireEvent.click(saveBtn);
 
-    const modalHeading = await screen.findByRole("heading", { name: /Confirm Student Profile Update/i });
-    expect(modalHeading).toBeInTheDocument();
-    expect(screen.getByText("Maria Clara")).toBeInTheDocument();
-    expect(screen.getByText(/Grade 3 · 9 years old/i)).toBeInTheDocument();
-    expect(screen.getByText("Central School")).toBeInTheDocument();
-
-    // Click "Review Form" to dismiss modal
-    fireEvent.click(screen.getByRole("button", { name: /Review Form/i }));
-    expect(screen.queryByRole("heading", { name: /Confirm Student Profile Update/i })).not.toBeInTheDocument();
-    expect(studentsAPI.update).not.toHaveBeenCalled();
-
-    // Click SAVE again, then "Confirm & Save"
-    fireEvent.click(saveBtn);
-    fireEvent.click(screen.getByRole("button", { name: /Confirm & Save/i }));
-
     expect(studentsAPI.update).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("heading", { name: /Confirm Student Profile Update/i })).not.toBeInTheDocument();
     expect(await screen.findByText(/Profile Updated!/i)).toBeInTheDocument();
   });
 });
