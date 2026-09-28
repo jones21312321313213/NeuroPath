@@ -74,6 +74,39 @@
   resize: vertical; /* allow vertical resizing */
 }
 
+/* ── Inline Field Error & Character Count Styling (WCAG 2.1 AA) ─ */
+.form-input[aria-invalid="true"],
+.form-select[aria-invalid="true"],
+.form-textarea[aria-invalid="true"] {
+  border-color: #e11d48 !important;
+}
+
+.form-input[aria-invalid="true"]:focus,
+.form-select[aria-invalid="true"]:focus,
+.form-textarea[aria-invalid="true"]:focus,
+.form-input[aria-invalid="true"]:focus-visible,
+.form-select[aria-invalid="true"]:focus-visible,
+.form-textarea[aria-invalid="true"]:focus-visible {
+  border-color: #e11d48 !important;
+  outline: 2px solid #e11d48 !important;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.2) !important;
+}
+
+.form-field-error {
+  color: #e11d48;
+  font-size: 0.8rem;
+  margin-top: 4px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.form-char-count {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
