@@ -119,6 +119,12 @@ function normalizeGoal(goal) {
     rows: (goal.objective_rows || goal.rows || []).map((row, idx) => ({
       id: row.rowID || row.id || idx,
       objective: row.enroute_objectives || row.objective || "—",
+      month1: row.month_1_target || row.month1 || row.month_1 || "—",
+      month2: row.month_2_target || row.month2 || row.month_2 || "—",
+      month3: row.month_3_target || row.month3 || row.month_3 || "—",
+      month_1_target: row.month_1_target || row.month1 || row.month_1 || "—",
+      month_2_target: row.month_2_target || row.month2 || row.month_2 || "—",
+      month_3_target: row.month_3_target || row.month3 || row.month_3 || "—",
       interventions: row.interventions_procedures || row.interventions || "—",
       timeline: row.timeline_mins_session || row.timeline || "—",
       responsible: row.individuals_responsible || row.responsible || "—",
@@ -132,6 +138,9 @@ function GoalTable({ rows = [] }) {
   if (!rows.length) return null;
   const columns = [
     ["objective", "Enroute Objectives / Procedure"],
+    ["month1", "Month 1 Milestone (1st Month)"],
+    ["month2", "Month 2 Milestone (2nd Month)"],
+    ["month3", "Month 3 Milestone (3rd Month)"],
     ["interventions", "Interventions / Activities / Procedure"],
     ["timeline", "Timeline / Session"],
     ["responsible", "Individuals Responsible"],
@@ -148,7 +157,19 @@ function GoalTable({ rows = [] }) {
           {rows.map((row) => (
             <tr key={row.id}>
               {columns.map(([field]) => (
-                <td key={field}>{row[field] || "—"}</td>
+                <td key={field}>
+                  {row[field] ||
+                    row[
+                      field === "month1"
+                        ? "month_1_target"
+                        : field === "month2"
+                          ? "month_2_target"
+                          : field === "month3"
+                            ? "month_3_target"
+                            : field
+                    ] ||
+                    "—"}
+                </td>
               ))}
             </tr>
           ))}

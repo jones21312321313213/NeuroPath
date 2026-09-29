@@ -2020,6 +2020,164 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       expect(customInput.value).toBe("Speech Therapist");
     });
   });
+
+  describe("Section C 3-Month Quarter Milestone Columns & SMART ABCD Goals (Issue #215)", () => {
+    it("renders 3 monthly milestone columns in Section C Read-Only mode", async () => {
+      const mockGoal = {
+        goalID: 101,
+        subject_category: "Mathematics",
+        annual_goal: "Count 1 to 10 with 80% accuracy",
+        objective_rows: [
+          {
+            rowID: 201,
+            enroute_objectives: "Count 1-5 using blocks",
+            month_1_target: "Count 1-2 with physical prompts",
+            month_2_target: "Count 1-3 with faded cues",
+            month_3_target: "Count 1-5 independently",
+            interventions_procedures: "Block manipulation",
+            timeline_mins_session: "15 mins",
+            individuals_responsible: "Teacher",
+            progress_instructional: "Checklist",
+            remarks: "Good effort",
+          },
+        ],
+      };
+
+      iepAPI.listByStudent.mockResolvedValue([
+        {
+          iepID: 10,
+          studentID: 1,
+          studentName: "Alex Doe",
+          version: 1,
+          goals: "Improve numeracy",
+        },
+      ]);
+      iepAPI.listGoalsByIep.mockResolvedValue([mockGoal]);
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Section C: Learner's Goals")).toBeInTheDocument();
+        expect(screen.getByText("MONTH 1 MILESTONE (1ST MONTH)")).toBeInTheDocument();
+      });
+
+      expect(screen.getByText("MONTH 2 MILESTONE (2ND MONTH)")).toBeInTheDocument();
+      expect(screen.getByText("MONTH 3 MILESTONE (3RD MONTH)")).toBeInTheDocument();
+      expect(screen.getByText("Count 1-2 with physical prompts")).toBeInTheDocument();
+      expect(screen.getByText("Count 1-3 with faded cues")).toBeInTheDocument();
+      expect(screen.getByText("Count 1-5 independently")).toBeInTheDocument();
+    });
+
+    it("renders 3 monthly milestone columns and textareas in Edit Section C mode", async () => {
+      const user = userEvent.setup();
+      const mockGoal = {
+        goalID: 101,
+        subject_category: "Mathematics",
+        annual_goal: "Count 1 to 10 with 80% accuracy",
+        objective_rows: [
+          {
+            rowID: 201,
+            enroute_objectives: "Count 1-5 using blocks",
+            month_1_target: "Count 1-2 with physical prompts",
+            month_2_target: "Count 1-3 with faded cues",
+            month_3_target: "Count 1-5 independently",
+            interventions_procedures: "Block manipulation",
+            timeline_mins_session: "15 mins",
+            individuals_responsible: "Teacher",
+            progress_instructional: "Checklist",
+            remarks: "Good effort",
+          },
+        ],
+      };
+
+      iepAPI.listByStudent.mockResolvedValue([
+        {
+          iepID: 10,
+          studentID: 1,
+          studentName: "Alex Doe",
+          version: 1,
+          goals: "Improve numeracy",
+        },
+      ]);
+      iepAPI.listGoalsByIep.mockResolvedValue([mockGoal]);
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("EDIT IEP"));
+
+      expect(screen.getByText("Edit Section C: Learner's Goals")).toBeInTheDocument();
+      expect(screen.getByText("Month 1 Milestone (1st Month)")).toBeInTheDocument();
+      expect(screen.getByText("Month 2 Milestone (2nd Month)")).toBeInTheDocument();
+      expect(screen.getByText("Month 3 Milestone (3rd Month)")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Count 1-2 with physical prompts")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Count 1-3 with faded cues")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Count 1-5 independently")).toBeInTheDocument();
+    });
+
+    it("allows adding manual goal with 3-month milestones in Step 2 and saves to API", async () => {
+      const user = userEvent.setup();
+      iepAPI.save.mockResolvedValue({ iepID: 99, studentID: 1 });
+      iepAPI.saveGoal.mockResolvedValue({ goalID: 888 });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("NEXT"));
+
+      const addManualBtn = screen.getByRole("button", { name: /\+ Add Goal Manually/i });
+      await user.click(addManualBtn);
+
+      expect(screen.getByText("Manual Goal Entry")).toBeInTheDocument();
+      expect(screen.getByText("Month 1 Milestone (1st Month)")).toBeInTheDocument();
+      expect(screen.getByText("Month 2 Milestone (2nd Month)")).toBeInTheDocument();
+      expect(screen.getByText("Month 3 Milestone (3rd Month)")).toBeInTheDocument();
+
+      const goalAreaInput = screen.getByPlaceholderText(/Communication Skills/i);
+      await user.type(goalAreaInput, "Mathematics");
+
+      const annualGoalInput = screen.getByPlaceholderText("Write the annual learner goal.");
+      await user.type(annualGoalInput, "Will count 1 to 10 with 80% accuracy.");
+
+      const m1Input = screen.getByPlaceholderText("1st Month Milestone");
+      const m2Input = screen.getByPlaceholderText("2nd Month Milestone");
+      const m3Input = screen.getByPlaceholderText("3rd Month Milestone");
+
+      await user.type(m1Input, "Identify 1-3 counters with full cues");
+      await user.type(m2Input, "Identify 1-5 counters with verbal cues");
+      await user.type(m3Input, "Identify 5-10 counters independently");
+
+      const saveManualBtn = screen.getByRole("button", { name: /save goal manually/i });
+      await user.click(saveManualBtn);
+
+      await waitFor(() => {
+        expect(iepAPI.saveGoal).toHaveBeenCalled();
+      });
+
+      const saveGoalPayload = iepAPI.saveGoal.mock.calls[0][0];
+      expect(saveGoalPayload.objective_rows[0].month_1_target).toBe("Identify 1-3 counters with full cues");
+      expect(saveGoalPayload.objective_rows[0].month_2_target).toBe("Identify 1-5 counters with verbal cues");
+      expect(saveGoalPayload.objective_rows[0].month_3_target).toBe("Identify 5-10 counters independently");
+    });
+  });
 });
 
 

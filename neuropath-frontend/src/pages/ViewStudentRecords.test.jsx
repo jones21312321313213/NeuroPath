@@ -89,6 +89,9 @@ describe("ViewStudentRecords Component", () => {
         {
           rowID: 1,
           enroute_objectives: "Decode 2-syllable words",
+          month_1_target: "Decode 2-syllable phonemes with flashcards",
+          month_2_target: "Decode 2-syllable sight words with faded cues",
+          month_3_target: "Decode 2-syllable words independently",
           interventions_procedures: "Phonics flashcards daily",
           timeline_mins_session: "15 mins daily",
           individuals_responsible: "SPED Teacher",
@@ -176,6 +179,12 @@ describe("ViewStudentRecords Component", () => {
       await screen.findByText("Section B: Difficulties, Barriers, and Enabling Supports"),
     ).toBeInTheDocument();
     expect(screen.getByText("Section C: Learner's Goals")).toBeInTheDocument();
+    expect(screen.getByText("Month 1 Milestone (1st Month)")).toBeInTheDocument();
+    expect(screen.getByText("Month 2 Milestone (2nd Month)")).toBeInTheDocument();
+    expect(screen.getByText("Month 3 Milestone (3rd Month)")).toBeInTheDocument();
+    expect(screen.getByText("Decode 2-syllable phonemes with flashcards")).toBeInTheDocument();
+    expect(screen.getByText("Decode 2-syllable sight words with faded cues")).toBeInTheDocument();
+    expect(screen.getByText("Decode 2-syllable words independently")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /export pdf/i }),
     ).toBeInTheDocument();

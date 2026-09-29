@@ -81,9 +81,10 @@ class IEPObjectiveRowSerializer(serializers.ModelSerializer):
     class Meta:
         model = IEPObjectiveRow
         fields = [
-            'rowID', 'enroute_objectives', 'interventions_procedures', 
-            'timeline_mins_session', 'individuals_responsible', 
-            'progress_instructional', 'remarks'
+            'rowID', 'enroute_objectives', 
+            'month_1_target', 'month_2_target', 'month_3_target',
+            'interventions_procedures', 'timeline_mins_session', 
+            'individuals_responsible', 'progress_instructional', 'remarks'
         ]
 
 class StandaloneIEPGoalSerializer(serializers.ModelSerializer):

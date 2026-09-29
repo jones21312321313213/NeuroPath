@@ -305,6 +305,9 @@ function SpecialFactorNotesField({
 function ReadOnlyGoalTable({ rows = [] }) {
   const columns = [
     ["objective", "ENROUTE OBJECTIVES / PROCEDURE"],
+    ["month1", "MONTH 1 MILESTONE (1ST MONTH)"],
+    ["month2", "MONTH 2 MILESTONE (2ND MONTH)"],
+    ["month3", "MONTH 3 MILESTONE (3RD MONTH)"],
     ["interventions", "INTERVENTIONS / ACTIVITIES / PROCEDURE"],
     ["timeline", "TIMELINE / SESSION"],
     ["responsible", "INDIVIDUALS RESPONSIBLE"],
@@ -328,7 +331,17 @@ function ReadOnlyGoalTable({ rows = [] }) {
             <tr key={row.id || i}>
               {columns.map(([field]) => (
                 <td key={field} className="iep-readonly-cell">
-                  {row[field] || "—"}
+                  {row[field] ||
+                    row[
+                      field === "month1"
+                        ? "month_1_target"
+                        : field === "month2"
+                          ? "month_2_target"
+                          : field === "month3"
+                            ? "month_3_target"
+                            : field
+                    ] ||
+                    "—"}
                 </td>
               ))}
             </tr>
@@ -462,6 +475,12 @@ function normalizeDbGoal(dbGoal) {
       id: row.rowID,
       rowID: row.rowID,
       objective: row.enroute_objectives || "",
+      month1: row.month_1_target || "",
+      month2: row.month_2_target || "",
+      month3: row.month_3_target || "",
+      month_1_target: row.month_1_target || "",
+      month_2_target: row.month_2_target || "",
+      month_3_target: row.month_3_target || "",
       interventions: row.interventions_procedures || "",
       timeline: row.timeline_mins_session || "",
       responsible: row.individuals_responsible || "",
@@ -480,6 +499,9 @@ function goalToApiPayload(goal, iepID) {
     target_metric: goal.targetMetric || "Standard IEP Metric",
     objective_rows: (goal.rows || []).map((row) => ({
       enroute_objectives: row.objective || "",
+      month_1_target: row.month_1_target || row.month1 || "",
+      month_2_target: row.month_2_target || row.month2 || "",
+      month_3_target: row.month_3_target || row.month3 || "",
       interventions_procedures: row.interventions || "",
       timeline_mins_session: row.timeline || "",
       individuals_responsible: row.responsible || "",
@@ -498,6 +520,12 @@ const emptyEditableGoal = () => ({
   rows: [
     {
       objective: "",
+      month1: "",
+      month2: "",
+      month3: "",
+      month_1_target: "",
+      month_2_target: "",
+      month_3_target: "",
       interventions: "",
       timeline: "",
       responsible: "",
@@ -1080,9 +1108,17 @@ function ViewIEPPanel({
         idx === goalIndex
           ? {
               ...goal,
-              rows: goal.rows.map((row, rIdx) =>
-                rIdx === rowIndex ? { ...row, [field]: value } : row,
-              ),
+              rows: goal.rows.map((row, rIdx) => {
+                if (rIdx !== rowIndex) return row;
+                const updated = { ...row, [field]: value };
+                if (field === "month1") updated.month_1_target = value;
+                if (field === "month2") updated.month_2_target = value;
+                if (field === "month3") updated.month_3_target = value;
+                if (field === "month_1_target") updated.month1 = value;
+                if (field === "month_2_target") updated.month2 = value;
+                if (field === "month_3_target") updated.month3 = value;
+                return updated;
+              }),
             }
           : goal,
       ),
@@ -1098,6 +1134,12 @@ function ViewIEPPanel({
                 ...(goal.rows || []),
                 {
                   objective: "",
+                  month1: "",
+                  month2: "",
+                  month3: "",
+                  month_1_target: "",
+                  month_2_target: "",
+                  month_3_target: "",
                   interventions: "",
                   timeline: "",
                   responsible: "",
@@ -1716,6 +1758,9 @@ function ViewIEPPanel({
                         <thead>
                           <tr>
                             <th>Enroute Objectives / Procedure</th>
+                            <th>Month 1 Milestone (1st Month)</th>
+                            <th>Month 2 Milestone (2nd Month)</th>
+                            <th>Month 3 Milestone (3rd Month)</th>
                             <th>Interventions / Activities / Procedure</th>
                             <th>Timeline / Session</th>
                             <th>Individuals Responsible</th>
@@ -1729,6 +1774,9 @@ function ViewIEPPanel({
                             <tr key={row.rowID || rowIndex}>
                               {[
                                 ["objective", "Objective"],
+                                ["month1", "1st Month Milestone"],
+                                ["month2", "2nd Month Milestone"],
+                                ["month3", "3rd Month Milestone"],
                                 ["interventions", "Intervention"],
                                 ["timeline", "Timeline"],
                                 ["responsible", "Responsible"],
@@ -1739,7 +1787,19 @@ function ViewIEPPanel({
                                   <textarea
                                     className="form-textarea iep-small-textarea"
                                     rows={3}
-                                    value={row[field] || ""}
+                                    value={
+                                      row[field] ||
+                                      row[
+                                        field === "month1"
+                                          ? "month_1_target"
+                                          : field === "month2"
+                                            ? "month_2_target"
+                                            : field === "month3"
+                                              ? "month_3_target"
+                                              : field
+                                      ] ||
+                                      ""
+                                    }
                                     placeholder={placeholder}
                                     onChange={(e) =>
                                       updateEditGoalRow(
@@ -2138,6 +2198,12 @@ export default function IEPGenerationPage({
     rows: [
       {
         objective: "",
+        month1: "",
+        month2: "",
+        month3: "",
+        month_1_target: "",
+        month_2_target: "",
+        month_3_target: "",
         interventions: "",
         timeline: "",
         responsible: "",
@@ -2531,6 +2597,12 @@ export default function IEPGenerationPage({
         ...prev.rows,
         {
           objective: "",
+          month1: "",
+          month2: "",
+          month3: "",
+          month_1_target: "",
+          month_2_target: "",
+          month_3_target: "",
           interventions: "",
           timeline: "",
           responsible: "",
@@ -2543,9 +2615,17 @@ export default function IEPGenerationPage({
   const updateManualGoalObjectiveRow = (rowIndex, field, value) =>
     setManualGoal((prev) => ({
       ...prev,
-      rows: prev.rows.map((row, idx) =>
-        idx === rowIndex ? { ...row, [field]: value } : row,
-      ),
+      rows: prev.rows.map((row, idx) => {
+        if (idx !== rowIndex) return row;
+        const updated = { ...row, [field]: value };
+        if (field === "month1") updated.month_1_target = value;
+        if (field === "month2") updated.month_2_target = value;
+        if (field === "month3") updated.month_3_target = value;
+        if (field === "month_1_target") updated.month1 = value;
+        if (field === "month_2_target") updated.month2 = value;
+        if (field === "month_3_target") updated.month3 = value;
+        return updated;
+      }),
     }));
 
   const removeManualGoalObjectiveRow = (rowIndex) =>
@@ -2678,6 +2758,12 @@ export default function IEPGenerationPage({
         _rgori_feedback: "Custom goal manually added by teacher.",
         objective_rows: manualGoal.rows.map((row) => ({
           enroute_objectives: row.objective,
+          month_1_target: row.month_1_target || row.month1 || "",
+          month_2_target: row.month_2_target || row.month2 || "",
+          month_3_target: row.month_3_target || row.month3 || "",
+          month1: row.month_1_target || row.month1 || "",
+          month2: row.month_2_target || row.month2 || "",
+          month3: row.month_3_target || row.month3 || "",
           interventions_procedures: row.interventions,
           timeline_mins_session: row.timeline,
           individuals_responsible: row.responsible,
@@ -2697,6 +2783,12 @@ export default function IEPGenerationPage({
         rows: [
           {
             objective: "",
+            month1: "",
+            month2: "",
+            month3: "",
+            month_1_target: "",
+            month_2_target: "",
+            month_3_target: "",
             interventions: "",
             timeline: "",
             responsible: "",
@@ -3744,6 +3836,9 @@ export default function IEPGenerationPage({
                             <thead>
                               <tr>
                                 <th>Enroute Objectives / Procedure</th>
+                                <th>Month 1 Milestone (1st Month)</th>
+                                <th>Month 2 Milestone (2nd Month)</th>
+                                <th>Month 3 Milestone (3rd Month)</th>
                                 <th>Interventions / Activities / Procedure</th>
                                 <th>Timeline / Session</th>
                                 <th>Individuals Responsible</th>
@@ -3757,6 +3852,9 @@ export default function IEPGenerationPage({
                                 <tr key={rowIndex}>
                                   {[
                                     ["objective", "Objective"],
+                                    ["month1", "1st Month Milestone"],
+                                    ["month2", "2nd Month Milestone"],
+                                    ["month3", "3rd Month Milestone"],
                                     ["interventions", "Intervention"],
                                     ["timeline", "Timeline"],
                                     ["responsible", "Responsible"],
@@ -3767,7 +3865,19 @@ export default function IEPGenerationPage({
                                       <textarea
                                         className="form-textarea iep-small-textarea"
                                         rows={3}
-                                        value={row[field] || ""}
+                                        value={
+                                          row[field] ||
+                                          row[
+                                            field === "month1"
+                                              ? "month_1_target"
+                                              : field === "month2"
+                                                ? "month_2_target"
+                                                : field === "month3"
+                                                  ? "month_3_target"
+                                                  : field
+                                          ] ||
+                                          ""
+                                        }
                                         placeholder={placeholder}
                                         onChange={(e) =>
                                           updateManualGoalObjectiveRow(
@@ -4027,11 +4137,17 @@ export default function IEPGenerationPage({
                                 rows={(goal.objective_rows || []).map(
                                   (row, i) => ({
                                     id: i,
-                                    objective: row.enroute_objectives,
-                                    interventions: row.interventions_procedures,
-                                    timeline: row.timeline_mins_session,
-                                    responsible: row.individuals_responsible,
-                                    evaluation: row.progress_instructional,
+                                    objective: row.enroute_objectives || row.objective,
+                                    month1: row.month_1_target || row.month1 || row.month_1,
+                                    month2: row.month_2_target || row.month2 || row.month_2,
+                                    month3: row.month_3_target || row.month3 || row.month_3,
+                                    month_1_target: row.month_1_target || row.month1 || row.month_1,
+                                    month_2_target: row.month_2_target || row.month2 || row.month_2,
+                                    month_3_target: row.month_3_target || row.month3 || row.month_3,
+                                    interventions: row.interventions_procedures || row.interventions,
+                                    timeline: row.timeline_mins_session || row.timeline,
+                                    responsible: row.individuals_responsible || row.responsible,
+                                    evaluation: row.progress_instructional || row.evaluation,
                                     remarks: row.remarks,
                                   }),
                                 )}

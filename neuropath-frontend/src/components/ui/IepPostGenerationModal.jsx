@@ -258,9 +258,12 @@ export function IepPostGenerationModal({
                         <table className="w-full text-xs text-left text-slate-700">
                           <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
                             <tr>
-                              <th className="px-3 py-2 w-1/3">Objective / Milestone</th>
-                              <th className="px-3 py-2 w-5/12">Interventions / Strategies</th>
-                              <th className="px-3 py-2 w-1/4">Timeline / Schedule</th>
+                              <th className="px-3 py-2 w-1/4">Objective</th>
+                              <th className="px-3 py-2 w-1/6">1st Month</th>
+                              <th className="px-3 py-2 w-1/6">2nd Month</th>
+                              <th className="px-3 py-2 w-1/6">3rd Month</th>
+                              <th className="px-3 py-2 w-1/4">Interventions</th>
+                              <th className="px-3 py-2 whitespace-nowrap">Timeline</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -268,6 +271,15 @@ export function IepPostGenerationModal({
                               <tr key={rIdx} className="hover:bg-slate-50/50 transition-colors">
                                 <td className="px-3 py-2 align-top font-medium text-slate-900">
                                   {row.enroute_objectives || row.objective || row.procedure || "—"}
+                                </td>
+                                <td className="px-3 py-2 align-top text-slate-600">
+                                  {row.month_1_target || row.month_1 || row.month1 || "—"}
+                                </td>
+                                <td className="px-3 py-2 align-top text-slate-600">
+                                  {row.month_2_target || row.month_2 || row.month2 || "—"}
+                                </td>
+                                <td className="px-3 py-2 align-top text-slate-600">
+                                  {row.month_3_target || row.month_3 || row.month3 || "—"}
                                 </td>
                                 <td className="px-3 py-2 align-top text-slate-600">
                                   {row.interventions_procedures || row.interventions || row.intervention || "—"}
