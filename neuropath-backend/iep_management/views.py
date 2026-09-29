@@ -482,7 +482,12 @@ class GenerateIEPGoalAPIView(APIView):
         pii_tokens = [data.get('student_name', '')]
         scrubbed_barriers = scrub_pii_from_text(data.get('baseline_barriers', ''), pii_tokens)
         student_context = f"Learner, Diagnosis: {data['diagnosis']}, Barriers: {scrubbed_barriers}"
-        generation_prompt = f"Write a specific, measurable IEP goal targeting {data['target_domain']} for {student_context}."
+        generation_prompt = (
+            f"Write a specific, measurable IEP goal following ABCD criteria "
+            f"(Actor: learner; Behavior: observable skill with targeted brackets; "
+            f"Condition: environmental prompt level; Degree: measurable threshold) "
+            f"targeting {data['target_domain']} for {student_context}."
+        )
         
         # 2. Setup the Generation & R-GORI Loop variables
         max_attempts = 3
@@ -775,6 +780,11 @@ class GenerateIEPGoalsFromIEPView(APIView):
             f"☁️system☁️"
             f"You are an expert Special Education teacher writing IEP goals. "
             f"Write ONE specific, measurable, achievable, relevant, and time-bound (SMART) annual IEP goal. "
+            f"The goal MUST follow the ABCD criteria:\n"
+            f"- Actor: The individual learner (refer to the student by name or 'the learner').\n"
+            f"- Behavior: Specific, observable skill with targeted brackets (e.g., 'count and identify numbers 5–10', 'sort classroom objects into 3 categories').\n"
+            f"- Condition: Environmental prompt level and context (e.g., 'given visual counters and physical prompts', 'in a structured classroom setting').\n"
+            f"- Degree: Measurable criteria/threshold (e.g., 'with 80% accuracy in 4 out of 5 consecutive trials across 2 consecutive weeks').\n"
             f"The goal MUST directly address the PRIMARY Goal Area specified below. "
             f"Do NOT write a goal for a different domain. "
             f"Output ONLY the goal sentence. No explanations, no bullet points, no preamble."
@@ -788,7 +798,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
             f"Support Personnel: {facilitators}\n"
             f"{special_factors_line}"
             f"{teacher_instructions}\n"
-            f"Write the annual IEP goal for this student. It MUST target the PRIMARY Goal Area above."
+            f"Write the annual IEP goal for this student following the ABCD criteria with targeted skill brackets and targeting the PRIMARY Goal Area above."
             f"☁️/user☁️"
         )
         goal_text, _ = AIEngineService.generate_text(prompt, max_tokens=200)
@@ -808,13 +818,17 @@ class GenerateIEPGoalsFromIEPView(APIView):
             if goal_area else ""
         )
         system_prompt = (
-            "You are a Special Education teacher writing IEP objective rows. "
+            "You are an expert Special Education teacher writing IEP objective rows for a 3-month quarterly term. "
             "Output ONLY a valid JSON array of 2-3 objective row objects. "
             "Each object must have exactly these keys: "
-            "enroute_objectives, interventions_procedures, timeline_mins_session, "
+            "enroute_objectives, month_1_target, month_2_target, month_3_target, "
+            "interventions_procedures, timeline_mins_session, "
             "individuals_responsible, progress_instructional, remarks. "
-            "The enroute_objectives must be concrete, sequential sub-skills that build toward the annual goal — "
-            "NOT a restatement of the annual goal itself. "
+            "The enroute_objectives must be concrete, sequential sub-skills following ABCD criteria with targeted skill brackets (e.g. counting 5-10). "
+            "Milestones must map incremental progression across the 3-month quarter:\n"
+            "- month_1_target: 1st Month milestone (baseline skill acquisition with direct prompts/cues and initial bracket, e.g., 'Given visual counters and direct physical prompts, the learner will count numbers 1-3 with 70% accuracy').\n"
+            "- month_2_target: 2nd Month milestone (intermediate skill progression with faded prompts/cues and expanded bracket, e.g., 'Given visual counters and faded verbal cues, the learner will count numbers 1-5 with 75% accuracy').\n"
+            "- month_3_target: 3rd Month milestone (independent mastery with target bracket, e.g., 'Given visual counters, the learner will independently count and identify numbers 5-10 with 80% accuracy in 4 of 5 trials').\n"
             f"{goal_area_instruction}"
             "Do not include markdown, backticks, or any text outside the JSON array."
         )
@@ -826,14 +840,13 @@ class GenerateIEPGoalsFromIEPView(APIView):
             f"Annual Goal: {annual_goal}\n"
             f"Support Personnel: {facilitators}\n"
             f"{special_factors_line}\n"
-            f"Generate 2-3 enroute objective rows as a JSON array. "
-            f"Each enroute_objectives entry must be a distinct, measurable sub-skill "
-            f"that leads toward the annual goal above (e.g. 'Student will recognize numbers 0–5 with 80% accuracy')."
+            f"Generate 2-3 enroute objective rows as a JSON array following ABCD criteria and 3-month quarterly progression. "
+            f"Each row must specify targeted skill brackets in enroute_objectives and progression across month_1_target, month_2_target, and month_3_target."
         )
         raw, _ = AIEngineService.generate_text(
             prompt=user_prompt,
             system_prompt=system_prompt,
-            max_tokens=600,
+            max_tokens=1000,
             json_mode=True,
         )
 
@@ -865,6 +878,24 @@ class GenerateIEPGoalsFromIEPView(APIView):
                 for row in parsed:
                     if isinstance(row, dict) and (row.get("enroute_objectives") or row.get("objective")):
                         obj_text = str(row.get("enroute_objectives") or row.get("objective", "")).strip()
+                        m1_text = str(
+                            row.get("month_1_target") or row.get("month_1") or row.get("month1") or row.get("first_month") or ""
+                        ).strip()
+                        m2_text = str(
+                            row.get("month_2_target") or row.get("month_2") or row.get("month2") or row.get("second_month") or ""
+                        ).strip()
+                        m3_text = str(
+                            row.get("month_3_target") or row.get("month_3") or row.get("month3") or row.get("third_month") or ""
+                        ).strip()
+
+                        # Smart ABCD progression defaults if not supplied
+                        if not m1_text:
+                            m1_text = "Month 1: Initial acquisition with direct physical/visual prompts (baseline bracket)."
+                        if not m2_text:
+                            m2_text = "Month 2: Progressive execution with faded prompts (intermediate bracket)."
+                        if not m3_text:
+                            m3_text = "Month 3: Independent mastery with 80% accuracy across consecutive trials."
+
                         int_text = str(row.get("interventions_procedures") or row.get("interventions") or row.get("intervention", f"Use {assistive_tech or 'visual supports'}")).strip()
                         time_text = str(row.get("timeline_mins_session") or row.get("timeline", "15-20 minutes every day")).strip()
                         resp_text = str(row.get("individuals_responsible") or row.get("responsible", facilitators or "SNED Teacher")).strip()
@@ -873,6 +904,15 @@ class GenerateIEPGoalsFromIEPView(APIView):
                         validated_rows.append({
                             "enroute_objectives": obj_text,
                             "objective": obj_text,
+                            "month_1_target": m1_text,
+                            "month_1": m1_text,
+                            "month1": m1_text,
+                            "month_2_target": m2_text,
+                            "month_2": m2_text,
+                            "month2": m2_text,
+                            "month_3_target": m3_text,
+                            "month_3": m3_text,
+                            "month3": m3_text,
                             "interventions_procedures": int_text,
                             "interventions": int_text,
                             "intervention": int_text,
@@ -1161,6 +1201,9 @@ class IEPBinaryReportRenderEngine:
                 if rows.exists():
                     g_data = [[
                         Paragraph("Objective", style_cell_label),
+                        Paragraph("Month 1 Milestone (1st Month)", style_cell_label),
+                        Paragraph("Month 2 Milestone (2nd Month)", style_cell_label),
+                        Paragraph("Month 3 Milestone (3rd Month)", style_cell_label),
                         Paragraph("Interventions", style_cell_label),
                         Paragraph("Timeline", style_cell_label),
                         Paragraph("Responsible", style_cell_label),
@@ -1169,20 +1212,23 @@ class IEPBinaryReportRenderEngine:
                     for r in rows:
                         g_data.append([
                             Paragraph(esc(r.enroute_objectives or '—'), style_cell_value),
+                            Paragraph(esc(r.month_1_target or '—'), style_cell_value),
+                            Paragraph(esc(r.month_2_target or '—'), style_cell_value),
+                            Paragraph(esc(r.month_3_target or '—'), style_cell_value),
                             Paragraph(esc(r.interventions_procedures or '—'), style_cell_value),
                             Paragraph(esc(r.timeline_mins_session or '—'), style_cell_value),
                             Paragraph(esc(r.individuals_responsible or '—'), style_cell_value),
                             Paragraph(esc(r.progress_instructional or '—'), style_cell_value),
                         ])
-                    g_table = Table(g_data, colWidths=[38 * mm, 44 * mm, 30 * mm, 34 * mm, 34 * mm])
+                    g_table = Table(g_data, colWidths=[28 * mm, 22 * mm, 22 * mm, 22 * mm, 26 * mm, 18 * mm, 20 * mm, 22 * mm])
                     g_table.setStyle(TableStyle([
                         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
                         ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
                         ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
                         ('TOPPADDING', (0, 0), (-1, -1), 3),
                         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-                        ('LEFTPADDING', (0, 0), (-1, -1), 4),
-                        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
                         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                     ]))
                     story.append(g_table)

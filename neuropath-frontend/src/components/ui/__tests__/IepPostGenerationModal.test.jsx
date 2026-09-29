@@ -247,4 +247,38 @@ describe("IepPostGenerationModal", () => {
     expect(screen.getByText("Color-coded word problems")).toBeInTheDocument();
     expect(screen.getByText("15 minutes per session")).toBeInTheDocument();
   });
+
+  it("renders 3 monthly milestone columns in objective rows preview table", () => {
+    const goalsWithMilestones = [
+      {
+        subject_category: "Mathematics",
+        annual_goal: "Master addition 1-10.",
+        objective_rows: [
+          {
+            enroute_objectives: "Add single digit numbers",
+            month_1_target: "Given blocks, add 1+1 to 1+3 with physical cues",
+            month_2_target: "Given blocks, add 1+1 to 1+5 with faded cues",
+            month_3_target: "Independently add numbers up to 10 with 80% accuracy",
+            interventions_procedures: "Tactile blocks",
+            timeline_mins_session: "15 mins daily",
+          },
+        ],
+      },
+    ];
+
+    render(
+      <IepPostGenerationModal
+        isOpen={true}
+        goals={goalsWithMilestones}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("1st Month")).toBeInTheDocument();
+    expect(screen.getByText("2nd Month")).toBeInTheDocument();
+    expect(screen.getByText("3rd Month")).toBeInTheDocument();
+    expect(screen.getByText("Given blocks, add 1+1 to 1+3 with physical cues")).toBeInTheDocument();
+    expect(screen.getByText("Given blocks, add 1+1 to 1+5 with faded cues")).toBeInTheDocument();
+    expect(screen.getByText("Independently add numbers up to 10 with 80% accuracy")).toBeInTheDocument();
+  });
 });

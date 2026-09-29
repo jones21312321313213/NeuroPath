@@ -120,11 +120,16 @@ const LEARNING_FACILITATOR_OPTIONS = [
 
 // ─── Small reusable UI ────────────────────────────────────────────────────────
 
-function SectionHeader({ title, subtitle }) {
+function SectionHeader({ title, subtitle, action }) {
   return (
     <div className="iep-section-header">
-      <h2 className="form-section-title">{title}</h2>
-      {subtitle && <p className="iep-section-subtitle">{subtitle}</p>}
+      <div className="iep-section-header-row">
+        <div>
+          <h2 className="form-section-title">{title}</h2>
+          {subtitle && <p className="iep-section-subtitle">{subtitle}</p>}
+        </div>
+        {action && <div className="iep-section-header-action">{action}</div>}
+      </div>
     </div>
   );
 }
@@ -303,34 +308,77 @@ function SpecialFactorNotesField({
 // ─── Read-only goal table ─────────────────────────────────────────────────────
 
 function ReadOnlyGoalTable({ rows = [] }) {
-  const columns = [
-    ["objective", "ENROUTE OBJECTIVES / PROCEDURE"],
-    ["interventions", "INTERVENTIONS / ACTIVITIES / PROCEDURE"],
-    ["timeline", "TIMELINE / SESSION"],
-    ["responsible", "INDIVIDUALS RESPONSIBLE"],
-    ["evaluation", "PROGRESS / INSTRUCTIONAL EVALUATION"],
-    ["remarks", "REMARKS"],
-  ];
   if (!rows.length)
     return <p className="iep-muted">No learner goal rows available.</p>;
+
   return (
     <div className="iep-table-wrap">
-      <table className="iep-table iep-goal-table">
+      <div className="iep-scroll-hint">
+        <span className="iep-scroll-hint-pill">
+          ↔ Scroll horizontally for full 3-month milestones &amp; details
+        </span>
+      </div>
+      <table className="iep-table iep-goal-table iep-section-c-table">
         <thead>
           <tr>
-            {columns.map(([, label]) => (
-              <th key={label}>{label}</th>
-            ))}
+            <th rowSpan={2} className="iep-sticky-col iep-col-objective">
+              ENROUTE OBJECTIVES / PROCEDURE
+            </th>
+            <th colSpan={3} className="iep-th-grouped iep-col-quarter-group">
+              QUARTERLY MILESTONE PROGRESSION (3 MONTHS)
+            </th>
+            <th rowSpan={2} className="iep-col-interventions">
+              INTERVENTIONS / ACTIVITIES / PROCEDURE
+            </th>
+            <th rowSpan={2} className="iep-col-timeline">
+              TIMELINE / SESSION
+            </th>
+            <th rowSpan={2} className="iep-col-responsible">
+              INDIVIDUALS RESPONSIBLE
+            </th>
+            <th rowSpan={2} className="iep-col-evaluation">
+              PROGRESS / INSTRUCTIONAL EVALUATION
+            </th>
+            <th rowSpan={2} className="iep-col-remarks">
+              REMARKS
+            </th>
+          </tr>
+          <tr>
+            <th className="iep-th-sub iep-col-month">MONTH 1 MILESTONE (1ST MONTH)</th>
+            <th className="iep-th-sub iep-col-month">MONTH 2 MILESTONE (2ND MONTH)</th>
+            <th className="iep-th-sub iep-col-month">MONTH 3 MILESTONE (3RD MONTH)</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row, i) => (
             <tr key={row.id || i}>
-              {columns.map(([field]) => (
-                <td key={field} className="iep-readonly-cell">
-                  {row[field] || "—"}
-                </td>
-              ))}
+              <td className="iep-readonly-cell iep-sticky-col iep-col-objective">
+                {row.objective || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-month">
+                {row.month1 || row.month_1_target || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-month">
+                {row.month2 || row.month_2_target || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-month">
+                {row.month3 || row.month_3_target || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-interventions">
+                {row.interventions || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-timeline">
+                {row.timeline || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-responsible">
+                {row.responsible || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-evaluation">
+                {row.evaluation || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-remarks">
+                {row.remarks || "—"}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -462,6 +510,12 @@ function normalizeDbGoal(dbGoal) {
       id: row.rowID,
       rowID: row.rowID,
       objective: row.enroute_objectives || "",
+      month1: row.month_1_target || "",
+      month2: row.month_2_target || "",
+      month3: row.month_3_target || "",
+      month_1_target: row.month_1_target || "",
+      month_2_target: row.month_2_target || "",
+      month_3_target: row.month_3_target || "",
       interventions: row.interventions_procedures || "",
       timeline: row.timeline_mins_session || "",
       responsible: row.individuals_responsible || "",
@@ -480,6 +534,9 @@ function goalToApiPayload(goal, iepID) {
     target_metric: goal.targetMetric || "Standard IEP Metric",
     objective_rows: (goal.rows || []).map((row) => ({
       enroute_objectives: row.objective || "",
+      month_1_target: row.month_1_target || row.month1 || "",
+      month_2_target: row.month_2_target || row.month2 || "",
+      month_3_target: row.month_3_target || row.month3 || "",
       interventions_procedures: row.interventions || "",
       timeline_mins_session: row.timeline || "",
       individuals_responsible: row.responsible || "",
@@ -498,6 +555,12 @@ const emptyEditableGoal = () => ({
   rows: [
     {
       objective: "",
+      month1: "",
+      month2: "",
+      month3: "",
+      month_1_target: "",
+      month_2_target: "",
+      month_3_target: "",
       interventions: "",
       timeline: "",
       responsible: "",
@@ -593,13 +656,13 @@ function StudentSearchBox({
       </div>
 
       <div className="vsp-search-wrap !mb-0" style={{ position: "relative" }}>
-        <i className="ti ti-search vsp-search-icon" aria-hidden="true" />
         <input
           id="iep-student-search-input"
           type="text"
           value={searchTerm}
           className="vsp-search form-input"
           placeholder="Type student name..."
+          style={{ paddingLeft: "14px" }}
           onChange={(e) => {
             setSearchTerm(e.target.value);
             setPage(1);
@@ -819,7 +882,6 @@ function ViewIEPPanel({
   onDeleteIep,
   onUpdateIep,
   onUpdateArchive,
-  totalStudents = 0,
   setActivePage,
 }) {
   const navigate = useNavigate();
@@ -849,6 +911,7 @@ function ViewIEPPanel({
 
   const details = normalizeGeneratedDetails(selectedIep);
   const { toast } = useToast();
+  const [showArchivedModal, setShowArchivedModal] = useState(false);
 
   const handleToggleArchive = async (targetIep, shouldArchive = true) => {
     if (!targetIep?.iepID) return;
@@ -1080,9 +1143,17 @@ function ViewIEPPanel({
         idx === goalIndex
           ? {
               ...goal,
-              rows: goal.rows.map((row, rIdx) =>
-                rIdx === rowIndex ? { ...row, [field]: value } : row,
-              ),
+              rows: goal.rows.map((row, rIdx) => {
+                if (rIdx !== rowIndex) return row;
+                const updated = { ...row, [field]: value };
+                if (field === "month1") updated.month_1_target = value;
+                if (field === "month2") updated.month_2_target = value;
+                if (field === "month3") updated.month_3_target = value;
+                if (field === "month_1_target") updated.month1 = value;
+                if (field === "month_2_target") updated.month2 = value;
+                if (field === "month_3_target") updated.month3 = value;
+                return updated;
+              }),
             }
           : goal,
       ),
@@ -1098,6 +1169,12 @@ function ViewIEPPanel({
                 ...(goal.rows || []),
                 {
                   objective: "",
+                  month1: "",
+                  month2: "",
+                  month3: "",
+                  month_1_target: "",
+                  month_2_target: "",
+                  month_3_target: "",
                   interventions: "",
                   timeline: "",
                   responsible: "",
@@ -1232,6 +1309,22 @@ function ViewIEPPanel({
       <SectionHeader
         title="View IEP"
         subtitle="Search a student name, select a matching result — the latest IEP loads automatically."
+        action={
+          <button
+            type="button"
+            className="iep-archives-btn"
+            onClick={() => setShowArchivedModal(true)}
+            aria-label="View archived IEPs"
+          >
+            <i className="ti ti-archive" aria-hidden="true" style={{ fontSize: "1rem" }} />
+            <span>Archived IEPs</span>
+            {selectedStudent && (
+              <span className="iep-count-badge">
+                {archivedIeps.length}
+              </span>
+            )}
+          </button>
+        }
       />
 
       <div
@@ -1288,93 +1381,13 @@ function ViewIEPPanel({
             </select>
           </div>
         )}
-
-        {selectedStudent && archivedIeps.length > 0 && (
-          <details
-            className="iep-archived-accordion"
-            open={Boolean(selectedIep?.is_archived)}
-          >
-            <summary className="iep-archived-summary">
-              <span>Archived IEPs ({archivedIeps.length})</span>
-              <span style={{ fontSize: "0.78rem", color: "#64748b" }}>View / Restore</span>
-            </summary>
-            <div className="iep-archived-list">
-              {archivedIeps.map((aIep) => (
-                <div
-                  key={aIep.iepID}
-                  className={`iep-archived-item ${
-                    selectedIep?.iepID === aIep.iepID ? "selected" : ""
-                  }`}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    <span className="iep-status-badge iep-version-badge badge-archived">
-                      Version {aIep.version} (Archived)
-                    </span>
-                    <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
-                      Last Updated: {aIep.formattedDate || "Date unavailable"}
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button
-                      type="button"
-                      className="btn btn-back"
-                      style={{ fontSize: "0.75rem", padding: "4px 8px" }}
-                      onClick={() => {
-                        if (isFormDirty) {
-                          promptNavigation(() => setSelectedIep(aIep));
-                        } else {
-                          setSelectedIep(aIep);
-                        }
-                      }}
-                    >
-                      View
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-back"
-                      style={{ fontSize: "0.75rem", padding: "4px 8px" }}
-                      onClick={() => handleToggleArchive(aIep, false)}
-                    >
-                      Unarchive
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </details>
-        )}
       </div>
 
       {viewError && (
         <div className="iep-alert iep-alert-error">{viewError}</div>
       )}
 
-      {!selectedStudent ? (
-        <div className="iep-empty-state">
-          <div className="flex items-center justify-center text-slate-400 mb-2">
-            <SearchIcon className="w-8 h-8" aria-hidden="true" />
-          </div>
-          <strong>Search and select a student</strong>
-          <span>
-            {totalStudents === 0
-              ? "You don't have any students registered yet. Create a student profile first to view or generate IEPs."
-              : "The IEP preview will appear here after selecting a student from the search above."}
-          </span>
-          {totalStudents === 0 && (
-            <button
-              type="button"
-              className="btn btn-submit"
-              style={{ marginTop: 12 }}
-              onClick={() => {
-                navigate("/dashboard/students/create");
-                if (setActivePage) setActivePage("create-student-profile");
-              }}
-            >
-              + CREATE STUDENT
-            </button>
-          )}
-        </div>
-      ) : loadingIeps ? (
+      {!selectedStudent ? null : loadingIeps ? (
         <div className="iep-empty-state">
           <div className="flex items-center justify-center text-blue-600 mb-2">
             <ClockIcon className="w-8 h-8 animate-spin" aria-hidden="true" />
@@ -1712,34 +1725,60 @@ function ViewIEPPanel({
                       }
                     />
                     <div className="iep-table-wrap">
-                      <table className="iep-table iep-edit-goal-table">
+                      <div className="iep-scroll-hint">
+                        <span className="iep-scroll-hint-pill">
+                          ↔ Scroll horizontally for full 3-month milestones &amp; details
+                        </span>
+                      </div>
+                      <table className="iep-table iep-edit-goal-table iep-section-c-table">
                         <thead>
                           <tr>
-                            <th>Enroute Objectives / Procedure</th>
-                            <th>Interventions / Activities / Procedure</th>
-                            <th>Timeline / Session</th>
-                            <th>Individuals Responsible</th>
-                            <th>Progress / Instructional Evaluation</th>
-                            <th>Remarks</th>
-                            <th>Action</th>
+                            <th rowSpan={2} className="iep-sticky-col iep-col-objective">Enroute Objectives / Procedure</th>
+                            <th colSpan={3} className="iep-th-grouped iep-col-quarter-group">Quarterly Milestone Progression (3 Months)</th>
+                            <th rowSpan={2} className="iep-col-interventions">Interventions / Activities / Procedure</th>
+                            <th rowSpan={2} className="iep-col-timeline">Timeline / Session</th>
+                            <th rowSpan={2} className="iep-col-responsible">Individuals Responsible</th>
+                            <th rowSpan={2} className="iep-col-evaluation">Progress / Instructional Evaluation</th>
+                            <th rowSpan={2} className="iep-col-remarks">Remarks</th>
+                            <th rowSpan={2} className="iep-action-cell iep-col-action">Action</th>
+                          </tr>
+                          <tr>
+                            <th className="iep-th-sub iep-col-month">Month 1 Milestone (1st Month)</th>
+                            <th className="iep-th-sub iep-col-month">Month 2 Milestone (2nd Month)</th>
+                            <th className="iep-th-sub iep-col-month">Month 3 Milestone (3rd Month)</th>
                           </tr>
                         </thead>
                         <tbody>
                           {(goal.rows || []).map((row, rowIndex) => (
                             <tr key={row.rowID || rowIndex}>
                               {[
-                                ["objective", "Objective"],
-                                ["interventions", "Intervention"],
-                                ["timeline", "Timeline"],
-                                ["responsible", "Responsible"],
-                                ["evaluation", "Evaluation"],
-                                ["remarks", "Remarks"],
-                              ].map(([field, placeholder]) => (
-                                <td key={field}>
+                                ["objective", "Objective", "iep-sticky-col iep-col-objective"],
+                                ["month1", "1st Month Milestone", "iep-col-month"],
+                                ["month2", "2nd Month Milestone", "iep-col-month"],
+                                ["month3", "3rd Month Milestone", "iep-col-month"],
+                                ["interventions", "Intervention", "iep-col-interventions"],
+                                ["timeline", "Timeline", "iep-col-timeline"],
+                                ["responsible", "Responsible", "iep-col-responsible"],
+                                ["evaluation", "Evaluation", "iep-col-evaluation"],
+                                ["remarks", "Remarks", "iep-col-remarks"],
+                              ].map(([field, placeholder, colClass]) => (
+                                <td key={field} className={colClass}>
                                   <textarea
                                     className="form-textarea iep-small-textarea"
-                                    rows={3}
-                                    value={row[field] || ""}
+                                    rows={2}
+                                    value={
+                                      row[field] ||
+                                      row[
+                                        field === "month1"
+                                          ? "month_1_target"
+                                          : field === "month2"
+                                            ? "month_2_target"
+                                            : field === "month3"
+                                              ? "month_3_target"
+                                              : field
+                                      ] ||
+                                      ""
+                                    }
                                     placeholder={placeholder}
                                     onChange={(e) =>
                                       updateEditGoalRow(
@@ -1942,6 +1981,105 @@ function ViewIEPPanel({
         </div>
       )}
 
+      {/* Archived IEPs Modal */}
+      <Modal
+        isOpen={showArchivedModal}
+        onClose={() => setShowArchivedModal(false)}
+        title={
+          selectedStudent
+            ? `Archived IEPs — ${getStudentName(selectedStudent)}`
+            : "Archived IEP Records"
+        }
+        size="lg"
+        footer={
+          <div className="flex items-center justify-end w-full">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowArchivedModal(false)}
+            >
+              Close
+            </Button>
+          </div>
+        }
+      >
+        {!selectedStudent ? (
+          <div className="iep-empty-state" style={{ padding: "24px 16px" }}>
+            <div className="flex items-center justify-center text-slate-400 mb-2">
+              <i className="ti ti-user-x" style={{ fontSize: "2rem" }} aria-hidden="true" />
+            </div>
+            <strong>No student selected</strong>
+            <span>
+              Please select a student from the student search or roster to view their archived IEP records.
+            </span>
+          </div>
+        ) : archivedIeps.length === 0 ? (
+          <div className="iep-empty-state" style={{ padding: "24px 16px" }}>
+            <div className="flex items-center justify-center text-slate-400 mb-2">
+              <i className="ti ti-archive-off" style={{ fontSize: "2rem" }} aria-hidden="true" />
+            </div>
+            <strong>No archived IEPs found</strong>
+            <span>
+              There are currently no archived IEP records for {getStudentName(selectedStudent)}.
+              When previous versions are archived, they will appear here.
+            </span>
+          </div>
+        ) : (
+          <div className="iep-archived-list" style={{ marginTop: 4 }}>
+            <p style={{ fontSize: "0.85rem", color: "#64748b", marginBottom: 12 }}>
+              The following IEP versions are archived. You can preview an archived version or restore it to active status.
+            </p>
+            {archivedIeps.map((aIep) => (
+              <div
+                key={aIep.iepID}
+                className={`iep-archived-item ${
+                  selectedIep?.iepID === aIep.iepID ? "selected" : ""
+                }`}
+              >
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span className="iep-status-badge iep-version-badge badge-archived">
+                    Version {aIep.version} (Archived)
+                  </span>
+                  <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                    Last Updated: {aIep.formattedDate || "Date unavailable"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    type="button"
+                    className="btn btn-back"
+                    style={{ fontSize: "0.78rem", padding: "5px 12px" }}
+                    onClick={() => {
+                      if (isFormDirty) {
+                        promptNavigation(() => {
+                          setSelectedIep(aIep);
+                          setShowArchivedModal(false);
+                        });
+                      } else {
+                        setSelectedIep(aIep);
+                        setShowArchivedModal(false);
+                      }
+                    }}
+                  >
+                    View
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-back"
+                    style={{ fontSize: "0.78rem", padding: "5px 12px" }}
+                    onClick={async () => {
+                      await handleToggleArchive(aIep, false);
+                    }}
+                  >
+                    Unarchive
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
+
       <UnsavedChangesModal
         isOpen={showPrompt}
         onConfirm={confirmLeave}
@@ -1963,9 +2101,12 @@ function IepWizardStepper({
 }) {
   const isSectionAComplete = Boolean(selectedStudent);
   const isSectionBComplete = Boolean(
-    form?.barrierRows?.some((r) => r.difficulty && r.difficulty.trim()),
+    selectedStudent &&
+      form?.barrierRows?.some((r) => r.difficulty && r.difficulty.trim()),
   );
-  const isSectionCComplete = Boolean(aiGeneratedGoals?.length > 0);
+  const isSectionCComplete = Boolean(
+    selectedStudent && aiGeneratedGoals?.length > 0,
+  );
 
   const steps = [
     {
@@ -2138,6 +2279,12 @@ export default function IEPGenerationPage({
     rows: [
       {
         objective: "",
+        month1: "",
+        month2: "",
+        month3: "",
+        month_1_target: "",
+        month_2_target: "",
+        month_3_target: "",
         interventions: "",
         timeline: "",
         responsible: "",
@@ -2399,7 +2546,45 @@ export default function IEPGenerationPage({
 
   // Pre-fill form from student profile
   useEffect(() => {
-    if (activeView !== "generate" || !selectedStudent) return;
+    if (activeView !== "generate") return;
+    if (!selectedStudent) {
+      lastLoadedStudentIdRef.current = null;
+      queueMicrotask(() => {
+        setForm((prev) => ({
+          ...prev,
+          learnerName: "",
+          birthdate: "",
+          disabilityCategory: "",
+          diagnosisDetails: "",
+          presentEvaluation: "",
+          academicStrengths: "",
+          academicNeeds: "",
+          parentalConcerns: "",
+          curriculumImpact: "",
+          specialFactorNotes: "",
+          difficultyMarkers: [],
+          barrierRows: [
+            {
+              difficulty: "",
+              barrierQualifier: "Moderate barrier",
+              facilitator: "",
+              accommodation: "",
+            },
+          ],
+        }));
+        setGenerationDone(false);
+        setAiGeneratedGoals([]);
+        setGoalSaveStatus("");
+        setActiveGeneratedIepId(null);
+        setTeacherPrompt("");
+        setSelectedGoalCategory("");
+        setGeneratedAccommodations("");
+        setShowManualGoal(false);
+        setSavingManualGoal(false);
+        setStep(1);
+      });
+      return;
+    }
     const p = getStudentProfileDetails(selectedStudent);
     const profileDifficulties = getStudentProfileDifficulties(selectedStudent);
     const sid = getStudentId(selectedStudent);
@@ -2531,6 +2716,12 @@ export default function IEPGenerationPage({
         ...prev.rows,
         {
           objective: "",
+          month1: "",
+          month2: "",
+          month3: "",
+          month_1_target: "",
+          month_2_target: "",
+          month_3_target: "",
           interventions: "",
           timeline: "",
           responsible: "",
@@ -2543,9 +2734,17 @@ export default function IEPGenerationPage({
   const updateManualGoalObjectiveRow = (rowIndex, field, value) =>
     setManualGoal((prev) => ({
       ...prev,
-      rows: prev.rows.map((row, idx) =>
-        idx === rowIndex ? { ...row, [field]: value } : row,
-      ),
+      rows: prev.rows.map((row, idx) => {
+        if (idx !== rowIndex) return row;
+        const updated = { ...row, [field]: value };
+        if (field === "month1") updated.month_1_target = value;
+        if (field === "month2") updated.month_2_target = value;
+        if (field === "month3") updated.month_3_target = value;
+        if (field === "month_1_target") updated.month1 = value;
+        if (field === "month_2_target") updated.month2 = value;
+        if (field === "month_3_target") updated.month3 = value;
+        return updated;
+      }),
     }));
 
   const removeManualGoalObjectiveRow = (rowIndex) =>
@@ -2678,6 +2877,12 @@ export default function IEPGenerationPage({
         _rgori_feedback: "Custom goal manually added by teacher.",
         objective_rows: manualGoal.rows.map((row) => ({
           enroute_objectives: row.objective,
+          month_1_target: row.month_1_target || row.month1 || "",
+          month_2_target: row.month_2_target || row.month2 || "",
+          month_3_target: row.month_3_target || row.month3 || "",
+          month1: row.month_1_target || row.month1 || "",
+          month2: row.month_2_target || row.month2 || "",
+          month3: row.month_3_target || row.month3 || "",
           interventions_procedures: row.interventions,
           timeline_mins_session: row.timeline,
           individuals_responsible: row.responsible,
@@ -2697,6 +2902,12 @@ export default function IEPGenerationPage({
         rows: [
           {
             objective: "",
+            month1: "",
+            month2: "",
+            month3: "",
+            month_1_target: "",
+            month_2_target: "",
+            month_3_target: "",
             interventions: "",
             timeline: "",
             responsible: "",
@@ -3740,34 +3951,60 @@ export default function IEPGenerationPage({
                           }
                         />
                         <div className="iep-table-wrap">
-                          <table className="iep-table iep-edit-goal-table">
+                          <div className="iep-scroll-hint">
+                            <span className="iep-scroll-hint-pill">
+                              ↔ Scroll horizontally for full 3-month milestones &amp; details
+                            </span>
+                          </div>
+                          <table className="iep-table iep-edit-goal-table iep-section-c-table">
                             <thead>
                               <tr>
-                                <th>Enroute Objectives / Procedure</th>
-                                <th>Interventions / Activities / Procedure</th>
-                                <th>Timeline / Session</th>
-                                <th>Individuals Responsible</th>
-                                <th>Progress / Instructional Evaluation</th>
-                                <th>Remarks</th>
-                                <th>Action</th>
+                                <th rowSpan={2} className="iep-sticky-col iep-col-objective">Enroute Objectives / Procedure</th>
+                                <th colSpan={3} className="iep-th-grouped iep-col-quarter-group">Quarterly Milestone Progression (3 Months)</th>
+                                <th rowSpan={2} className="iep-col-interventions">Interventions / Activities / Procedure</th>
+                                <th rowSpan={2} className="iep-col-timeline">Timeline / Session</th>
+                                <th rowSpan={2} className="iep-col-responsible">Individuals Responsible</th>
+                                <th rowSpan={2} className="iep-col-evaluation">Progress / Instructional Evaluation</th>
+                                <th rowSpan={2} className="iep-col-remarks">Remarks</th>
+                                <th rowSpan={2} className="iep-action-cell iep-col-action">Action</th>
+                              </tr>
+                              <tr>
+                                <th className="iep-th-sub iep-col-month">Month 1 Milestone (1st Month)</th>
+                                <th className="iep-th-sub iep-col-month">Month 2 Milestone (2nd Month)</th>
+                                <th className="iep-th-sub iep-col-month">Month 3 Milestone (3rd Month)</th>
                               </tr>
                             </thead>
                             <tbody>
                               {manualGoal.rows.map((row, rowIndex) => (
                                 <tr key={rowIndex}>
                                   {[
-                                    ["objective", "Objective"],
-                                    ["interventions", "Intervention"],
-                                    ["timeline", "Timeline"],
-                                    ["responsible", "Responsible"],
-                                    ["evaluation", "Evaluation"],
-                                    ["remarks", "Remarks"],
-                                  ].map(([field, placeholder]) => (
-                                    <td key={field}>
+                                    ["objective", "Objective", "iep-sticky-col iep-col-objective"],
+                                    ["month1", "1st Month Milestone", "iep-col-month"],
+                                    ["month2", "2nd Month Milestone", "iep-col-month"],
+                                    ["month3", "3rd Month Milestone", "iep-col-month"],
+                                    ["interventions", "Intervention", "iep-col-interventions"],
+                                    ["timeline", "Timeline", "iep-col-timeline"],
+                                    ["responsible", "Responsible", "iep-col-responsible"],
+                                    ["evaluation", "Evaluation", "iep-col-evaluation"],
+                                    ["remarks", "Remarks", "iep-col-remarks"],
+                                  ].map(([field, placeholder, colClass]) => (
+                                    <td key={field} className={colClass}>
                                       <textarea
                                         className="form-textarea iep-small-textarea"
-                                        rows={3}
-                                        value={row[field] || ""}
+                                        rows={2}
+                                        value={
+                                          row[field] ||
+                                          row[
+                                            field === "month1"
+                                              ? "month_1_target"
+                                              : field === "month2"
+                                                ? "month_2_target"
+                                                : field === "month3"
+                                                  ? "month_3_target"
+                                                  : field
+                                          ] ||
+                                          ""
+                                        }
                                         placeholder={placeholder}
                                         onChange={(e) =>
                                           updateManualGoalObjectiveRow(
@@ -4027,11 +4264,17 @@ export default function IEPGenerationPage({
                                 rows={(goal.objective_rows || []).map(
                                   (row, i) => ({
                                     id: i,
-                                    objective: row.enroute_objectives,
-                                    interventions: row.interventions_procedures,
-                                    timeline: row.timeline_mins_session,
-                                    responsible: row.individuals_responsible,
-                                    evaluation: row.progress_instructional,
+                                    objective: row.enroute_objectives || row.objective,
+                                    month1: row.month_1_target || row.month1 || row.month_1,
+                                    month2: row.month_2_target || row.month2 || row.month_2,
+                                    month3: row.month_3_target || row.month3 || row.month_3,
+                                    month_1_target: row.month_1_target || row.month1 || row.month_1,
+                                    month_2_target: row.month_2_target || row.month2 || row.month_2,
+                                    month_3_target: row.month_3_target || row.month3 || row.month_3,
+                                    interventions: row.interventions_procedures || row.interventions,
+                                    timeline: row.timeline_mins_session || row.timeline,
+                                    responsible: row.individuals_responsible || row.responsible,
+                                    evaluation: row.progress_instructional || row.evaluation,
                                     remarks: row.remarks,
                                   }),
                                 )}
