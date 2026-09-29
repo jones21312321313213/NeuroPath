@@ -33,6 +33,9 @@ import {
   RocketIcon,
   WarningIcon,
 } from "../components/ui/icons";
+import { Pagination } from "../components/ui/Pagination";
+import { formatRelativeTime } from "../utils/dateUtils";
+import "../styles/ViewStudentProfile.css";
 
 
 
@@ -106,6 +109,15 @@ function getGoalTypesForGrade(grade) {
   ];
 }
 
+const LEARNING_FACILITATOR_OPTIONS = [
+  "SPED Teacher",
+  "General Education Teacher",
+  "Physical Therapist",
+  "Parent / Guardian",
+  "Doctor / Developmental Pediatrician",
+  "Other",
+];
+
 // ─── Small reusable UI ────────────────────────────────────────────────────────
 
 function SectionHeader({ title, subtitle }) {
@@ -113,6 +125,46 @@ function SectionHeader({ title, subtitle }) {
     <div className="iep-section-header">
       <h2 className="form-section-title">{title}</h2>
       {subtitle && <p className="iep-section-subtitle">{subtitle}</p>}
+    </div>
+  );
+}
+
+function LearningFacilitatorSelector({
+  value,
+  onChange,
+  ariaLabel = "Learning facilitator",
+}) {
+  const isStandard = LEARNING_FACILITATOR_OPTIONS.slice(0, 5).includes(value);
+  const selectValue = isStandard ? value : value ? "Other" : "";
+  const showCustomInput = !isStandard && (value !== "" || selectValue === "Other");
+
+  return (
+    <div className="iep-facilitator-select-group">
+      <select
+        aria-label={ariaLabel}
+        value={selectValue}
+        className="form-select iep-small-select"
+        onChange={(e) => {
+          const val = e.target.value;
+          onChange(val);
+        }}
+      >
+        <option value="">Select facilitator...</option>
+        {LEARNING_FACILITATOR_OPTIONS.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </select>
+      {showCustomInput && (
+        <input
+          type="text"
+          className="form-input iep-small-input"
+          placeholder="Type facilitator/s"
+          value={value === "Other" ? "" : value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
     </div>
   );
 }
@@ -475,6 +527,19 @@ function buildBarrierRowsFromFlat(iep) {
 
 // ─── Shared student search box ────────────────────────────────────────────────
 
+function getInitials(name = "") {
+  return (
+    name
+      .trim()
+      .split(" ")
+      .filter(Boolean)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "S"
+  );
+}
+
 function StudentSearchBox({
   searchTerm,
   setSearchTerm,
@@ -484,66 +549,252 @@ function StudentSearchBox({
   loadingStudents,
   ieps = [],
 }) {
-  return (
-    <div className="form-group iep-search-group">
-      <label className="form-label">Search Student</label>
-      <input
-        type="text"
-        value={searchTerm}
-        className="form-input"
-        placeholder="Type student name..."
-        onChange={(e) => {
-          setSearchTerm(e.target.value);
-          onSelect(null);
-        }}
-      />
-      {searchTerm && !selectedStudent && (
-        <div className="iep-search-results">
-          {loadingStudents ? (
-            <p>Loading students...</p>
-          ) : filteredStudents.length > 0 ? (
-            filteredStudents.map((student) => {
-              const sid = getStudentId(student);
-              const studentIepList = (ieps || []).filter(
-                (i) =>
-                  String(i.studentID?.pk ?? i.studentID) === String(sid),
-              );
-              const activeStudentIep = studentIepList.find((i) => !i.is_archived);
-              const vTag = activeStudentIep
-                ? `v${activeStudentIep.version} (Active)`
-                : studentIepList.length > 0
-                  ? `v${studentIepList[0].version}`
-                  : student.latest_iep_version
-                    ? `v${student.latest_iep_version} (Active)`
-                    : student.iep_version
-                      ? `v${student.iep_version}`
-                      : null;
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
 
-              return (
-                <button
-                  key={getStudentId(student) || getStudentName(student)}
-                  type="button"
-                  onClick={() => {
-                    onSelect(student);
-                    setSearchTerm(getStudentName(student));
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-                    <strong>{getStudentName(student)}</strong>
-                    {vTag && (
-                      <span className="iep-student-version-tag">
-                        {vTag}
+  const totalPages = Math.ceil(filteredStudents.length / pageSize) || 1;
+  const currentPage = Math.min(page, totalPages);
+  const paginatedStudents = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredStudents.slice(start, start + pageSize);
+  }, [filteredStudents, currentPage, pageSize]);
+
+  return (
+    <div className="form-group iep-search-group" data-testid="iep-search-group">
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "6px",
+        }}
+      >
+        <label
+          className="form-label"
+          htmlFor="iep-student-search-input"
+          style={{ margin: 0 }}
+        >
+          Search Student
+        </label>
+        {selectedStudent && (
+          <button
+            type="button"
+            className="btn btn-secondary iep-change-btn iep-change-student-btn"
+            style={{ padding: "4px 12px", fontSize: "0.8rem", borderRadius: "8px" }}
+            onClick={() => {
+              onSelect(null);
+              setSearchTerm("");
+              setPage(1);
+            }}
+          >
+            Change Student
+          </button>
+        )}
+      </div>
+
+      <div className="vsp-search-wrap !mb-0" style={{ position: "relative" }}>
+        <i className="ti ti-search vsp-search-icon" aria-hidden="true" />
+        <input
+          id="iep-student-search-input"
+          type="text"
+          value={searchTerm}
+          className="vsp-search form-input"
+          placeholder="Type student name..."
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setPage(1);
+            if (selectedStudent) {
+              onSelect(null);
+            }
+          }}
+          aria-label="Search student by name"
+        />
+        {searchTerm && (
+          <button
+            type="button"
+            className="iep-search-clear-btn"
+            onClick={() => {
+              setSearchTerm("");
+              setPage(1);
+              if (selectedStudent) {
+                onSelect(null);
+              }
+            }}
+            title="Clear search"
+            aria-label="Clear search"
+          >
+            ×
+          </button>
+        )}
+      </div>
+
+      {!selectedStudent && (
+        <div className="iep-roster-section" data-testid="iep-roster-section">
+          <div className="vsp-header" style={{ marginBottom: "6px" }}>
+            <h3 className="vsp-title" style={{ fontSize: "18px", margin: 0 }}>
+              Student Profiles
+            </h3>
+            <span className="vsp-count-badge">
+              {loadingStudents
+                ? "Loading students..."
+                : `Enrolled Students (${filteredStudents.length})`}
+            </span>
+          </div>
+          <p className="vsp-subtitle" style={{ fontSize: "13px", marginBottom: "16px" }}>
+            Browse and select an enrolled student to formulate or review their Individualized Education Plan.
+          </p>
+
+          <div
+            className="vsp-grid iep-roster-grid"
+            role="list"
+            aria-label="Student selection roster"
+          >
+            {loadingStudents ? (
+              <div className="vsp-empty" style={{ gridColumn: "1 / -1", padding: "28px 16px" }}>
+                <p className="vsp-empty-text">Loading student records...</p>
+              </div>
+            ) : filteredStudents.length > 0 ? (
+              paginatedStudents.map((student) => {
+                const sid = getStudentId(student);
+                const studentIepList = (ieps || []).filter(
+                  (i) =>
+                    String(i.studentID?.pk ?? i.studentID) === String(sid),
+                );
+                const activeStudentIep = studentIepList.find((i) => !i.is_archived);
+                const vTag = activeStudentIep
+                  ? `v${activeStudentIep.version} (Active)`
+                  : studentIepList.length > 0
+                    ? `v${studentIepList[0].version}`
+                    : student.latest_iep_version
+                      ? `v${student.latest_iep_version} (Active)`
+                      : student.iep_version
+                        ? `v${student.iep_version}`
+                        : null;
+
+                return (
+                  <div
+                    key={sid || getStudentName(student)}
+                    className="vsp-card iep-roster-card"
+                    role="listitem"
+                    tabIndex={0}
+                    onClick={() => {
+                      onSelect(student);
+                      setSearchTerm(getStudentName(student));
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onSelect(student);
+                        setSearchTerm(getStudentName(student));
+                      }
+                    }}
+                    style={{ cursor: "pointer" }}
+                  >
+                    {/* Top row */}
+                    <div className="vsp-card-top">
+                      <div className="vsp-avatar" aria-hidden="true">
+                        {getInitials(getStudentName(student))}
+                      </div>
+                      <div className="vsp-card-info">
+                        <p className="vsp-card-name">{getStudentName(student)}</p>
+                        <span className="vsp-card-meta">
+                          {student.diagnosis || student.asdBackground || "No diagnosis on record"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Pills */}
+                    <div className="vsp-card-pills">
+                      <span className="vsp-pill grade">
+                        Grade {student.grade || "—"}
                       </span>
-                    )}
+                      {student.gender && (
+                        <span className="vsp-pill">{student.gender}</span>
+                      )}
+                      {student.age && (
+                        <span className="vsp-pill">{student.age} yrs</span>
+                      )}
+                      {vTag && (
+                        <span
+                          className={`vsp-pill ${
+                            activeStudentIep ? "grade font-semibold" : ""
+                          }`}
+                        >
+                          {vTag}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Recently Updated Indicator */}
+                    <div className="vsp-card-updated">
+                      <i className="ti ti-clock" aria-hidden="true" />
+                      <span>
+                        Updated {formatRelativeTime(student.updated_at || student.created_at)}
+                      </span>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="vsp-card-footer">
+                      <button
+                        type="button"
+                        className="vsp-view-btn iep-roster-select-btn"
+                        aria-label={`Select ${getStudentName(student)}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelect(student);
+                          setSearchTerm(getStudentName(student));
+                        }}
+                      >
+                        Select Student
+                        <i className="ti ti-arrow-right" aria-hidden="true" />
+                      </button>
+                    </div>
                   </div>
-                  <span>
-                    Grade {student.grade || "—"} · Age {student.age || "—"}
-                  </span>
-                </button>
-              );
-            })
-          ) : (
-            <p>No similar student names found.</p>
+                );
+              })
+            ) : (
+              <div className="vsp-empty" style={{ gridColumn: "1 / -1", padding: "28px 16px" }}>
+                <div className="vsp-empty-icon">
+                  <i className="ti ti-users-group" />
+                </div>
+                <p className="vsp-empty-text">
+                  {searchTerm
+                    ? `No students found matching "${searchTerm}".`
+                    : "No students registered yet. Create a student profile first."}
+                </p>
+                <p className="vsp-empty-sub">
+                  {searchTerm
+                    ? "Try a different name or clear the search filter."
+                    : "Create a student profile first to generate an IEP."}
+                </p>
+                {searchTerm && (
+                  <button
+                    type="button"
+                    className="vsp-empty-btn vsp-empty-btn-secondary"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setPage(1);
+                      if (selectedStudent) {
+                        onSelect(null);
+                      }
+                    }}
+                  >
+                    <i className="ti ti-x" aria-hidden="true" />
+                    Clear Search
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredStudents.length}
+              pageSize={pageSize}
+              onPageChange={setPage}
+            />
           )}
         </div>
       )}
@@ -983,7 +1234,9 @@ function ViewIEPPanel({
         subtitle="Search a student name, select a matching result — the latest IEP loads automatically."
       />
 
-      <div className="iep-view-controls">
+      <div
+        className={`iep-view-controls ${selectedStudent ? "has-selected" : "full-width"}`}
+      >
         <StudentSearchBox
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
@@ -1382,13 +1635,11 @@ function ViewIEPPanel({
                           </select>
                         </td>
                         <td>
-                          <textarea
+                          <LearningFacilitatorSelector
                             value={row.facilitator}
-                            rows={3}
-                            placeholder="Type facilitator/s"
-                            className="form-textarea iep-small-textarea"
-                            onChange={(e) =>
-                              updateEditRow(i, "facilitator", e.target.value)
+                            ariaLabel={`Edit learning facilitator for row ${i + 1}`}
+                            onChange={(val) =>
+                              updateEditRow(i, "facilitator", val)
                             }
                           />
                         </td>
@@ -2216,10 +2467,13 @@ export default function IEPGenerationPage({
 
   const filteredStudents = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return [];
-    return students
-      .filter((s) => getStudentName(s).toLowerCase().includes(q))
-      .slice(0, 6);
+    if (!q) return students;
+    return students.filter((s) => {
+      const name = getStudentName(s).toLowerCase();
+      const grade = String(s.grade || "").toLowerCase();
+      const diag = String(s.diagnosis || s.asdBackground || "").toLowerCase();
+      return name.includes(q) || grade.includes(q) || diag.includes(q);
+    });
   }, [students, searchTerm]);
 
   // ── Form helpers ──────────────────────────────────────────────────────────
@@ -2990,7 +3244,9 @@ export default function IEPGenerationPage({
               title="Section A: Learner Profile"
               subtitle="Search and select the student profile first. The form will pre-fill from the saved student profile."
             />
-            <div className="iep-view-controls">
+            <div
+              className={`iep-view-controls ${selectedStudent ? "has-selected" : "full-width"}`}
+            >
               <StudentSearchBox
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
@@ -3010,36 +3266,30 @@ export default function IEPGenerationPage({
                 loadingStudents={loadingStudents}
                 ieps={ieps}
               />
-              <div className="iep-selected-student-card">
-                <span>Selected Student</span>
-                <strong>
-                  {getStudentName(selectedStudent) || "No student selected"}
-                </strong>
-                <small>
-                  {selectedStudent
-                    ? `Grade ${selectedStudent.grade || "—"} · Age ${selectedStudent.age || "—"}`
-                    : "Choose a student before continuing."}
-                </small>
-              </div>
+              {selectedStudent ? (
+                <div className="iep-selected-student-card">
+                  <span>Selected Student</span>
+                  <strong>
+                    {getStudentName(selectedStudent) || "No student selected"}
+                  </strong>
+                  <small>
+                    {`Grade ${selectedStudent.grade || "—"} · Age ${selectedStudent.age || "—"}`}
+                  </small>
+                </div>
+              ) : null}
             </div>
           </section>
 
           {!selectedStudent ? (
-            <div className="iep-empty-state compact">
-              <div className="flex items-center justify-center text-slate-400 mb-2">
-                <SearchIcon className="w-8 h-8" aria-hidden="true" />
-              </div>
-              <strong>
-                {students.length === 0
-                  ? "No students registered"
-                  : "Select a student to start Generate IEP"}
-              </strong>
-              <span>
-                {students.length === 0
-                  ? "You need at least one registered student profile before generating an Individualized Education Plan (IEP)."
-                  : "Search a student above to load their profile and begin filling out the IEP form."}
-              </span>
-              {students.length === 0 && (
+            students.length === 0 ? (
+              <div className="iep-empty-state compact">
+                <div className="flex items-center justify-center text-slate-400 mb-2">
+                  <SearchIcon className="w-8 h-8" aria-hidden="true" />
+                </div>
+                <strong>No students registered</strong>
+                <span>
+                  You need at least one registered student profile before generating an Individualized Education Plan (IEP).
+                </span>
                 <button
                   type="button"
                   className="btn btn-submit"
@@ -3051,8 +3301,8 @@ export default function IEPGenerationPage({
                 >
                   + CREATE STUDENT
                 </button>
-              )}
-            </div>
+              </div>
+            ) : null
           ) : (
             <>
               {/* ── Step 1: Section B ── */}
@@ -3227,17 +3477,11 @@ export default function IEPGenerationPage({
                               </select>
                             </td>
                             <td>
-                              <textarea
+                              <LearningFacilitatorSelector
                                 value={row.facilitator}
-                                rows={3}
-                                placeholder="Type facilitator/s"
-                                className="form-textarea iep-small-textarea"
-                                onChange={(e) =>
-                                  updateBarrierRow(
-                                    i,
-                                    "facilitator",
-                                    e.target.value,
-                                  )
+                                ariaLabel={`Learning facilitator for row ${i + 1}`}
+                                onChange={(val) =>
+                                  updateBarrierRow(i, "facilitator", val)
                                 }
                               />
                             </td>
