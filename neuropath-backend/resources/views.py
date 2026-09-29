@@ -1231,26 +1231,75 @@ class VisualAidGeneratorService:
         return f"data:image/jpeg;base64,{b64}"
 
     @classmethod
+    def fetch_image_from_hf(cls, prompt):
+        """
+        Generate image using Hugging Face serverless InferenceClient (FLUX.1-schnell primary, SDXL fallback).
+        Returns a base64 data URI string: data:image/jpeg;base64,...
+        """
+        import io
+        import base64
+        import logging
+        from django.conf import settings
+        from huggingface_hub import InferenceClient
+
+        logger = logging.getLogger(__name__)
+
+        hf_token = getattr(settings, 'HF_TOKEN', '')
+        if not hf_token or hf_token in ('MISSING_TOKEN', ''):
+            raise ValueError("Valid HF_TOKEN not configured for Hugging Face inference.")
+
+        client = InferenceClient(token=hf_token)
+        primary_model = getattr(settings, 'HF_IMAGE_MODEL', 'black-forest-labs/FLUX.1-schnell')
+        candidate_models = [primary_model]
+        for fallback_m in ['black-forest-labs/FLUX.1-schnell', 'stabilityai/stable-diffusion-xl-base-1.0']:
+            if fallback_m not in candidate_models:
+                candidate_models.append(fallback_m)
+
+        last_err = None
+        for model_name in candidate_models:
+            try:
+                pil_image = client.text_to_image(prompt, model=model_name)
+                buf = io.BytesIO()
+                pil_image.convert("RGB").save(buf, format="JPEG", quality=88)
+                b64_str = base64.b64encode(buf.getvalue()).decode("ascii")
+                return f"data:image/jpeg;base64,{b64_str}"
+            except Exception as e:
+                logger.warning("HF text_to_image with %s failed: %s", model_name, e)
+                last_err = e
+
+        raise last_err or RuntimeError("Hugging Face image generation failed on all models.")
+
+    @classmethod
     def fetch_image(cls, prompt):
         """
-        Tries Imagen 3 first. If Imagen fails or is unconfigured,
-        falls back gracefully to Pollinations AI.
+        Generates an image according to the configured engine priority:
+        1. Google Imagen 3 (if GEMINI_API_KEY configured)
+        2. Hugging Face FLUX.1-schnell / SDXL (if HF_TOKEN configured)
+        3. Pollinations AI (free fallback)
         """
         import logging
-        logger = logging.getLogger(__name__)
         from django.conf import settings
+        logger = logging.getLogger(__name__)
 
+        # 1. Google Imagen 3
         api_key = getattr(settings, 'GEMINI_API_KEY', '')
-        if not api_key or api_key in ('MISSING_KEY', ''):
-            _, _, pollinations_url = cls.fetch_image_from_pollinations(prompt)
-            return pollinations_url
+        if api_key and api_key not in ('MISSING_KEY', ''):
+            try:
+                return cls.fetch_image_from_imagen(prompt)
+            except Exception as imagen_err:
+                logger.warning("Imagen 3 generation failed (%s). Attempting Hugging Face fallback.", imagen_err)
 
-        try:
-            return cls.fetch_image_from_imagen(prompt)
-        except Exception as imagen_err:
-            logger.warning("Imagen 3 generation failed (%s). Falling back to Pollinations AI.", imagen_err)
-            _, _, pollinations_url = cls.fetch_image_from_pollinations(prompt)
-            return pollinations_url
+        # 2. Hugging Face FLUX.1-schnell
+        hf_token = getattr(settings, 'HF_TOKEN', '')
+        if hf_token and hf_token not in ('MISSING_TOKEN', ''):
+            try:
+                return cls.fetch_image_from_hf(prompt)
+            except Exception as hf_err:
+                logger.warning("Hugging Face FLUX generation failed (%s). Attempting Pollinations fallback.", hf_err)
+
+        # 3. Pollinations AI fallback
+        _, _, pollinations_url = cls.fetch_image_from_pollinations(prompt)
+        return pollinations_url
 
 
 # =====================================================================

@@ -171,14 +171,36 @@ class VisualAidSequentialTaskAnalysisTests(TestCase):
         self.assertTrue(result.startswith("data:image/jpeg;base64,"))
         self.assertIn(fake_b64, result)
 
-    # ── Unit Test 5: Fallback to Pollinations when Imagen fails ───────────────
-    @override_settings(GEMINI_API_KEY="test-valid-gemini-key")
+    # ── Unit Test 5: Fallback to Pollinations when Imagen & HF fail ──────────
+    @override_settings(GEMINI_API_KEY="test-valid-gemini-key", HF_TOKEN="test-valid-hf-token")
     @patch('resources.views.VisualAidGeneratorService.fetch_image_from_imagen', side_effect=Exception("Imagen Quota Exceeded"))
+    @patch('resources.views.VisualAidGeneratorService.fetch_image_from_hf', side_effect=Exception("HF Rate Limited"))
     @patch('resources.views.VisualAidGeneratorService.fetch_image_from_pollinations')
-    def test_fetch_image_fallback_to_pollinations(self, mock_polli, mock_imagen):
+    def test_fetch_image_fallback_to_pollinations(self, mock_polli, mock_hf, mock_imagen):
         mock_polli.return_value = (b"bytes", "image/jpeg", "https://image.pollinations.ai/prompt/fallback")
         url = VisualAidGeneratorService.fetch_image("Test prompt")
         self.assertEqual(url, "https://image.pollinations.ai/prompt/fallback")
+
+    # ── Unit Test 5b: Hugging Face FLUX.1 Inference Mock ─────────────────────
+    @override_settings(HF_TOKEN="test-valid-hf-token", HF_IMAGE_MODEL="black-forest-labs/FLUX.1-schnell")
+    @patch('huggingface_hub.InferenceClient.text_to_image')
+    def test_fetch_image_from_hf_success(self, mock_t2i):
+        from PIL import Image
+        mock_img = Image.new('RGB', (100, 100), color=(0, 255, 0))
+        mock_t2i.return_value = mock_img
+
+        result = VisualAidGeneratorService.fetch_image_from_hf("Educational cartoon cat")
+        self.assertTrue(result.startswith("data:image/jpeg;base64,"))
+        mock_t2i.assert_called_once()
+
+    # ── Unit Test 5c: HF FLUX.1 preferred when GEMINI_API_KEY is unset ───────
+    @override_settings(GEMINI_API_KEY="", HF_TOKEN="test-valid-hf-token")
+    @patch('resources.views.VisualAidGeneratorService.fetch_image_from_hf')
+    def test_fetch_image_uses_hf_when_no_gemini_key(self, mock_hf):
+        mock_hf.return_value = "data:image/jpeg;base64,mockhfimage"
+        url = VisualAidGeneratorService.fetch_image("Test prompt")
+        self.assertEqual(url, "data:image/jpeg;base64,mockhfimage")
+        mock_hf.assert_called_once_with("Test prompt")
 
     # ── Unit Test 6: GenerateVisualAidAPIView with 3-Step Payload ─────────────
     @patch('resources.views.VisualAidGeneratorService.decompose_goal_into_steps')

@@ -297,7 +297,7 @@ function SequentialSequenceViewer({ aid, onAidUpdated, onReset, onClose }) {
       {/* 3-Panel Storyboard Preview */}
       <div className="va-output-box">
         <div className="va-output-label">
-          AI 3-Panel Sequential Task Analysis Storyboard (Imagen 3)
+          AI 3-Panel Sequential Task Analysis Storyboard
           <div className="va-output-label-line" />
         </div>
         {steps.some((s) => s.imageUrl) ? (
