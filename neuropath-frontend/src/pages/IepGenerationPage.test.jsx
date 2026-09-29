@@ -2178,6 +2178,176 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       expect(saveGoalPayload.objective_rows[0].month_3_target).toBe("Identify 5-10 counters independently");
     });
   });
+
+  describe("IEP UX Refinements (Issue #215 / Section B check / View IEP archives / search icon)", () => {
+    it("removes redundant empty state box in View IEP mode when no student is selected", async () => {
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/Search student by name/i)).toBeInTheDocument();
+      });
+
+      // Redundant empty state box should NOT be present
+      expect(
+        screen.queryByText(/The IEP preview will appear here after selecting a student from the search above/i),
+      ).not.toBeInTheDocument();
+
+      // Student Profiles roster is displayed
+      expect(screen.getByText(/Student Profiles/i)).toBeInTheDocument();
+    });
+
+    it("removes search icon from student search input and applies standard padding", async () => {
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/Search student by name/i)).toBeInTheDocument();
+      });
+
+      const searchInput = screen.getByLabelText(/Search student by name/i);
+      expect(searchInput.style.paddingLeft).toBe("14px");
+
+      // Verify no ti-search or vsp-search-icon elements exist in search input container
+      const searchWrap = searchInput.closest(".vsp-search-wrap");
+      expect(searchWrap.querySelector(".vsp-search-icon")).toBeNull();
+      expect(searchWrap.querySelector(".ti-search")).toBeNull();
+    });
+
+    it("renders Archived IEPs button aligned with View IEP and opens modal listing archived versions", async () => {
+      const user = userEvent.setup();
+      const archivedIep = {
+        ...mockIep,
+        iepID: 102,
+        version: 1,
+        is_archived: true,
+        formattedDate: "August 15, 2026",
+      };
+      const activeIep = {
+        ...mockIep,
+        iepID: 103,
+        version: 2,
+        is_archived: false,
+        formattedDate: "September 8, 2026",
+      };
+      iepAPI.listByStudent.mockResolvedValue([activeIep, archivedIep]);
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        const btn = screen.getByRole("button", { name: /view archived ieps/i });
+        expect(within(btn).getByText("1")).toBeInTheDocument();
+      });
+
+      const archiveBtn = screen.getByRole("button", { name: /view archived ieps/i });
+      await user.click(archiveBtn);
+
+      await waitFor(() => {
+        expect(screen.getByRole("dialog")).toBeInTheDocument();
+        expect(screen.getByText(/Archived IEPs — Alex Doe/i)).toBeInTheDocument();
+      });
+
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText(/Version 1 \(Archived\)/i)).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "View" })).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "Unarchive" })).toBeInTheDocument();
+
+      // Test View action in modal
+      await user.click(within(dialog).getByRole("button", { name: "View" }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      });
+    });
+
+    it("unarchives an IEP from the Archived IEPs modal", async () => {
+      const user = userEvent.setup();
+      const archivedIep = {
+        ...mockIep,
+        iepID: 102,
+        version: 1,
+        is_archived: true,
+      };
+      iepAPI.listByStudent.mockResolvedValue([archivedIep]);
+      iepAPI.archive.mockResolvedValue({ message: "IEP unarchived successfully." });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /view archived ieps/i })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole("button", { name: /view archived ieps/i }));
+
+      const dialog = await screen.findByRole("dialog");
+      const unarchiveBtn = within(dialog).getByRole("button", { name: "Unarchive" });
+      await user.click(unarchiveBtn);
+
+      await waitFor(() => {
+        expect(iepAPI.archive).toHaveBeenCalledWith(102, false);
+      });
+    });
+
+    it("does not mark Section B complete in Generate IEP stepper before a student is chosen", async () => {
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Section B: Special Factors & Barriers")).toBeInTheDocument();
+      });
+
+      const sectionBStep = screen
+        .getByText("Section B: Special Factors & Barriers")
+        .closest(".iep-wizard-step");
+
+      // Section B must NOT be completed and must NOT have the checkmark
+      expect(sectionBStep).not.toHaveClass("completed");
+      expect(within(sectionBStep).queryByText("✓")).toBeNull();
+      expect(within(sectionBStep).getByText("Pending")).toBeInTheDocument();
+    });
+
+    it("marks Section B complete in Generate IEP stepper after a student with difficulties is chosen", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Section B: Special Factors & Barriers")).toBeInTheDocument();
+      });
+
+      const selectStudentBtn = screen.getByRole("button", { name: /select alex doe/i });
+      await user.click(selectStudentBtn);
+
+      await waitFor(() => {
+        const sectionBStep = screen
+          .getByText("Section B: Special Factors & Barriers")
+          .closest(".iep-wizard-step");
+        expect(sectionBStep).toHaveClass("completed");
+        expect(within(sectionBStep).getByText("✓")).toBeInTheDocument();
+        expect(within(sectionBStep).getByText("Completed")).toBeInTheDocument();
+      });
+    });
+  });
 });
 
 

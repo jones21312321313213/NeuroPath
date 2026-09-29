@@ -120,11 +120,16 @@ const LEARNING_FACILITATOR_OPTIONS = [
 
 // ─── Small reusable UI ────────────────────────────────────────────────────────
 
-function SectionHeader({ title, subtitle }) {
+function SectionHeader({ title, subtitle, action }) {
   return (
     <div className="iep-section-header">
-      <h2 className="form-section-title">{title}</h2>
-      {subtitle && <p className="iep-section-subtitle">{subtitle}</p>}
+      <div className="iep-section-header-row">
+        <div>
+          <h2 className="form-section-title">{title}</h2>
+          {subtitle && <p className="iep-section-subtitle">{subtitle}</p>}
+        </div>
+        {action && <div className="iep-section-header-action">{action}</div>}
+      </div>
     </div>
   );
 }
@@ -651,13 +656,13 @@ function StudentSearchBox({
       </div>
 
       <div className="vsp-search-wrap !mb-0" style={{ position: "relative" }}>
-        <i className="ti ti-search vsp-search-icon" aria-hidden="true" />
         <input
           id="iep-student-search-input"
           type="text"
           value={searchTerm}
           className="vsp-search form-input"
           placeholder="Type student name..."
+          style={{ paddingLeft: "14px" }}
           onChange={(e) => {
             setSearchTerm(e.target.value);
             setPage(1);
@@ -877,7 +882,6 @@ function ViewIEPPanel({
   onDeleteIep,
   onUpdateIep,
   onUpdateArchive,
-  totalStudents = 0,
   setActivePage,
 }) {
   const navigate = useNavigate();
@@ -907,6 +911,7 @@ function ViewIEPPanel({
 
   const details = normalizeGeneratedDetails(selectedIep);
   const { toast } = useToast();
+  const [showArchivedModal, setShowArchivedModal] = useState(false);
 
   const handleToggleArchive = async (targetIep, shouldArchive = true) => {
     if (!targetIep?.iepID) return;
@@ -1304,6 +1309,22 @@ function ViewIEPPanel({
       <SectionHeader
         title="View IEP"
         subtitle="Search a student name, select a matching result — the latest IEP loads automatically."
+        action={
+          <button
+            type="button"
+            className="iep-archives-btn"
+            onClick={() => setShowArchivedModal(true)}
+            aria-label="View archived IEPs"
+          >
+            <i className="ti ti-archive" aria-hidden="true" style={{ fontSize: "1rem" }} />
+            <span>Archived IEPs</span>
+            {selectedStudent && (
+              <span className="iep-count-badge">
+                {archivedIeps.length}
+              </span>
+            )}
+          </button>
+        }
       />
 
       <div
@@ -1360,93 +1381,13 @@ function ViewIEPPanel({
             </select>
           </div>
         )}
-
-        {selectedStudent && archivedIeps.length > 0 && (
-          <details
-            className="iep-archived-accordion"
-            open={Boolean(selectedIep?.is_archived)}
-          >
-            <summary className="iep-archived-summary">
-              <span>Archived IEPs ({archivedIeps.length})</span>
-              <span style={{ fontSize: "0.78rem", color: "#64748b" }}>View / Restore</span>
-            </summary>
-            <div className="iep-archived-list">
-              {archivedIeps.map((aIep) => (
-                <div
-                  key={aIep.iepID}
-                  className={`iep-archived-item ${
-                    selectedIep?.iepID === aIep.iepID ? "selected" : ""
-                  }`}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    <span className="iep-status-badge iep-version-badge badge-archived">
-                      Version {aIep.version} (Archived)
-                    </span>
-                    <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
-                      Last Updated: {aIep.formattedDate || "Date unavailable"}
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button
-                      type="button"
-                      className="btn btn-back"
-                      style={{ fontSize: "0.75rem", padding: "4px 8px" }}
-                      onClick={() => {
-                        if (isFormDirty) {
-                          promptNavigation(() => setSelectedIep(aIep));
-                        } else {
-                          setSelectedIep(aIep);
-                        }
-                      }}
-                    >
-                      View
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-back"
-                      style={{ fontSize: "0.75rem", padding: "4px 8px" }}
-                      onClick={() => handleToggleArchive(aIep, false)}
-                    >
-                      Unarchive
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </details>
-        )}
       </div>
 
       {viewError && (
         <div className="iep-alert iep-alert-error">{viewError}</div>
       )}
 
-      {!selectedStudent ? (
-        <div className="iep-empty-state">
-          <div className="flex items-center justify-center text-slate-400 mb-2">
-            <SearchIcon className="w-8 h-8" aria-hidden="true" />
-          </div>
-          <strong>Search and select a student</strong>
-          <span>
-            {totalStudents === 0
-              ? "You don't have any students registered yet. Create a student profile first to view or generate IEPs."
-              : "The IEP preview will appear here after selecting a student from the search above."}
-          </span>
-          {totalStudents === 0 && (
-            <button
-              type="button"
-              className="btn btn-submit"
-              style={{ marginTop: 12 }}
-              onClick={() => {
-                navigate("/dashboard/students/create");
-                if (setActivePage) setActivePage("create-student-profile");
-              }}
-            >
-              + CREATE STUDENT
-            </button>
-          )}
-        </div>
-      ) : loadingIeps ? (
+      {!selectedStudent ? null : loadingIeps ? (
         <div className="iep-empty-state">
           <div className="flex items-center justify-center text-blue-600 mb-2">
             <ClockIcon className="w-8 h-8 animate-spin" aria-hidden="true" />
@@ -2040,6 +1981,105 @@ function ViewIEPPanel({
         </div>
       )}
 
+      {/* Archived IEPs Modal */}
+      <Modal
+        isOpen={showArchivedModal}
+        onClose={() => setShowArchivedModal(false)}
+        title={
+          selectedStudent
+            ? `Archived IEPs — ${getStudentName(selectedStudent)}`
+            : "Archived IEP Records"
+        }
+        size="lg"
+        footer={
+          <div className="flex items-center justify-end w-full">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowArchivedModal(false)}
+            >
+              Close
+            </Button>
+          </div>
+        }
+      >
+        {!selectedStudent ? (
+          <div className="iep-empty-state" style={{ padding: "24px 16px" }}>
+            <div className="flex items-center justify-center text-slate-400 mb-2">
+              <i className="ti ti-user-x" style={{ fontSize: "2rem" }} aria-hidden="true" />
+            </div>
+            <strong>No student selected</strong>
+            <span>
+              Please select a student from the student search or roster to view their archived IEP records.
+            </span>
+          </div>
+        ) : archivedIeps.length === 0 ? (
+          <div className="iep-empty-state" style={{ padding: "24px 16px" }}>
+            <div className="flex items-center justify-center text-slate-400 mb-2">
+              <i className="ti ti-archive-off" style={{ fontSize: "2rem" }} aria-hidden="true" />
+            </div>
+            <strong>No archived IEPs found</strong>
+            <span>
+              There are currently no archived IEP records for {getStudentName(selectedStudent)}.
+              When previous versions are archived, they will appear here.
+            </span>
+          </div>
+        ) : (
+          <div className="iep-archived-list" style={{ marginTop: 4 }}>
+            <p style={{ fontSize: "0.85rem", color: "#64748b", marginBottom: 12 }}>
+              The following IEP versions are archived. You can preview an archived version or restore it to active status.
+            </p>
+            {archivedIeps.map((aIep) => (
+              <div
+                key={aIep.iepID}
+                className={`iep-archived-item ${
+                  selectedIep?.iepID === aIep.iepID ? "selected" : ""
+                }`}
+              >
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span className="iep-status-badge iep-version-badge badge-archived">
+                    Version {aIep.version} (Archived)
+                  </span>
+                  <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                    Last Updated: {aIep.formattedDate || "Date unavailable"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    type="button"
+                    className="btn btn-back"
+                    style={{ fontSize: "0.78rem", padding: "5px 12px" }}
+                    onClick={() => {
+                      if (isFormDirty) {
+                        promptNavigation(() => {
+                          setSelectedIep(aIep);
+                          setShowArchivedModal(false);
+                        });
+                      } else {
+                        setSelectedIep(aIep);
+                        setShowArchivedModal(false);
+                      }
+                    }}
+                  >
+                    View
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-back"
+                    style={{ fontSize: "0.78rem", padding: "5px 12px" }}
+                    onClick={async () => {
+                      await handleToggleArchive(aIep, false);
+                    }}
+                  >
+                    Unarchive
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
+
       <UnsavedChangesModal
         isOpen={showPrompt}
         onConfirm={confirmLeave}
@@ -2061,9 +2101,12 @@ function IepWizardStepper({
 }) {
   const isSectionAComplete = Boolean(selectedStudent);
   const isSectionBComplete = Boolean(
-    form?.barrierRows?.some((r) => r.difficulty && r.difficulty.trim()),
+    selectedStudent &&
+      form?.barrierRows?.some((r) => r.difficulty && r.difficulty.trim()),
   );
-  const isSectionCComplete = Boolean(aiGeneratedGoals?.length > 0);
+  const isSectionCComplete = Boolean(
+    selectedStudent && aiGeneratedGoals?.length > 0,
+  );
 
   const steps = [
     {
@@ -2503,7 +2546,45 @@ export default function IEPGenerationPage({
 
   // Pre-fill form from student profile
   useEffect(() => {
-    if (activeView !== "generate" || !selectedStudent) return;
+    if (activeView !== "generate") return;
+    if (!selectedStudent) {
+      lastLoadedStudentIdRef.current = null;
+      queueMicrotask(() => {
+        setForm((prev) => ({
+          ...prev,
+          learnerName: "",
+          birthdate: "",
+          disabilityCategory: "",
+          diagnosisDetails: "",
+          presentEvaluation: "",
+          academicStrengths: "",
+          academicNeeds: "",
+          parentalConcerns: "",
+          curriculumImpact: "",
+          specialFactorNotes: "",
+          difficultyMarkers: [],
+          barrierRows: [
+            {
+              difficulty: "",
+              barrierQualifier: "Moderate barrier",
+              facilitator: "",
+              accommodation: "",
+            },
+          ],
+        }));
+        setGenerationDone(false);
+        setAiGeneratedGoals([]);
+        setGoalSaveStatus("");
+        setActiveGeneratedIepId(null);
+        setTeacherPrompt("");
+        setSelectedGoalCategory("");
+        setGeneratedAccommodations("");
+        setShowManualGoal(false);
+        setSavingManualGoal(false);
+        setStep(1);
+      });
+      return;
+    }
     const p = getStudentProfileDetails(selectedStudent);
     const profileDifficulties = getStudentProfileDifficulties(selectedStudent);
     const sid = getStudentId(selectedStudent);
