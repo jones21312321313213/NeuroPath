@@ -240,6 +240,96 @@ describe("ManageTeachingStrategies - Issue #158 Decoupled Save", () => {
       expect(screen.getByRole("button", { name: /Saved/i })).toBeDisabled();
     });
   });
+
+  it("prompts confirmation modal when user tries to switch tabs with an unsaved generated strategy, and stays on 'No, Stay'", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter>
+        <ManageTeachingStrategies />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Alex Rivera")).toBeInTheDocument();
+    });
+    await user.click(screen.getByText("Alex Rivera"));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Language Arts — Alex will read 90 words per minute/)).toBeInTheDocument();
+    });
+    await user.click(screen.getByText(/Language Arts — Alex will read 90 words per minute/));
+
+    await user.click(screen.getByRole("button", { name: /Generate Teaching Strategy/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Confirm & Save Strategy/i })).toBeInTheDocument();
+    });
+
+    // Try to switch tabs to "Manage"
+    const manageTabBtn = screen.getByRole("tab", { name: /manage/i });
+    await user.click(manageTabBtn);
+
+    // Confirmation modal should appear
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /unsaved teaching strategy/i })).toBeInTheDocument();
+      expect(screen.getByText(/if you leave without saving, your generated strategy will be lost/i)).toBeInTheDocument();
+    });
+
+    // Click "No, Stay"
+    const stayBtn = screen.getByRole("button", { name: /no, stay/i });
+    await user.click(stayBtn);
+
+    // Modal should close and strategy remains on screen
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: /unsaved teaching strategy/i })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Confirm & Save Strategy/i })).toBeInTheDocument();
+    });
+  });
+
+  it("allows tab switch when user confirms 'Yes, Leave Without Saving' on unsaved teaching strategy", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter>
+        <ManageTeachingStrategies />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Alex Rivera")).toBeInTheDocument();
+    });
+    await user.click(screen.getByText("Alex Rivera"));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Language Arts — Alex will read 90 words per minute/)).toBeInTheDocument();
+    });
+    await user.click(screen.getByText(/Language Arts — Alex will read 90 words per minute/));
+
+    await user.click(screen.getByRole("button", { name: /Generate Teaching Strategy/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Confirm & Save Strategy/i })).toBeInTheDocument();
+    });
+
+    // Try to switch tabs to "Manage"
+    const manageTabBtn = screen.getByRole("tab", { name: /manage/i });
+    await user.click(manageTabBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /unsaved teaching strategy/i })).toBeInTheDocument();
+    });
+
+    // Confirm leave
+    const leaveBtn = screen.getByRole("button", { name: /yes, leave without saving/i });
+    await user.click(leaveBtn);
+
+    // Modal closes and Manage tab renders
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: /unsaved teaching strategy/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Confirm & Save Strategy/i })).not.toBeInTheDocument();
+    });
+  });
 });
 
 describe("ManageTeachingStrategies Multi-IEP Selection", () => {

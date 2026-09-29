@@ -341,7 +341,7 @@ function StudentGrid({ students, selectedID, onSelect }) {
 }
 
 // ── Generate Tab ──────────────────────────────────────────────────────────────
-function GenerateTab({ onSave, setActivePage }) {
+function GenerateTab({ onSave, setActivePage, onDraftStatusChange, promptNavigation }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
@@ -356,6 +356,13 @@ function GenerateTab({ onSave, setActivePage }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+
+  const isDraft = Boolean(generated && !saved);
+  useEffect(() => {
+    if (onDraftStatusChange) {
+      onDraftStatusChange(isDraft);
+    }
+  }, [isDraft, onDraftStatusChange]);
 
   useEffect(() => {
     lessonPlansAPI
@@ -471,12 +478,21 @@ function GenerateTab({ onSave, setActivePage }) {
     }
   };
 
+  const handleSelectStudent = (student) => {
+    if (generated && !saved && promptNavigation) {
+      promptNavigation(() => selectStudent(student));
+      return;
+    }
+    selectStudent(student);
+  };
+
   const handleGenerate = async () => {
     if (!selectedStudent || !selectedGoal) return;
     setLoading(true);
     setError("");
     setGenerated(null);
     setSaved(false);
+    if (onDraftStatusChange) onDraftStatusChange(false);
 
     try {
       const res = await lessonPlansAPI.generate({
@@ -488,6 +504,7 @@ function GenerateTab({ onSave, setActivePage }) {
         teacherPrompt: "",
       });
       setGenerated(res);
+      if (onDraftStatusChange) onDraftStatusChange(true);
     } catch (err) {
       setError(err.message || "Failed to generate lesson plan.");
     } finally {
@@ -509,6 +526,7 @@ function GenerateTab({ onSave, setActivePage }) {
         content: plans,
       });
       setSaved(true);
+      if (onDraftStatusChange) onDraftStatusChange(false);
       onSave(savedPlan);
     } catch (err) {
       setError(err.message || "Failed to save lesson plan.");
@@ -544,7 +562,7 @@ function GenerateTab({ onSave, setActivePage }) {
           <StudentGrid
             students={directory}
             selectedID={selectedStudent?.studentID}
-            onSelect={selectStudent}
+            onSelect={handleSelectStudent}
           />
         )}
       </div>
@@ -1492,8 +1510,24 @@ function ManagePlansTab({ setActivePage, onGoToGenerate }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ManageLessonPlans({ setActivePage }) {
   const [activeTab, setActiveTab] = useState("generate");
+  const [hasDraft, setHasDraft] = useState(false);
   const [, setLessonPlans] = useState([]);
   const { toast } = useToast();
+
+  const { showPrompt, promptNavigation, confirmLeave, cancelLeave } =
+    useUnsavedChanges({
+      isDirty: hasDraft,
+    });
+
+  const handleTabClick = (tabKey) => {
+    if (tabKey === activeTab) return;
+    promptNavigation(() => setActiveTab(tabKey));
+  };
+
+  const handleConfirmLeave = () => {
+    setHasDraft(false);
+    confirmLeave();
+  };
 
   const saveLessonPlan = (plan) => {
     if (plan) {
@@ -1535,7 +1569,7 @@ export default function ManageLessonPlans({ setActivePage }) {
                 role="tab"
                 aria-selected={isActive}
                 className={`ts-tab-btn ${isActive ? "active" : ""}`}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => handleTabClick(tab.key)}
               >
                 <span className="ts-tab-icon">{tab.icon}</span>
                 {tab.label}
@@ -1550,15 +1584,27 @@ export default function ManageLessonPlans({ setActivePage }) {
           <GenerateTab
             onSave={saveLessonPlan}
             setActivePage={setActivePage}
+            onDraftStatusChange={setHasDraft}
+            promptNavigation={promptNavigation}
           />
         )}
         {isManageTab && (
           <ManagePlansTab
             setActivePage={setActivePage}
-            onGoToGenerate={() => setActiveTab("generate")}
+            onGoToGenerate={() => handleTabClick("generate")}
           />
         )}
       </div>
+
+      <UnsavedChangesModal
+        isOpen={showPrompt}
+        onConfirm={handleConfirmLeave}
+        onCancel={cancelLeave}
+        title="Unsaved Lesson Plan"
+        message="You have an unsaved lesson plan. If you leave without saving, your generated plan will be lost. Do you want to leave without saving?"
+        confirmText="Yes, Leave Without Saving"
+        cancelText="No, Stay"
+      />
     </div>
   );
 }

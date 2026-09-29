@@ -422,4 +422,78 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
     expect(stepCardImages[1]).toHaveAttribute("src", "data:image/jpeg;base64,mockstep2image");
     expect(stepCardImages[2]).toHaveAttribute("src", "data:image/jpeg;base64,mockstep3image");
   });
+
+  it("prompts confirmation modal when user tries to switch tabs with an unsaved draft, and stays when clicking 'No, Stay'", async () => {
+    const { container } = renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText("Leo Miller")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Leo Miller"));
+    await waitFor(() => {
+      expect(screen.getByText("Handwashing Routine")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Handwashing Routine"));
+    fireEvent.click(screen.getByRole("button", { name: /generate visual aid/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Review Generated Draft/i)).toBeInTheDocument();
+    });
+
+    // Try to switch to "View" tab while in draft state
+    const viewTabBtn = screen.getByRole("button", { name: /view/i });
+    fireEvent.click(viewTabBtn);
+
+    // Confirmation modal should appear
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /unsaved visual aid/i })).toBeInTheDocument();
+      expect(screen.getByText(/if you leave without saving, your generated visual aid will be lost/i)).toBeInTheDocument();
+    });
+
+    // Click "No, Stay"
+    const stayBtn = screen.getByRole("button", { name: /no, stay/i });
+    fireEvent.click(stayBtn);
+
+    // Modal should close and draft should still be on screen
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: /unsaved visual aid/i })).not.toBeInTheDocument();
+      expect(screen.getByText(/Review Generated Draft/i)).toBeInTheDocument();
+    });
+  });
+
+  it("allows tab switch and discards draft when user confirms 'Yes, Leave Without Saving'", async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText("Leo Miller")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Leo Miller"));
+    await waitFor(() => {
+      expect(screen.getByText("Handwashing Routine")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Handwashing Routine"));
+    fireEvent.click(screen.getByRole("button", { name: /generate visual aid/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Review Generated Draft/i)).toBeInTheDocument();
+    });
+
+    // Try to switch to "View" tab
+    const viewTabBtn = screen.getByRole("button", { name: /view/i });
+    fireEvent.click(viewTabBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /unsaved visual aid/i })).toBeInTheDocument();
+    });
+
+    // Confirm leave
+    const leaveBtn = screen.getByRole("button", { name: /yes, leave without saving/i });
+    fireEvent.click(leaveBtn);
+
+    // Modal closes and View tab renders
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: /unsaved visual aid/i })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Review Generated Draft/i)).not.toBeInTheDocument();
+    });
+  });
 });

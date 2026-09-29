@@ -4,6 +4,8 @@ import "../styles/ManageVisualAids.css";
 import { visualAidsAPI, studentsAPI, iepAPI } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import useUnsavedChanges from "../hooks/useUnsavedChanges";
+import UnsavedChangesModal from "../components/ui/UnsavedChangesModal";
 import {
   PhotoIcon,
   EyeIcon,
@@ -511,7 +513,7 @@ function SequentialSequenceViewer({
 }
 
 // ── Generate Tab ──────────────────────────────────────────────────────────────
-function GenerateTab({ setActivePage }) {
+function GenerateTab({ setActivePage, onDraftStatusChange, promptNavigation }) {
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -531,6 +533,13 @@ function GenerateTab({ setActivePage }) {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const { toast } = useToast();
+
+  // Notify parent of unsaved draft state
+  useEffect(() => {
+    if (onDraftStatusChange) {
+      onDraftStatusChange(Boolean(result?.isDraft));
+    }
+  }, [result?.isDraft, onDraftStatusChange]);
 
   // Load students on mount
   useEffect(() => {
@@ -569,7 +578,7 @@ function GenerateTab({ setActivePage }) {
     };
   }, [selectedStudent]);
 
-  const handleStudentSelect = (s) => {
+  const doStudentSelect = (s) => {
     setSelectedStudent(s);
     setGoals([]);
     setSelectedGoal(null);
@@ -579,11 +588,20 @@ function GenerateTab({ setActivePage }) {
     setError("");
   };
 
+  const handleStudentSelect = (s) => {
+    if (result?.isDraft && promptNavigation) {
+      promptNavigation(() => doStudentSelect(s));
+      return;
+    }
+    doStudentSelect(s);
+  };
+
   const handleGenerate = async () => {
     if (!selectedGoal) return;
     setGenerating(true);
     setError("");
     setResult(null);
+    if (onDraftStatusChange) onDraftStatusChange(false);
     try {
       const data = await visualAidsAPI.generate({
         iep_goal_id: selectedGoal.goalID,
@@ -596,6 +614,7 @@ function GenerateTab({ setActivePage }) {
         ...resData,
         isDraft: true,
       });
+      if (onDraftStatusChange) onDraftStatusChange(true);
       toast.success("Visual aid generated! Please review and decide whether to save.");
     } catch (err) {
       setError(
@@ -626,6 +645,7 @@ function GenerateTab({ setActivePage }) {
         isDraft: false,
         steps_data: currentSteps || prev.steps_data,
       }));
+      if (onDraftStatusChange) onDraftStatusChange(false);
     } catch (err) {
       toast.error(err.message || "Failed to save visual aid.");
       throw err;
@@ -638,17 +658,27 @@ function GenerateTab({ setActivePage }) {
 
   const handleDiscard = () => {
     setResult(null);
+    if (onDraftStatusChange) onDraftStatusChange(false);
     toast.info("Generated visual aid discarded.");
   };
 
-  const handleReset = () => {
+  const doReset = () => {
     setSelectedStudent(null);
     setGoals([]);
     setSelectedGoal(null);
     setExtraPrompt("");
     setResult(null);
+    if (onDraftStatusChange) onDraftStatusChange(false);
     setGenerating(false);
     setError("");
+  };
+
+  const handleReset = () => {
+    if (result?.isDraft && promptNavigation) {
+      promptNavigation(() => doReset());
+      return;
+    }
+    doReset();
   };
 
   return (
@@ -1211,6 +1241,22 @@ function DeleteTab({ setActivePage, onGoToGenerate }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ManageVisualAids({ setActivePage }) {
   const [activeTab, setActiveTab] = useState("generate");
+  const [hasDraft, setHasDraft] = useState(false);
+
+  const { showPrompt, promptNavigation, confirmLeave, cancelLeave } =
+    useUnsavedChanges({
+      isDirty: hasDraft,
+    });
+
+  const handleTabClick = (tabKey) => {
+    if (tabKey === activeTab) return;
+    promptNavigation(() => setActiveTab(tabKey));
+  };
+
+  const handleConfirmLeave = () => {
+    setHasDraft(false);
+    confirmLeave();
+  };
 
   return (
     <div className="page-content va-page">
@@ -1235,7 +1281,7 @@ export default function ManageVisualAids({ setActivePage }) {
             <button
               key={tab.key}
               className={`va-tab-btn ${activeTab === tab.key ? "active" : ""}`}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => handleTabClick(tab.key)}
             >
               <span className="va-tab-icon">{tab.icon}</span>
               {tab.label}
@@ -1247,21 +1293,35 @@ export default function ManageVisualAids({ setActivePage }) {
       {/* Body */}
       <div className="va-body">
         {activeTab === "generate" && (
-          <GenerateTab setActivePage={setActivePage} />
+          <GenerateTab
+            setActivePage={setActivePage}
+            onDraftStatusChange={setHasDraft}
+            promptNavigation={promptNavigation}
+          />
         )}
         {activeTab === "view" && (
           <ViewTab
             setActivePage={setActivePage}
-            onGoToGenerate={() => setActiveTab("generate")}
+            onGoToGenerate={() => handleTabClick("generate")}
           />
         )}
         {activeTab === "delete" && (
           <DeleteTab
             setActivePage={setActivePage}
-            onGoToGenerate={() => setActiveTab("generate")}
+            onGoToGenerate={() => handleTabClick("generate")}
           />
         )}
       </div>
+
+      <UnsavedChangesModal
+        isOpen={showPrompt}
+        onConfirm={handleConfirmLeave}
+        onCancel={cancelLeave}
+        title="Unsaved Visual Aid"
+        message="You have an unsaved visual aid. If you leave without saving, your generated visual aid will be lost. Do you want to leave without saving?"
+        confirmText="Yes, Leave Without Saving"
+        cancelText="No, Stay"
+      />
     </div>
   );
 }

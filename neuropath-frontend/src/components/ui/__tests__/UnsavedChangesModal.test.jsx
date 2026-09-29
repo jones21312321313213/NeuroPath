@@ -74,4 +74,19 @@ describe("UnsavedChangesModal", () => {
     fireEvent.keyDown(window, { key: "Escape" });
     expect(handleCancel).toHaveBeenCalledTimes(1);
   });
+
+  it("renders custom confirmText and cancelText labels", () => {
+    render(
+      <UnsavedChangesModal
+        isOpen={true}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+        confirmText="Yes, Discard"
+        cancelText="No, Keep Editing"
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /yes, discard/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /no, keep editing/i })).toBeInTheDocument();
+  });
 });

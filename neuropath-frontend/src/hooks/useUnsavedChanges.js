@@ -3,6 +3,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 export function useUnsavedChanges({ isDirty = false, onLeave } = {}) {
   const [showPrompt, setShowPrompt] = useState(false);
   const pendingActionRef = useRef(null);
+  const isDirtyRef = useRef(isDirty);
+  isDirtyRef.current = isDirty;
 
   useEffect(() => {
     if (!isDirty) return;
@@ -14,12 +16,41 @@ export function useUnsavedChanges({ isDirty = false, onLeave } = {}) {
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+
+    try {
+      window.history.pushState({ unsavedGuard: true }, "");
+    } catch {
+      // Ignore if pushState fails in restricted environments
+    }
+
+    const handlePopState = () => {
+      if (!isDirtyRef.current) return;
+      try {
+        window.history.pushState({ unsavedGuard: true }, "");
+      } catch {
+        // Ignore
+      }
+      pendingActionRef.current = () => {
+        try {
+          window.history.go(-2);
+        } catch {
+          window.history.back();
+        }
+      };
+      setShowPrompt(true);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("popstate", handlePopState);
+    };
   }, [isDirty]);
 
   const promptNavigation = useCallback(
     (action) => {
-      if (isDirty) {
+      if (isDirty || isDirtyRef.current) {
         pendingActionRef.current = action;
         setShowPrompt(true);
         return false;
@@ -33,6 +64,7 @@ export function useUnsavedChanges({ isDirty = false, onLeave } = {}) {
   );
 
   const confirmLeave = useCallback(() => {
+    isDirtyRef.current = false;
     setShowPrompt(false);
     const action = pendingActionRef.current;
     pendingActionRef.current = null;

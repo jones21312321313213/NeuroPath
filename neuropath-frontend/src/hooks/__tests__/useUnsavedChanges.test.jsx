@@ -97,4 +97,20 @@ describe("useUnsavedChanges", () => {
     expect(result.current.showPrompt).toBe(false);
     expect(action).not.toHaveBeenCalled();
   });
+
+  it("intercepts popstate (browser back) and shows prompt when dirty", () => {
+    const { result } = renderHook(() => useUnsavedChanges({ isDirty: true }));
+
+    act(() => {
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    expect(result.current.showPrompt).toBe(true);
+
+    act(() => {
+      result.current.cancelLeave();
+    });
+
+    expect(result.current.showPrompt).toBe(false);
+  });
 });
