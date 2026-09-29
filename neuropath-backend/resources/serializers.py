@@ -117,12 +117,19 @@ class VisualAidSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = VisualAid
-        # 🚀 REWIRED: Removed 'iep' and 'student', added 'iep_goal'
-        fields = ['visualAidID', 'iep_goal', 'studentName', 'title', 'imageUrl', 'dateCreated']
+        # 🚀 REWIRED: Removed 'iep' and 'student', added 'iep_goal', 'prompt_used', 'steps_data'
+        fields = ['visualAidID', 'iep_goal', 'studentName', 'title', 'imageUrl', 'prompt_used', 'steps_data', 'dateCreated']
+        extra_kwargs = {
+            'iep_goal': {'required': False},
+            'imageUrl': {'required': False},
+            'title': {'required': False},
+        }
 
     def validate_imageUrl(self, value):
-        if not value.startswith('http'):
-            raise serializers.ValidationError("The visual aid asset must be a valid URL starting with http or https.")
+        if not value:
+            return value
+        if not (value.startswith('http://') or value.startswith('https://') or value.startswith('data:image/')):
+            raise serializers.ValidationError("The visual aid asset must be a valid URL starting with http, https, or data:image/.")
         return value
     
 # =====================================================================

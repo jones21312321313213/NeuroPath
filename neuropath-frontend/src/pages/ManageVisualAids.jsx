@@ -18,7 +18,36 @@ import {
   SparklesIcon,
   DiskIcon,
   ArrowPathIcon,
+  PrinterIcon,
+  SpeakerWaveIcon,
 } from "../components/ui/icons";
+
+const DAILY_LIVING_PRESETS = [
+  {
+    id: "handwashing",
+    label: "🧼 Handwashing Routine",
+    category: "Daily Living Skills",
+    prompt: "Handwashing: 1. Turn on water and pump soap onto palms -> 2. Rub hands together washing lather bubbles -> 3. Rinse with clean water and dry hands with towel",
+  },
+  {
+    id: "eating",
+    label: "🥄 Eating with Utensils",
+    category: "Self-Care",
+    prompt: "Eating with spoon: 1. Hold spoon handle securely -> 2. Scoop bite-sized food portion -> 3. Bring spoon gently to mouth",
+  },
+  {
+    id: "brushing",
+    label: "🪥 Tooth Brushing",
+    category: "Hygiene",
+    prompt: "Brushing teeth: 1. Put pea-sized toothpaste on toothbrush -> 2. Brush teeth in gentle circular motions -> 3. Rinse mouth with water and spit into sink",
+  },
+  {
+    id: "transition",
+    label: "🎒 Classroom Transition",
+    category: "Classroom Behavior",
+    prompt: "Classroom transition: 1. Clean desk and organize materials -> 2. Pack items into backpack -> 3. Line up quietly at classroom door",
+  },
+];
 
 const TABS = [
   {
@@ -193,6 +222,255 @@ function AidRowList({
   );
 }
 
+// ── Sequential Sequence Viewer (Bundle 5: Issue #217) ────────────────────────
+function SequentialSequenceViewer({ aid, onAidUpdated, onReset, onClose }) {
+  const { toast } = useToast();
+  const [activeStep, setActiveStep] = useState(1);
+  const [speakingStep, setSpeakingStep] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const initialSteps =
+    aid?.steps_data && Array.isArray(aid.steps_data) && aid.steps_data.length > 0
+      ? aid.steps_data
+      : [
+          { step: 1, title: "Step 1: Start", description: "Get ready and begin the routine." },
+          { step: 2, title: "Step 2: Action", description: "Perform the main step carefully." },
+          { step: 3, title: "Step 3: Complete", description: "Finish and check the final step." },
+        ];
+
+  const [steps, setSteps] = useState(initialSteps);
+
+  useEffect(() => {
+    if (aid?.steps_data && Array.isArray(aid.steps_data) && aid.steps_data.length > 0) {
+      setSteps(aid.steps_data);
+    }
+  }, [aid?.steps_data]);
+
+  const handleNarrate = (stepNum, textToRead) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      toast.info("Audio narration is not supported in this browser environment.");
+      return;
+    }
+    window.speechSynthesis.cancel();
+    if (speakingStep === stepNum) {
+      setSpeakingStep(null);
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(textToRead);
+    utterance.rate = 0.9;
+    utterance.onend = () => setSpeakingStep(null);
+    utterance.onerror = () => setSpeakingStep(null);
+    setSpeakingStep(stepNum);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handleUpdateStep = (index, field, value) => {
+    setSteps((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const handleSaveCaptions = async () => {
+    if (!aid?.visualAidID) return;
+    setSaving(true);
+    try {
+      await visualAidsAPI.update(aid.visualAidID, { steps_data: steps });
+      toast.success("Step captions updated successfully!");
+      if (onAidUpdated) {
+        onAidUpdated({ ...aid, steps_data: steps });
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to save updated captions.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  return (
+    <div className="va-sequence-viewer va-printable-area">
+      {/* 3-Panel Storyboard Preview */}
+      <div className="va-output-box">
+        <div className="va-output-label">
+          AI 3-Panel Sequential Task Analysis Storyboard (Imagen 3)
+          <div className="va-output-label-line" />
+        </div>
+        <div className="va-preview-wrap">
+          <img
+            src={aid.imageUrl}
+            alt={aid.title || "AI-generated visual aid strip"}
+            className="va-preview-img"
+            onError={(e) => {
+              e.target.style.display = "none";
+              if (e.target.nextSibling) e.target.nextSibling.style.display = "flex";
+            }}
+          />
+          <div className="va-preview-placeholder" style={{ display: "none" }}>
+            <span className="va-preview-placeholder-icon">
+              <WarningIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />
+            </span>
+            <span className="va-preview-placeholder-text">
+              Image preview unavailable, but it has been saved to the database.
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Sequence Step Selector Navigation */}
+      <div className="va-sequence-nav va-no-print" role="tablist" aria-label="Visual aid steps">
+        {steps.map((s, idx) => {
+          const stepNum = s.step || idx + 1;
+          const isSelected = activeStep === stepNum;
+          return (
+            <button
+              key={stepNum}
+              type="button"
+              role="tab"
+              aria-selected={isSelected}
+              className={`va-step-tab ${isSelected ? "active" : ""}`}
+              onClick={() => setActiveStep(stepNum)}
+            >
+              <span className="va-step-tab-badge">{stepNum}</span>
+              <span>{s.title || `Step ${stepNum}`}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 3-Step Cards Grid with Editable Captions & Audio Narration */}
+      <div className="va-step-cards-grid">
+        {steps.map((s, idx) => {
+          const stepNum = s.step || idx + 1;
+          const isFocused = activeStep === stepNum;
+          const narrationText = `${s.title}. ${s.description}`;
+          return (
+            <div
+              key={stepNum}
+              className={`va-step-card ${isFocused ? "active" : ""}`}
+              onClick={() => setActiveStep(stepNum)}
+            >
+              <div className="va-step-card-header">
+                <span className="va-step-indicator">
+                  Step {stepNum}
+                  {isFocused && <span style={{ marginLeft: 4 }}>• Active</span>}
+                </span>
+                <button
+                  type="button"
+                  className={`va-audio-narrate-btn va-no-print ${speakingStep === stepNum ? "speaking" : ""}`}
+                  title="Read step instruction aloud"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleNarrate(stepNum, narrationText);
+                  }}
+                >
+                  <SpeakerWaveIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>{speakingStep === stepNum ? "Playing…" : "Narration"}</span>
+                </button>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-500 mb-1 block">
+                  Step Title:
+                </label>
+                <input
+                  type="text"
+                  className="va-step-title-input"
+                  value={s.title || ""}
+                  onChange={(e) => handleUpdateStep(idx, "title", e.target.value)}
+                  placeholder={`Step ${stepNum} title`}
+                  aria-label={`Step ${stepNum} title`}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-500 mb-1 block">
+                  Instruction Caption:
+                </label>
+                <textarea
+                  className="va-caption-textarea"
+                  value={s.description || ""}
+                  onChange={(e) => handleUpdateStep(idx, "description", e.target.value)}
+                  placeholder={`Step ${stepNum} instruction caption…`}
+                  aria-label={`Step ${stepNum} caption`}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Action Toolbar */}
+      <div className="va-actions space-between va-no-print" style={{ marginTop: 12 }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="va-btn va-btn-primary"
+            onClick={handleSaveCaptions}
+            disabled={saving}
+          >
+            <DiskIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />
+            {saving ? "Saving…" : "Save Captions"}
+          </button>
+          <a
+            href={visualAidsAPI.exportUrl(aid.visualAidID)}
+            target="_blank"
+            rel="noreferrer"
+            className="va-btn va-btn-ghost"
+            style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            <PrinterIcon className="w-4 h-4 text-slate-600" aria-hidden="true" />
+            Download Classroom PDF
+          </a>
+          <button
+            type="button"
+            className="va-btn va-btn-ghost"
+            onClick={handlePrint}
+          >
+            <ClipboardIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />
+            Print Flashcards
+          </button>
+        </div>
+
+        <div style={{ display: "flex", gap: 10 }}>
+          {onClose && (
+            <button type="button" className="va-btn va-btn-ghost" onClick={onClose}>
+              Close
+            </button>
+          )}
+          {onReset && (
+            <button type="button" className="va-btn va-btn-ghost" onClick={onReset}>
+              <ArrowPathIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />
+              Generate Another
+            </button>
+          )}
+          {aid.imageUrl && (
+            <a
+              href={aid.imageUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="va-btn va-btn-primary"
+              style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              Open Image
+            </a>
+          )}
+          {onReset && (
+            <button type="button" className="va-btn va-btn-primary" onClick={onReset}>
+              <CheckIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />
+              Done
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Generate Tab ──────────────────────────────────────────────────────────────
 function GenerateTab({ setActivePage }) {
   const navigate = useNavigate();
@@ -227,22 +505,36 @@ function GenerateTab({ setActivePage }) {
   // Load IEP goals when student is selected
   useEffect(() => {
     if (!selectedStudent) return;
-    queueMicrotask(() => {
-      setLoadingGoals(true);
-      setGoals([]);
-      setSelectedGoal(null);
-    });
+    let isCancelled = false;
     iepAPI
       .listLatestGoalsByStudent(selectedStudent.studentID)
       .catch(() => iepAPI.listGoalsByStudent(selectedStudent.studentID))
-      .then((data) => setGoals(Array.isArray(data) ? data : data?.results || data?.data || []))
-      .catch(() => setError("Failed to load IEP goals for this student."))
-      .finally(() => setLoadingGoals(false));
+      .then((data) => {
+        if (!isCancelled) {
+          setGoals(Array.isArray(data) ? data : data?.results || data?.data || []);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setError("Failed to load IEP goals for this student.");
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setLoadingGoals(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
   }, [selectedStudent]);
 
   const handleStudentSelect = (s) => {
     setSelectedStudent(s);
+    setGoals([]);
     setSelectedGoal(null);
+    setLoadingGoals(true);
     setExtraPrompt("");
     setResult(null);
     setError("");
@@ -257,6 +549,7 @@ function GenerateTab({ setActivePage }) {
       const data = await visualAidsAPI.generate({
         iep_goal_id: selectedGoal.goalID,
         prompt: extraPrompt.trim(),
+        category: selectedGoal.subject_category || selectedGoal.goalArea || "",
       });
       setResult(data.data);
       toast.success("Visual aid generated and saved successfully!");
@@ -333,7 +626,7 @@ function GenerateTab({ setActivePage }) {
           <p className="va-form-intro">
             Select an existing IEP goal for{" "}
             <strong style={{ color: "#1a2b40" }}>{selectedStudent.name}</strong>
-            , then optionally describe what you'd like the visual to show.
+            , then optionally select a quick template or describe what you'd like the visual to show.
           </p>
 
           {loadingGoals ? (
@@ -383,6 +676,32 @@ function GenerateTab({ setActivePage }) {
             </div>
           )}
 
+          {/* ── Preset Quick Templates for Daily Living Routines ── */}
+          <div className="va-presets-box">
+            <div className="va-presets-header">
+              <SparklesIcon className="w-4 h-4 text-blue-500" aria-hidden="true" />
+              <span>Preset Quick Templates for Daily Living Routines</span>
+            </div>
+            <div className="va-presets-list">
+              {DAILY_LIVING_PRESETS.map((preset) => {
+                const isActive = extraPrompt === preset.prompt;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className={`va-preset-chip ${isActive ? "active" : ""}`}
+                    onClick={() => {
+                      setExtraPrompt(preset.prompt);
+                      setResult(null);
+                    }}
+                  >
+                    <span>{preset.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="va-form-group" style={{ marginTop: 14 }}>
             <label htmlFor="va-extra-prompt" className="va-form-label">
               Additional Prompt{" "}
@@ -427,9 +746,9 @@ function GenerateTab({ setActivePage }) {
             <div className="va-ai-orb flex items-center justify-center">
               <PhotoIcon className="w-8 h-8 text-white animate-pulse" aria-hidden="true" />
             </div>
-            <p className="va-ai-label">Generating Visual Aid…</p>
+            <p className="va-ai-label">Generating 3-Step Visual Aid Strip…</p>
             <p className="va-ai-sub">
-              The AI is crafting your image — this usually takes 15–30 seconds
+              Gemini 1.5 Flash is decomposing your goal into 3 micro-steps and Imagen 3 is synthesizing a composite storyboard strip…
             </p>
           </div>
         </div>
@@ -456,58 +775,11 @@ function GenerateTab({ setActivePage }) {
             </div>
           </div>
 
-          <div className="va-output-box">
-            <div className="va-output-label">
-              AI-Generated Visual Aid
-              <div className="va-output-label-line" />
-            </div>
-            <div className="va-preview-wrap">
-              <img
-                src={result.imageUrl}
-                alt="AI-generated visual aid"
-                className="va-preview-img"
-                onError={(e) => {
-                  e.target.style.display = "none";
-                  e.target.nextSibling.style.display = "flex";
-                }}
-              />
-              <div
-                className="va-preview-placeholder"
-                style={{ display: "none" }}
-              >
-                <span className="va-preview-placeholder-icon">
-                  <WarningIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />
-                </span>
-                <span className="va-preview-placeholder-text">
-                  Image preview unavailable, but it has been saved to the
-                  database.
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="va-actions space-between" style={{ marginTop: 20 }}>
-            <button className="va-btn va-btn-ghost" onClick={handleReset}>
-              <ArrowPathIcon className="w-4 h-4 mr-1.5" aria-hidden="true" /> Generate Another
-            </button>
-            <a
-              href={result.imageUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="va-btn va-btn-primary"
-              style={{
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              Open Image
-            </a>
-            <button className="va-btn va-btn-primary" onClick={handleReset}>
-              <CheckIcon className="w-4 h-4 mr-1.5" aria-hidden="true" /> Done
-            </button>
-          </div>
+          <SequentialSequenceViewer
+            aid={result}
+            onAidUpdated={(updated) => setResult(updated)}
+            onReset={handleReset}
+          />
         </div>
       )}
     </div>
@@ -524,6 +796,7 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
   const [aids, setAids] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [inspectingAid, setInspectingAid] = useState(null);
 
   useEffect(() => {
     studentsAPI
@@ -551,6 +824,7 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
   const handleStudentSelect = (student) => {
     setSelectedStudent(student);
     setAids([]);
+    setInspectingAid(null);
     fetchAids(student.studentID);
   };
 
@@ -623,11 +897,54 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
             <AidRowList
               aids={aids}
               actionLabel="View"
-              onAction={(aid) => window.open(aid.imageUrl, "_blank")}
+              onAction={(aid) => setInspectingAid(aid)}
               actionClass="va-btn va-btn-primary"
               showDownload={true}
             />
           )}
+        </div>
+      )}
+
+      {/* ── Inspection Modal with 3-Step Sequence Viewer ── */}
+      {inspectingAid && (
+        <div className="va-modal-backdrop" onClick={() => setInspectingAid(null)}>
+          <div className="va-modal-dialog-large" onClick={(e) => e.stopPropagation()}>
+            <div className="va-detail-hero" style={{ marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
+                <div>
+                  <h2 className="va-detail-title">{inspectingAid.title}</h2>
+                  <div className="va-detail-meta">
+                    <div className="va-meta-chip">
+                      <UserIcon className="w-4 h-4 text-slate-500 mr-1" aria-hidden="true" />
+                      {inspectingAid.studentName}
+                    </div>
+                    <div className="va-meta-chip">
+                      <DiskIcon className="w-4 h-4 text-slate-500 mr-1" aria-hidden="true" />
+                      ID #{inspectingAid.visualAidID}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="va-btn va-btn-ghost"
+                  onClick={() => setInspectingAid(null)}
+                >
+                  ✕ Close
+                </button>
+              </div>
+            </div>
+
+            <SequentialSequenceViewer
+              aid={inspectingAid}
+              onAidUpdated={(updatedAid) => {
+                setInspectingAid(updatedAid);
+                setAids((prev) =>
+                  prev.map((a) => (a.visualAidID === updatedAid.visualAidID ? updatedAid : a))
+                );
+              }}
+              onClose={() => setInspectingAid(null)}
+            />
+          </div>
         </div>
       )}
     </div>

@@ -165,6 +165,11 @@ export const visualAidsAPI = {
     }),
   delete: (id) =>
     request(`/resources/visual-aids/${id}/`, { method: "DELETE" }),
+  update: (id, payload) =>
+    request(`/resources/visual-aids/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
   exportUrl: (id) => `${BASE_URL}/resources/export-visual-aid/${id}/`,
 };
 

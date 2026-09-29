@@ -653,7 +653,7 @@ class LessonPlanDeleteAPIView(APIView):
 #              to look up collective rosters or specific file paths.
 # =====================================================================
 class VisualAidViewSet(viewsets.ModelViewSet):
-    http_method_names = ['get', 'post', 'delete']
+    http_method_names = ['get', 'post', 'patch', 'put', 'delete']
     serializer_class = VisualAidSerializer
     permission_classes = [UserAuthPermissions]
 
@@ -714,6 +714,29 @@ class VisualAidViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def update(self, request, *args, **kwargs):
+        return self.partial_update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        """Allows updating visual aid captions, steps_data, or title."""
+        try:
+            instance = self.get_object()
+        except VisualAid.DoesNotExist:
+            return Response({"error": "Visual Aid not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        teacher = get_teacher_for_user(request.user)
+        if not _goal_owned_by_teacher(instance.iep_goal, teacher):
+            return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        if serializer.is_valid():
+            self.perform_update(serializer)
+            return Response({
+                "message": "Visual Aid updated successfully.",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     def destroy(self, request, *args, **kwargs):
         """
         Matches Sequence Diagram: [confirmDelete == true] -> handleConfirmDeletion(aidId)
@@ -746,68 +769,149 @@ class VisualAidViewSet(viewsets.ModelViewSet):
 class PDFExportEngine:
     @staticmethod
     def compile_pdf(visual_aid_record):
-        """Fetch the image and embed it into a proper PDF using ReportLab."""
-        from reportlab.platypus import SimpleDocTemplate, Image as RLImage, Paragraph, Spacer
+        """Fetch the image and embed it into a proper PDF using ReportLab with 3-step flashcards."""
+        import base64
+        import tempfile
+        import os
+        from reportlab.platypus import SimpleDocTemplate, Image as RLImage, Paragraph, Spacer, Table, TableStyle
         from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib import colors
         from reportlab.lib.units import mm
-        import tempfile, os
 
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
             buffer,
             pagesize=A4,
-            rightMargin=20*mm, leftMargin=20*mm,
-            topMargin=20*mm, bottomMargin=20*mm,
+            rightMargin=15*mm, leftMargin=15*mm,
+            topMargin=15*mm, bottomMargin=15*mm,
         )
         styles = getSampleStyleSheet()
+
+        card_title_style = ParagraphStyle(
+            'CardTitle',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=11,
+            leading=14,
+            textColor=colors.HexColor('#1E293B'),
+        )
+        card_desc_style = ParagraphStyle(
+            'CardDesc',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=9,
+            leading=12,
+            textColor=colors.HexColor('#475569'),
+        )
+        step_badge_style = ParagraphStyle(
+            'StepBadge',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=9,
+            leading=11,
+            textColor=colors.HexColor('#2563EB'),
+        )
+
         story = []
 
         # Title
         story.append(Paragraph(visual_aid_record.title, styles['Title']))
-        story.append(Spacer(1, 6*mm))
-
-        # Fetch the image and write to a temp file so ReportLab can read it
-        try:
-            img_resp = http_client.get(visual_aid_record.imageUrl, timeout=30, allow_redirects=True)
-            img_resp.raise_for_status()
-            suffix = '.jpg'
-            ct = img_resp.headers.get('Content-Type', '')
-            if 'png' in ct:
-                suffix = '.png'
-            elif 'webp' in ct:
-                suffix = '.webp'
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                tmp.write(img_resp.content)
-                tmp_path = tmp.name
-
-            # Scale image to fit page width
-            page_width = A4[0] - 40*mm
-            rl_img = RLImage(tmp_path, width=page_width, height=page_width * 0.75)
-            story.append(rl_img)
-            story.append(Spacer(1, 4*mm))
-        except Exception as e:
-            story.append(Paragraph(f"Image could not be loaded: {e}", styles['Normal']))
-            story.append(Paragraph(f"URL: {visual_aid_record.imageUrl}", styles['Normal']))
-            tmp_path = None
-
-        # Metadata
-        if visual_aid_record.prompt_used:
-            story.append(Spacer(1, 4*mm))
-            story.append(Paragraph("<b>Prompt used:</b>", styles['Normal']))
-            story.append(Paragraph(visual_aid_record.prompt_used, styles['Normal']))
-
         story.append(Spacer(1, 4*mm))
-        story.append(Paragraph(
+
+        # Student / Goal metadata
+        goal_text = ""
+        student_name = ""
+        if visual_aid_record.iep_goal:
+            goal_text = visual_aid_record.iep_goal.annual_goal or ""
+            if visual_aid_record.iep_goal.iep and visual_aid_record.iep_goal.iep.studentID:
+                student_name = visual_aid_record.iep_goal.iep.studentID.name
+
+        meta_text = []
+        if student_name:
+            meta_text.append(f"<b>Student:</b> {student_name}")
+        if goal_text:
+            meta_text.append(f"<b>Target Goal:</b> {goal_text}")
+        if meta_text:
+            story.append(Paragraph(" &nbsp; | &nbsp; ".join(meta_text), styles['Normal']))
+            story.append(Spacer(1, 4*mm))
+
+        # Fetch / Decode the image and write to a temp file so ReportLab can read it
+        tmp_path = None
+        try:
+            image_url = visual_aid_record.imageUrl or ""
+            if image_url.startswith("data:image/"):
+                header, encoded = image_url.split(",", 1)
+                img_data = base64.b64decode(encoded)
+                suffix = ".png" if "png" in header else ".jpg"
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                    tmp.write(img_data)
+                    tmp_path = tmp.name
+            elif image_url.startswith("http://") or image_url.startswith("https://"):
+                img_resp = http_client.get(image_url, timeout=30, allow_redirects=True)
+                img_resp.raise_for_status()
+                suffix = ".png" if "png" in img_resp.headers.get("Content-Type", "") else ".jpg"
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                    tmp.write(img_resp.content)
+                    tmp_path = tmp.name
+
+            if tmp_path:
+                page_width = A4[0] - 30*mm
+                rl_img = RLImage(tmp_path, width=page_width, height=page_width * 0.52)
+                story.append(rl_img)
+                story.append(Spacer(1, 6*mm))
+        except Exception as e:
+            story.append(Paragraph(f"Image could not be rendered: {e}", styles['Normal']))
+            story.append(Spacer(1, 4*mm))
+
+        # Render 3-step sequential cards table if steps_data is available
+        steps = visual_aid_record.steps_data or []
+        if steps and isinstance(steps, list):
+            table_cells = []
+            for step_item in steps[:3]:
+                step_num = step_item.get("step", 1)
+                title = step_item.get("title", f"Step {step_num}")
+                desc = step_item.get("description", "")
+                cell_flowables = [
+                    Paragraph(f"STEP {step_num}", step_badge_style),
+                    Spacer(1, 2*mm),
+                    Paragraph(f"<b>{title}</b>", card_title_style),
+                    Spacer(1, 2*mm),
+                    Paragraph(desc, card_desc_style),
+                ]
+                table_cells.append(cell_flowables)
+
+            if table_cells:
+                col_width = (A4[0] - 30*mm) / len(table_cells)
+                step_table = Table([table_cells], colWidths=[col_width] * len(table_cells))
+                step_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
+                    ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#CBD5E1')),
+                    ('INNERGRID', (0, 0), (-1, -1), 1, colors.HexColor('#E2E8F0')),
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ('TOPPADDING', (0, 0), (-1, -1), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 10),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+                ]))
+                story.append(step_table)
+                story.append(Spacer(1, 5*mm))
+
+        # Footer notes
+        footer_parts = [
             f"Generated: {visual_aid_record.dateCreated.strftime('%B %d, %Y')}",
-            styles['Normal']
-        ))
+            "Classroom Task Analysis Visual Strip (Neurodivergent & ASD Instructional Aid)",
+        ]
+        story.append(Paragraph(" &bull; ".join(footer_parts), styles['Normal']))
 
         doc.build(story)
 
         # Clean up temp file
         if tmp_path and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
 
         buffer.seek(0)
         return buffer
@@ -816,25 +920,137 @@ class PDFExportEngine:
 # =====================================================================
 # SDD COMPONENT: VisualAidGeneratorService
 # Description: Orchestrates the visual synthesis pipeline.
-#              Extracts IEP goal text and sensory data into a standard asset.
+#              Decomposes goals into 3 micro-steps via Gemini 1.5 Flash
+#              and generates composite 3-panel strips via Imagen 3.
 # =====================================================================
 class VisualAidGeneratorService:
     POLLINATIONS_BASE = "https://image.pollinations.ai/prompt"
+    IMAGEN_MODEL = "imagen-3.0-generate-002"
+    IMAGEN_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
     @staticmethod
-    def build_prompt(goal_text, extra_prompt, category, student_name=None):
+    def decompose_goal_into_steps(goal_text, extra_prompt="", category=""):
+        """
+        Decomposes the input learning goal or routine into 3 chronological,
+        numbered micro-steps using Gemini 1.5 Flash (with fallback heuristics).
+        Ensures strict RA 10173 compliance (no student PII in prompt).
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        from iep_management.ai_engine import AIEngineService
+
+        system_prompt = (
+            "You are an expert Special Education (SPED) instructional designer specialized in Autism Spectrum Disorder (ASD). "
+            "Your task is to break down a learning goal, daily living skill, or classroom routine into exactly 3 chronological, numbered micro-steps "
+            "(Step 1, Step 2, Step 3) for a Task Analysis visual aid strip. "
+            "Return strictly a JSON object with a single key 'steps' containing a list of 3 objects. "
+            "Each object must have the following keys:\n"
+            "- 'step': integer (1, 2, or 3)\n"
+            "- 'title': short action title (2 to 4 words, e.g. 'Hold Spoon', 'Scoop Food', 'Bring to Mouth')\n"
+            "- 'description': clear 1-sentence step instruction / caption for the learner\n"
+            "- 'visual_cue': concise visual description for an illustration panel, flat vector style, high-contrast, child-friendly\n"
+            "Do not include any student personal names or PII. Return valid JSON only."
+        )
+
+        user_prompt = f"Goal/Routine: {goal_text}"
+        if category:
+            user_prompt += f"\nSkill Category: {category}"
+        if extra_prompt:
+            user_prompt += f"\nAdditional Context / Teacher Notes: {extra_prompt}"
+
+        steps = None
+        try:
+            raw_response = AIEngineService._call_gemini(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                max_tokens=600,
+                json_mode=True
+            )
+            parsed = json.loads(raw_response)
+            if isinstance(parsed, dict) and "steps" in parsed and isinstance(parsed["steps"], list) and len(parsed["steps"]) == 3:
+                steps = parsed["steps"]
+            elif isinstance(parsed, list) and len(parsed) == 3:
+                steps = parsed
+        except Exception as gemini_err:
+            logger.warning("Gemini step decomposition failed: %s. Attempting Groq fallback.", gemini_err)
+            try:
+                raw_response = AIEngineService._call_groq(
+                    prompt=user_prompt,
+                    system_prompt=system_prompt,
+                    max_tokens=600,
+                    json_mode=True
+                )
+                parsed = json.loads(raw_response)
+                if isinstance(parsed, dict) and "steps" in parsed and isinstance(parsed["steps"], list) and len(parsed["steps"]) == 3:
+                    steps = parsed["steps"]
+                elif isinstance(parsed, list) and len(parsed) == 3:
+                    steps = parsed
+            except Exception as groq_err:
+                logger.warning("Groq step decomposition failed: %s. Using heuristic fallback.", groq_err)
+
+        if not steps:
+            goal_clean = (goal_text or "Task").strip()
+            steps = [
+                {
+                    "step": 1,
+                    "title": "Prepare & Start",
+                    "description": f"Get ready to begin {goal_clean.lower()}.",
+                    "visual_cue": f"Child preparing materials for {goal_clean.lower()}"
+                },
+                {
+                    "step": 2,
+                    "title": "Perform Action",
+                    "description": f"Carry out the main steps of {goal_clean.lower()} carefully.",
+                    "visual_cue": f"Child actively engaged in {goal_clean.lower()}"
+                },
+                {
+                    "step": 3,
+                    "title": "Complete & Finish",
+                    "description": f"Finish {goal_clean.lower()} successfully and check work.",
+                    "visual_cue": f"Child happily completing {goal_clean.lower()}"
+                }
+            ]
+
+        standardized_steps = []
+        for idx, s in enumerate(steps[:3], start=1):
+            title = str(s.get("title") or f"Step {idx}").strip()
+            desc = str(s.get("description") or s.get("caption") or f"Perform step {idx}.").strip()
+            visual_cue = str(s.get("visual_cue") or desc).strip()
+            standardized_steps.append({
+                "step": idx,
+                "title": title,
+                "description": desc,
+                "visual_cue": visual_cue
+            })
+
+        return standardized_steps
+
+    @staticmethod
+    def build_prompt(goal_text, extra_prompt, category, student_name=None, steps=None):
         parts = [
             "Educational visual aid for an elementary learner",
             f"IEP Goal: {goal_text}",
         ]
-        if extra_prompt:
-            parts.append(f"Additional context: {extra_prompt}")
         if category:
             parts.append(f"Skill category: {category}")
-        parts.append(
-            "Style: clean, colorful, distraction-free, child-friendly flat illustration, "
-            "low visual clutter, bright white background, simple bold icons, no text"
-        )
+        if extra_prompt:
+            parts.append(f"Additional context: {extra_prompt}")
+
+        if steps and len(steps) >= 3:
+            parts.append(
+                "A 3-panel horizontal sequential comic strip task analysis visual aid strip for neurodivergent and autistic learners. "
+                "Three distinct rectangular panels side-by-side from left to right showing chronological steps: "
+                f"Panel 1 (Step 1 - {steps[0]['title']}): {steps[0].get('visual_cue', steps[0]['description'])}. "
+                f"Panel 2 (Step 2 - {steps[1]['title']}): {steps[1].get('visual_cue', steps[1]['description'])}. "
+                f"Panel 3 (Step 3 - {steps[2]['title']}): {steps[2].get('visual_cue', steps[2]['description'])}. "
+                "Style: clean, colorful, child-friendly flat vector illustration, thick distinct dividing borders separating each panel, "
+                "labeled with large '1', '2', '3' step indicators, high contrast, low visual clutter, bright white background, no complex textures"
+            )
+        else:
+            parts.append(
+                "Style: clean, colorful, distraction-free, child-friendly flat illustration, "
+                "low visual clutter, bright white background, simple bold icons, no text"
+            )
         return ". ".join(parts)
 
     @staticmethod
@@ -847,6 +1063,75 @@ class VisualAidGeneratorService:
         resp.raise_for_status()
         return resp.content, resp.headers.get("Content-Type", "image/jpeg"), url
 
+    @staticmethod
+    def fetch_image_from_imagen(prompt):
+        """
+        Generate image using Google Gemini Imagen 3 model via Generative Language API.
+        Returns a base64 data URI string.
+        """
+        from django.conf import settings
+        api_key = getattr(settings, 'GEMINI_API_KEY', '')
+        if not api_key or api_key in ('MISSING_KEY', ''):
+            raise ValueError("Valid GEMINI_API_KEY not configured for Imagen 3.")
+
+        model = getattr(settings, 'IMAGEN_MODEL', VisualAidGeneratorService.IMAGEN_MODEL)
+        url = f"{VisualAidGeneratorService.IMAGEN_API_URL}/{model}:predict"
+
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": api_key,
+        }
+
+        payload = {
+            "instances": [
+                {"prompt": prompt}
+            ],
+            "parameters": {
+                "sampleCount": 1,
+                "aspectRatio": "16:9",
+                "outputMimeType": "image/jpeg"
+            }
+        }
+
+        resp = http_client.post(url, headers=headers, json=payload, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+
+        predictions = data.get("predictions", [])
+        if not predictions or not isinstance(predictions, list):
+            raise ValueError("No predictions returned by Imagen.")
+
+        first_pred = predictions[0]
+        b64_bytes = first_pred.get("bytesBase64Encoded")
+        if not b64_bytes:
+            raise ValueError("Imagen prediction did not contain 'bytesBase64Encoded'.")
+
+        mime_type = first_pred.get("mimeType", "image/jpeg")
+        return f"data:{mime_type};base64,{b64_bytes}"
+
+    @classmethod
+    def fetch_image(cls, prompt):
+        """
+        Tries Imagen 3 first. If Imagen fails or is unconfigured,
+        falls back gracefully to Pollinations AI.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        from django.conf import settings
+
+        api_key = getattr(settings, 'GEMINI_API_KEY', '')
+        if not api_key or api_key in ('MISSING_KEY', ''):
+            _, _, pollinations_url = cls.fetch_image_from_pollinations(prompt)
+            return pollinations_url
+
+        try:
+            return cls.fetch_image_from_imagen(prompt)
+        except Exception as imagen_err:
+            logger.warning("Imagen 3 generation failed (%s). Falling back to Pollinations AI.", imagen_err)
+            _, _, pollinations_url = cls.fetch_image_from_pollinations(prompt)
+            return pollinations_url
+
+
 # =====================================================================
 # SDD CONTROLLER: GenerateVisualAidAPIView
 # =====================================================================
@@ -854,6 +1139,9 @@ class GenerateVisualAidAPIView(APIView):
     permission_classes = [UserAuthPermissions]
 
     def post(self, request, *args, **kwargs):
+        import logging
+        logger = logging.getLogger(__name__)
+
         iep_goal_id = request.data.get("iep_goal_id")
         extra_prompt = request.data.get("prompt", "").strip()
         category = request.data.get("category", "").strip()
@@ -882,37 +1170,51 @@ class GenerateVisualAidAPIView(APIView):
         except ConsentRequiredException as e:
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
-        # Build the image prompt
+        # 1. Sequential Prompt Decomposition (Gemini 1.5 Flash)
         try:
             goal_text = target_goal.annual_goal or "learning and development"
+            steps = VisualAidGeneratorService.decompose_goal_into_steps(
+                goal_text=goal_text,
+                extra_prompt=extra_prompt,
+                category=category
+            )
+        except Exception as e:
+            logger.warning("Decomposition error: %s. Using default steps.", e)
+            steps = VisualAidGeneratorService.decompose_goal_into_steps(
+                goal_text=goal_text,
+                extra_prompt="",
+                category=""
+            )
+
+        # 2. Build the token-efficient composite storyboard prompt
+        try:
             full_prompt = VisualAidGeneratorService.build_prompt(
-                goal_text, extra_prompt, category, None
+                goal_text, extra_prompt, category, None, steps=steps
             )
         except Exception as e:
             return Response({"error": f"Prompt build failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # Fetch image from Pollinations (server-side — no CORS)
+        # 3. Generate image (Imagen 3 primary, Pollinations fallback)
         try:
-            _, _, pollinations_url = VisualAidGeneratorService.fetch_image_from_pollinations(full_prompt)
+            final_url = VisualAidGeneratorService.fetch_image(full_prompt)
         except Exception as e:
             return Response(
                 {"error": f"Image generation failed: {str(e)}"},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        final_url = pollinations_url
-
         # Build a descriptive title
         category_label = f"{category} — " if category else ""
         title = f"{category_label}{student.name} Visual Aid"
 
-        # Save the VisualAid record to the database
+        # Save the VisualAid record to the database with steps_data
         try:
             visual_aid = VisualAid.objects.create(
                 iep_goal=target_goal,
                 title=title,
                 imageUrl=final_url,
                 prompt_used=full_prompt,
+                steps_data=steps,
             )
         except Exception as e:
             return Response({"error": f"Database save failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -925,6 +1227,7 @@ class GenerateVisualAidAPIView(APIView):
                     "title": visual_aid.title,
                     "imageUrl": final_url,
                     "studentName": student.name,
+                    "steps_data": visual_aid.steps_data,
                     "dateCreated": str(visual_aid.dateCreated),
                 },
             },
