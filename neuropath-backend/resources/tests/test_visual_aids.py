@@ -236,7 +236,34 @@ class VisualAidSequentialTaskAnalysisTests(TestCase):
         self.assertEqual(len(aid.steps_data), 3)
         self.assertEqual(aid.steps_data[0]["imageUrl"], "https://image.pollinations.ai/prompt/test-strip")
 
-    # ── Unit Test 6b: Step Prompt Construction and Panel Stitching ───────────
+    # ── Unit Test 6b: Generate Visual Aid Draft (Unsaved) ─────────────────────
+    @patch('resources.views.VisualAidGeneratorService.decompose_goal_into_steps')
+    @patch('resources.views.VisualAidGeneratorService.fetch_image')
+    def test_generate_visual_aid_api_view_draft_not_saved(self, mock_image, mock_decomp):
+        mock_decomp.return_value = [
+            {"step": 1, "title": "Turn On Water", "description": "Turn on faucet and wet hands.", "visual_cue": "Hands under water"},
+            {"step": 2, "title": "Apply Soap", "description": "Pump soap and lather bubbles.", "visual_cue": "Soapy lather"},
+            {"step": 3, "title": "Rinse & Dry", "description": "Rinse off soap and dry hands.", "visual_cue": "Drying with towel"}
+        ]
+        mock_image.return_value = "https://image.pollinations.ai/prompt/test-strip"
+
+        initial_count = VisualAid.objects.count()
+        self._auth(self.token1)
+        response = self.client.post('/api/resources/generate-visual-aid/', {
+            "iep_goal_id": self.goal1.pk,
+            "prompt": "",
+            "category": "Hygiene",
+            "save_to_db": False
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data.get("data", {})
+        self.assertIsNone(data.get("visualAidID"))
+        self.assertTrue(data.get("isDraft"))
+        self.assertEqual(len(data.get("steps_data", [])), 3)
+        self.assertEqual(VisualAid.objects.count(), initial_count)
+
+    # ── Unit Test 6c: Step Prompt Construction and Panel Stitching ───────────
     def test_build_step_prompt_and_stitching(self):
         step = {
             "step": 1,

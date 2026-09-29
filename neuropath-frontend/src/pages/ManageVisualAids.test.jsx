@@ -38,6 +38,7 @@ vi.mock("../api/client", () => ({
   },
   visualAidsAPI: {
     generate: vi.fn(),
+    create: vi.fn(),
     list: vi.fn(),
     listByStudent: vi.fn(),
     get: vi.fn(),
@@ -99,6 +100,7 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
     iepAPI.listLatestGoalsByStudent.mockResolvedValue(mockGoals);
     iepAPI.listGoalsByStudent.mockResolvedValue(mockGoals);
     visualAidsAPI.generate.mockResolvedValue({ data: mockGeneratedAid });
+    visualAidsAPI.create.mockResolvedValue({ data: { ...mockGeneratedAid, isDraft: false } });
     visualAidsAPI.listByStudent.mockResolvedValue([mockGeneratedAid]);
     visualAidsAPI.update.mockResolvedValue({ data: mockGeneratedAid });
     visualAidsAPI.delete.mockResolvedValue({ status: "success" });
@@ -193,8 +195,9 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
         iep_goal_id: 301,
         prompt: "",
         category: "Daily Living Skills",
+        save_to_db: false,
       });
-      expect(screen.getByText(/AI 3-Panel Sequential Task Analysis Storyboard/i)).toBeInTheDocument();
+      expect(screen.getByText("Review Generated Draft")).toBeInTheDocument();
       expect(screen.getByDisplayValue("Turn on Water & Apply Soap")).toBeInTheDocument();
       expect(screen.getByDisplayValue("Rub Hands Together")).toBeInTheDocument();
       expect(screen.getByDisplayValue("Rinse & Dry")).toBeInTheDocument();
@@ -246,19 +249,18 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
     await user.clear(step1TitleInput);
     await user.type(step1TitleInput, "Turn On Warm Water");
 
-    const saveBtn = screen.getByRole("button", { name: /save captions/i });
+    const saveBtn = screen.getByRole("button", { name: /save visual aid/i });
     fireEvent.click(saveBtn);
 
     await waitFor(() => {
-      expect(visualAidsAPI.update).toHaveBeenCalledWith(
-        55,
+      expect(visualAidsAPI.create).toHaveBeenCalledWith(
         expect.objectContaining({
           steps_data: expect.arrayContaining([
             expect.objectContaining({ title: "Turn On Warm Water" }),
           ]),
         })
       );
-      expect(mockToast.success).toHaveBeenCalledWith("Step captions updated successfully!");
+      expect(mockToast.success).toHaveBeenCalledWith("Visual aid saved to database successfully!");
     });
   });
 
@@ -285,7 +287,7 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
     expect(window.speechSynthesis.speak).toHaveBeenCalled();
   });
 
-  it("triggers print flashcards and exports PDF", async () => {
+  it("allows user to decide whether to save, regenerate, or discard draft visual aid", async () => {
     renderComponent();
 
     await waitFor(() => {
@@ -299,18 +301,26 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
     fireEvent.click(screen.getByRole("button", { name: /generate visual aid/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /print flashcards/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /save visual aid/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /regenerate/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /discard/i })).toBeInTheDocument();
     });
 
-    const printBtn = screen.getByRole("button", { name: /print flashcards/i });
-    fireEvent.click(printBtn);
-    expect(window.print).toHaveBeenCalled();
+    // Verify Print Flashcards and Open Image are removed
+    expect(screen.queryByRole("button", { name: /print flashcards/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /open image/i })).not.toBeInTheDocument();
 
-    const pdfLink = screen.getByRole("link", { name: /download classroom pdf/i });
-    expect(pdfLink).toHaveAttribute("href", "/api/resources/export-visual-aid/55/");
+    // Click Discard
+    const discardBtn = screen.getByRole("button", { name: /discard/i });
+    fireEvent.click(discardBtn);
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /save visual aid/i })).not.toBeInTheDocument();
+      expect(mockToast.info).toHaveBeenCalledWith("Generated visual aid discarded.");
+    });
   });
 
-  it("inspects saved visual aid in View Tab and displays the 3-step sequence viewer modal", async () => {
+  it("inspects saved visual aid in View Tab and displays the 3-step sequence viewer modal with Download Classroom PDF", async () => {
     const { container } = renderComponent();
 
     // Click View tab
@@ -333,10 +343,16 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
     fireEvent.click(viewButton);
 
     await waitFor(() => {
-      expect(screen.getByText(/AI 3-Panel Sequential Task Analysis Storyboard/i)).toBeInTheDocument();
+      // Top duplicate storyboard strip box should be removed
+      expect(screen.queryByText(/AI 3-Panel Sequential Task Analysis Storyboard/i)).not.toBeInTheDocument();
       expect(screen.getByDisplayValue("Turn on Water & Apply Soap")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /save captions/i })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /download classroom pdf/i })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /✕ Close/i })).toBeInTheDocument();
     });
+
+    const pdfLink = screen.getByRole("link", { name: /download classroom pdf/i });
+    expect(pdfLink).toHaveAttribute("href", "/api/resources/export-visual-aid/55/");
 
     fireEvent.click(screen.getByRole("button", { name: /✕ Close/i }));
     await waitFor(() => {
@@ -378,7 +394,7 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
     });
   });
 
-  it("renders 3 distinct pictures side-by-side in storyboard strip and inside individual step cards", async () => {
+  it("renders 3 distinct pictures directly inside each individual step card without duplicate top box", async () => {
     const { container } = renderComponent();
 
     await waitFor(() => {
@@ -392,18 +408,14 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
     fireEvent.click(screen.getByRole("button", { name: /generate visual aid/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole("region", { name: /3-step visual storyboard/i })).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Turn on Water & Apply Soap")).toBeInTheDocument();
     });
 
-    const storyboardPanels = container.querySelectorAll(".va-storyboard-panel");
-    expect(storyboardPanels).toHaveLength(3);
+    // Verify duplicate top box is removed
+    expect(container.querySelector(".va-output-box")).not.toBeInTheDocument();
+    expect(container.querySelector(".va-storyboard-3strip")).not.toBeInTheDocument();
 
-    const storyboardImages = container.querySelectorAll(".va-storyboard-panel-img");
-    expect(storyboardImages).toHaveLength(3);
-    expect(storyboardImages[0]).toHaveAttribute("src", "data:image/jpeg;base64,mockstep1image");
-    expect(storyboardImages[1]).toHaveAttribute("src", "data:image/jpeg;base64,mockstep2image");
-    expect(storyboardImages[2]).toHaveAttribute("src", "data:image/jpeg;base64,mockstep3image");
-
+    // Verify 3 distinct pictures are in each step card
     const stepCardImages = container.querySelectorAll(".va-step-card-img");
     expect(stepCardImages).toHaveLength(3);
     expect(stepCardImages[0]).toHaveAttribute("src", "data:image/jpeg;base64,mockstep1image");

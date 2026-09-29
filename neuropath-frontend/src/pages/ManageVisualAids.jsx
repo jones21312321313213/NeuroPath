@@ -223,7 +223,15 @@ function AidRowList({
 }
 
 // ── Sequential Sequence Viewer (Bundle 5: Issue #217) ────────────────────────
-function SequentialSequenceViewer({ aid, onAidUpdated, onReset, onClose }) {
+function SequentialSequenceViewer({
+  aid,
+  onAidUpdated,
+  onSave,
+  onRegenerate,
+  onDiscard,
+  onReset,
+  onClose,
+}) {
   const { toast } = useToast();
   const [activeStep, setActiveStep] = useState(1);
   const [speakingStep, setSpeakingStep] = useState(null);
@@ -288,63 +296,42 @@ function SequentialSequenceViewer({ aid, onAidUpdated, onReset, onClose }) {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (onSave) {
+        await onSave(steps);
+      } else {
+        const payload = {
+          iep_goal: aid.iep_goal || aid.iep_goal_id,
+          title: aid.title,
+          imageUrl: aid.imageUrl,
+          prompt_used: aid.prompt_used || "",
+          steps_data: steps,
+        };
+        const res = await visualAidsAPI.create(payload);
+        const savedData = res.data || res;
+        toast.success("Visual aid saved successfully!");
+        if (onAidUpdated) {
+          onAidUpdated({
+            ...aid,
+            ...savedData,
+            isDraft: false,
+            steps_data: steps,
+          });
+        }
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to save visual aid.");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const isDraft = Boolean(aid?.isDraft);
 
   return (
     <div className="va-sequence-viewer va-printable-area">
-      {/* 3-Panel Storyboard Preview */}
-      <div className="va-output-box">
-        <div className="va-output-label">
-          AI 3-Panel Sequential Task Analysis Storyboard
-          <div className="va-output-label-line" />
-        </div>
-        {steps.some((s) => s.imageUrl) ? (
-          <div className="va-storyboard-3strip" role="region" aria-label="3-Step visual storyboard">
-            {steps.slice(0, 3).map((s, idx) => {
-              const stepNum = s.step || idx + 1;
-              return (
-                <div key={stepNum} className="va-storyboard-panel">
-                  <div className="va-storyboard-panel-badge">Step {stepNum}</div>
-                  <div className="va-storyboard-panel-img-wrap">
-                    <img
-                      src={s.imageUrl || aid.imageUrl}
-                      alt={s.title || `Step ${stepNum}`}
-                      className="va-storyboard-panel-img"
-                      onError={(e) => {
-                        e.target.src = aid.imageUrl;
-                      }}
-                    />
-                  </div>
-                  <p className="va-storyboard-panel-caption">{s.title || `Step ${stepNum}`}</p>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="va-preview-wrap">
-            <img
-              src={aid.imageUrl}
-              alt={aid.title || "AI-generated visual aid strip"}
-              className="va-preview-img"
-              onError={(e) => {
-                e.target.style.display = "none";
-                if (e.target.nextSibling) e.target.nextSibling.style.display = "flex";
-              }}
-            />
-            <div className="va-preview-placeholder" style={{ display: "none" }}>
-              <span className="va-preview-placeholder-icon">
-                <WarningIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />
-              </span>
-              <span className="va-preview-placeholder-text">
-                Image preview unavailable, but it has been saved to the database.
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* Sequence Step Selector Navigation */}
       <div className="va-sequence-nav va-no-print" role="tablist" aria-label="Visual aid steps">
         {steps.map((s, idx) => {
@@ -366,7 +353,7 @@ function SequentialSequenceViewer({ aid, onAidUpdated, onReset, onClose }) {
         })}
       </div>
 
-      {/* 3-Step Cards Grid with Editable Captions & Audio Narration */}
+      {/* 3-Step Cards Grid with Dedicated Images, Editable Captions & Audio Narration */}
       <div className="va-step-cards-grid">
         {steps.map((s, idx) => {
           const stepNum = s.step || idx + 1;
@@ -442,35 +429,67 @@ function SequentialSequenceViewer({ aid, onAidUpdated, onReset, onClose }) {
       </div>
 
       {/* Action Toolbar */}
-      <div className="va-actions space-between va-no-print" style={{ marginTop: 12 }}>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button
-            type="button"
-            className="va-btn va-btn-primary"
-            onClick={handleSaveCaptions}
-            disabled={saving}
-          >
-            <DiskIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />
-            {saving ? "Saving…" : "Save Captions"}
-          </button>
-          <a
-            href={visualAidsAPI.exportUrl(aid.visualAidID)}
-            target="_blank"
-            rel="noreferrer"
-            className="va-btn va-btn-ghost"
-            style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
-          >
-            <PrinterIcon className="w-4 h-4 text-slate-600" aria-hidden="true" />
-            Download Classroom PDF
-          </a>
-          <button
-            type="button"
-            className="va-btn va-btn-ghost"
-            onClick={handlePrint}
-          >
-            <ClipboardIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />
-            Print Flashcards
-          </button>
+      <div className="va-actions space-between va-no-print" style={{ marginTop: 16 }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          {isDraft ? (
+            <>
+              <button
+                type="button"
+                className="va-btn va-btn-primary"
+                onClick={handleSave}
+                disabled={saving}
+              >
+                <DiskIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />
+                {saving ? "Saving…" : "Save Visual Aid"}
+              </button>
+              {onRegenerate && (
+                <button
+                  type="button"
+                  className="va-btn va-btn-ghost"
+                  onClick={onRegenerate}
+                  disabled={saving}
+                >
+                  <ArrowPathIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />
+                  Regenerate
+                </button>
+              )}
+              {onDiscard && (
+                <button
+                  type="button"
+                  className="va-btn va-btn-danger"
+                  onClick={onDiscard}
+                  disabled={saving}
+                >
+                  <TrashIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />
+                  Discard
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="va-btn va-btn-primary"
+                onClick={handleSaveCaptions}
+                disabled={saving}
+              >
+                <DiskIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />
+                {saving ? "Saving…" : "Save Captions"}
+              </button>
+              {aid.visualAidID && (
+                <a
+                  href={visualAidsAPI.exportUrl(aid.visualAidID)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="va-btn va-btn-ghost"
+                  style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
+                >
+                  <PrinterIcon className="w-4 h-4 text-slate-600" aria-hidden="true" />
+                  Download Classroom PDF
+                </a>
+              )}
+            </>
+          )}
         </div>
 
         <div style={{ display: "flex", gap: 10 }}>
@@ -479,24 +498,7 @@ function SequentialSequenceViewer({ aid, onAidUpdated, onReset, onClose }) {
               Close
             </button>
           )}
-          {onReset && (
-            <button type="button" className="va-btn va-btn-ghost" onClick={onReset}>
-              <ArrowPathIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />
-              Generate Another
-            </button>
-          )}
-          {aid.imageUrl && (
-            <a
-              href={aid.imageUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="va-btn va-btn-primary"
-              style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
-            >
-              Open Image
-            </a>
-          )}
-          {onReset && (
+          {onReset && !isDraft && (
             <button type="button" className="va-btn va-btn-primary" onClick={onReset}>
               <CheckIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />
               Done
@@ -587,9 +589,14 @@ function GenerateTab({ setActivePage }) {
         iep_goal_id: selectedGoal.goalID,
         prompt: extraPrompt.trim(),
         category: selectedGoal.subject_category || selectedGoal.goalArea || "",
+        save_to_db: false,
       });
-      setResult(data.data);
-      toast.success("Visual aid generated and saved successfully!");
+      const resData = data.data || data;
+      setResult({
+        ...resData,
+        isDraft: true,
+      });
+      toast.success("Visual aid generated! Please review and decide whether to save.");
     } catch (err) {
       setError(
         err.message ||
@@ -598,6 +605,40 @@ function GenerateTab({ setActivePage }) {
     } finally {
       setGenerating(false);
     }
+  };
+
+  const handleSaveDraft = async (currentSteps) => {
+    if (!result) return;
+    try {
+      const payload = {
+        iep_goal: result.iep_goal || selectedGoal.goalID,
+        title: result.title,
+        imageUrl: result.imageUrl,
+        prompt_used: result.prompt_used || "",
+        steps_data: currentSteps || result.steps_data,
+      };
+      const res = await visualAidsAPI.create(payload);
+      const savedData = res.data || res;
+      toast.success("Visual aid saved to database successfully!");
+      setResult((prev) => ({
+        ...prev,
+        ...savedData,
+        isDraft: false,
+        steps_data: currentSteps || prev.steps_data,
+      }));
+    } catch (err) {
+      toast.error(err.message || "Failed to save visual aid.");
+      throw err;
+    }
+  };
+
+  const handleRegenerate = () => {
+    handleGenerate();
+  };
+
+  const handleDiscard = () => {
+    setResult(null);
+    toast.info("Generated visual aid discarded.");
   };
 
   const handleReset = () => {
@@ -791,12 +832,15 @@ function GenerateTab({ setActivePage }) {
         </div>
       )}
 
-      {/* ── Step 3 — Result (saved to DB) ── */}
+      {/* ── Step 3 — Result (Draft or Saved) ── */}
       {result && !generating && (
         <div className="va-card">
           <div className="va-step-badge">
-            <span className="va-step-num">3</span>Generated &amp; Saved
-            <CheckIcon className="w-3.5 h-3.5 ml-1 inline text-emerald-300" aria-hidden="true" />
+            <span className="va-step-num">3</span>
+            {result.isDraft ? "Review Generated Draft" : "Saved to Database"}
+            {!result.isDraft && (
+              <CheckIcon className="w-3.5 h-3.5 ml-1 inline text-emerald-300" aria-hidden="true" />
+            )}
           </div>
 
           <div className="va-detail-hero">
@@ -807,7 +851,10 @@ function GenerateTab({ setActivePage }) {
                 {result.studentName}
               </div>
               <div className="va-meta-chip">
-                <DiskIcon className="w-4 h-4 text-slate-500 mr-1" aria-hidden="true" />Saved to database (ID #{result.visualAidID})
+                <DiskIcon className="w-4 h-4 text-slate-500 mr-1" aria-hidden="true" />
+                {result.isDraft
+                  ? "Unsaved Draft Preview • Decide to Save, Regenerate, or Discard"
+                  : `Saved to database (ID #${result.visualAidID})`}
               </div>
             </div>
           </div>
@@ -815,6 +862,9 @@ function GenerateTab({ setActivePage }) {
           <SequentialSequenceViewer
             aid={result}
             onAidUpdated={(updated) => setResult(updated)}
+            onSave={handleSaveDraft}
+            onRegenerate={handleRegenerate}
+            onDiscard={handleDiscard}
             onReset={handleReset}
           />
         </div>

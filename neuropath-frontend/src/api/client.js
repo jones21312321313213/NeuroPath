@@ -163,6 +163,11 @@ export const visualAidsAPI = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  create: (payload) =>
+    request("/resources/visual-aids/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   delete: (id) =>
     request(`/resources/visual-aids/${id}/`, { method: "DELETE" }),
   update: (id, payload) =>

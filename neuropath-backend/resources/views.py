@@ -836,49 +836,23 @@ class PDFExportEngine:
             story.append(Paragraph(" &nbsp; | &nbsp; ".join(meta_text), styles['Normal']))
             story.append(Spacer(1, 4*mm))
 
-        # Fetch / Decode the image and write to a temp file so ReportLab can read it
-        tmp_path = None
-        try:
-            image_url = visual_aid_record.imageUrl or ""
-            if image_url.startswith("data:image/"):
-                header, encoded = image_url.split(",", 1)
-                img_data = base64.b64decode(encoded)
-                suffix = ".png" if "png" in header else ".jpg"
-                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                    tmp.write(img_data)
-                    tmp_path = tmp.name
-            elif image_url.startswith("http://") or image_url.startswith("https://"):
-                img_resp = http_client.get(image_url, timeout=30, allow_redirects=True)
-                img_resp.raise_for_status()
-                suffix = ".png" if "png" in img_resp.headers.get("Content-Type", "") else ".jpg"
-                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                    tmp.write(img_resp.content)
-                    tmp_path = tmp.name
-
-            if tmp_path:
-                page_width = A4[0] - 30*mm
-                rl_img = RLImage(tmp_path, width=page_width, height=page_width * 0.52)
-                story.append(rl_img)
-                story.append(Spacer(1, 6*mm))
-        except Exception as e:
-            story.append(Paragraph(f"Image could not be rendered: {e}", styles['Normal']))
-            story.append(Spacer(1, 4*mm))
+        tmp_cleanup_paths = []
 
         # Render 3-step sequential cards table if steps_data is available
         steps = visual_aid_record.steps_data or []
-        if steps and isinstance(steps, list):
+        if steps and isinstance(steps, list) and len(steps) > 0:
             table_cells = []
             for step_item in steps[:3]:
                 step_num = step_item.get("step", 1)
                 title = step_item.get("title", f"Step {step_num}")
                 desc = step_item.get("description", "")
-                step_img_url = step_item.get("imageUrl") or ""
+                step_img_url = step_item.get("imageUrl") or visual_aid_record.imageUrl or ""
                 cell_flowables = [
                     Paragraph(f"STEP {step_num}", step_badge_style),
                     Spacer(1, 2*mm),
                 ]
 
-                # If step has its own image, add it to the flashcard cell
+                # Embed step image into the flashcard cell
                 if step_img_url:
                     try:
                         s_tmp_path = None
@@ -897,6 +871,7 @@ class PDFExportEngine:
                                 s_tmp_path = s_tmp.name
 
                         if s_tmp_path:
+                            tmp_cleanup_paths.append(s_tmp_path)
                             thumb_w = ((A4[0] - 30*mm) / len(steps[:3])) - 8*mm
                             cell_flowables.append(RLImage(s_tmp_path, width=thumb_w, height=thumb_w * 0.72))
                             cell_flowables.append(Spacer(1, 2*mm))
@@ -925,6 +900,35 @@ class PDFExportEngine:
                 ]))
                 story.append(step_table)
                 story.append(Spacer(1, 5*mm))
+        else:
+            # Fallback for legacy visual aids without steps_data
+            tmp_path = None
+            try:
+                image_url = visual_aid_record.imageUrl or ""
+                if image_url.startswith("data:image/"):
+                    header, encoded = image_url.split(",", 1)
+                    img_data = base64.b64decode(encoded)
+                    suffix = ".png" if "png" in header else ".jpg"
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                        tmp.write(img_data)
+                        tmp_path = tmp.name
+                elif image_url.startswith("http://") or image_url.startswith("https://"):
+                    img_resp = http_client.get(image_url, timeout=30, allow_redirects=True)
+                    img_resp.raise_for_status()
+                    suffix = ".png" if "png" in img_resp.headers.get("Content-Type", "") else ".jpg"
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                        tmp.write(img_resp.content)
+                        tmp_path = tmp.name
+
+                if tmp_path:
+                    tmp_cleanup_paths.append(tmp_path)
+                    page_width = A4[0] - 30*mm
+                    rl_img = RLImage(tmp_path, width=page_width, height=page_width * 0.52)
+                    story.append(rl_img)
+                    story.append(Spacer(1, 6*mm))
+            except Exception as e:
+                story.append(Paragraph(f"Image could not be rendered: {e}", styles['Normal']))
+                story.append(Spacer(1, 4*mm))
 
         # Footer notes
         footer_parts = [
@@ -935,12 +939,13 @@ class PDFExportEngine:
 
         doc.build(story)
 
-        # Clean up temp file
-        if tmp_path and os.path.exists(tmp_path):
-            try:
-                os.unlink(tmp_path)
-            except Exception:
-                pass
+        # Clean up all temp files
+        for p in tmp_cleanup_paths:
+            if os.path.exists(p):
+                try:
+                    os.unlink(p)
+                except Exception:
+                    pass
 
         buffer.seek(0)
         return buffer
@@ -1397,6 +1402,32 @@ class GenerateVisualAidAPIView(APIView):
         category_label = f"{category} — " if category else ""
         title = f"{category_label}{student.name} Visual Aid"
 
+        save_to_db = request.data.get("save_to_db", True)
+        if isinstance(save_to_db, str):
+            save_to_db = save_to_db.lower() not in ("false", "0", "no")
+
+        if not save_to_db:
+            import datetime
+            return Response(
+                {
+                    "message": "Visual Aid draft generated successfully.",
+                    "data": {
+                        "visualAidID": None,
+                        "isDraft": True,
+                        "iep_goal": target_goal.pk,
+                        "iep_goal_id": target_goal.pk,
+                        "title": title,
+                        "imageUrl": final_url,
+                        "studentName": student.name,
+                        "goalName": target_goal.annual_goal,
+                        "steps_data": steps,
+                        "prompt_used": full_prompt,
+                        "dateCreated": datetime.date.today().isoformat(),
+                    },
+                },
+                status=status.HTTP_200_OK,
+            )
+
         # Save the VisualAid record to the database with steps_data
         try:
             visual_aid = VisualAid.objects.create(
@@ -1414,11 +1445,14 @@ class GenerateVisualAidAPIView(APIView):
                 "message": "Visual Aid generated and saved successfully.",
                 "data": {
                     "visualAidID": visual_aid.visualAidID,
+                    "isDraft": False,
                     "title": visual_aid.title,
                     "imageUrl": final_url,
                     "studentName": student.name,
                     "steps_data": visual_aid.steps_data,
                     "dateCreated": str(visual_aid.dateCreated),
+                    "prompt_used": visual_aid.prompt_used,
+                    "iep_goal": target_goal.pk,
                 },
             },
             status=status.HTTP_201_CREATED,
