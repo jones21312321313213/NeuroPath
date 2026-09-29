@@ -1,6 +1,8 @@
 import { useEffect, useState, useId, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { studentsAPI } from "../../api/client";
+import { queryClient } from "../../queryClient";
+import { queryKeys } from "../../hooks/queries";
 import { Modal, Button } from "../../components/ui";
 import {
   CheckIcon,
@@ -591,7 +593,42 @@ export default function UpdateStudentProfile({ studentId: propStudentId, onBack 
     };
 
     try {
-      await studentsAPI.update(studentId, payload);
+      const updated = await studentsAPI.update(studentId, payload);
+      const updatedData = updated?.data || updated;
+
+      if (queryClient) {
+        const nowIso = new Date().toISOString();
+        const normalizedUpdated = {
+          ...(updatedData || payload),
+          updated_at: updatedData?.updated_at || nowIso,
+        };
+        queryClient.setQueryData(queryKeys.student(studentId), (old) =>
+          old ? { ...old, ...normalizedUpdated } : normalizedUpdated
+        );
+        queryClient.setQueryData(queryKeys.student(String(studentId)), (old) =>
+          old ? { ...old, ...normalizedUpdated } : normalizedUpdated
+        );
+        if (typeof studentId === "string" && !isNaN(Number(studentId))) {
+          queryClient.setQueryData(queryKeys.student(Number(studentId)), (old) =>
+            old ? { ...old, ...normalizedUpdated } : normalizedUpdated
+          );
+        }
+        queryClient.setQueriesData({ queryKey: ["students"] }, (old) => {
+          if (!Array.isArray(old)) return old;
+          return old.map((s) => {
+            const sId = s?.studentID ?? s?.id ?? s?.pk;
+            return String(sId) === String(studentId)
+              ? { ...s, ...normalizedUpdated }
+              : s;
+          });
+        });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["students"] }),
+          queryClient.invalidateQueries({ queryKey: ["student"] }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.recentActivity() }),
+        ]);
+      }
+
       toast.success(`Student profile updated for ${form.learnerName}!`);
       setShowSuccessModal(true);
     } catch (err) {

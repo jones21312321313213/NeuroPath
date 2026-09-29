@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import UpdateStudentProfile from "./UpdateStudentProfile";
 import { studentsAPI } from "../../api/client";
+import { queryClient } from "../../queryClient";
 
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
@@ -528,5 +529,48 @@ describe("Issue #204: Input bounds, accessible validation feedback, and update c
     expect(studentsAPI.update).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("heading", { name: /Confirm Student Profile Update/i })).not.toBeInTheDocument();
     expect(await screen.findByText(/Profile Updated!/i)).toBeInTheDocument();
+  });
+
+  it("dynamically updates queryClient cache and invalidates student and recent activity queries on save", async () => {
+    studentsAPI.get.mockResolvedValueOnce({ data: mockStudent });
+    studentsAPI.update.mockResolvedValueOnce({
+      data: {
+        ...mockStudent,
+        name: "Maria Clara Updated",
+        updated_at: "2026-09-29T12:00:00.000Z",
+      },
+    });
+
+    const setQueryDataSpy = vi.spyOn(queryClient, "setQueryData");
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    render(
+      <MemoryRouter>
+        <UpdateStudentProfile studentId="student-123" onBack={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue("Maria Clara");
+
+    // Advance to Step 2
+    fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
+
+    const saveBtn = await screen.findByRole("button", { name: /SAVE/i });
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(studentsAPI.update).toHaveBeenCalledTimes(1);
+    });
+
+    expect(setQueryDataSpy).toHaveBeenCalled();
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ["students"] })
+    );
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ["student"] })
+    );
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ["recent-activity"] })
+    );
   });
 });

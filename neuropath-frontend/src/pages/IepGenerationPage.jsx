@@ -2921,6 +2921,7 @@ export default function IEPGenerationPage({
           }
           queryClient.invalidateQueries({ queryKey: ["students"] });
           queryClient.invalidateQueries({ queryKey: ["student"] });
+          queryClient.invalidateQueries({ queryKey: queryKeys.recentActivity() });
         }
       }
     } catch (err) {
