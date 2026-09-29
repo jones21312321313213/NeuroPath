@@ -201,14 +201,50 @@ class VisualAidSequentialTaskAnalysisTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         data = response.data.get("data", {})
         self.assertIn("visualAidID", data)
-        self.assertEqual(data["imageUrl"], "https://image.pollinations.ai/prompt/test-strip")
+        self.assertTrue(data["imageUrl"].startswith("data:image/jpeg;base64,") or "pollinations" in data["imageUrl"])
         self.assertIn("steps_data", data)
         self.assertEqual(len(data["steps_data"]), 3)
         self.assertEqual(data["steps_data"][0]["title"], "Turn On Water")
+        self.assertEqual(data["steps_data"][0]["imageUrl"], "https://image.pollinations.ai/prompt/test-strip")
+        self.assertEqual(data["steps_data"][1]["imageUrl"], "https://image.pollinations.ai/prompt/test-strip")
+        self.assertEqual(data["steps_data"][2]["imageUrl"], "https://image.pollinations.ai/prompt/test-strip")
 
         # Verify database record
         aid = VisualAid.objects.get(pk=data["visualAidID"])
         self.assertEqual(len(aid.steps_data), 3)
+        self.assertEqual(aid.steps_data[0]["imageUrl"], "https://image.pollinations.ai/prompt/test-strip")
+
+    # ── Unit Test 6b: Step Prompt Construction and Panel Stitching ───────────
+    def test_build_step_prompt_and_stitching(self):
+        step = {
+            "step": 1,
+            "title": "Turn on Water",
+            "visual_cue": "Child hands under faucet with foam"
+        }
+        prompt = VisualAidGeneratorService.build_step_prompt(step, category="Hygiene", extra_prompt="Warm water")
+        self.assertIn("Step 1: Turn on Water", prompt)
+        self.assertIn("Action: Child hands under faucet with foam", prompt)
+        self.assertIn("Skill category: Hygiene", prompt)
+        self.assertIn("Context: Warm water", prompt)
+        self.assertIn("flat vector illustration", prompt)
+
+        # Stitching 3 tiny base64 images
+        import base64
+        import io
+        from PIL import Image
+
+        img = Image.new('RGB', (100, 100), color=(255, 0, 0))
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG')
+        tiny_b64 = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode('ascii')
+
+        steps = [
+            {"step": 1, "imageUrl": tiny_b64},
+            {"step": 2, "imageUrl": tiny_b64},
+            {"step": 3, "imageUrl": tiny_b64},
+        ]
+        stitched = VisualAidGeneratorService.stitch_three_panels(steps)
+        self.assertTrue(stitched.startswith("data:image/jpeg;base64,"))
 
     # ── Unit Test 7: PATCH VisualAid to edit step captions ────────────────────
     def test_patch_visual_aid_editable_captions(self):

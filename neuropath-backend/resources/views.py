@@ -872,13 +872,42 @@ class PDFExportEngine:
                 step_num = step_item.get("step", 1)
                 title = step_item.get("title", f"Step {step_num}")
                 desc = step_item.get("description", "")
+                step_img_url = step_item.get("imageUrl") or ""
                 cell_flowables = [
                     Paragraph(f"STEP {step_num}", step_badge_style),
                     Spacer(1, 2*mm),
+                ]
+
+                # If step has its own image, add it to the flashcard cell
+                if step_img_url:
+                    try:
+                        s_tmp_path = None
+                        if step_img_url.startswith("data:image/"):
+                            s_head, s_enc = step_img_url.split(",", 1)
+                            s_raw = base64.b64decode(s_enc)
+                            s_suf = ".png" if "png" in s_head else ".jpg"
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=s_suf) as s_tmp:
+                                s_tmp.write(s_raw)
+                                s_tmp_path = s_tmp.name
+                        elif step_img_url.startswith("http://") or step_img_url.startswith("https://"):
+                            s_resp = http_client.get(step_img_url, timeout=15, allow_redirects=True)
+                            s_suf = ".png" if "png" in s_resp.headers.get("Content-Type", "") else ".jpg"
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=s_suf) as s_tmp:
+                                s_tmp.write(s_resp.content)
+                                s_tmp_path = s_tmp.name
+
+                        if s_tmp_path:
+                            thumb_w = ((A4[0] - 30*mm) / len(steps[:3])) - 8*mm
+                            cell_flowables.append(RLImage(s_tmp_path, width=thumb_w, height=thumb_w * 0.72))
+                            cell_flowables.append(Spacer(1, 2*mm))
+                    except Exception:
+                        pass
+
+                cell_flowables.extend([
                     Paragraph(f"<b>{title}</b>", card_title_style),
                     Spacer(1, 2*mm),
                     Paragraph(desc, card_desc_style),
-                ]
+                ])
                 table_cells.append(cell_flowables)
 
             if table_cells:
@@ -1109,6 +1138,98 @@ class VisualAidGeneratorService:
         mime_type = first_pred.get("mimeType", "image/jpeg")
         return f"data:{mime_type};base64,{b64_bytes}"
 
+    @staticmethod
+    def build_step_prompt(step, category="", extra_prompt=""):
+        step_num = step.get("step", 1)
+        title = step.get("title", f"Step {step_num}")
+        visual_cue = step.get("visual_cue") or step.get("description", "")
+        parts = [
+            "Educational task analysis visual aid for an elementary learner",
+            f"Step {step_num}: {title}",
+            f"Action: {visual_cue}",
+        ]
+        if category:
+            parts.append(f"Skill category: {category}")
+        if extra_prompt:
+            parts.append(f"Context: {extra_prompt}")
+        parts.append(
+            "Style: clean, colorful, child-friendly flat vector illustration, simple bold shapes, "
+            "high contrast, bright white background, clear visual action, low visual clutter, no text"
+        )
+        return ". ".join(parts)
+
+    @classmethod
+    def generate_step_images(cls, steps, category="", extra_prompt=""):
+        """
+        Generates individual pictures for each of the 3 micro-steps.
+        Stores the resulting image URL or data URI in step['imageUrl'].
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        for step in steps:
+            step_prompt = cls.build_step_prompt(step, category=category, extra_prompt=extra_prompt)
+            try:
+                step['imageUrl'] = cls.fetch_image(step_prompt)
+            except Exception as e:
+                logger.warning("Step %s image generation failed: %s", step.get('step'), e)
+                try:
+                    _, _, poll_url = cls.fetch_image_from_pollinations(step_prompt)
+                    step['imageUrl'] = poll_url
+                except Exception:
+                    step['imageUrl'] = ""
+        return steps
+
+    @staticmethod
+    def stitch_three_panels(steps):
+        """
+        Stitches the 3 step images side-by-side into a single 3-panel horizontal strip image.
+        Returns a data:image/jpeg;base64,... URI. Falls back to steps[0]['imageUrl'] on error.
+        """
+        import base64
+        import io
+        from PIL import Image, ImageOps
+
+        panel_images = []
+        for step in steps[:3]:
+            img_url = step.get('imageUrl') or ''
+            try:
+                if img_url.startswith('data:image/'):
+                    _, encoded = img_url.split(',', 1)
+                    raw_bytes = base64.b64decode(encoded)
+                elif img_url.startswith('http://') or img_url.startswith('https://'):
+                    resp = http_client.get(img_url, timeout=20, allow_redirects=True)
+                    raw_bytes = resp.content
+                else:
+                    continue
+                pil_img = Image.open(io.BytesIO(raw_bytes)).convert('RGB')
+                panel_images.append(pil_img)
+            except Exception:
+                continue
+
+        if len(panel_images) != 3:
+            for s in steps:
+                if s.get('imageUrl'):
+                    return s.get('imageUrl')
+            return ''
+
+        panel_w, panel_h = 400, 300
+        border = 10
+        total_w = (panel_w * 3) + (border * 4)
+        total_h = panel_h + (border * 2)
+
+        composite = Image.new('RGB', (total_w, total_h), color=(241, 245, 249))
+
+        for idx, p_img in enumerate(panel_images):
+            fitted = ImageOps.fit(p_img, (panel_w, panel_h), Image.Resampling.LANCZOS)
+            x_offset = border + idx * (panel_w + border)
+            composite.paste(fitted, (x_offset, border))
+
+        buf = io.BytesIO()
+        composite.save(buf, format='JPEG', quality=90)
+        b64 = base64.b64encode(buf.getvalue()).decode('ascii')
+        return f"data:image/jpeg;base64,{b64}"
+
     @classmethod
     def fetch_image(cls, prompt):
         """
@@ -1186,7 +1307,7 @@ class GenerateVisualAidAPIView(APIView):
                 category=""
             )
 
-        # 2. Build the token-efficient composite storyboard prompt
+        # 2. Build the descriptive overall prompt
         try:
             full_prompt = VisualAidGeneratorService.build_prompt(
                 goal_text, extra_prompt, category, None, steps=steps
@@ -1194,14 +1315,34 @@ class GenerateVisualAidAPIView(APIView):
         except Exception as e:
             return Response({"error": f"Prompt build failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # 3. Generate image (Imagen 3 primary, Pollinations fallback)
+        # 3. Generate 3 individual pictures (one for each micro-step)
         try:
-            final_url = VisualAidGeneratorService.fetch_image(full_prompt)
-        except Exception as e:
-            return Response(
-                {"error": f"Image generation failed: {str(e)}"},
-                status=status.HTTP_502_BAD_GATEWAY,
+            steps = VisualAidGeneratorService.generate_step_images(
+                steps, category=category, extra_prompt=extra_prompt
             )
+        except Exception as e:
+            logger.warning("Step images generation error: %s", e)
+
+        # 4. Stitch panels into composite 3-panel storyboard strip
+        try:
+            final_url = VisualAidGeneratorService.stitch_three_panels(steps)
+        except Exception:
+            final_url = ""
+
+        if not final_url:
+            for s in steps:
+                if s.get("imageUrl"):
+                    final_url = s["imageUrl"]
+                    break
+
+        if not final_url:
+            try:
+                final_url = VisualAidGeneratorService.fetch_image(full_prompt)
+            except Exception as e:
+                return Response(
+                    {"error": f"Image generation failed: {str(e)}"},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
 
         # Build a descriptive title
         category_label = f"{category} — " if category else ""

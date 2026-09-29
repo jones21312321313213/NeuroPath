@@ -300,25 +300,49 @@ function SequentialSequenceViewer({ aid, onAidUpdated, onReset, onClose }) {
           AI 3-Panel Sequential Task Analysis Storyboard (Imagen 3)
           <div className="va-output-label-line" />
         </div>
-        <div className="va-preview-wrap">
-          <img
-            src={aid.imageUrl}
-            alt={aid.title || "AI-generated visual aid strip"}
-            className="va-preview-img"
-            onError={(e) => {
-              e.target.style.display = "none";
-              if (e.target.nextSibling) e.target.nextSibling.style.display = "flex";
-            }}
-          />
-          <div className="va-preview-placeholder" style={{ display: "none" }}>
-            <span className="va-preview-placeholder-icon">
-              <WarningIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />
-            </span>
-            <span className="va-preview-placeholder-text">
-              Image preview unavailable, but it has been saved to the database.
-            </span>
+        {steps.some((s) => s.imageUrl) ? (
+          <div className="va-storyboard-3strip" role="region" aria-label="3-Step visual storyboard">
+            {steps.slice(0, 3).map((s, idx) => {
+              const stepNum = s.step || idx + 1;
+              return (
+                <div key={stepNum} className="va-storyboard-panel">
+                  <div className="va-storyboard-panel-badge">Step {stepNum}</div>
+                  <div className="va-storyboard-panel-img-wrap">
+                    <img
+                      src={s.imageUrl || aid.imageUrl}
+                      alt={s.title || `Step ${stepNum}`}
+                      className="va-storyboard-panel-img"
+                      onError={(e) => {
+                        e.target.src = aid.imageUrl;
+                      }}
+                    />
+                  </div>
+                  <p className="va-storyboard-panel-caption">{s.title || `Step ${stepNum}`}</p>
+                </div>
+              );
+            })}
           </div>
-        </div>
+        ) : (
+          <div className="va-preview-wrap">
+            <img
+              src={aid.imageUrl}
+              alt={aid.title || "AI-generated visual aid strip"}
+              className="va-preview-img"
+              onError={(e) => {
+                e.target.style.display = "none";
+                if (e.target.nextSibling) e.target.nextSibling.style.display = "flex";
+              }}
+            />
+            <div className="va-preview-placeholder" style={{ display: "none" }}>
+              <span className="va-preview-placeholder-icon">
+                <WarningIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />
+              </span>
+              <span className="va-preview-placeholder-text">
+                Image preview unavailable, but it has been saved to the database.
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Sequence Step Selector Navigation */}
@@ -372,6 +396,19 @@ function SequentialSequenceViewer({ aid, onAidUpdated, onReset, onClose }) {
                   <span>{speakingStep === stepNum ? "Playing…" : "Narration"}</span>
                 </button>
               </div>
+
+              {(s.imageUrl || aid.imageUrl) && (
+                <div className="va-step-card-img-wrap">
+                  <img
+                    src={s.imageUrl || aid.imageUrl}
+                    alt={s.title || `Step ${stepNum}`}
+                    className="va-step-card-img"
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                    }}
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="text-xs font-semibold text-slate-500 mb-1 block">

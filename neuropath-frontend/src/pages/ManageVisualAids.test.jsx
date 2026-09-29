@@ -74,18 +74,21 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
         title: "Turn on Water & Apply Soap",
         description: "Wet hands and pump soap onto palms.",
         visual_cue: "Child hands under faucet with foam.",
+        imageUrl: "data:image/jpeg;base64,mockstep1image",
       },
       {
         step: 2,
         title: "Rub Hands Together",
         description: "Scrub palms and fingers thoroughly for 20 seconds.",
         visual_cue: "Child scrubbing lather bubbles.",
+        imageUrl: "data:image/jpeg;base64,mockstep2image",
       },
       {
         step: 3,
         title: "Rinse & Dry",
         description: "Rinse off soap and dry hands with clean towel.",
         visual_cue: "Child drying hands with white towel.",
+        imageUrl: "data:image/jpeg;base64,mockstep3image",
       },
     ],
   };
@@ -373,5 +376,38 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
       expect(visualAidsAPI.delete).toHaveBeenCalledWith(55);
       expect(mockToast.success).toHaveBeenCalledWith("Visual aid deleted successfully.");
     });
+  });
+
+  it("renders 3 distinct pictures side-by-side in storyboard strip and inside individual step cards", async () => {
+    const { container } = renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText("Leo Miller")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Leo Miller"));
+    await waitFor(() => {
+      expect(screen.getByText("Handwashing Routine")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Handwashing Routine"));
+    fireEvent.click(screen.getByRole("button", { name: /generate visual aid/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("region", { name: /3-step visual storyboard/i })).toBeInTheDocument();
+    });
+
+    const storyboardPanels = container.querySelectorAll(".va-storyboard-panel");
+    expect(storyboardPanels).toHaveLength(3);
+
+    const storyboardImages = container.querySelectorAll(".va-storyboard-panel-img");
+    expect(storyboardImages).toHaveLength(3);
+    expect(storyboardImages[0]).toHaveAttribute("src", "data:image/jpeg;base64,mockstep1image");
+    expect(storyboardImages[1]).toHaveAttribute("src", "data:image/jpeg;base64,mockstep2image");
+    expect(storyboardImages[2]).toHaveAttribute("src", "data:image/jpeg;base64,mockstep3image");
+
+    const stepCardImages = container.querySelectorAll(".va-step-card-img");
+    expect(stepCardImages).toHaveLength(3);
+    expect(stepCardImages[0]).toHaveAttribute("src", "data:image/jpeg;base64,mockstep1image");
+    expect(stepCardImages[1]).toHaveAttribute("src", "data:image/jpeg;base64,mockstep2image");
+    expect(stepCardImages[2]).toHaveAttribute("src", "data:image/jpeg;base64,mockstep3image");
   });
 });
