@@ -206,4 +206,45 @@ describe("ViewSelectedStudentProfile useParams and routing", () => {
       expect(mockNavigate).toHaveBeenCalledWith("/dashboard/students");
     });
   });
+
+  it("opens RA 10173 Parental Consent certificate modal when Print / View Consent is clicked", async () => {
+    const user = userEvent.setup();
+    studentsAPI.get.mockResolvedValue({
+      id: 42,
+      name: "Sam Smith",
+      age: 10,
+      gender: "Male",
+      grade_level: "5th Grade",
+      guardian_name: "Parent Smith",
+      guardian_contact: "555-0100",
+      parental_consent_obtained: true,
+      difficulty_markers: ["Difficulty in Communicating"],
+      preferences: JSON.stringify({ preferredLearningStyle: "Visual", school: "West Elementary" }),
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/dashboard/students/42"]}>
+        <Routes>
+          <Route
+            path="/dashboard/students/:id"
+            element={<ViewSelectedStudentProfile />}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Sam Smith")).toBeInTheDocument();
+    });
+
+    const consentBtn = screen.getByRole("button", { name: /print \/ view consent/i });
+    expect(consentBtn).toBeInTheDocument();
+
+    await user.click(consentBtn);
+
+    expect(screen.getByText(/Republic Act 10173/i)).toBeInTheDocument();
+    expect(screen.getAllByText("Sam Smith").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Parent Smith").length).toBeGreaterThanOrEqual(1);
+  });
 });
+

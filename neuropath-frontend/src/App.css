@@ -3260,7 +3260,148 @@ button.sidebar-header {
 .iep-archived-item.selected {
   border-color: #93c5fd;
   background: #eff6ff;
+}/* ==========================================================================
+   RA 10173 Parental Consent Certificate — Print Stylesheet (@media print)
+   ========================================================================== */
+.ra10173-print-certificate {
+  display: none;
 }
 
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
 
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 10pt !important;
+    line-height: 1.35 !important;
+  }
 
+  /* Hide entire page structure except printable certificate */
+  body * {
+    visibility: hidden !important;
+  }
+
+  .ra10173-print-certificate,
+  .ra10173-print-certificate * {
+    visibility: visible !important;
+  }
+
+  .ra10173-print-certificate {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+  }
+
+  .ra10173-print-header {
+    text-align: center;
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+
+  .ra10173-print-title {
+    font-size: 12pt;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 4px 0 2px 0;
+    color: #0f172a;
+  }
+
+  .ra10173-print-subtitle {
+    font-size: 8.5pt;
+    color: #475569;
+    margin: 0;
+    font-style: italic;
+  }
+
+  .ra10173-print-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+    font-size: 9pt;
+  }
+
+  .ra10173-print-table th,
+  .ra10173-print-table td {
+    border: 1px solid #cbd5e1;
+    padding: 5px 8px;
+    text-align: left;
+  }
+
+  .ra10173-print-table th {
+    background-color: #f8fafc !important;
+    color: #334155;
+    font-weight: 700;
+    width: 25%;
+  }
+
+  .ra10173-print-section {
+    margin-bottom: 8px;
+    font-size: 8.5pt;
+  }
+
+  .ra10173-print-section h4 {
+    font-size: 9pt;
+    font-weight: 700;
+    margin: 0 0 2px 0;
+    color: #0f172a;
+  }
+
+  .ra10173-print-section p {
+    margin: 0;
+    color: #334155;
+    line-height: 1.3;
+  }
+
+  .ra10173-print-declaration {
+    margin-top: 10px;
+    padding: 8px 10px;
+    border: 1.5px solid #64748b;
+    background-color: #f8fafc !important;
+    font-size: 8pt;
+    line-height: 1.35;
+    border-radius: 4px;
+  }
+
+  .ra10173-print-signatures {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 28px;
+    gap: 32px;
+    page-break-inside: avoid;
+  }
+
+  .ra10173-print-sig-col {
+    flex: 1;
+    font-size: 8.5pt;
+  }
+
+  .ra10173-print-sig-line {
+    border-top: 1.5px solid #0f172a;
+    padding-top: 4px;
+    margin-top: 36px;
+    text-align: center;
+    font-weight: 700;
+  }
+
+  .ra10173-print-footer-notice {
+    margin-top: 16px;
+    text-align: center;
+    font-size: 7.5pt;
+    color: #64748b;
+    border-top: 1px dashed #cbd5e1;
+    padding-top: 6px;
+  }
+}

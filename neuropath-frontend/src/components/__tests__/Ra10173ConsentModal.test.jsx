@@ -114,4 +114,72 @@ describe("Ra10173ConsentModal", () => {
     expect(handleClose).toHaveBeenCalledTimes(1);
     expect(handleConfirm).not.toHaveBeenCalled();
   });
+
+  it("renders learner and guardian metadata across modal and print layouts when passed via props", () => {
+    render(
+      <Ra10173ConsentModal
+        isOpen={true}
+        onClose={handleClose}
+        learnerName="Ethan Carter"
+        guardianName="Maria Carter"
+        guardianRelationship="Mother"
+        school="Cebu City Central SPED Center"
+        schoolYear="2026-2027"
+        consentDate="2026-09-29"
+      />
+    );
+
+    // Appears in both screen card and print certificate
+    expect(screen.getAllByText("Ethan Carter").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Maria Carter").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Mother/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Cebu City Central SPED Center").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("2026-09-29").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Learner & Legal Guardian Record/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Department of Education/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("extracts student metadata from student object prop", () => {
+    const student = {
+      name: "Sophia Ramirez",
+      guardian_name: "Roberto Ramirez",
+      guardian_relationship: "Father",
+      school: "Davao SPED High School",
+      school_year: "2026-2027",
+      grade: "Grade 4",
+      consent_date: "2026-09-20",
+      parental_consent_obtained: true,
+    };
+
+    render(
+      <Ra10173ConsentModal
+        isOpen={true}
+        onClose={handleClose}
+        student={student}
+        readOnly={true}
+      />
+    );
+
+    expect(screen.getAllByText("Sophia Ramirez").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Roberto Ramirez").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Father/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Consent Document|Consent Verified/i)).toBeInTheDocument();
+  });
+
+  it("hides agreement button and shows Close button in readOnly mode", () => {
+    render(
+      <Ra10173ConsentModal
+        isOpen={true}
+        onClose={handleClose}
+        readOnly={true}
+      />
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /i have read & understood the terms/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^close$/i })
+    ).toBeInTheDocument();
+  });
 });

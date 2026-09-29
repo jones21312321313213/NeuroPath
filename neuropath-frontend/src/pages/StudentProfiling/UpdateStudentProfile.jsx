@@ -1074,6 +1074,12 @@ export default function UpdateStudentProfile({ studentId: propStudentId, onBack 
         isOpen={showConsentModal}
         onClose={() => setShowConsentModal(false)}
         onConfirm={handleConfirmConsent}
+        learnerName={form?.learnerName}
+        guardianName={form?.guardianName}
+        guardianRelationship={form?.guardianRelationship}
+        school={form?.school}
+        schoolYear={form?.schoolYear}
+        consentDate={form?.consentDate}
       />
       <UnsavedChangesModal
         isOpen={showPrompt}
