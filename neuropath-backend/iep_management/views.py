@@ -890,11 +890,11 @@ class GenerateIEPGoalsFromIEPView(APIView):
 
                         # Smart ABCD progression defaults if not supplied
                         if not m1_text:
-                            m1_text = f"Month 1: Initial acquisition with direct physical/visual prompts (baseline bracket)."
+                            m1_text = "Month 1: Initial acquisition with direct physical/visual prompts (baseline bracket)."
                         if not m2_text:
-                            m2_text = f"Month 2: Progressive execution with faded prompts (intermediate bracket)."
+                            m2_text = "Month 2: Progressive execution with faded prompts (intermediate bracket)."
                         if not m3_text:
-                            m3_text = f"Month 3: Independent mastery with 80% accuracy across consecutive trials."
+                            m3_text = "Month 3: Independent mastery with 80% accuracy across consecutive trials."
 
                         int_text = str(row.get("interventions_procedures") or row.get("interventions") or row.get("intervention", f"Use {assistive_tech or 'visual supports'}")).strip()
                         time_text = str(row.get("timeline_mins_session") or row.get("timeline", "15-20 minutes every day")).strip()

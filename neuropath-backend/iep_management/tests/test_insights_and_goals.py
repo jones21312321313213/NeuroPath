@@ -64,6 +64,7 @@ class InsightsAndGoalsTestCase(TestCase):
             facilitators='SNED Teacher',
             goal_area='Mathematics'
         )
+        self.assertTrue(len(goal_text) > 0)
         called_prompt = mock_ai.call_args[0][0]
         self.assertIn('ABCD criteria', called_prompt)
         self.assertIn('Actor:', called_prompt)
