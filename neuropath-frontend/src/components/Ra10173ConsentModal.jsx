@@ -1,14 +1,17 @@
+import { useState } from "react";
 import { Modal } from "./ui/Modal";
 import { Button } from "./ui/Button";
 import {
   DocumentTextIcon,
   ShieldCheckIcon,
   LockIcon,
-  PrinterIcon,
+  DownloadIcon,
   CheckIcon,
   InformationCircleIcon,
   UserIcon,
 } from "./ui/icons";
+import { studentsAPI } from "../api/client";
+import { useToast } from "../context/ToastContext";
 
 /**
  * Ra10173ConsentModal (Issue #188, Enhanced in Issue #213 / Bundle 2)
@@ -17,7 +20,7 @@ import {
  * (Republic Act 10173) and DepEd Special Education guidelines for processing sensitive personal
  * information and automated AI analysis for minor learners.
  *
- * Supports dynamic student/guardian metadata injection, print styling, and read-only viewing.
+ * Supports dynamic student/guardian metadata injection, downloadable PDF certificate, and read-only viewing.
  */
 export function Ra10173ConsentModal({
   isOpen,
@@ -32,6 +35,10 @@ export function Ra10173ConsentModal({
   consentDate,
   readOnly = false,
 }) {
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
+  const { toast } = useToast();
+
   const effectiveLearnerName =
     learnerName ||
     student?.learnerName ||
@@ -72,8 +79,48 @@ export function Ra10173ConsentModal({
     student?.parental_consent_obtained || onConfirm
   );
 
-  const handlePrint = () => {
-    window.print();
+  const handleDownloadPDF = async () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    setDownloadError("");
+
+    try {
+      const studentId = student?.studentID || student?.id || student?.pk;
+      let blob;
+      if (studentId) {
+        blob = await studentsAPI.exportConsentPDF(studentId);
+      } else {
+        blob = await studentsAPI.exportConsentPDF({
+          learnerName: effectiveLearnerName,
+          guardianName: effectiveGuardianName,
+          guardianRelationship: effectiveRelationship,
+          school: effectiveSchool,
+          schoolYear: effectiveSchoolYear,
+          grade: effectiveGrade,
+          consentDate: effectiveConsentDate,
+        });
+      }
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const cleanName = (effectiveLearnerName || "Learner").replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/^_+|_+$/g, "") || "Learner";
+      link.download = `RA10173_Parental_Consent_Certificate_${cleanName}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+
+      toast.success("RA 10173 Consent Certificate downloaded successfully.");
+    } catch (err) {
+      const msg = err.message || "Failed to download Consent Certificate PDF.";
+      setDownloadError(msg);
+      toast.error(msg);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const handleConfirm = () => {
@@ -92,16 +139,24 @@ export function Ra10173ConsentModal({
         size="xl"
         footer={
           <div className="flex flex-wrap items-center justify-between w-full gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 text-slate-700"
-            >
-              <PrinterIcon className="w-4 h-4" aria-hidden="true" />
-              Print / Export Copy
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadPDF}
+                disabled={isDownloading}
+                className="flex items-center gap-1.5 text-slate-700"
+              >
+                <DownloadIcon className="w-4 h-4" aria-hidden="true" />
+                {isDownloading ? "Downloading PDF..." : "Download Consent PDF"}
+              </Button>
+              {downloadError && (
+                <span className="text-xs text-red-600 font-medium" role="alert">
+                  {downloadError}
+                </span>
+              )}
+            </div>
 
             <div className="flex items-center gap-2">
               <Button

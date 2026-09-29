@@ -2,6 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Ra10173ConsentModal } from "../Ra10173ConsentModal";
+import { studentsAPI } from "../../api/client";
+
+vi.mock("../../api/client", () => ({
+  studentsAPI: {
+    exportConsentPDF: vi.fn(),
+  },
+}));
 
 describe("Ra10173ConsentModal", () => {
   const handleClose = vi.fn();
@@ -9,6 +16,8 @@ describe("Ra10173ConsentModal", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    window.URL.createObjectURL = vi.fn(() => "blob:mock-consent-pdf");
+    window.URL.revokeObjectURL = vi.fn();
   });
 
   it("renders when isOpen is true with full RA 10173 statutory disclosures", () => {
@@ -77,26 +86,88 @@ describe("Ra10173ConsentModal", () => {
     expect(handleClose).toHaveBeenCalledTimes(1);
   });
 
-  it("invokes window.print when 'Print / Export Copy' is clicked", async () => {
+  it("downloads PDF when 'Download Consent PDF' is clicked with form props", async () => {
     const user = userEvent.setup();
-    const printSpy = vi.spyOn(window, "print").mockImplementation(() => {});
+    const mockBlob = new Blob(["%PDF-1.4 test"], { type: "application/pdf" });
+    studentsAPI.exportConsentPDF.mockResolvedValueOnce(mockBlob);
 
     render(
       <Ra10173ConsentModal
         isOpen={true}
         onClose={handleClose}
         onConfirm={handleConfirm}
+        learnerName="Ethan Carter"
+        guardianName="Maria Carter"
+        guardianRelationship="Mother"
+        school="Cebu City Central SPED Center"
+        schoolYear="2026-2027"
+        consentDate="2026-09-29"
       />
     );
 
-    const printBtn = screen.getByRole("button", {
-      name: /print \/ export copy/i,
+    const downloadBtn = screen.getByRole("button", {
+      name: /download consent pdf/i,
     });
-    expect(printBtn).toBeInTheDocument();
+    expect(downloadBtn).toBeInTheDocument();
 
-    await user.click(printBtn);
-    expect(printSpy).toHaveBeenCalledTimes(1);
-    printSpy.mockRestore();
+    await user.click(downloadBtn);
+
+    expect(studentsAPI.exportConsentPDF).toHaveBeenCalledTimes(1);
+    expect(studentsAPI.exportConsentPDF).toHaveBeenCalledWith(
+      expect.objectContaining({
+        learnerName: "Ethan Carter",
+        guardianName: "Maria Carter",
+        guardianRelationship: "Mother",
+        school: "Cebu City Central SPED Center",
+        schoolYear: "2026-2027",
+        consentDate: "2026-09-29",
+      })
+    );
+  });
+
+  it("downloads PDF using student ID when student object with pk is provided", async () => {
+    const user = userEvent.setup();
+    const mockBlob = new Blob(["%PDF-1.4 test"], { type: "application/pdf" });
+    studentsAPI.exportConsentPDF.mockResolvedValueOnce(mockBlob);
+
+    render(
+      <Ra10173ConsentModal
+        isOpen={true}
+        onClose={handleClose}
+        student={{ studentID: 42, name: "Sophia Ramirez" }}
+        readOnly={true}
+      />
+    );
+
+    const downloadBtn = screen.getByRole("button", {
+      name: /download consent pdf/i,
+    });
+    await user.click(downloadBtn);
+
+    expect(studentsAPI.exportConsentPDF).toHaveBeenCalledWith(42);
+  });
+
+  it("displays error message when PDF download fails", async () => {
+    const user = userEvent.setup();
+    studentsAPI.exportConsentPDF.mockRejectedValueOnce(
+      new Error("Failed to export RA 10173 Consent Certificate PDF.")
+    );
+
+    render(
+      <Ra10173ConsentModal
+        isOpen={true}
+        onClose={handleClose}
+      />
+    );
+
+    const downloadBtn = screen.getByRole("button", {
+      name: /download consent pdf/i,
+    });
+    await user.click(downloadBtn);
+
+    expect(
+      await screen.findByText(/Failed to export RA 10173 Consent Certificate PDF/i)
+    ).toBeInTheDocument();
   });
 
   it("calls onClose when Close dialog button is clicked", async () => {
