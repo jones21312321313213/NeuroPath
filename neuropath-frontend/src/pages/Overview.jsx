@@ -57,6 +57,30 @@ const quickActions = [
     color: "#7c3aed",
     requiresStudents: true,
   },
+  {
+    label: "View Student Records",
+    path: "/dashboard/records",
+    desc: "Access student cumulative profiles, Section B & C details, and PLAAFP summaries.",
+    icon: "ti-file-text",
+    color: "#0891b2",
+    requiresStudents: true,
+  },
+  {
+    label: "View Progress Dashboard",
+    path: "/dashboard/monitoring",
+    desc: "Track learner outcome monitoring, subject mastery, and skill progression over time.",
+    icon: "ti-chart-bar",
+    color: "#d97706",
+    requiresStudents: true,
+  },
+  {
+    label: "Instructional Support",
+    path: "/dashboard/lessons",
+    desc: "Generate tailored lesson plans, visual aids, and pedagogical teaching strategies.",
+    icon: "ti-books",
+    color: "#e11d48",
+    requiresStudents: true,
+  },
 ];
 
 export default function Overview({ setActivePage }) {

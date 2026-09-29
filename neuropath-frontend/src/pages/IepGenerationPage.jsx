@@ -106,6 +106,15 @@ function getGoalTypesForGrade(grade) {
   ];
 }
 
+const LEARNING_FACILITATOR_OPTIONS = [
+  "SPED Teacher",
+  "General Education Teacher",
+  "Physical Therapist",
+  "Parent / Guardian",
+  "Doctor / Developmental Pediatrician",
+  "Other",
+];
+
 // ─── Small reusable UI ────────────────────────────────────────────────────────
 
 function SectionHeader({ title, subtitle }) {
@@ -113,6 +122,46 @@ function SectionHeader({ title, subtitle }) {
     <div className="iep-section-header">
       <h2 className="form-section-title">{title}</h2>
       {subtitle && <p className="iep-section-subtitle">{subtitle}</p>}
+    </div>
+  );
+}
+
+function LearningFacilitatorSelector({
+  value,
+  onChange,
+  ariaLabel = "Learning facilitator",
+}) {
+  const isStandard = LEARNING_FACILITATOR_OPTIONS.slice(0, 5).includes(value);
+  const selectValue = isStandard ? value : value ? "Other" : "";
+  const showCustomInput = !isStandard && (value !== "" || selectValue === "Other");
+
+  return (
+    <div className="iep-facilitator-select-group">
+      <select
+        aria-label={ariaLabel}
+        value={selectValue}
+        className="form-select iep-small-select"
+        onChange={(e) => {
+          const val = e.target.value;
+          onChange(val);
+        }}
+      >
+        <option value="">Select facilitator...</option>
+        {LEARNING_FACILITATOR_OPTIONS.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </select>
+      {showCustomInput && (
+        <input
+          type="text"
+          className="form-input iep-small-input"
+          placeholder="Type facilitator/s"
+          value={value === "Other" ? "" : value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
     </div>
   );
 }
@@ -485,66 +534,149 @@ function StudentSearchBox({
   ieps = [],
 }) {
   return (
-    <div className="form-group iep-search-group">
-      <label className="form-label">Search Student</label>
-      <input
-        type="text"
-        value={searchTerm}
-        className="form-input"
-        placeholder="Type student name..."
-        onChange={(e) => {
-          setSearchTerm(e.target.value);
-          onSelect(null);
-        }}
-      />
-      {searchTerm && !selectedStudent && (
-        <div className="iep-search-results">
-          {loadingStudents ? (
-            <p>Loading students...</p>
-          ) : filteredStudents.length > 0 ? (
-            filteredStudents.map((student) => {
-              const sid = getStudentId(student);
-              const studentIepList = (ieps || []).filter(
-                (i) =>
-                  String(i.studentID?.pk ?? i.studentID) === String(sid),
-              );
-              const activeStudentIep = studentIepList.find((i) => !i.is_archived);
-              const vTag = activeStudentIep
-                ? `v${activeStudentIep.version} (Active)`
-                : studentIepList.length > 0
-                  ? `v${studentIepList[0].version}`
-                  : student.latest_iep_version
-                    ? `v${student.latest_iep_version} (Active)`
-                    : student.iep_version
-                      ? `v${student.iep_version}`
-                      : null;
+    <div className="form-group iep-search-group" data-testid="iep-search-group">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+        <label className="form-label" htmlFor="iep-student-search-input" style={{ margin: 0 }}>
+          Search Student
+        </label>
+        {selectedStudent && (
+          <button
+            type="button"
+            className="btn btn-secondary iep-change-btn"
+            style={{ padding: "3px 10px", fontSize: "0.75rem" }}
+            onClick={() => {
+              onSelect(null);
+              setSearchTerm("");
+            }}
+          >
+            Change Student
+          </button>
+        )}
+      </div>
+      <div className="iep-search-input-wrap">
+        <input
+          id="iep-student-search-input"
+          type="text"
+          value={searchTerm}
+          className="form-input"
+          placeholder="Type student name..."
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            if (selectedStudent) {
+              onSelect(null);
+            }
+          }}
+          aria-label="Search student by name"
+        />
+        {searchTerm && (
+          <button
+            type="button"
+            className="iep-search-clear-btn"
+            onClick={() => {
+              setSearchTerm("");
+              if (selectedStudent) {
+                onSelect(null);
+              }
+            }}
+            title="Clear search"
+            aria-label="Clear search"
+          >
+            ×
+          </button>
+        )}
+      </div>
 
-              return (
-                <button
-                  key={getStudentId(student) || getStudentName(student)}
-                  type="button"
-                  onClick={() => {
-                    onSelect(student);
-                    setSearchTerm(getStudentName(student));
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-                    <strong>{getStudentName(student)}</strong>
-                    {vTag && (
-                      <span className="iep-student-version-tag">
-                        {vTag}
-                      </span>
-                    )}
+      {!selectedStudent && (
+        <div className="iep-roster-section" data-testid="iep-roster-section">
+          <div className="iep-roster-header">
+            <span className="iep-roster-count">
+              {loadingStudents
+                ? "Loading students..."
+                : `Enrolled Students (${filteredStudents.length})`}
+            </span>
+          </div>
+          <div
+            className="iep-roster-grid"
+            role="list"
+            aria-label="Student selection roster"
+          >
+            {loadingStudents ? (
+              <p className="iep-roster-empty">Loading student records...</p>
+            ) : filteredStudents.length > 0 ? (
+              filteredStudents.map((student) => {
+                const sid = getStudentId(student);
+                const studentIepList = (ieps || []).filter(
+                  (i) =>
+                    String(i.studentID?.pk ?? i.studentID) === String(sid),
+                );
+                const activeStudentIep = studentIepList.find((i) => !i.is_archived);
+                const vTag = activeStudentIep
+                  ? `v${activeStudentIep.version} (Active)`
+                  : studentIepList.length > 0
+                    ? `v${studentIepList[0].version}`
+                    : student.latest_iep_version
+                      ? `v${student.latest_iep_version} (Active)`
+                      : student.iep_version
+                        ? `v${student.iep_version}`
+                        : null;
+
+                return (
+                  <div
+                    key={sid || getStudentName(student)}
+                    className="iep-roster-card"
+                    role="listitem"
+                  >
+                    <div className="iep-roster-card-content">
+                      <div className="iep-roster-avatar" aria-hidden="true">
+                        {(getStudentName(student)[0] || "S").toUpperCase()}
+                      </div>
+                      <div className="iep-roster-details">
+                        <div className="iep-roster-name-line">
+                          <strong className="iep-roster-name">
+                            {getStudentName(student)}
+                          </strong>
+                          {vTag && (
+                            <span
+                              className={`iep-version-badge ${
+                                activeStudentIep ? "active" : ""
+                              }`}
+                            >
+                              {vTag}
+                            </span>
+                          )}
+                        </div>
+                        <span className="iep-roster-meta">
+                          Grade {student.grade || "—"} · Age {student.age || "—"}
+                          {(student.diagnosis || student.asdBackground)
+                            ? ` · ${student.diagnosis || student.asdBackground}`
+                            : ""}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-secondary iep-roster-select-btn"
+                      aria-label={`Select ${getStudentName(student)}`}
+                      onClick={() => {
+                        onSelect(student);
+                        setSearchTerm(getStudentName(student));
+                      }}
+                    >
+                      Select
+                    </button>
                   </div>
-                  <span>
-                    Grade {student.grade || "—"} · Age {student.age || "—"}
-                  </span>
-                </button>
-              );
-            })
-          ) : (
-            <p>No similar student names found.</p>
-          )}
+                );
+              })
+            ) : (
+              <div className="iep-roster-empty">
+                <p>
+                  {searchTerm
+                    ? `No students found matching "${searchTerm}".`
+                    : "No students registered yet. Create a student profile first."}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -1382,13 +1514,11 @@ function ViewIEPPanel({
                           </select>
                         </td>
                         <td>
-                          <textarea
+                          <LearningFacilitatorSelector
                             value={row.facilitator}
-                            rows={3}
-                            placeholder="Type facilitator/s"
-                            className="form-textarea iep-small-textarea"
-                            onChange={(e) =>
-                              updateEditRow(i, "facilitator", e.target.value)
+                            ariaLabel={`Edit learning facilitator for row ${i + 1}`}
+                            onChange={(val) =>
+                              updateEditRow(i, "facilitator", val)
                             }
                           />
                         </td>
@@ -2216,10 +2346,13 @@ export default function IEPGenerationPage({
 
   const filteredStudents = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return [];
-    return students
-      .filter((s) => getStudentName(s).toLowerCase().includes(q))
-      .slice(0, 6);
+    if (!q) return students;
+    return students.filter((s) => {
+      const name = getStudentName(s).toLowerCase();
+      const grade = String(s.grade || "").toLowerCase();
+      const diag = String(s.diagnosis || s.asdBackground || "").toLowerCase();
+      return name.includes(q) || grade.includes(q) || diag.includes(q);
+    });
   }, [students, searchTerm]);
 
   // ── Form helpers ──────────────────────────────────────────────────────────
@@ -3227,17 +3360,11 @@ export default function IEPGenerationPage({
                               </select>
                             </td>
                             <td>
-                              <textarea
+                              <LearningFacilitatorSelector
                                 value={row.facilitator}
-                                rows={3}
-                                placeholder="Type facilitator/s"
-                                className="form-textarea iep-small-textarea"
-                                onChange={(e) =>
-                                  updateBarrierRow(
-                                    i,
-                                    "facilitator",
-                                    e.target.value,
-                                  )
+                                ariaLabel={`Learning facilitator for row ${i + 1}`}
+                                onChange={(val) =>
+                                  updateBarrierRow(i, "facilitator", val)
                                 }
                               />
                             </td>

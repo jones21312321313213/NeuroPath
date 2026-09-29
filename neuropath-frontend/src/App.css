@@ -1361,6 +1361,13 @@ button.sidebar-header {
   gap: 16px;
 }
 
+@media (max-width: 1024px) and (min-width: 641px) {
+  .quick-actions {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+}
+
 .quick-action-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -2262,6 +2269,241 @@ button.sidebar-header {
   font-size: 12px;
   margin-top: 2px;
 }
+
+/* ── IEP Student Roster Selection (Bundle 1) ────────────────────── */
+.iep-search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.iep-search-clear-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.iep-search-clear-btn:hover {
+  color: #334155;
+}
+
+.iep-roster-section {
+  margin-top: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.iep-roster-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.iep-roster-count {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.iep-roster-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.iep-roster-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  gap: 14px;
+  transition: all 0.15s ease;
+}
+
+.iep-roster-card:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+}
+
+.iep-roster-card-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.iep-roster-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.iep-roster-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.iep-roster-name-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.iep-roster-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.iep-version-badge {
+  font-size: 0.725rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
+.iep-version-badge.active {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.iep-roster-meta {
+  font-size: 0.8rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iep-roster-select-btn {
+  padding: 6px 14px;
+  font-size: 0.825rem;
+  flex-shrink: 0;
+}
+
+.iep-roster-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.iep-selected-student-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  padding: 14px 18px;
+  gap: 16px;
+  width: 100%;
+}
+
+.iep-selected-student-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.iep-selected-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.iep-selected-tag {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #059669;
+}
+
+.iep-selected-name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.iep-selected-sub {
+  margin: 2px 0 0 0;
+  font-size: 0.825rem;
+  color: #475569;
+}
+
+.iep-change-btn {
+  padding: 7px 14px;
+  font-size: 0.825rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Facilitator Dropdown Styling ───────────────────────────── */
+.iep-facilitator-select-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.iep-small-select {
+  font-size: 0.825rem;
+  padding: 6px 10px;
+  min-height: 38px;
+}
+
+.iep-small-input {
+  font-size: 0.825rem;
+  padding: 6px 10px;
+}
+
 .iep-empty-state {
   min-height: 260px;
   border: 1px dashed #dbe1e8;

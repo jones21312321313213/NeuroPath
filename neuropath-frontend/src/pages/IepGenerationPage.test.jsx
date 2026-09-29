@@ -1910,6 +1910,116 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       });
     });
   });
+
+  describe("Bundle 1: Core Dashboard & Facilitator UX", () => {
+    it("renders enrolled students in a browsable roster by default when unselected", async () => {
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("iep-roster-section")).toBeInTheDocument();
+      });
+
+      expect(screen.getByText(/Enrolled Students \(1\)/i)).toBeInTheDocument();
+      expect(screen.getByText("Alex Doe")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /select alex doe/i })).toBeInTheDocument();
+    });
+
+    it("allows 1-click student selection from roster and displays Change Student button", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Alex Doe")).toBeInTheDocument();
+      });
+
+      const selectBtn = screen.getByRole("button", { name: /select alex doe/i });
+      await user.click(selectBtn);
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /change student/i })).toBeInTheDocument();
+      });
+
+      expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+
+      // Click Change Student to return to roster
+      await user.click(screen.getByRole("button", { name: /change student/i }));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("iep-roster-section")).toBeInTheDocument();
+      });
+    });
+
+    it("filters student roster dynamically as search term is typed", async () => {
+      studentsAPI.list.mockResolvedValue([
+        mockStudent,
+        { id: 2, studentID: 2, name: "Maria Clara", grade: "3", age: "8", diagnosis: "ADHD" },
+      ]);
+
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Maria Clara")).toBeInTheDocument();
+        expect(screen.getByText("Alex Doe")).toBeInTheDocument();
+      });
+
+      const searchInput = screen.getByPlaceholderText("Type student name...");
+      await user.type(searchInput, "Maria");
+
+      expect(screen.getByText("Maria Clara")).toBeInTheDocument();
+      expect(screen.queryByText("Alex Doe")).not.toBeInTheDocument();
+    });
+
+    it("renders standardized 5-role Learning Facilitator dropdown in Section B with specify input for Other", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
+      });
+
+      const facilitatorSelect = screen.getByRole("combobox", {
+        name: /learning facilitator for row 1/i,
+      });
+      expect(facilitatorSelect).toBeInTheDocument();
+
+      // Options include all 5 standardized roles plus Other
+      expect(within(facilitatorSelect).getByText("SPED Teacher")).toBeInTheDocument();
+      expect(within(facilitatorSelect).getByText("General Education Teacher")).toBeInTheDocument();
+      expect(within(facilitatorSelect).getByText("Physical Therapist")).toBeInTheDocument();
+      expect(within(facilitatorSelect).getByText("Parent / Guardian")).toBeInTheDocument();
+      expect(within(facilitatorSelect).getByText("Doctor / Developmental Pediatrician")).toBeInTheDocument();
+      expect(within(facilitatorSelect).getByText("Other")).toBeInTheDocument();
+
+      // Select SPED Teacher
+      await user.selectOptions(facilitatorSelect, "SPED Teacher");
+      expect(facilitatorSelect.value).toBe("SPED Teacher");
+
+      // Select Other and verify text input appears
+      await user.selectOptions(facilitatorSelect, "Other");
+      const customInput = screen.getByPlaceholderText("Type facilitator/s");
+      expect(customInput).toBeInTheDocument();
+
+      await user.type(customInput, "Speech Therapist");
+      expect(customInput.value).toBe("Speech Therapist");
+    });
+  });
 });
 
 
