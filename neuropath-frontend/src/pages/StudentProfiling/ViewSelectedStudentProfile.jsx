@@ -3,10 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import "../../styles/ViewSelectedStudentProfile.css";
 import StudentInsightsTab from "./StudentInsightsTab";
 import { useStudent, useDeleteStudent } from "../../hooks/queries";
-import { Badge, Modal } from "../../components/ui";
+import { Badge, Modal, Button } from "../../components/ui";
 import { useToast } from "../../context/ToastContext";
 import ErrorState from "../../components/ui/ErrorState";
-import { CheckIcon, WarningIcon } from "../../components/ui/icons";
+import { CheckIcon, WarningIcon, PrinterIcon } from "../../components/ui/icons";
+import { Ra10173ConsentModal } from "../../components/Ra10173ConsentModal";
 
 function getProfileDetails(student) {
   const record = student?.data || student;
@@ -59,6 +60,7 @@ export default function ViewSelectedStudentProfile({ studentId: propStudentId, s
   const studentId = propStudentId || params?.id;
   const [activeTab, setActiveTab] = useState("info");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showConsentModal, setShowConsentModal] = useState(false);
 
   const {
     data: selected,
@@ -156,17 +158,30 @@ export default function ViewSelectedStudentProfile({ studentId: propStudentId, s
             <section className="form-section">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
                 <h2 className="form-section-title" style={{ margin: 0 }}>Section A: Personal Information</h2>
-                {student?.parental_consent_obtained ? (
-                  <Badge variant="success" className="inline-flex items-center gap-1.5">
-                    <CheckIcon className="w-4 h-4 text-emerald-700" aria-hidden="true" />
-                    <span>RA 10173 Consent Verified (Guardian: {student.guardian_name || "Parent/Guardian"})</span>
-                  </Badge>
-                ) : (
-                  <Badge variant="warning" className="inline-flex items-center gap-1.5">
-                    <WarningIcon className="w-4 h-4 text-amber-700" aria-hidden="true" />
-                    <span>RA 10173 Consent Pending — AI Processing Restricted</span>
-                  </Badge>
-                )}
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                  {student?.parental_consent_obtained ? (
+                    <Badge variant="success" className="inline-flex items-center gap-1.5">
+                      <CheckIcon className="w-4 h-4 text-emerald-700" aria-hidden="true" />
+                      <span>RA 10173 Consent Verified (Guardian: {student.guardian_name || "Parent/Guardian"})</span>
+                    </Badge>
+                  ) : (
+                    <Badge variant="warning" className="inline-flex items-center gap-1.5">
+                      <WarningIcon className="w-4 h-4 text-amber-700" aria-hidden="true" />
+                      <span>RA 10173 Consent Pending — AI Processing Restricted</span>
+                    </Badge>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowConsentModal(true)}
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-700"
+                    title="View or Print Republic Act 10173 Parental Consent Certificate"
+                  >
+                    <PrinterIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Print / View Consent</span>
+                  </Button>
+                </div>
               </div>
               <div className="form-grid-2">
                 <ReadOnlyInput label="Student Name" value={details.studentName || details.learnerName || student.name} />
@@ -266,6 +281,19 @@ export default function ViewSelectedStudentProfile({ studentId: propStudentId, s
           resources will also be permanently removed. This action cannot be undone.
         </p>
       </Modal>
+
+      <Ra10173ConsentModal
+        isOpen={showConsentModal}
+        onClose={() => setShowConsentModal(false)}
+        learnerName={details.studentName || details.learnerName || student?.name}
+        guardianName={student?.guardian_name || details.guardianName}
+        guardianRelationship={student?.guardian_relationship || details.guardianRelationship}
+        school={details.school}
+        schoolYear={details.schoolYear}
+        consentDate={student?.consent_date || details.consentDate}
+        student={student}
+        readOnly={true}
+      />
     </div>
   );
 }

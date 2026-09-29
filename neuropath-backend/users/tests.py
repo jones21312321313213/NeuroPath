@@ -684,4 +684,91 @@ class StudentProfileTimestampTests(APITestCase):
         self.assertIn("updated_at", response.data)
 
 
+class ConsentCertificatePdfViewTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="consentsped@example.com",
+            email="consentsped@example.com",
+            password="securepassword123",
+            first_name="SPED",
+            last_name="Teacher",
+        )
+        self.teacher = Teacher.objects.create(
+            email="consentsped@example.com",
+            name="SPED Teacher",
+            passwordHash=self.user.password,
+        )
+        self.token = Token.objects.create(user=self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
+
+        self.student = StudentProfile.objects.create(
+            name="Lucas Garcia",
+            age=7,
+            grade=1,
+            teacher=self.teacher,
+            guardian_name="Elena Garcia",
+            guardian_relationship="Mother",
+            parental_consent_obtained=True,
+            consent_date="2025-01-10",
+            profileDetails={
+                "school": "DepEd SPED Center Cebu",
+                "schoolYear": "2024-2025",
+            },
+        )
+
+        self.other_user = User.objects.create_user(
+            username="otherteacher@example.com",
+            email="otherteacher@example.com",
+            password="securepassword123",
+        )
+        self.other_teacher = Teacher.objects.create(
+            email="otherteacher@example.com",
+            name="Other Teacher",
+            passwordHash=self.other_user.password,
+        )
+        self.other_student = StudentProfile.objects.create(
+            name="Other Student",
+            teacher=self.other_teacher,
+        )
+
+    def test_get_consent_pdf_for_own_student_success(self):
+        url = reverse("student-consent-pdf", kwargs={"pk": self.student.studentID})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn("attachment; filename=", response["Content-Disposition"])
+        self.assertIn("Lucas_Garcia", response["Content-Disposition"])
+        self.assertTrue(len(response.content) > 1000)
+
+    def test_get_consent_pdf_for_other_teacher_student_returns_404(self):
+        url = reverse("student-consent-pdf", kwargs={"pk": self.other_student.studentID})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_post_consent_pdf_with_payload_success(self):
+        url = reverse("generate-consent-pdf")
+        payload = {
+            "learnerName": "Maria Santos",
+            "guardianName": "Juan Santos",
+            "guardianRelationship": "Father",
+            "school": "Manila Central SPED",
+            "schoolYear": "2024-2025",
+            "grade": "Grade 2",
+            "consentDate": "2025-02-15",
+        }
+        response = self.client.post(url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn("attachment; filename=", response["Content-Disposition"])
+        self.assertIn("Maria_Santos", response["Content-Disposition"])
+        self.assertTrue(len(response.content) > 1000)
+
+    def test_consent_pdf_requires_authentication(self):
+        self.client.credentials()  # Unset auth
+        url = reverse("student-consent-pdf", kwargs={"pk": self.student.studentID})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+
 
