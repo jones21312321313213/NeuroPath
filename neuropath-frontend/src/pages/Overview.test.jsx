@@ -197,7 +197,7 @@ describe("Overview - Getting Started 3-Step Path", () => {
     expect(mockSetActivePage).toHaveBeenCalledWith("/dashboard/lessons");
   });
 
-  it("disables View All Students and Generate IEP quick actions when no students exist", async () => {
+  it("disables student-dependent quick actions when no students exist", async () => {
     studentsAPI.list.mockResolvedValue([]);
     iepAPI.dashboardStats.mockResolvedValue({ active_ieps: 0, ai_insights: 0 });
 
@@ -227,6 +227,15 @@ describe("Overview - Getting Started 3-Step Path", () => {
     expect(generateIepCard).toBeDisabled();
     await user.click(generateIepCard);
     expect(mockNavigate).not.toHaveBeenCalledWith("/dashboard/iep/generate");
+
+    const viewRecordsCard = within(quickActionsContainer).getByRole("button", { name: /view student records/i });
+    expect(viewRecordsCard).toBeDisabled();
+
+    const viewProgressCard = within(quickActionsContainer).getByRole("button", { name: /view progress dashboard/i });
+    expect(viewProgressCard).toBeDisabled();
+
+    const instructionalCard = within(quickActionsContainer).getByRole("button", { name: /instructional support/i });
+    expect(instructionalCard).toBeDisabled();
   });
 
   it("navigates correctly when clicking quick action cards when students exist", async () => {
@@ -258,6 +267,21 @@ describe("Overview - Getting Started 3-Step Path", () => {
     expect(generateIepCard).toBeEnabled();
     await user.click(generateIepCard);
     expect(mockNavigate).toHaveBeenCalledWith("/dashboard/iep/generate");
+
+    const viewRecordsCard = within(quickActionsContainer).getByRole("button", { name: /view student records/i });
+    expect(viewRecordsCard).toBeEnabled();
+    await user.click(viewRecordsCard);
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/records");
+
+    const viewProgressCard = within(quickActionsContainer).getByRole("button", { name: /view progress dashboard/i });
+    expect(viewProgressCard).toBeEnabled();
+    await user.click(viewProgressCard);
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/monitoring");
+
+    const instructionalCard = within(quickActionsContainer).getByRole("button", { name: /instructional support/i });
+    expect(instructionalCard).toBeEnabled();
+    await user.click(instructionalCard);
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/lessons");
   });
 });
 
