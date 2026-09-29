@@ -5,6 +5,7 @@ import {
   lessonPlansAPI,
   visualAidsAPI,
   resourcesAPI,
+  trackingAPI,
 } from "../api/client";
 
 export const queryKeys = {
@@ -15,7 +16,9 @@ export const queryKeys = {
   lessonPlans: (teacherId) => ["lesson-plans", teacherId ?? "all"],
   visualAids: (params) => ["visual-aids", params ?? "all"],
   resourceStats: () => ["resources", "dashboard-stats"],
+  recentActivity: () => ["recent-activity"],
 };
+
 
 export function useStudents(teacherId, options = {}) {
   const { enabled, ...restOptions } = options;
@@ -139,4 +142,13 @@ export function useDeleteStudent(options = {}) {
     ...restOptions,
   });
 }
+
+export function useRecentActivity(options = {}) {
+  return useQuery({
+    queryKey: queryKeys.recentActivity(),
+    queryFn: () => trackingAPI.getRecentActivity(),
+    ...options,
+  });
+}
+
 

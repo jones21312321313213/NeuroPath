@@ -5,8 +5,11 @@ import {
   useStudents,
   useIepDashboardStats,
   useResourceDashboardStats,
+  useRecentActivity,
 } from "../hooks/queries";
 import { Card, CountUp } from "../components/ui";
+import { formatRelativeTime } from "../utils/dateUtils";
+
 
 const stats = [
   {
@@ -96,8 +99,11 @@ export default function Overview({ setActivePage }) {
   const { data: students = [] } = useStudents(user?.id);
   const { data: iepStats } = useIepDashboardStats();
   const { data: resourceStats } = useResourceDashboardStats();
+  const { data: recentActivities = [], isLoading: isLoadingActivities } = useRecentActivity();
 
   const studentList = Array.isArray(students) ? students : (students?.results || []);
+  const activities = Array.isArray(recentActivities) ? recentActivities : [];
+
 
   const counts = {
     students: studentList.length,
@@ -368,7 +374,91 @@ export default function Overview({ setActivePage }) {
           </div>
         </div>
 
+        {/* Section: Recent Activity (ENH30) */}
+        <section
+          className="overview-activity-section"
+          data-testid="recent-activity-section"
+          aria-label="Recent Activity"
+        >
+          <div className="overview-activity-header">
+            <div>
+              <p className="overview-section-label" style={{ marginBottom: 2 }}>
+                Recent activity
+              </p>
+              <span className="overview-activity-hint">
+                Track recent student profile updates, generated IEPs, and outcome monitoring
+              </span>
+            </div>
+          </div>
+
+          <div className="overview-activity-card">
+            {isLoadingActivities ? (
+              <div className="overview-activity-empty">
+                <i className="ti ti-loader animate-spin overview-activity-empty-icon" aria-hidden="true" />
+                <p className="overview-activity-empty-title">Loading recent activity...</p>
+              </div>
+            ) : activities.length === 0 ? (
+              <div className="overview-activity-empty" data-testid="recent-activity-empty">
+                <i className="ti ti-activity overview-activity-empty-icon" aria-hidden="true" />
+                <p className="overview-activity-empty-title">No recent activity yet</p>
+                <p className="overview-activity-empty-text">
+                  As you create student profiles, synthesize IEPs, and record outcome progress,
+                  your recent actions will appear here in chronological order.
+                </p>
+              </div>
+            ) : (
+              <div className="overview-activity-list" role="list">
+                {activities.map((item) => {
+                  const iconClass =
+                    item.type === "iep"
+                      ? "ti-file-text"
+                      : item.type === "progress"
+                      ? "ti-chart-bar"
+                      : "ti-user";
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="overview-activity-item"
+                      role="listitem"
+                      data-testid={`activity-item-${item.id}`}
+                    >
+                      <div className="overview-activity-left">
+                        <div className={`overview-activity-icon ${item.type}`}>
+                          <i className={`ti ${iconClass}`} aria-hidden="true" />
+                        </div>
+                        <div className="overview-activity-info">
+                          <h4 className="overview-activity-title">{item.title}</h4>
+                          <p className="overview-activity-desc">{item.description}</p>
+                        </div>
+                      </div>
+                      <div className="overview-activity-right">
+                        <span className="overview-activity-time">
+                          {formatRelativeTime(item.timestamp)}
+                        </span>
+                        {item.target_path && (
+                          <button
+                            type="button"
+                            className="overview-activity-link"
+                            onClick={() => handleNavigate(item.target_path, item.target_path)}
+                            title={`View details for ${item.title}`}
+                            aria-label={`View details for ${item.title}`}
+                          >
+                            View
+                            <i className="ti ti-chevron-right" aria-hidden="true" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+
         {/* Section: About NeuroPath */}
+
         <div className="overview-about-strip">
           <div className="overview-about-icon">
             <i className="ti ti-bulb" aria-hidden="true" />

@@ -62,5 +62,9 @@ class StudentProfile(models.Model):
     # The frontend also mirrors this data into `preferences` for compatibility.
     profileDetails = models.JSONField(blank=True, default=dict)
 
+    # Activity and update timestamps (ENH24)
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
+
     def __str__(self):
         return self.name or f"Student {self.studentID}"

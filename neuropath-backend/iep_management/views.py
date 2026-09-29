@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, generics,viewsets
+from django.http import HttpResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from .serializers import IEPDataSerializer, IEPListDetailSerializer, IEPUpdateSerializer,StandaloneIEPGoalSerializer,IEPGenerationRequestSerializer
@@ -934,3 +935,280 @@ class GenerateIEPGoalsFromIEPView(APIView):
         if assistive_tech:
             return f"Demonstrate improvement in {difficulty} using {assistive_tech[:60]}"
         return f"Demonstrate measurable improvement in {difficulty}"
+
+
+# =====================================================================
+# SDD COMPONENT: IEPBinaryReportRenderEngine
+# Description: Generates standard PDF byte stream for local client-side download
+#              of an IEP document using ReportLab.
+# =====================================================================
+class IEPBinaryReportRenderEngine:
+    @staticmethod
+    def generate_iep_pdf_stream(iep):
+        import html
+        import io
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.units import mm
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.enums import TA_CENTER
+
+        def esc(val):
+            if val is None:
+                return ""
+            return html.escape(str(val))
+
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=15 * mm,
+            leftMargin=15 * mm,
+            topMargin=15 * mm,
+            bottomMargin=15 * mm,
+        )
+
+        styles = getSampleStyleSheet()
+
+        style_title = ParagraphStyle(
+            'DocTitle',
+            parent=styles['Title'],
+            fontSize=16,
+            leading=20,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold',
+            textColor=colors.HexColor('#0F172A'),
+            spaceAfter=3,
+        )
+        style_subtitle = ParagraphStyle(
+            'DocSubtitle',
+            parent=styles['Normal'],
+            fontSize=10,
+            leading=14,
+            alignment=TA_CENTER,
+            fontName='Helvetica',
+            textColor=colors.HexColor('#475569'),
+            spaceAfter=8,
+        )
+        style_section_heading = ParagraphStyle(
+            'SectionHeading',
+            parent=styles['Normal'],
+            fontSize=11,
+            fontName='Helvetica-Bold',
+            leading=15,
+            textColor=colors.HexColor('#0284C7'),
+            spaceBefore=8,
+            spaceAfter=4,
+        )
+        style_cell_label = ParagraphStyle(
+            'CellLabel',
+            parent=styles['Normal'],
+            fontSize=8.5,
+            fontName='Helvetica-Bold',
+            textColor=colors.HexColor('#334155'),
+            leading=12,
+        )
+        style_cell_value = ParagraphStyle(
+            'CellValue',
+            parent=styles['Normal'],
+            fontSize=8.5,
+            fontName='Helvetica',
+            textColor=colors.HexColor('#0F172A'),
+            leading=12,
+        )
+        style_body = ParagraphStyle(
+            'DocBody',
+            parent=styles['Normal'],
+            fontSize=8.5,
+            fontName='Helvetica',
+            textColor=colors.HexColor('#334155'),
+            leading=13,
+        )
+        style_label_inline = ParagraphStyle(
+            'DocLabelInline',
+            parent=styles['Normal'],
+            fontSize=8.5,
+            fontName='Helvetica-Bold',
+            textColor=colors.HexColor('#0F172A'),
+            leading=13,
+            spaceBefore=3,
+        )
+
+        story = []
+
+        # Header
+        story.append(Paragraph("Individualized Education Plan (IEP)", style_title))
+        status_text = "Archived" if iep.is_archived else "Active"
+        story.append(Paragraph(f"DepEd Special Education Program — Version {iep.version} ({status_text})", style_subtitle))
+        story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#0284C7'), spaceAfter=8))
+
+        # Student Information Grid (Section A)
+        student = iep.studentID
+        pd = student.profileDetails if isinstance(student.profileDetails, dict) else {}
+        student_name = student.name or pd.get('studentName') or 'N/A'
+        school_val = pd.get('school') or 'N/A'
+        school_year_val = pd.get('schoolYear') or 'N/A'
+        diagnosis_val = student.diagnosis or pd.get('disabilityCategory') or 'N/A'
+        created_str = iep.createdDate.strftime('%B %d, %Y') if iep.createdDate else 'N/A'
+
+        info_data = [
+            [
+                Paragraph("Student Name:", style_cell_label),
+                Paragraph(esc(student_name), style_cell_value),
+                Paragraph("IEP Version:", style_cell_label),
+                Paragraph(esc(f"Version {iep.version}"), style_cell_value),
+            ],
+            [
+                Paragraph("Age / Grade:", style_cell_label),
+                Paragraph(esc(f"{student.age} yrs / Grade {student.grade}"), style_cell_value),
+                Paragraph("Program Type:", style_cell_label),
+                Paragraph(esc(iep.program_type or 'Graded'), style_cell_value),
+            ],
+            [
+                Paragraph("School:", style_cell_label),
+                Paragraph(esc(school_val), style_cell_value),
+                Paragraph("School Year:", style_cell_label),
+                Paragraph(esc(school_year_val), style_cell_value),
+            ],
+            [
+                Paragraph("Diagnosis:", style_cell_label),
+                Paragraph(esc(diagnosis_val), style_cell_value),
+                Paragraph("Date Created:", style_cell_label),
+                Paragraph(esc(created_str), style_cell_value),
+            ],
+        ]
+
+        info_table = Table(info_data, colWidths=[30 * mm, 60 * mm, 30 * mm, 60 * mm])
+        info_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('LEFTPADDING', (0, 0), (-1, -1), 5),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+        story.append(info_table)
+        story.append(Spacer(1, 4 * mm))
+
+        # Section A: Present Levels Summary
+        story.append(Paragraph("Section A: Learner Profile & Present Levels", style_section_heading))
+        present_eval = pd.get('presentEvaluation') or student.assessmentResult or "No formal assessment results recorded."
+        strengths = pd.get('academicStrengths') or "No academic strengths recorded."
+        needs = pd.get('academicNeeds') or student.support_needs or "No academic needs recorded."
+        story.append(Paragraph(f"<b>Assessment & Evaluation:</b> {esc(present_eval)}", style_body))
+        story.append(Paragraph(f"<b>Strengths:</b> {esc(strengths)}", style_body))
+        story.append(Paragraph(f"<b>Needs:</b> {esc(needs)}", style_body))
+        story.append(Spacer(1, 4 * mm))
+
+        # Section B: Special Factors & Barriers
+        story.append(Paragraph("Section B: Difficulties, Environmental Barriers, and Accommodations", style_section_heading))
+        diff_list = [d.strip() for d in (iep.difficulties or '').split('\n') if d.strip()]
+        barr_list = [b.strip() for b in (iep.learning_barriers or '').split('\n') if b.strip()]
+        facil_list = [f.strip() for f in (iep.learning_facilitators or '').split('\n') if f.strip()]
+        accom_list = [a.strip() for a in (iep.learning_accommodations or '').split('\n') if a.strip()]
+        max_len = max(len(diff_list), len(barr_list), len(facil_list), len(accom_list), 0)
+
+        if max_len > 0:
+            sec_b_data = [[
+                Paragraph("Area of Difficulty", style_cell_label),
+                Paragraph("Learning Barriers", style_cell_label),
+                Paragraph("Learning Facilitators", style_cell_label),
+                Paragraph("Accommodations", style_cell_label),
+            ]]
+            for i in range(max_len):
+                sec_b_data.append([
+                    Paragraph(esc(diff_list[i] if i < len(diff_list) else '—'), style_cell_value),
+                    Paragraph(esc(barr_list[i] if i < len(barr_list) else '—'), style_cell_value),
+                    Paragraph(esc(facil_list[i] if i < len(facil_list) else '—'), style_cell_value),
+                    Paragraph(esc(accom_list[i] if i < len(accom_list) else '—'), style_cell_value),
+                ])
+            b_table = Table(sec_b_data, colWidths=[42 * mm, 46 * mm, 46 * mm, 46 * mm])
+            b_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
+                ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+                ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            story.append(b_table)
+        else:
+            story.append(Paragraph("No Section B factors recorded.", style_body))
+
+        # Special factor notes
+        details = iep.generatedDetails if isinstance(iep.generatedDetails, dict) else {}
+        special_notes = details.get('specialFactorNotes') or details.get('special_factor_notes') or ''
+        if special_notes:
+            story.append(Spacer(1, 2 * mm))
+            story.append(Paragraph(f"<b>Special Factor Notes / Assistive Devices:</b> {esc(special_notes)}", style_body))
+
+        story.append(Spacer(1, 4 * mm))
+
+        # Section C: Annual Goals & Objectives
+        story.append(Paragraph("Section C: Annual Goals and Short-Term Objectives", style_section_heading))
+        goals = iep.individual_goals.all() if hasattr(iep, 'individual_goals') else []
+        if goals.exists():
+            for g in goals:
+                cat_name = g.subject_category or g.goalName or 'Goal Area'
+                annual_desc = g.annual_goal or g.target_metric or ''
+                story.append(Paragraph(f"<b>{esc(cat_name)}:</b> {esc(annual_desc)}", style_label_inline))
+                rows = g.objective_rows.all() if hasattr(g, 'objective_rows') else []
+                if rows.exists():
+                    g_data = [[
+                        Paragraph("Objective", style_cell_label),
+                        Paragraph("Interventions", style_cell_label),
+                        Paragraph("Timeline", style_cell_label),
+                        Paragraph("Responsible", style_cell_label),
+                        Paragraph("Evaluation", style_cell_label),
+                    ]]
+                    for r in rows:
+                        g_data.append([
+                            Paragraph(esc(r.enroute_objectives or '—'), style_cell_value),
+                            Paragraph(esc(r.interventions_procedures or '—'), style_cell_value),
+                            Paragraph(esc(r.timeline_mins_session or '—'), style_cell_value),
+                            Paragraph(esc(r.individuals_responsible or '—'), style_cell_value),
+                            Paragraph(esc(r.progress_instructional or '—'), style_cell_value),
+                        ])
+                    g_table = Table(g_data, colWidths=[38 * mm, 44 * mm, 30 * mm, 34 * mm, 34 * mm])
+                    g_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
+                        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+                        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
+                        ('TOPPADDING', (0, 0), (-1, -1), 3),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ]))
+                    story.append(g_table)
+                    story.append(Spacer(1, 2 * mm))
+        else:
+            story.append(Paragraph("No learner goals recorded for this IEP.", style_body))
+
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+
+
+class IEPExportPDFView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk, *args, **kwargs):
+        teacher = get_teacher_for_user(request.user)
+        if not teacher:
+            return Response({"error": "Teacher profile not found."}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            iep = IEPModel.objects.get(pk=pk, studentID__teacher=teacher)
+        except IEPModel.DoesNotExist:
+            return Response({"error": "IEP document not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        pdf_stream = IEPBinaryReportRenderEngine.generate_iep_pdf_stream(iep)
+        response = HttpResponse(pdf_stream, content_type='application/pdf')
+        clean_name = re.sub(r'\s+', '_', iep.studentID.name or 'Student')
+        response['Content-Disposition'] = f'attachment; filename="IEP_{clean_name}_v{iep.version}.pdf"'
+        return response

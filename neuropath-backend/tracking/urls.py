@@ -5,6 +5,7 @@ from .views import (
     StudentRecordQueryController,
     ProgressAnalyticsAPIView,
     StudentProgressDashboardView,
+    RecentActivityAPIView,
 )
 
 # Initialize the router for Module 4 ViewSets
@@ -21,6 +22,10 @@ urlpatterns = [
     # Progress Dashboard Aggregated Route
     path('progress-dashboard/', StudentProgressDashboardView.as_view(), name='progress-dashboard'),
     
+    # Recent Activity Feed (ENH30)
+    path('recent-activity/', RecentActivityAPIView.as_view(), name='recent-activity'),
+
     # Sub-Module Routes (Module 4.1)
     path('', include(router.urls)),
-]
+]
+

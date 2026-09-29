@@ -1,6 +1,8 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { studentsAPI } from "../api/client";
+import { queryClient } from "../queryClient";
+import { queryKeys } from "../hooks/queries";
 import { useAuth } from "../context/AuthContext";
 import {
   CheckIcon,
@@ -651,6 +653,16 @@ export default function CreateStudentProfile({
         null;
       setCreatedStudent({ id: createdId, name: form.learnerName });
       setIsDirty(false);
+
+      if (queryClient) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["students"] }),
+          queryClient.invalidateQueries({ queryKey: ["student"] }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.recentActivity() }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.iepStats() }),
+        ]);
+      }
+
       toast.success(`Student profile created for ${form.learnerName}!`);
       setShowSuccessModal(true);
     } catch (err) {

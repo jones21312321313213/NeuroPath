@@ -9,7 +9,8 @@ from .views import (
     IEPDeleteAPIView,
     StandaloneIEPGoalViewSet,
     GenerateIEPGoalAPIView,
-    GenerateIEPGoalsFromIEPView
+    GenerateIEPGoalsFromIEPView,
+    IEPExportPDFView
 )
 
 
@@ -25,6 +26,7 @@ urlpatterns = [
     path('student/<int:student_id>/', IEPListAPIView.as_view(), name='list_student_ieps'),
     # Get one specific IEP for the workspace overview
     path('<int:pk>/', IEPDetailAPIView.as_view(), name='detail_iep'),
+    path('<int:pk>/export/', IEPExportPDFView.as_view(), name='export_iep_pdf'),
 
     path('edit/<int:pk>/', IEPEditAPIView.as_view(), name='edit_iep'),
 

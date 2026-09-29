@@ -31,6 +31,7 @@ vi.mock("../api/client", () => ({
     update: vi.fn(),
     delete: vi.fn(),
     archive: vi.fn(),
+    exportPDF: vi.fn(),
     generateGoalsFromIep: vi.fn(),
     saveGoal: vi.fn(),
     updateGoal: vi.fn(),
@@ -1858,7 +1859,58 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         });
       });
     });
+
+    describe("Direct Download for IEP PDF Export (ENH22)", () => {
+      beforeEach(() => {
+        window.URL.createObjectURL = vi.fn(() => "blob:http://localhost:3000/mock-iep-uuid");
+        window.URL.revokeObjectURL = vi.fn();
+      });
+
+      it("triggers direct file download when EXPORT PDF is clicked", async () => {
+        const user = userEvent.setup();
+        const mockBlob = new Blob(["%PDF-1.4 test"], { type: "application/pdf" });
+        iepAPI.exportPDF.mockResolvedValueOnce(mockBlob);
+
+        const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click");
+
+        render(
+          <MemoryRouter>
+            <IEPGenerationPage mode="view" initialStudentId={1} />
+          </MemoryRouter>,
+        );
+
+        const exportBtn = await screen.findByRole("button", { name: "EXPORT PDF" });
+        await user.click(exportBtn);
+
+        await waitFor(() => {
+          expect(iepAPI.exportPDF).toHaveBeenCalledWith(101);
+          expect(window.URL.createObjectURL).toHaveBeenCalledWith(mockBlob);
+          expect(clickSpy).toHaveBeenCalled();
+        });
+      });
+
+      it("displays error alert when IEP PDF export fails", async () => {
+        const user = userEvent.setup();
+        iepAPI.exportPDF.mockRejectedValueOnce(
+          new Error("Network connection lost. Failed to export PDF."),
+        );
+
+        render(
+          <MemoryRouter>
+            <IEPGenerationPage mode="view" initialStudentId={1} />
+          </MemoryRouter>,
+        );
+
+        const exportBtn = await screen.findByRole("button", { name: "EXPORT PDF" });
+        await user.click(exportBtn);
+
+        expect(
+          await screen.findByText("Network connection lost. Failed to export PDF."),
+        ).toBeInTheDocument();
+      });
+    });
   });
 });
+
 
 
