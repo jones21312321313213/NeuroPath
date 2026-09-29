@@ -303,47 +303,77 @@ function SpecialFactorNotesField({
 // ─── Read-only goal table ─────────────────────────────────────────────────────
 
 function ReadOnlyGoalTable({ rows = [] }) {
-  const columns = [
-    ["objective", "ENROUTE OBJECTIVES / PROCEDURE"],
-    ["month1", "MONTH 1 MILESTONE (1ST MONTH)"],
-    ["month2", "MONTH 2 MILESTONE (2ND MONTH)"],
-    ["month3", "MONTH 3 MILESTONE (3RD MONTH)"],
-    ["interventions", "INTERVENTIONS / ACTIVITIES / PROCEDURE"],
-    ["timeline", "TIMELINE / SESSION"],
-    ["responsible", "INDIVIDUALS RESPONSIBLE"],
-    ["evaluation", "PROGRESS / INSTRUCTIONAL EVALUATION"],
-    ["remarks", "REMARKS"],
-  ];
   if (!rows.length)
     return <p className="iep-muted">No learner goal rows available.</p>;
+
   return (
     <div className="iep-table-wrap">
-      <table className="iep-table iep-goal-table">
+      <div className="iep-scroll-hint">
+        <span className="iep-scroll-hint-pill">
+          ↔ Scroll horizontally for full 3-month milestones &amp; details
+        </span>
+      </div>
+      <table className="iep-table iep-goal-table iep-section-c-table">
         <thead>
           <tr>
-            {columns.map(([, label]) => (
-              <th key={label}>{label}</th>
-            ))}
+            <th rowSpan={2} className="iep-sticky-col iep-col-objective">
+              ENROUTE OBJECTIVES / PROCEDURE
+            </th>
+            <th colSpan={3} className="iep-th-grouped iep-col-quarter-group">
+              QUARTERLY MILESTONE PROGRESSION (3 MONTHS)
+            </th>
+            <th rowSpan={2} className="iep-col-interventions">
+              INTERVENTIONS / ACTIVITIES / PROCEDURE
+            </th>
+            <th rowSpan={2} className="iep-col-timeline">
+              TIMELINE / SESSION
+            </th>
+            <th rowSpan={2} className="iep-col-responsible">
+              INDIVIDUALS RESPONSIBLE
+            </th>
+            <th rowSpan={2} className="iep-col-evaluation">
+              PROGRESS / INSTRUCTIONAL EVALUATION
+            </th>
+            <th rowSpan={2} className="iep-col-remarks">
+              REMARKS
+            </th>
+          </tr>
+          <tr>
+            <th className="iep-th-sub iep-col-month">MONTH 1 MILESTONE (1ST MONTH)</th>
+            <th className="iep-th-sub iep-col-month">MONTH 2 MILESTONE (2ND MONTH)</th>
+            <th className="iep-th-sub iep-col-month">MONTH 3 MILESTONE (3RD MONTH)</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row, i) => (
             <tr key={row.id || i}>
-              {columns.map(([field]) => (
-                <td key={field} className="iep-readonly-cell">
-                  {row[field] ||
-                    row[
-                      field === "month1"
-                        ? "month_1_target"
-                        : field === "month2"
-                          ? "month_2_target"
-                          : field === "month3"
-                            ? "month_3_target"
-                            : field
-                    ] ||
-                    "—"}
-                </td>
-              ))}
+              <td className="iep-readonly-cell iep-sticky-col iep-col-objective">
+                {row.objective || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-month">
+                {row.month1 || row.month_1_target || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-month">
+                {row.month2 || row.month_2_target || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-month">
+                {row.month3 || row.month_3_target || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-interventions">
+                {row.interventions || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-timeline">
+                {row.timeline || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-responsible">
+                {row.responsible || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-evaluation">
+                {row.evaluation || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-remarks">
+                {row.remarks || "—"}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -1754,39 +1784,47 @@ function ViewIEPPanel({
                       }
                     />
                     <div className="iep-table-wrap">
-                      <table className="iep-table iep-edit-goal-table">
+                      <div className="iep-scroll-hint">
+                        <span className="iep-scroll-hint-pill">
+                          ↔ Scroll horizontally for full 3-month milestones &amp; details
+                        </span>
+                      </div>
+                      <table className="iep-table iep-edit-goal-table iep-section-c-table">
                         <thead>
                           <tr>
-                            <th>Enroute Objectives / Procedure</th>
-                            <th>Month 1 Milestone (1st Month)</th>
-                            <th>Month 2 Milestone (2nd Month)</th>
-                            <th>Month 3 Milestone (3rd Month)</th>
-                            <th>Interventions / Activities / Procedure</th>
-                            <th>Timeline / Session</th>
-                            <th>Individuals Responsible</th>
-                            <th>Progress / Instructional Evaluation</th>
-                            <th>Remarks</th>
-                            <th>Action</th>
+                            <th rowSpan={2} className="iep-sticky-col iep-col-objective">Enroute Objectives / Procedure</th>
+                            <th colSpan={3} className="iep-th-grouped iep-col-quarter-group">Quarterly Milestone Progression (3 Months)</th>
+                            <th rowSpan={2} className="iep-col-interventions">Interventions / Activities / Procedure</th>
+                            <th rowSpan={2} className="iep-col-timeline">Timeline / Session</th>
+                            <th rowSpan={2} className="iep-col-responsible">Individuals Responsible</th>
+                            <th rowSpan={2} className="iep-col-evaluation">Progress / Instructional Evaluation</th>
+                            <th rowSpan={2} className="iep-col-remarks">Remarks</th>
+                            <th rowSpan={2} className="iep-action-cell iep-col-action">Action</th>
+                          </tr>
+                          <tr>
+                            <th className="iep-th-sub iep-col-month">Month 1 Milestone (1st Month)</th>
+                            <th className="iep-th-sub iep-col-month">Month 2 Milestone (2nd Month)</th>
+                            <th className="iep-th-sub iep-col-month">Month 3 Milestone (3rd Month)</th>
                           </tr>
                         </thead>
                         <tbody>
                           {(goal.rows || []).map((row, rowIndex) => (
                             <tr key={row.rowID || rowIndex}>
                               {[
-                                ["objective", "Objective"],
-                                ["month1", "1st Month Milestone"],
-                                ["month2", "2nd Month Milestone"],
-                                ["month3", "3rd Month Milestone"],
-                                ["interventions", "Intervention"],
-                                ["timeline", "Timeline"],
-                                ["responsible", "Responsible"],
-                                ["evaluation", "Evaluation"],
-                                ["remarks", "Remarks"],
-                              ].map(([field, placeholder]) => (
-                                <td key={field}>
+                                ["objective", "Objective", "iep-sticky-col iep-col-objective"],
+                                ["month1", "1st Month Milestone", "iep-col-month"],
+                                ["month2", "2nd Month Milestone", "iep-col-month"],
+                                ["month3", "3rd Month Milestone", "iep-col-month"],
+                                ["interventions", "Intervention", "iep-col-interventions"],
+                                ["timeline", "Timeline", "iep-col-timeline"],
+                                ["responsible", "Responsible", "iep-col-responsible"],
+                                ["evaluation", "Evaluation", "iep-col-evaluation"],
+                                ["remarks", "Remarks", "iep-col-remarks"],
+                              ].map(([field, placeholder, colClass]) => (
+                                <td key={field} className={colClass}>
                                   <textarea
                                     className="form-textarea iep-small-textarea"
-                                    rows={3}
+                                    rows={2}
                                     value={
                                       row[field] ||
                                       row[
@@ -3832,39 +3870,47 @@ export default function IEPGenerationPage({
                           }
                         />
                         <div className="iep-table-wrap">
-                          <table className="iep-table iep-edit-goal-table">
+                          <div className="iep-scroll-hint">
+                            <span className="iep-scroll-hint-pill">
+                              ↔ Scroll horizontally for full 3-month milestones &amp; details
+                            </span>
+                          </div>
+                          <table className="iep-table iep-edit-goal-table iep-section-c-table">
                             <thead>
                               <tr>
-                                <th>Enroute Objectives / Procedure</th>
-                                <th>Month 1 Milestone (1st Month)</th>
-                                <th>Month 2 Milestone (2nd Month)</th>
-                                <th>Month 3 Milestone (3rd Month)</th>
-                                <th>Interventions / Activities / Procedure</th>
-                                <th>Timeline / Session</th>
-                                <th>Individuals Responsible</th>
-                                <th>Progress / Instructional Evaluation</th>
-                                <th>Remarks</th>
-                                <th>Action</th>
+                                <th rowSpan={2} className="iep-sticky-col iep-col-objective">Enroute Objectives / Procedure</th>
+                                <th colSpan={3} className="iep-th-grouped iep-col-quarter-group">Quarterly Milestone Progression (3 Months)</th>
+                                <th rowSpan={2} className="iep-col-interventions">Interventions / Activities / Procedure</th>
+                                <th rowSpan={2} className="iep-col-timeline">Timeline / Session</th>
+                                <th rowSpan={2} className="iep-col-responsible">Individuals Responsible</th>
+                                <th rowSpan={2} className="iep-col-evaluation">Progress / Instructional Evaluation</th>
+                                <th rowSpan={2} className="iep-col-remarks">Remarks</th>
+                                <th rowSpan={2} className="iep-action-cell iep-col-action">Action</th>
+                              </tr>
+                              <tr>
+                                <th className="iep-th-sub iep-col-month">Month 1 Milestone (1st Month)</th>
+                                <th className="iep-th-sub iep-col-month">Month 2 Milestone (2nd Month)</th>
+                                <th className="iep-th-sub iep-col-month">Month 3 Milestone (3rd Month)</th>
                               </tr>
                             </thead>
                             <tbody>
                               {manualGoal.rows.map((row, rowIndex) => (
                                 <tr key={rowIndex}>
                                   {[
-                                    ["objective", "Objective"],
-                                    ["month1", "1st Month Milestone"],
-                                    ["month2", "2nd Month Milestone"],
-                                    ["month3", "3rd Month Milestone"],
-                                    ["interventions", "Intervention"],
-                                    ["timeline", "Timeline"],
-                                    ["responsible", "Responsible"],
-                                    ["evaluation", "Evaluation"],
-                                    ["remarks", "Remarks"],
-                                  ].map(([field, placeholder]) => (
-                                    <td key={field}>
+                                    ["objective", "Objective", "iep-sticky-col iep-col-objective"],
+                                    ["month1", "1st Month Milestone", "iep-col-month"],
+                                    ["month2", "2nd Month Milestone", "iep-col-month"],
+                                    ["month3", "3rd Month Milestone", "iep-col-month"],
+                                    ["interventions", "Intervention", "iep-col-interventions"],
+                                    ["timeline", "Timeline", "iep-col-timeline"],
+                                    ["responsible", "Responsible", "iep-col-responsible"],
+                                    ["evaluation", "Evaluation", "iep-col-evaluation"],
+                                    ["remarks", "Remarks", "iep-col-remarks"],
+                                  ].map(([field, placeholder, colClass]) => (
+                                    <td key={field} className={colClass}>
                                       <textarea
                                         className="form-textarea iep-small-textarea"
-                                        rows={3}
+                                        rows={2}
                                         value={
                                           row[field] ||
                                           row[

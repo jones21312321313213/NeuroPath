@@ -255,21 +255,28 @@ export function IepPostGenerationModal({
                         Enroute Objectives &amp; Instructional Strategies ({objectiveRows.length}):
                       </div>
                       <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                        <table className="w-full text-xs text-left text-slate-700">
+                        <table className="w-full text-xs text-left text-slate-700 min-w-[760px]">
                           <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
                             <tr>
-                              <th className="px-3 py-2 w-1/4">Objective</th>
-                              <th className="px-3 py-2 w-1/6">1st Month</th>
-                              <th className="px-3 py-2 w-1/6">2nd Month</th>
-                              <th className="px-3 py-2 w-1/6">3rd Month</th>
-                              <th className="px-3 py-2 w-1/4">Interventions</th>
-                              <th className="px-3 py-2 whitespace-nowrap">Timeline</th>
+                              <th rowSpan={2} className="px-3 py-2.5 w-1/4 sticky left-0 bg-slate-50 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]">
+                                Objective
+                              </th>
+                              <th colSpan={3} className="px-3 py-1.5 text-center bg-slate-100/90 border-b border-slate-200 text-[11px] text-slate-700 tracking-wide font-bold">
+                                Quarterly Milestones (3 Months)
+                              </th>
+                              <th rowSpan={2} className="px-3 py-2.5 w-1/4">Interventions</th>
+                              <th rowSpan={2} className="px-3 py-2.5 whitespace-nowrap">Timeline</th>
+                            </tr>
+                            <tr>
+                              <th className="px-3 py-1.5 w-1/6 text-slate-600 text-center font-semibold bg-slate-50">1st Month</th>
+                              <th className="px-3 py-1.5 w-1/6 text-slate-600 text-center font-semibold bg-slate-50">2nd Month</th>
+                              <th className="px-3 py-1.5 w-1/6 text-slate-600 text-center font-semibold bg-slate-50">3rd Month</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
                             {objectiveRows.map((row, rIdx) => (
                               <tr key={rIdx} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="px-3 py-2 align-top font-medium text-slate-900">
+                                <td className="px-3 py-2 align-top font-medium text-slate-900 sticky left-0 bg-white z-5 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.05)]">
                                   {row.enroute_objectives || row.objective || row.procedure || "—"}
                                 </td>
                                 <td className="px-3 py-2 align-top text-slate-600">
