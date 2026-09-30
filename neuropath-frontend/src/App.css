@@ -3557,18 +3557,9 @@ button.sidebar-header {
   border-radius: 10px;
   border: 1px solid #e2e8f0;
   background: #ffffff;
-  cursor: pointer;
+  cursor: default;
   text-align: left;
   transition: all 0.15s ease-in-out;
-}
-.iep-wizard-step:hover {
-  border-color: #cbd5e1;
-  background: #f8fafc;
-}
-.iep-wizard-step:focus-visible {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
 }
 .iep-wizard-step.active {
   border-color: #2563eb;

@@ -430,7 +430,7 @@ function GenerateTab({ onSave, setActivePage, onDraftStatusChange, promptNavigat
       if (onDraftStatusChange) onDraftStatusChange(true);
     } catch (err) {
       setError(
-        err.message || "AI Generation pipeline failed. Is Ollama running?",
+        err.message || "Failed to generate teaching strategy.",
       );
     } finally {
       setLoading(false);
@@ -676,14 +676,14 @@ function GenerateTab({ onSave, setActivePage, onDraftStatusChange, promptNavigat
 
       {/* Loading / AI generation */}
       {loading && (
-        <div className="ts-card">
+        <div className="ts-card" role="status" aria-live="polite">
           <div className="ts-ai-generating">
-            <div className="ts-ai-orb flex items-center justify-center">
+            <div className="ts-ai-orb flex items-center justify-center" aria-hidden="true">
               <SparklesIcon className="w-7 h-7 text-blue-600 animate-pulse" aria-hidden="true" />
             </div>
-            <p className="ts-ai-label">Invoking Llama AI Pipeline…</p>
+            <p className="ts-ai-label">Crafting Teaching Strategy…</p>
             <p className="ts-ai-sub">
-              Crafting a personalised teaching strategy based on the IEP goal
+              Structuring pedagogical approaches and instructional adaptations based on the IEP goal
             </p>
           </div>
         </div>

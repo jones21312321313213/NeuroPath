@@ -2093,11 +2093,9 @@ function ViewIEPPanel({
 
 function IepWizardStepper({
   currentStep,
-  setStep,
   selectedStudent,
   form,
   aiGeneratedGoals,
-  onNavigateSection,
 }) {
   const isSectionAComplete = Boolean(selectedStudent);
   const isSectionBComplete = Boolean(
@@ -2133,23 +2131,15 @@ function IepWizardStepper({
   ];
 
   return (
-    <nav className="iep-wizard-stepper" aria-label="IEP Section Navigation">
+    <nav className="iep-wizard-stepper" aria-label="IEP Section Progress">
       <div className="iep-wizard-stepper-grid">
         {steps.map((st, idx) => (
-          <button
+          <div
             key={st.id}
-            type="button"
             className={`iep-wizard-step ${st.isActive ? "active" : ""} ${
               st.isComplete ? "completed" : ""
             }`}
             aria-current={st.isActive ? "step" : undefined}
-            onClick={() => {
-              if (onNavigateSection) {
-                onNavigateSection(st.id, st.stepNum);
-              } else {
-                setStep(st.stepNum);
-              }
-            }}
           >
             <div className="iep-wizard-step-indicator">
               {st.isComplete ? (
@@ -2176,7 +2166,7 @@ function IepWizardStepper({
                     : "Pending"}
               </span>
             </div>
-          </button>
+          </div>
         ))}
       </div>
     </nav>
@@ -3248,19 +3238,6 @@ export default function IEPGenerationPage({
     }
   };
 
-  const handleNavigateSection = (sectionId, targetStep) => {
-    setStep(targetStep);
-    if (sectionId === "section-a") {
-      const el = document.getElementById("iep-section-a-heading");
-      if (el) el.scrollIntoView({ behavior: "smooth" });
-    } else if (sectionId === "section-b") {
-      const el = document.getElementById("iep-section-b-heading");
-      if (el) el.scrollIntoView({ behavior: "smooth" });
-    } else if (sectionId === "section-c") {
-      const el = document.getElementById("iep-section-c-heading");
-      if (el) el.scrollIntoView({ behavior: "smooth" });
-    }
-  };
 
   // ── IEP CRUD ──────────────────────────────────────────────────────────────
 
@@ -3442,11 +3419,9 @@ export default function IEPGenerationPage({
           {/* Section A-B-C Visual Wizard Stepper (ENH27) */}
           <IepWizardStepper
             currentStep={step}
-            setStep={setStep}
             selectedStudent={selectedStudent}
             form={form}
             aiGeneratedGoals={aiGeneratedGoals}
-            onNavigateSection={handleNavigateSection}
           />
 
           {/* Section A: Student search / Learner Profile */}
