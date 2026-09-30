@@ -316,7 +316,21 @@ function PagePresentLevels({ d, onNext, onBack }) {
 }
 
 // ── PAGE 3: Section B + AI + Section C ────────────────────────────────────
-function PageSectionBC({ d, studentId, studentName, onBack, setActivePage }) {
+function PageSectionBC({
+  d,
+  studentId,
+  studentName,
+  availableIeps = [],
+  selectedSectionBVersion,
+  selectedSectionCVersion,
+  onSelectSectionBVersion,
+  onSelectSectionCVersion,
+  goalsLoading = false,
+  goalsError = "",
+  onRetryGoals,
+  onBack,
+  setActivePage,
+}) {
   const navigate = useNavigate();
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState("");
@@ -328,7 +342,14 @@ function PageSectionBC({ d, studentId, studentName, onBack, setActivePage }) {
 
     try {
       const targetId = studentId || d?.studentID;
-      const blob = await trackingAPI.exportStudentRecordPDF(targetId);
+      const exportParams = {};
+      if (selectedSectionBVersion !== undefined && selectedSectionBVersion !== null) {
+        exportParams.section_b_version = selectedSectionBVersion;
+      }
+      if (selectedSectionCVersion !== undefined && selectedSectionCVersion !== null) {
+        exportParams.section_c_version = selectedSectionCVersion;
+      }
+      const blob = await trackingAPI.exportStudentRecordPDF(targetId, exportParams);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -347,11 +368,50 @@ function PageSectionBC({ d, studentId, studentName, onBack, setActivePage }) {
     }
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <div className="vsr-page">
-      <h3 className="vsr-section-title">
-        Section B: Difficulties, Barriers, and Enabling Supports
-      </h3>
+      {/* Teacher Guidance / Multi-version documentation card */}
+      <div className="vsr-version-guidance-card" role="region" aria-label="Version selection guidance">
+        <div className="vsr-version-guidance-badge">Teacher Guide</div>
+        <p className="vsr-version-guidance-text">
+          <strong>Choosing Versions for Review and Printing:</strong> If this student has multiple IEP versions, you can choose different versions for Section B (Difficulties &amp; Accommodations) and Section C (Learner Goals). The preview on this screen and the exported official PDF record will reflect your selected versions.
+        </p>
+      </div>
+
+      {/* Section B Header + Version Selector */}
+      <div className="vsr-section-header-row">
+        <h3 className="vsr-section-title">
+          Section B: Difficulties, Barriers, and Enabling Supports
+          {selectedSectionBVersion ? (
+            <span className="vsr-print-version-tag">(Version {selectedSectionBVersion})</span>
+          ) : null}
+        </h3>
+        {availableIeps.length > 0 && (
+          <div className="vsr-version-selector-wrap">
+            <label htmlFor="vsr-section-b-version-select" className="vsr-version-label">
+              Section B Version:
+            </label>
+            <select
+              id="vsr-section-b-version-select"
+              className="form-select vsr-version-select"
+              value={selectedSectionBVersion ?? ""}
+              onChange={(e) => onSelectSectionBVersion && onSelectSectionBVersion(Number(e.target.value))}
+              aria-label="Select Section B version"
+            >
+              {availableIeps.map((iep, idx) => (
+                <option key={iep.iepID || iep.version} value={iep.version}>
+                  Version {iep.version}{idx === 0 ? " (Latest)" : ""}{iep.formattedDate ? ` — ${iep.formattedDate}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
       <div className="vsr-table-scroll">
         <table className="vsr-table">
           <thead>
@@ -375,7 +435,9 @@ function PageSectionBC({ d, studentId, studentName, onBack, setActivePage }) {
             ) : (
               <tr>
                 <td colSpan={4} className="vsr-table-empty">
-                  No Section B details available.
+                  {selectedSectionBVersion
+                    ? `No Section B factors recorded for Version ${selectedSectionBVersion}.`
+                    : "No Section B details available."}
                 </td>
               </tr>
             )}
@@ -383,10 +445,57 @@ function PageSectionBC({ d, studentId, studentName, onBack, setActivePage }) {
         </table>
       </div>
 
-      <h3 className="vsr-section-title" style={{ marginTop: 24 }}>
-        Section C: Learner's Goals
-      </h3>
-      {d.learnerGoals?.length ? (
+      {/* Section C Header + Version Selector */}
+      <div className="vsr-section-header-row" style={{ marginTop: 24 }}>
+        <h3 className="vsr-section-title">
+          Section C: Learner's Goals
+          {selectedSectionCVersion ? (
+            <span className="vsr-print-version-tag">(Version {selectedSectionCVersion})</span>
+          ) : null}
+        </h3>
+        {availableIeps.length > 0 && (
+          <div className="vsr-version-selector-wrap">
+            <label htmlFor="vsr-section-c-version-select" className="vsr-version-label">
+              Section C Version:
+            </label>
+            <select
+              id="vsr-section-c-version-select"
+              className="form-select vsr-version-select"
+              value={selectedSectionCVersion ?? ""}
+              onChange={(e) => onSelectSectionCVersion && onSelectSectionCVersion(Number(e.target.value))}
+              aria-label="Select Section C version"
+            >
+              {availableIeps.map((iep, idx) => (
+                <option key={iep.iepID || iep.version} value={iep.version}>
+                  Version {iep.version}{idx === 0 ? " (Latest)" : ""}{iep.formattedDate ? ` — ${iep.formattedDate}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {goalsLoading ? (
+        <div className="vsr-goals-loading" role="status">
+          <p>Loading Version {selectedSectionCVersion} goals…</p>
+        </div>
+      ) : goalsError ? (
+        <div className="vsr-goals-error flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <WarningIcon className="w-4 h-4 text-red-600 flex-shrink-0" aria-hidden="true" />
+            <span className="text-sm text-red-800">{goalsError}</span>
+          </div>
+          {onRetryGoals && (
+            <button
+              type="button"
+              className="btn btn-secondary text-xs py-1 px-3"
+              onClick={onRetryGoals}
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      ) : d.learnerGoals?.length ? (
         d.learnerGoals.map((goal, idx) => (
           <div key={`${goal.type}-${idx}`} className="vsr-goal-card">
             <h4>{goal.type} — Annual Goal / Long Term</h4>
@@ -396,7 +505,11 @@ function PageSectionBC({ d, studentId, studentName, onBack, setActivePage }) {
         ))
       ) : (
         <div className="vsr-goals-box" style={{ textAlign: "center", padding: "28px 16px" }}>
-          <p className="vsr-goals-empty" style={{ marginBottom: 14 }}>No learner goals available for this student.</p>
+          <p className="vsr-goals-empty" style={{ marginBottom: 14 }}>
+            {selectedSectionCVersion
+              ? `No learner goals available for Version ${selectedSectionCVersion}.`
+              : "No learner goals available for this student."}
+          </p>
           <button
             className="btn btn-primary om-empty-action-btn"
             onClick={() => {
@@ -413,13 +526,24 @@ function PageSectionBC({ d, studentId, studentName, onBack, setActivePage }) {
         <button className="btn btn-back" onClick={onBack}>
           ← Previous
         </button>
-        <button
-          className="btn om-export-btn vsr-export-pdf-btn"
-          onClick={handleExport}
-          disabled={isExporting}
-        >
-          {isExporting ? "Exporting PDF..." : "EXPORT PDF"}
-        </button>
+        <div className="vsr-action-btn-group">
+          <button
+            type="button"
+            className="btn btn-secondary vsr-print-btn"
+            onClick={handlePrint}
+            title="Print record"
+          >
+            PRINT RECORD
+          </button>
+          <button
+            type="button"
+            className="btn om-export-btn vsr-export-pdf-btn"
+            onClick={handleExport}
+            disabled={isExporting}
+          >
+            {isExporting ? "Exporting PDF..." : "EXPORT PDF"}
+          </button>
+        </div>
       </div>
       {exportError && (
         <div role="alert" className="vsr-export-error flex items-center gap-2">
@@ -449,6 +573,14 @@ export default function ViewStudentRecords({ setActivePage }) {
   const [recordData, setRecordData] = useState(null); // merged display data
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [recordStep, setRecordStep] = useState(1); // 1 | 2 | 3
+
+  // Version management state
+  const [availableIeps, setAvailableIeps] = useState([]);
+  const [selectedSectionBVersion, setSelectedSectionBVersion] = useState(null);
+  const [selectedSectionCVersion, setSelectedSectionCVersion] = useState(null);
+  const [goalsByVersion, setGoalsByVersion] = useState({});
+  const [loadingGoals, setLoadingGoals] = useState(false);
+  const [goalsError, setGoalsError] = useState("");
 
   const loadStudents = useCallback(() => {
     setLoading(true);
@@ -481,10 +613,106 @@ export default function ViewStudentRecords({ setActivePage }) {
     };
   }, [user?.id]);
 
+  const loadGoalsForVersion = useCallback(async (version, targetIep) => {
+    if (!targetIep?.iepID) {
+      setRecordData((prev) => (prev ? { ...prev, learnerGoals: [] } : prev));
+      return;
+    }
+    if (goalsByVersion[version]) {
+      setRecordData((prev) => (prev ? { ...prev, learnerGoals: goalsByVersion[version] } : prev));
+      return;
+    }
+
+    setLoadingGoals(true);
+    setGoalsError("");
+    try {
+      const goalRes = await iepAPI.listGoalsByIep(targetIep.iepID);
+      const goalList = Array.isArray(goalRes) ? goalRes : goalRes.results || goalRes.data || [];
+      const normalized = goalList
+        .filter((goal) => goal.subject_category !== "GENERAL" || goal.annual_goal)
+        .map(normalizeGoal);
+      const details = normalizeGeneratedDetails(targetIep);
+      const finalGoals = normalized.length
+        ? normalized
+        : Array.isArray(details.learnerGoals)
+        ? details.learnerGoals.map(normalizeGoal)
+        : [];
+
+      setGoalsByVersion((prev) => ({ ...prev, [version]: finalGoals }));
+      setRecordData((prev) => (prev ? { ...prev, learnerGoals: finalGoals } : prev));
+    } catch {
+      setGoalsError(`Failed to load learner goals for Version ${version}.`);
+      setRecordData((prev) => (prev ? { ...prev, learnerGoals: [] } : prev));
+    } finally {
+      setLoadingGoals(false);
+    }
+  }, [goalsByVersion]);
+
+  const handleSectionBVersionChange = (newVersion) => {
+    setSelectedSectionBVersion(newVersion);
+    const targetBIep = availableIeps.find((i) => i.version === newVersion) || null;
+    const bDetails = normalizeGeneratedDetails(targetBIep);
+
+    setRecordData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        barrierRows: buildBarrierRowsFromIep(targetBIep),
+        aiAccommodations: bDetails.generatedAccommodations || targetBIep?.accommodations || "",
+        iepVersion: targetBIep?.version || "",
+        iepDate: targetBIep?.formattedDate || "",
+      };
+    });
+
+    try {
+      if (selected?.studentID) {
+        sessionStorage.setItem(
+          `vsr_versions_${selected.studentID}`,
+          JSON.stringify({
+            sectionBVersion: newVersion,
+            sectionCVersion: selectedSectionCVersion,
+          })
+        );
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleSectionCVersionChange = (newVersion) => {
+    setSelectedSectionCVersion(newVersion);
+    const targetCIep = availableIeps.find((i) => i.version === newVersion) || null;
+    loadGoalsForVersion(newVersion, targetCIep);
+
+    try {
+      if (selected?.studentID) {
+        sessionStorage.setItem(
+          `vsr_versions_${selected.studentID}`,
+          JSON.stringify({
+            sectionBVersion: selectedSectionBVersion,
+            sectionCVersion: newVersion,
+          })
+        );
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleRetryGoals = () => {
+    const targetCIep = availableIeps.find((i) => i.version === selectedSectionCVersion) || null;
+    loadGoalsForVersion(selectedSectionCVersion, targetCIep);
+  };
+
   const handleSelect = (s) => {
     setSelected(s);
     setRecordStep(1);
     setLoadingDetail(true);
+    setAvailableIeps([]);
+    setSelectedSectionBVersion(null);
+    setSelectedSectionCVersion(null);
+    setGoalsByVersion({});
+    setGoalsError("");
 
     studentsAPI
       .get(s.studentID)
@@ -492,32 +720,76 @@ export default function ViewStudentRecords({ setActivePage }) {
         const raw = res.data || res;
         const pd = raw.profileDetails || {};
 
-        let latestIep;
-        let learnerGoals = [];
+        let sortedIeps;
+        let defaultBVer = null;
+        let defaultCVer = null;
+        let initialGoals = [];
+        const goalsMap = {};
+
         try {
           const iepRes = await iepAPI.listByStudent(s.studentID, user?.id);
           const iepList = Array.isArray(iepRes) ? iepRes : iepRes.results || iepRes.data || [];
-          latestIep = iepList[0] || null;
-          if (latestIep?.iepID) {
-            const goalRes = await iepAPI.listGoalsByIep(latestIep.iepID);
-            const goalList = Array.isArray(goalRes) ? goalRes : goalRes.results || goalRes.data || [];
-            learnerGoals = goalList
-              .filter((goal) => goal.subject_category !== "GENERAL" || goal.annual_goal)
-              .map(normalizeGoal);
+          sortedIeps = [...iepList].sort((a, b) => (b.version || 0) - (a.version || 0));
 
-            const details = normalizeGeneratedDetails(latestIep);
-            if (!learnerGoals.length && Array.isArray(details.learnerGoals)) {
-              learnerGoals = details.learnerGoals.map(normalizeGoal);
+          // Check session storage for preserved versions
+          let sessionBVer = null;
+          let sessionCVer = null;
+          try {
+            const rawSession = sessionStorage.getItem(`vsr_versions_${s.studentID}`);
+            if (rawSession) {
+              const parsed = JSON.parse(rawSession);
+              if (sortedIeps.some((i) => i.version === parsed.sectionBVersion)) {
+                sessionBVer = parsed.sectionBVersion;
+              }
+              if (sortedIeps.some((i) => i.version === parsed.sectionCVersion)) {
+                sessionCVer = parsed.sectionCVersion;
+              }
+            }
+          } catch {
+            // ignore
+          }
+
+          defaultBVer = sessionBVer ?? (sortedIeps[0]?.version || null);
+          defaultCVer = sessionCVer ?? (sortedIeps[0]?.version || null);
+
+          const targetCIep = sortedIeps.find((i) => i.version === defaultCVer) || sortedIeps[0];
+          if (targetCIep?.iepID) {
+            try {
+              const goalRes = await iepAPI.listGoalsByIep(targetCIep.iepID);
+              const goalList = Array.isArray(goalRes) ? goalRes : goalRes.results || goalRes.data || [];
+              const normalized = goalList
+                .filter((goal) => goal.subject_category !== "GENERAL" || goal.annual_goal)
+                .map(normalizeGoal);
+              const details = normalizeGeneratedDetails(targetCIep);
+              initialGoals = normalized.length
+                ? normalized
+                : Array.isArray(details.learnerGoals)
+                ? details.learnerGoals.map(normalizeGoal)
+                : [];
+              if (targetCIep.version !== undefined) {
+                goalsMap[targetCIep.version] = initialGoals;
+              }
+            } catch {
+              initialGoals = [];
             }
           }
         } catch {
-          latestIep = null;
-          learnerGoals = [];
+          sortedIeps = [];
+          defaultBVer = null;
+          defaultCVer = null;
         }
 
-        const latestDetails = normalizeGeneratedDetails(latestIep);
+        setAvailableIeps(sortedIeps);
+        setSelectedSectionBVersion(defaultBVer);
+        setSelectedSectionCVersion(defaultCVer);
+        setGoalsByVersion(goalsMap);
+
+        const targetBIep = sortedIeps.find((i) => i.version === defaultBVer) || sortedIeps[0] || null;
+        const bDetails = normalizeGeneratedDetails(targetBIep);
+
         setRecordData({
           ...PLACEHOLDER,
+          studentID: s.studentID,
           name: raw.name || pd.studentName || s.name || PLACEHOLDER.name,
           age: String(raw.age || s.age || PLACEHOLDER.age),
           grade: String(raw.grade || s.grade || PLACEHOLDER.grade),
@@ -536,16 +808,17 @@ export default function ViewStudentRecords({ setActivePage }) {
           academicNeeds: pd.academicNeeds || raw.support_needs || PLACEHOLDER.academicNeeds,
           parentalConcerns: pd.parentalConcerns || PLACEHOLDER.parentalConcerns,
           curriculumImpact: pd.curriculumImpact || PLACEHOLDER.curriculumImpact,
-          aiAccommodations: latestDetails.generatedAccommodations || latestIep?.accommodations || "",
-          barrierRows: buildBarrierRowsFromIep(latestIep),
-          learnerGoals,
-          iepVersion: latestIep?.version || "",
-          iepDate: latestIep?.formattedDate || "",
+          aiAccommodations: bDetails.generatedAccommodations || targetBIep?.accommodations || "",
+          barrierRows: buildBarrierRowsFromIep(targetBIep),
+          learnerGoals: initialGoals,
+          iepVersion: targetBIep?.version || "",
+          iepDate: targetBIep?.formattedDate || "",
         });
       })
       .catch(() => {
         setRecordData({
           ...PLACEHOLDER,
+          studentID: s.studentID,
           name: s.name,
           grade: String(s.grade),
           age: String(s.age),
@@ -558,6 +831,11 @@ export default function ViewStudentRecords({ setActivePage }) {
     setSelected(null);
     setRecordData(null);
     setRecordStep(1);
+    setAvailableIeps([]);
+    setSelectedSectionBVersion(null);
+    setSelectedSectionCVersion(null);
+    setGoalsByVersion({});
+    setGoalsError("");
   };
 
   const filtered = useMemo(() => {
@@ -611,6 +889,14 @@ export default function ViewStudentRecords({ setActivePage }) {
                     d={recordData}
                     studentId={selected?.studentID}
                     studentName={recordData?.name || selected?.name}
+                    availableIeps={availableIeps}
+                    selectedSectionBVersion={selectedSectionBVersion}
+                    selectedSectionCVersion={selectedSectionCVersion}
+                    onSelectSectionBVersion={handleSectionBVersionChange}
+                    onSelectSectionCVersion={handleSectionCVersionChange}
+                    goalsLoading={loadingGoals}
+                    goalsError={goalsError}
+                    onRetryGoals={handleRetryGoals}
                     onBack={() => setRecordStep(2)}
                     setActivePage={setActivePage}
                   />

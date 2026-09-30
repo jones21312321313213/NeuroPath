@@ -228,9 +228,12 @@ describe("ViewStudentRecords Component", () => {
     const exportBtn = await screen.findByRole("button", { name: /export pdf/i });
     await user.click(exportBtn);
 
-    // Verify trackingAPI was called with studentID 101
+    // Verify trackingAPI was called with studentID 101 and selected versions
     await waitFor(() => {
-      expect(trackingAPI.exportStudentRecordPDF).toHaveBeenCalledWith(101);
+      expect(trackingAPI.exportStudentRecordPDF).toHaveBeenCalledWith(
+        101,
+        expect.objectContaining({ section_b_version: 1, section_c_version: 1 }),
+      );
     });
 
     // Verify object URL was created from the returned blob
@@ -375,5 +378,326 @@ describe("ViewStudentRecords Component", () => {
     expect(await screen.findByText("Student 7")).toBeInTheDocument();
     expect(screen.getByText("Student 8")).toBeInTheDocument();
     expect(screen.queryByText("Student 1")).not.toBeInTheDocument();
+  });
+
+  it("allows user to independently choose Section B and Section C versions and reflects selections in showcase and export", async () => {
+    const user = userEvent.setup();
+
+    const mockMultiIeps = [
+      {
+        iepID: 56,
+        version: 2,
+        formattedDate: "Sep 20, 2026",
+        difficulties: "Difficulty in Mathematics v2",
+        learning_barriers: "Multi-digit math operations v2",
+        learning_facilitators: "Number blocks v2",
+        learning_accommodations: "Calculator usage v2",
+        generatedDetails: {
+          barrierRows: [
+            {
+              difficulty: "Difficulty in Mathematics v2",
+              barrierQualifier: "Multi-digit math operations v2",
+              facilitator: "Number blocks v2",
+              accommodation: "Calculator usage v2",
+            },
+          ],
+        },
+      },
+      {
+        iepID: 55,
+        version: 1,
+        formattedDate: "Sep 10, 2026",
+        difficulties: "Difficulty in Reading v1",
+        learning_barriers: "Phonics decoding barriers v1",
+        learning_facilitators: "Flashcards v1",
+        learning_accommodations: "Extra time 20 mins v1",
+        generatedDetails: {
+          barrierRows: [
+            {
+              difficulty: "Difficulty in Reading v1",
+              barrierQualifier: "Phonics decoding barriers v1",
+              facilitator: "Flashcards v1",
+              accommodation: "Extra time 20 mins v1",
+            },
+          ],
+        },
+      },
+    ];
+
+    const goalsV2 = [
+      {
+        goalID: 801,
+        subject_category: "Mathematics v2",
+        annual_goal: "Master single-step addition equations",
+        objective_rows: [
+          {
+            rowID: 1,
+            enroute_objectives: "Add numbers up to 20",
+            month_1_target: "Add to 10 with blocks",
+            month_2_target: "Add to 15 with finger math",
+            month_3_target: "Add to 20 mentally",
+          },
+        ],
+      },
+    ];
+
+    const goalsV1 = [
+      {
+        goalID: 701,
+        subject_category: "Reading v1",
+        annual_goal: "Master phonetic word decoding",
+        objective_rows: [
+          {
+            rowID: 2,
+            enroute_objectives: "Read single-syllable sight words",
+            month_1_target: "Read 10 words",
+            month_2_target: "Read 20 words",
+            month_3_target: "Read 30 words",
+          },
+        ],
+      },
+    ];
+
+    iepAPI.listByStudent.mockResolvedValueOnce(mockMultiIeps);
+    iepAPI.listGoalsByIep.mockImplementation(async (iepId) => {
+      if (iepId === 56) return goalsV2;
+      if (iepId === 55) return goalsV1;
+      return [];
+    });
+
+    render(
+      <MemoryRouter>
+        <ViewStudentRecords />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("Alice Johnson");
+    const selectButtons = screen.getAllByRole("button", { name: /select/i });
+    await user.click(selectButtons[0]);
+
+    // Navigate Step 1 -> Step 2 -> Step 3
+    const nextBtn1 = await screen.findByRole("button", { name: /next →/i });
+    await user.click(nextBtn1);
+    const nextBtn2 = await screen.findByRole("button", { name: /next →/i });
+    await user.click(nextBtn2);
+
+    // Verify Teacher Guide is present
+    expect(
+      screen.getByText(/choosing versions for review and printing/i),
+    ).toBeInTheDocument();
+
+    // Verify Section B and Section C default to latest version (Version 2)
+    const selectB = screen.getByLabelText(/select section b version/i);
+    const selectC = screen.getByLabelText(/select section c version/i);
+    expect(selectB.value).toBe("2");
+    expect(selectC.value).toBe("2");
+
+    // On-screen showcase reflects Version 2
+    expect(screen.getByText("Difficulty in Mathematics v2")).toBeInTheDocument();
+    expect(screen.getByText("Mathematics v2 — Annual Goal / Long Term")).toBeInTheDocument();
+    expect(screen.getByText("Add numbers up to 20")).toBeInTheDocument();
+
+    // Switch Section B to Version 1
+    await user.selectOptions(selectB, "1");
+    expect(selectB.value).toBe("1");
+    expect(screen.getByText("Difficulty in Reading v1")).toBeInTheDocument();
+    expect(screen.queryByText("Difficulty in Mathematics v2")).not.toBeInTheDocument();
+
+    // Section C should still be Version 2
+    expect(screen.getByText("Mathematics v2 — Annual Goal / Long Term")).toBeInTheDocument();
+
+    // Switch Section C to Version 1
+    await user.selectOptions(selectC, "1");
+    expect(selectC.value).toBe("1");
+    expect(await screen.findByText("Reading v1 — Annual Goal / Long Term")).toBeInTheDocument();
+    expect(screen.getByText("Read single-syllable sight words")).toBeInTheDocument();
+    expect(screen.queryByText("Mathematics v2 — Annual Goal / Long Term")).not.toBeInTheDocument();
+
+    // Export PDF should now pass selected versions (section_b_version: 1, section_c_version: 1)
+    const mockBlob = new Blob(["%PDF-multi"], { type: "application/pdf" });
+    trackingAPI.exportStudentRecordPDF.mockResolvedValueOnce(mockBlob);
+
+    const exportBtn = screen.getByRole("button", { name: /export pdf/i });
+    await user.click(exportBtn);
+
+    await waitFor(() => {
+      expect(trackingAPI.exportStudentRecordPDF).toHaveBeenCalledWith(101, {
+        section_b_version: 1,
+        section_c_version: 1,
+      });
+    });
+  });
+
+  it("invokes window.print when clicking PRINT RECORD", async () => {
+    const user = userEvent.setup();
+    const printSpy = vi.fn();
+    window.print = printSpy;
+
+    render(
+      <MemoryRouter>
+        <ViewStudentRecords />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("Alice Johnson");
+    const selectButtons = screen.getAllByRole("button", { name: /select/i });
+    await user.click(selectButtons[0]);
+
+    // Navigate Step 1 -> Step 2 -> Step 3
+    const nextBtn1 = await screen.findByRole("button", { name: /next →/i });
+    await user.click(nextBtn1);
+    const nextBtn2 = await screen.findByRole("button", { name: /next →/i });
+    await user.click(nextBtn2);
+
+    const printBtn = await screen.findByRole("button", { name: /print record/i });
+    await user.click(printBtn);
+
+    expect(printSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves and restores chosen versions across session using sessionStorage", async () => {
+    const user = userEvent.setup();
+
+    const mockMultiIeps = [
+      {
+        iepID: 56,
+        version: 2,
+        formattedDate: "Sep 20, 2026",
+        difficulties: "Math v2",
+        learning_barriers: "Barriers v2",
+      },
+      {
+        iepID: 55,
+        version: 1,
+        formattedDate: "Sep 10, 2026",
+        difficulties: "Reading v1",
+        learning_barriers: "Barriers v1",
+      },
+    ];
+
+    iepAPI.listByStudent.mockResolvedValue(mockMultiIeps);
+    iepAPI.listGoalsByIep.mockResolvedValue([]);
+
+    // Pre-seed session storage with previous selection: Section B = 1, Section C = 2
+    sessionStorage.setItem(
+      "vsr_versions_101",
+      JSON.stringify({ sectionBVersion: 1, sectionCVersion: 2 }),
+    );
+
+    render(
+      <MemoryRouter>
+        <ViewStudentRecords />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("Alice Johnson");
+    const selectButtons = screen.getAllByRole("button", { name: /select/i });
+    await user.click(selectButtons[0]);
+
+    // Navigate to Step 3
+    const nextBtn1 = await screen.findByRole("button", { name: /next →/i });
+    await user.click(nextBtn1);
+    const nextBtn2 = await screen.findByRole("button", { name: /next →/i });
+    await user.click(nextBtn2);
+
+    const selectB = screen.getByLabelText(/select section b version/i);
+    const selectC = screen.getByLabelText(/select section c version/i);
+
+    // Verified: Restored from sessionStorage!
+    expect(selectB.value).toBe("1");
+    expect(selectC.value).toBe("2");
+    expect(screen.getByText("Reading v1")).toBeInTheDocument();
+
+    sessionStorage.clear();
+  });
+
+  it("handles loading and error retry state when fetching goals for Section C version", async () => {
+    const user = userEvent.setup();
+
+    const mockMultiIeps = [
+      {
+        iepID: 56,
+        version: 2,
+        formattedDate: "Sep 20, 2026",
+        difficulties: "Math v2",
+      },
+      {
+        iepID: 55,
+        version: 1,
+        formattedDate: "Sep 10, 2026",
+        difficulties: "Reading v1",
+      },
+    ];
+
+    iepAPI.listByStudent.mockResolvedValueOnce(mockMultiIeps);
+    // Version 2 resolves empty, Version 1 rejects first then resolves
+    iepAPI.listGoalsByIep
+      .mockResolvedValueOnce([]) // Initial load for v2
+      .mockRejectedValueOnce(new Error("Server error")) // Switching to v1 fails
+      .mockResolvedValueOnce([ // Retry succeeds
+        {
+          goalID: 701,
+          subject_category: "Reading v1",
+          annual_goal: "Read smoothly",
+          objective_rows: [],
+        },
+      ]);
+
+    render(
+      <MemoryRouter>
+        <ViewStudentRecords />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("Alice Johnson");
+    const selectButtons = screen.getAllByRole("button", { name: /select/i });
+    await user.click(selectButtons[0]);
+
+    // Go to Step 3
+    const nextBtn1 = await screen.findByRole("button", { name: /next →/i });
+    await user.click(nextBtn1);
+    const nextBtn2 = await screen.findByRole("button", { name: /next →/i });
+    await user.click(nextBtn2);
+
+    const selectC = screen.getByLabelText(/select section c version/i);
+    await user.selectOptions(selectC, "1");
+
+    // Error state appears
+    expect(
+      await screen.findByText(/failed to load learner goals for version 1/i),
+    ).toBeInTheDocument();
+    const retryBtn = screen.getByRole("button", { name: /retry/i });
+    expect(retryBtn).toBeInTheDocument();
+
+    // Click retry
+    await user.click(retryBtn);
+
+    // Goal successfully loaded
+    expect(await screen.findByText("Reading v1 — Annual Goal / Long Term")).toBeInTheDocument();
+  });
+
+  it("displays clear empty states when student has no recorded IEPs", async () => {
+    const user = userEvent.setup();
+    iepAPI.listByStudent.mockResolvedValueOnce([]);
+
+    render(
+      <MemoryRouter>
+        <ViewStudentRecords />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("Alice Johnson");
+    const selectButtons = screen.getAllByRole("button", { name: /select/i });
+    await user.click(selectButtons[0]);
+
+    // Navigate Step 1 -> Step 2 -> Step 3
+    const nextBtn1 = await screen.findByRole("button", { name: /next →/i });
+    await user.click(nextBtn1);
+    const nextBtn2 = await screen.findByRole("button", { name: /next →/i });
+    await user.click(nextBtn2);
+
+    expect(screen.getByText("No Section B details available.")).toBeInTheDocument();
+    expect(screen.getByText("No learner goals available for this student.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /generate iep goals/i })).toBeInTheDocument();
   });
 });

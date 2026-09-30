@@ -402,14 +402,29 @@ export const trackingAPI = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  exportStudentRecordPDF: async (studentId) => {
+  exportStudentRecordPDF: async (studentId, params = {}) => {
     const token = localStorage.getItem("neuropath_access_token");
     const headers = {
       ...(token ? { Authorization: `Token ${token}` } : {}),
     };
 
+    const searchParams = new URLSearchParams();
+    if (params?.section_b_version !== undefined && params?.section_b_version !== null && params?.section_b_version !== "") {
+      searchParams.append("section_b_version", params.section_b_version);
+    }
+    if (params?.section_c_version !== undefined && params?.section_c_version !== null && params?.section_c_version !== "") {
+      searchParams.append("section_c_version", params.section_c_version);
+    }
+    if (params?.section_b_id !== undefined && params?.section_b_id !== null && params?.section_b_id !== "") {
+      searchParams.append("section_b_id", params.section_b_id);
+    }
+    if (params?.section_c_id !== undefined && params?.section_c_id !== null && params?.section_c_id !== "") {
+      searchParams.append("section_c_id", params.section_c_id);
+    }
+    const qs = searchParams.toString();
+
     const response = await fetch(
-      `${BASE_URL}/tracking/student-records/${studentId}/export/`,
+      `${BASE_URL}/tracking/student-records/${studentId}/export/${qs ? `?${qs}` : ""}`,
       { headers },
     );
 
