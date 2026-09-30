@@ -32,6 +32,7 @@ vi.mock("../api/client", () => ({
     listForDelete: vi.fn(),
     delete: vi.fn(),
     exportUrl: vi.fn((id) => `/export/${id}`),
+    exportPDF: vi.fn().mockResolvedValue(new Blob(["%PDF-1.4 strategy"], { type: "application/pdf" })),
   },
 }));
 
@@ -80,6 +81,8 @@ describe("ManageTeachingStrategies - Issue #158 Decoupled Save", () => {
     iepAPI.listByStudent.mockResolvedValue(mockRiveraIeps);
     iepAPI.listGoalsByIep.mockResolvedValue(mockRiveraGoals);
     iepAPI.listLatestGoalsByStudent.mockResolvedValue(mockRiveraGoals);
+    window.URL.createObjectURL = vi.fn(() => "blob:mock-url");
+    window.URL.revokeObjectURL = vi.fn();
   });
 
   it("generates strategy draft without automatically saving to the database", async () => {
@@ -668,7 +671,13 @@ describe("ManageTeachingStrategies - Unified Manage Interface (Issue #161)", () 
       expect(screen.getByText("Use graphic organizers and chunked passages.")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Edit Strategy/i })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Delete Strategy/i })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: /Export PDF/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Export PDF/i })).toBeInTheDocument();
+    });
+
+    const exportBtn = screen.getByRole("button", { name: /Export PDF/i });
+    fireEvent.click(exportBtn);
+    await waitFor(() => {
+      expect(teachingStrategiesAPI.exportPDF).toHaveBeenCalledWith(11);
     });
 
     // Click Back to List

@@ -7,23 +7,6 @@ from django.db.models import Q
 from .models import StudentProfile, Teacher
 
 
-def get_default_teacher():
-    """Return a safe default teacher for local MVP/demo usage.
-
-    The current frontend does not send a teacher id when creating a student
-    profile, but the ERD requires every StudentProfile to have a Teacher.
-    This keeps the backend connected without forcing the UI to expose that field.
-    """
-    teacher, _ = Teacher.objects.get_or_create(
-        email='default.teacher@neuropath.local',
-        defaults={
-            'name': 'Default Teacher',
-            'passwordHash': 'not-used-for-demo',
-        },
-    )
-    return teacher
-
-
 class StudentProfileSerializer(serializers.ModelSerializer):
     # The owning teacher is always derived server-side from the authenticated
     # request user (see create() below) — never accepted from the client, so
@@ -101,11 +84,14 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         from .utils import get_teacher_for_user
 
         request = self.context.get('request')
-        teacher = get_teacher_for_user(request.user) if request else None
+        teacher = get_teacher_for_user(request.user) if request and hasattr(request, 'user') else None
 
-        # Last resort: fall back to the demo teacher so the record still saves.
-        validated_data['teacher'] = teacher or get_default_teacher()
+        if not teacher:
+            raise serializers.ValidationError({
+                'teacher': 'Authenticated teacher account could not be resolved.'
+            })
 
+        validated_data['teacher'] = teacher
         return super().create(validated_data)
 
 

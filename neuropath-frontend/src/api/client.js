@@ -224,6 +224,35 @@ export const visualAidsAPI = {
       body: JSON.stringify(payload),
     }),
   exportUrl: (id) => `${BASE_URL}/resources/export-visual-aid/${id}/`,
+  exportPDF: async (id) => {
+    const token = localStorage.getItem("neuropath_access_token");
+    const headers = {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+    };
+
+    const response = await fetch(
+      `${BASE_URL}/resources/export-visual-aid/${id}/`,
+      { headers },
+    );
+
+    if (!response.ok) {
+      if (response.status === 401 && token) {
+        forceReauth();
+      }
+      let message = "Failed to export visual aid PDF.";
+      try {
+        const data = await response.json();
+        message = data.errors || data.detail || data.error || message;
+      } catch {
+        // Fallback to default message
+      }
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.blob();
+  },
 };
 
 // ── Teaching Strategies ────────────────────────────────────────────────────────
@@ -250,6 +279,35 @@ export const teachingStrategiesAPI = {
     request(`/resources/query-strategies/?studentID=${studentID}`),
   get: (id) => request(`/resources/query-strategies/${id}/`),
   exportUrl: (id) => `${BASE_URL}/resources/query-strategies/${id}/export/`,
+  exportPDF: async (id) => {
+    const token = localStorage.getItem("neuropath_access_token");
+    const headers = {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+    };
+
+    const response = await fetch(
+      `${BASE_URL}/resources/query-strategies/${id}/export/`,
+      { headers },
+    );
+
+    if (!response.ok) {
+      if (response.status === 401 && token) {
+        forceReauth();
+      }
+      let message = "Failed to export teaching strategy PDF.";
+      try {
+        const data = await response.json();
+        message = data.errors || data.detail || data.error || message;
+      } catch {
+        // Fallback to default message
+      }
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.blob();
+  },
   update: (id, payload) =>
     request(`/resources/edit-strategy/${id}/`, {
       method: "PUT",

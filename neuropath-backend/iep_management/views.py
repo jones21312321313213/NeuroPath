@@ -23,10 +23,13 @@ from .privacy_utils import (
 import time
 import json
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 class IEPGeneratorService:
     @staticmethod
-    def generate_draft(student, baseline_input, target_domains, teacher_id):
+    def generate_draft(student, baseline_input='', target_domains='', teacher_id=None, teacher=None):
         recent_assessments = Assessment.objects.filter(student=student).order_by('-dateTaken')[:3]
         assessment_context = ''
         if recent_assessments.exists():
@@ -60,18 +63,28 @@ class IEPGeneratorService:
             'positive reinforcement, and assistive tools aligned with the learner profile and selected goal areas.'
         )
 
-        if teacher_id:
+        resolved_teacher = teacher
+        if not resolved_teacher and teacher_id:
+            from users.models import Teacher
+            if isinstance(teacher_id, Teacher):
+                resolved_teacher = teacher_id
+            elif isinstance(teacher_id, int):
+                resolved_teacher = Teacher.objects.filter(pk=teacher_id).first()
+                if not resolved_teacher:
+                    resolved_teacher = Teacher.objects.filter(user_id=teacher_id).first()
+
+        if resolved_teacher:
             try:
                 AIGenerationLog.objects.create(
-                    teacherID_id=teacher_id,
+                    teacher=resolved_teacher,
                     prompt_text=formatted_prompt,
                     ai_response=json.dumps({
                         'draft_goals': draft_goals,
                         'draft_accommodations': draft_accommodations,
                     }),
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error("Failed to persist AIGenerationLog: %s", e)
 
         return {
             'draft_goals': draft_goals,
@@ -103,7 +116,8 @@ class IEPGenerationAPIView(APIView):
                 student=student,
                 baseline_input=baseline_data,
                 target_domains=target_domains,
-                teacher_id=request.user.id,
+                teacher=teacher,
+                teacher_id=teacher.pk if teacher else None,
             )
 
             return Response({
