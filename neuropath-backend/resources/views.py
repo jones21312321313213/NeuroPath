@@ -1862,7 +1862,7 @@ class TeachingStrategyQueryController(viewsets.ViewSet):
 
     def getSavedStrategies(self, request):
         """Matches Class Diagram: getSavedStrategies(studentID)"""
-        student_id = request.query_params.get('studentID')
+        student_id = request.query_params.get('studentID') or request.query_params.get('student_id')
         teacher = get_teacher_for_user(request.user)
 
         if not teacher:

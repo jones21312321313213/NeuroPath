@@ -101,8 +101,9 @@ export const authAPI = {
 
 // ── Students ───────────────────────────────────────────────────────────────────
 export const studentsAPI = {
-  list: (teacherId) =>
-    request(`/users/students/${teacherId ? `?teacher_id=${teacherId}` : ""}`),
+  // Teacher is resolved from the Authorization token header on the backend;
+  // client query parameters like teacher_id are ignored.
+  list: () => request("/users/students/"),
   get: (id) => request(`/users/students/${id}/view/`),
   create: (payload) =>
     request("/users/students/", {
@@ -170,10 +171,26 @@ export const studentsAPI = {
 
 // ── Lesson Plans ───────────────────────────────────────────────────────────────
 export const lessonPlansAPI = {
-  getDirectory: (teacherId, studentId, iepId) => {
+  getDirectory: (arg1, arg2, arg3) => {
+    // Teacher is authenticated from the Authorization token header.
+    // Ignored teacher_id query parameters are omitted.
     const params = new URLSearchParams();
-    if (teacherId) params.append("teacher_id", teacherId);
-    if (studentId) params.append("student_id", studentId);
+    let studentId;
+    let iepId;
+    if (typeof arg1 === "object" && arg1 !== null) {
+      studentId = arg1.studentID ?? arg1.studentId;
+      iepId = arg1.iepId ?? arg1.iep_id;
+    } else if (arg2 !== undefined || arg3 !== undefined) {
+      studentId = arg2;
+      iepId = arg3;
+    } else if (arg1 && typeof arg1 !== "object") {
+      // If called with single ID, could be studentId
+      studentId = arg1;
+    }
+    if (studentId) {
+      params.append("studentID", studentId);
+      params.append("student_id", studentId);
+    }
     if (iepId) params.append("iep_id", iepId);
     const qs = params.toString();
     return request(`/resources/generate-lesson/${qs ? `?${qs}` : ""}`);
@@ -212,11 +229,15 @@ export const lessonPlansAPI = {
 // ── Visual Aids ────────────────────────────────────────────────────────────────
 export const visualAidsAPI = {
   list: (params = {}) => {
-    const qs = new URLSearchParams(params).toString();
+    const normalized = { ...params };
+    if (normalized.student_id && !normalized.studentID) {
+      normalized.studentID = normalized.student_id;
+    }
+    const qs = new URLSearchParams(normalized).toString();
     return request(`/resources/visual-aids/${qs ? "?" + qs : ""}`);
   },
-  listByStudent: (studentId) =>
-    request(`/resources/visual-aids/?student_id=${studentId}`),
+  listByStudent: (studentID) =>
+    request(`/resources/visual-aids/?studentID=${studentID}&student_id=${studentID}`),
   get: (id) => request(`/resources/visual-aids/${id}/`),
   generate: (payload) =>
     request("/resources/generate-visual-aid/", {
@@ -236,14 +257,58 @@ export const visualAidsAPI = {
       body: JSON.stringify(payload),
     }),
   exportUrl: (id) => `${BASE_URL}/resources/export-visual-aid/${id}/`,
+  exportPDF: async (id) => {
+    const token = localStorage.getItem("neuropath_access_token");
+    const headers = {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+    };
+
+    const response = await fetch(
+      `${BASE_URL}/resources/export-visual-aid/${id}/`,
+      { headers },
+    );
+
+    if (!response.ok) {
+      if (response.status === 401 && token) {
+        forceReauth();
+      }
+      let message = "Failed to export visual aid PDF.";
+      try {
+        const data = await response.json();
+        message = data.errors || data.detail || data.error || message;
+      } catch {
+        // Fallback to default message
+      }
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.blob();
+  },
 };
 
 // ── Teaching Strategies ────────────────────────────────────────────────────────
 export const teachingStrategiesAPI = {
-  getDirectory: (teacherId, studentId, iepId) => {
+  getDirectory: (arg1, arg2, arg3) => {
+    // Teacher is authenticated from the Authorization token header.
+    // Ignored teacher_id query parameters are omitted.
     const params = new URLSearchParams();
-    if (teacherId) params.append("teacher_id", teacherId);
-    if (studentId) params.append("student_id", studentId);
+    let studentId;
+    let iepId;
+    if (typeof arg1 === "object" && arg1 !== null) {
+      studentId = arg1.studentID ?? arg1.studentId;
+      iepId = arg1.iepId ?? arg1.iep_id;
+    } else if (arg2 !== undefined || arg3 !== undefined) {
+      studentId = arg2;
+      iepId = arg3;
+    } else if (arg1 && typeof arg1 !== "object") {
+      studentId = arg1;
+    }
+    if (studentId) {
+      params.append("studentID", studentId);
+      params.append("student_id", studentId);
+    }
     if (iepId) params.append("iep_id", iepId);
     const qs = params.toString();
     return request(`/resources/generate-strategy/${qs ? `?${qs}` : ""}`);
@@ -262,6 +327,35 @@ export const teachingStrategiesAPI = {
     request(`/resources/query-strategies/?studentID=${studentID}`),
   get: (id) => request(`/resources/query-strategies/${id}/`),
   exportUrl: (id) => `${BASE_URL}/resources/query-strategies/${id}/export/`,
+  exportPDF: async (id) => {
+    const token = localStorage.getItem("neuropath_access_token");
+    const headers = {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+    };
+
+    const response = await fetch(
+      `${BASE_URL}/resources/query-strategies/${id}/export/`,
+      { headers },
+    );
+
+    if (!response.ok) {
+      if (response.status === 401 && token) {
+        forceReauth();
+      }
+      let message = "Failed to export teaching strategy PDF.";
+      try {
+        const data = await response.json();
+        message = data.errors || data.detail || data.error || message;
+      } catch {
+        // Fallback to default message
+      }
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.blob();
+  },
   update: (id, payload) =>
     request(`/resources/edit-strategy/${id}/`, {
       method: "PUT",
@@ -275,6 +369,7 @@ export const teachingStrategiesAPI = {
 
 // ── IEP Generation / Viewing ─────────────────────────────────────────────────
 export const iepAPI = {
+  // Legacy draft generation path: superseded by iepAPI.generateGoalsFromIep.
   generate: (payload) =>
     request("/iep/generate-iep/", {
       method: "POST",
@@ -285,10 +380,8 @@ export const iepAPI = {
       method: "POST",
       body: JSON.stringify({ action: "save", ...payload }),
     }),
-  listByStudent: (studentID, teacherId) =>
-    request(
-      `/iep/student/${studentID}/${teacherId ? `?teacher_id=${teacherId}` : ""}`,
-    ),
+  listByStudent: (studentID) =>
+    request(`/iep/student/${studentID}/`),
   get: (id) => request(`/iep/${id}/`),
   update: (id, payload) =>
     request(`/iep/edit/${id}/`, {
@@ -398,7 +491,10 @@ export const usersAPI = {
 
 // ── Tracking & Outcome Monitoring ──────────────────────────────────────────────
 export const trackingAPI = {
-  getRecentActivity: () => request("/tracking/recent-activity/"),
+  getRecentActivity: (params) => {
+    const query = params ? `?${new URLSearchParams(params).toString()}` : "";
+    return request(`/tracking/recent-activity/${query}`);
+  },
   getProgressDashboard: (studentId) =>
     request(`/tracking/progress-dashboard/?studentID=${studentId}`),
   getAnalytics: (studentId, subject) => {
@@ -411,14 +507,29 @@ export const trackingAPI = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  exportStudentRecordPDF: async (studentId) => {
+  exportStudentRecordPDF: async (studentId, params = {}) => {
     const token = localStorage.getItem("neuropath_access_token");
     const headers = {
       ...(token ? { Authorization: `Token ${token}` } : {}),
     };
 
+    const searchParams = new URLSearchParams();
+    if (params?.section_b_version !== undefined && params?.section_b_version !== null && params?.section_b_version !== "") {
+      searchParams.append("section_b_version", params.section_b_version);
+    }
+    if (params?.section_c_version !== undefined && params?.section_c_version !== null && params?.section_c_version !== "") {
+      searchParams.append("section_c_version", params.section_c_version);
+    }
+    if (params?.section_b_id !== undefined && params?.section_b_id !== null && params?.section_b_id !== "") {
+      searchParams.append("section_b_id", params.section_b_id);
+    }
+    if (params?.section_c_id !== undefined && params?.section_c_id !== null && params?.section_c_id !== "") {
+      searchParams.append("section_c_id", params.section_c_id);
+    }
+    const qs = searchParams.toString();
+
     const response = await fetch(
-      `${BASE_URL}/tracking/student-records/${studentId}/export/`,
+      `${BASE_URL}/tracking/student-records/${studentId}/export/${qs ? `?${qs}` : ""}`,
       { headers },
     );
 

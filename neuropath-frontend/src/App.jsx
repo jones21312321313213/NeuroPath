@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
@@ -91,13 +91,12 @@ function DashboardLayout() {
     });
   };
 
-  const [prevPathname, setPrevPathname] = useState(location.pathname);
-  if (location.pathname !== prevPathname) {
-    setPrevPathname(location.pathname);
+  useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth <= 768) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsSidebarCollapsed(true);
     }
-  }
+  }, [location.pathname]);
 
   const breadcrumb = useMemo(() => getBreadcrumb(location.pathname), [location.pathname]);
   const showTutorial = user && user.has_completed_tutorial === false;

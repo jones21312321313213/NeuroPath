@@ -1496,10 +1496,10 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         );
 
         await waitFor(() => {
-          expect(screen.getByRole("navigation", { name: /IEP Section Navigation/i })).toBeInTheDocument();
+          expect(screen.getByRole("navigation", { name: /IEP Section Progress/i })).toBeInTheDocument();
         });
 
-        const stepper = screen.getByRole("navigation", { name: /IEP Section Navigation/i });
+        const stepper = screen.getByRole("navigation", { name: /IEP Section Progress/i });
         expect(stepper).toBeInTheDocument();
         expect(within(stepper).getByText("Section A: Learner Profile")).toBeInTheDocument();
         expect(within(stepper).getByText("Section B: Special Factors & Barriers")).toBeInTheDocument();
@@ -1511,7 +1511,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         });
       });
 
-      it("supports direct navigation between wizard sections", async () => {
+      it("ensures Section A, B, and C step cards are non-clickable visual progress indicators only", async () => {
         const user = userEvent.setup();
         render(
           <MemoryRouter>
@@ -1520,23 +1520,35 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         );
 
         await waitFor(() => {
-          expect(screen.getByRole("navigation", { name: /IEP Section Navigation/i })).toBeInTheDocument();
+          expect(screen.getByRole("navigation", { name: /IEP Section Progress/i })).toBeInTheDocument();
         });
 
-        const stepper = screen.getByRole("navigation", { name: /IEP Section Navigation/i });
-        const stepCBtn = within(stepper).getByText("Section C: Annual Goals & Objectives").closest("button");
-        await user.click(stepCBtn);
+        const stepper = screen.getByRole("navigation", { name: /IEP Section Progress/i });
 
-        await waitFor(() => {
-          expect(screen.getByText("Section C: Learner's Goals")).toBeInTheDocument();
-        });
+        // Ensure step cards are non-interactive divs, not buttons
+        expect(within(stepper).getByText("Section A: Learner Profile").closest("button")).toBeNull();
+        expect(within(stepper).getByText("Section B: Special Factors & Barriers").closest("button")).toBeNull();
+        expect(within(stepper).getByText("Section C: Annual Goals & Objectives").closest("button")).toBeNull();
 
-        const stepABtn = within(stepper).getByText("Section A: Learner Profile").closest("button");
-        await user.click(stepABtn);
+        // Verify currently at Step 1 of 2
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
 
-        await waitFor(() => {
-          expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
-        });
+        // Clicking Section C card does NOT advance step or trigger navigation
+        const stepCCard = within(stepper).getByText("Section C: Annual Goals & Objectives").closest(".iep-wizard-step");
+        await user.click(stepCCard);
+
+        // Step remains Step 1 of 2 and Section C goals heading is not displayed
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+        expect(screen.queryByText("Section C: Learner's Goals")).toBeNull();
+
+        // Clicking Section A or Section B cards does not change route or step
+        const stepACard = within(stepper).getByText("Section A: Learner Profile").closest(".iep-wizard-step");
+        await user.click(stepACard);
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+
+        const stepBCard = within(stepper).getByText("Section B: Special Factors & Barriers").closest(".iep-wizard-step");
+        await user.click(stepBCard);
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
       });
     });
 

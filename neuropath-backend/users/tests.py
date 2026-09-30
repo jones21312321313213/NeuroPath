@@ -774,6 +774,58 @@ class ConsentCertificatePdfViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
+class LegacyInsightEndpointTests(APITestCase):
+    def setUp(self):
+        self.user, self.teacher, self.token = make_teacher(
+            'legacy.teacher@example.com', 'password123', 'Legacy', 'Teacher'
+        )
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        self.student_with_result = StudentProfile.objects.create(
+            teacher=self.teacher,
+            name='Insight Student',
+            age=9,
+            grade=3,
+            assessmentResult='Demonstrates strong visual memory and basic literacy skills.',
+            preferences='Visual aids and quiet corner',
+        )
+        self.student_insufficient = StudentProfile.objects.create(
+            teacher=self.teacher,
+            name='No Data Student',
+            age=8,
+            grade=2,
+            assessmentResult='N/A',
+        )
+
+    def test_legacy_generate_insight_with_valid_assessment_result(self):
+        url = reverse('student-generate-insight', kwargs={'pk': self.student_with_result.pk})
+        response = self.client.post(url, {}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('insightData', response.data)
+        self.assertIn('Insight Student', response.data['insightData'])
+
+    def test_legacy_generate_insight_with_insufficient_assessment_result_returns_400(self):
+        url = reverse('student-generate-insight', kwargs={'pk': self.student_insufficient.pk})
+        response = self.client.post(url, {}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Insufficient assessment data', response.data['error'])
+
+
+class StudentCreateTeacherResolutionTests(APITestCase):
+    def test_serializer_create_without_authenticated_teacher_raises_validation_error(self):
+        from users.serializers import StudentProfileSerializer
+        from rest_framework.exceptions import ValidationError
+
+        serializer = StudentProfileSerializer(data={
+            'name': 'Orphan Student',
+            'age': 8,
+            'grade': 2,
+        })
+        self.assertTrue(serializer.is_valid())
+        with self.assertRaises(ValidationError) as ctx:
+            serializer.save()
+        self.assertIn('teacher', ctx.exception.detail)
+
+
 class PasswordResetTests(APITestCase):
     """Test suite for POST /api/users/password-reset/ and POST /api/users/password-reset/confirm/."""
 

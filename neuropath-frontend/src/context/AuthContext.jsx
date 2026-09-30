@@ -103,7 +103,11 @@ export function AuthProvider({ children }) {
   const updateUser = useCallback(
     async (formData) => {
       let profilePicture = null;
+      let removeProfilePicture = false;
       if (typeof FormData !== "undefined" && formData instanceof FormData) {
+        if (formData.get("remove_profile_picture") === "true") {
+          removeProfilePicture = true;
+        }
         const pic = formData.get("profile_picture");
         if (typeof File !== "undefined" && pic instanceof File && pic.size > 0) {
           profilePicture = await new Promise((resolve) => {
@@ -126,6 +130,9 @@ export function AuthProvider({ children }) {
         ...updatedUser,
         ...(profilePicture ? { profile_picture: profilePicture } : {}),
       };
+      if (removeProfilePicture) {
+        delete updated.profile_picture;
+      }
 
       try {
         localStorage.setItem("neuropath_user", JSON.stringify(updated));

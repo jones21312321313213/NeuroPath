@@ -1308,6 +1308,38 @@ button.sidebar-header {
   margin: 0;
 }
 
+.overview-activity-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-top: 16px;
+  margin-top: 8px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.overview-activity-show-more-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  min-height: 44px;
+  transition: all 0.15s ease;
+}
+
+.overview-activity-show-more-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
 /* ── About NeuroPath Horizontal Strip ────────────────── */
 
 .overview-about-strip {
@@ -3557,18 +3589,9 @@ button.sidebar-header {
   border-radius: 10px;
   border: 1px solid #e2e8f0;
   background: #ffffff;
-  cursor: pointer;
+  cursor: default;
   text-align: left;
   transition: all 0.15s ease-in-out;
-}
-.iep-wizard-step:hover {
-  border-color: #cbd5e1;
-  background: #f8fafc;
-}
-.iep-wizard-step:focus-visible {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
 }
 .iep-wizard-step.active {
   border-color: #2563eb;

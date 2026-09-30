@@ -212,9 +212,15 @@ class StudentProfileManager:
 
 # --- Sub-Component 2: ValidationService ---
 class ValidationService:
+    """Legacy validation helper for student insight data sufficiency."""
+
     @staticmethod
     def validate_data_sufficiency(student):
-        if not student.assessmentResults or len(student.assessmentResults.strip()) < 5:
+        assessment_result = (
+            getattr(student, 'assessmentResult', None)
+            or getattr(student, 'assessmentResults', None)
+        )
+        if not assessment_result or len(str(assessment_result).strip()) < 5:
             return False
         return True
 
@@ -232,6 +238,10 @@ class AIGenerationService:
 
 # --- Sub-Component 4: AIInsightController (Main Controller Node) ---
 class AIInsightController(APIView):
+    """
+    Legacy insight generation endpoint for backward compatibility.
+    Canonical flow: POST /api/iep/student/<student_id>/generate-insight/
+    """
     permission_classes = [IsAuthenticated]
     
     def get(self, request, pk, format=None):
