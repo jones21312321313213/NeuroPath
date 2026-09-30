@@ -115,6 +115,46 @@ describe("api client", () => {
     );
   });
 
+  it("posts email for forgotPassword request", async () => {
+    fetch.mockResolvedValueOnce(
+      jsonResponse({ message: "Instructions sent" })
+    );
+
+    const result = await authAPI.forgotPassword("teacher@example.com");
+
+    expect(result).toEqual({ message: "Instructions sent" });
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:8000/api/users/password-reset/",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ email: "teacher@example.com" }),
+      }),
+    );
+  });
+
+  it("posts reset payload for resetPasswordConfirm", async () => {
+    fetch.mockResolvedValueOnce(
+      jsonResponse({ message: "Password reset successful" })
+    );
+
+    const payload = {
+      uid: "MTI=",
+      token: "xyz-token",
+      new_password: "NewPassword123!",
+      new_password_confirm: "NewPassword123!",
+    };
+    const result = await authAPI.resetPasswordConfirm(payload);
+
+    expect(result).toEqual({ message: "Password reset successful" });
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:8000/api/users/password-reset/confirm/",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    );
+  });
+
   it("patches profile update payload to user profile endpoint", async () => {
     fetch.mockResolvedValueOnce(jsonResponse({ first_name: "Jane" }));
 

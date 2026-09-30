@@ -7,6 +7,7 @@ import ToastContainer from "./components/ui/ToastContainer";
 import LandingPage from "./pages/landingPage";
 import LoginPage from "./pages/loginPage";
 import RegisterPage from "./pages/registerPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
 import SkipLink from "./components/layout/SkipLink";
@@ -174,7 +175,9 @@ function AppRoutes() {
                 <Navigate to="/dashboard" replace />
               ) : (
                 <LoginPage
+                  onNavigateHome={() => navigate("/")}
                   onNavigateRegister={() => navigate("/register")}
+                  onNavigateResetPassword={() => navigate("/reset-password")}
                   onLoginSuccess={() => setShowSplash(true)}
                   successMessage={successMessage}
                   initialEmail={registeredEmail}
@@ -194,6 +197,7 @@ function AppRoutes() {
                 <Navigate to="/dashboard" replace />
               ) : (
                 <RegisterPage
+                  onNavigateHome={() => navigate("/")}
                   onNavigateLogin={(msg, email) => {
                     setSuccessMessage(msg);
                     if (email) setRegisteredEmail(email);
@@ -201,6 +205,16 @@ function AppRoutes() {
                   }}
                 />
               )
+            }
+          />
+
+          <Route
+            path="/reset-password"
+            element={
+              <ResetPasswordPage
+                onNavigateHome={() => navigate("/")}
+                onNavigateLogin={() => navigate("/login")}
+              />
             }
           />
 

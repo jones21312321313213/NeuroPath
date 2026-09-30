@@ -9,11 +9,19 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Q
+from django.conf import settings
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+import logging
 from .models import StudentProfile, Teacher
 from .utils import get_teacher_for_user
 from django.contrib.auth.models import User
 from .serializers import StudentProfileSerializer, ValidationService, TeacherSerializer
 from django.contrib.auth import authenticate
+
+logger = logging.getLogger(__name__)
 # =====================================================================
 # SDD MODULE: TEACHER REGISTRATION
 # Component Name: TeacherCreateController
@@ -808,6 +816,172 @@ class ConsentCertificatePdfView(APIView):
             'teacher_name': teacher.name if hasattr(teacher, 'name') and teacher.name else f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username,
         }
         return self._generate_response(data)
+
+
+# =====================================================================
+# PASSWORD RESET REQUEST CONTROLLER
+# POST /api/users/password-reset/
+# Accepts: { email }
+# Generates a secure, time-limited token and sends a reset email to the user.
+# Protects against account enumeration by returning a safe generic response
+# when an account is not found.
+# Never claims success if email delivery fails.
+# =====================================================================
+@method_decorator(csrf_exempt, name='dispatch')
+class PasswordResetRequestController(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        email = (request.data.get('email') or '').strip().lower()
+        if not email or '@' not in email:
+            return Response(
+                {"error": "A valid email address is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        generic_message = (
+            "If an account with that email exists, password reset instructions have been sent."
+        )
+
+        user = User.objects.filter(
+            Q(email__iexact=email) | Q(username__iexact=email)
+        ).first()
+
+        if not user:
+            # Safe generic response to prevent account enumeration
+            return Response({"message": generic_message}, status=status.HTTP_200_OK)
+
+        # Generate standard Django one-time password reset token & base64 uid
+        token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+
+        # Determine frontend base URL for reset link
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173').rstrip('/')
+        origin = request.headers.get('Origin')
+        if origin and any(origin.startswith(allowed.rstrip('/')) for allowed in getattr(settings, 'CORS_ALLOWED_ORIGINS', [])):
+            frontend_url = origin.rstrip('/')
+
+        reset_url = f"{frontend_url}/reset-password?uid={uid}&token={token}"
+
+        # Construct clear email notification
+        recipient_name = f"{user.first_name} {user.last_name}".strip() or user.username
+        subject = "Reset your NeuroPath password"
+        body = (
+            f"Hello {recipient_name},\n\n"
+            f"We received a request to reset the password for your NeuroPath account associated with {user.email}.\n\n"
+            f"To reset your password, click the link below or copy and paste it into your browser:\n"
+            f"{reset_url}\n\n"
+            f"Or if prompted on the reset page, you can use these reset details directly:\n"
+            f"User ID: {uid}\n"
+            f"Reset Token: {token}\n\n"
+            f"This link and token are valid for 24 hours. If you did not request this password reset, please ignore this email and your password will remain unchanged.\n\n"
+            f"Best regards,\n"
+            f"The NeuroPath Team\n"
+        )
+
+        try:
+            send_mail(
+                subject=subject,
+                message=body,
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@neuropath.app'),
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+        except Exception as exc:
+            logger.exception("Failed to send password reset email to %s: %s", user.email, exc)
+            return Response(
+                {"error": "Failed to send reset email. Please try again later."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response({"message": generic_message}, status=status.HTTP_200_OK)
+
+
+# =====================================================================
+# PASSWORD RESET CONFIRM CONTROLLER
+# POST /api/users/password-reset/confirm/
+# Accepts: { uid, token, new_password, new_password_confirm? }
+# Verifies token authenticity, validates password complexity, updates password,
+# keeps Teacher mirror row updated, and revokes all active DRF auth tokens.
+# =====================================================================
+@method_decorator(csrf_exempt, name='dispatch')
+class PasswordResetConfirmController(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        data = request.data or {}
+        uid = str(data.get('uid') or data.get('userId') or data.get('email') or '').strip()
+        token = str(data.get('token') or '').strip()
+        new_password = str(data.get('new_password') or data.get('password') or '')
+        new_password_confirm = str(
+            data.get('new_password_confirm') or data.get('confirm_password') or data.get('confirmPassword') or ''
+        )
+
+        if not uid or not token or not new_password:
+            return Response(
+                {"error": "User identifier, reset token, and new password are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if new_password_confirm and new_password != new_password_confirm:
+            return Response(
+                {"error": "Passwords do not match."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Resolve user via uidb64 or email fallback
+        user = None
+        try:
+            decoded_id = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.filter(pk=decoded_id).first()
+        except Exception:
+            pass
+
+        if not user:
+            # Fallback in case uid passed was email, username, or pk directly
+            user = User.objects.filter(
+                Q(email__iexact=uid) |
+                Q(username__iexact=uid) |
+                (Q(pk=uid) if uid.isdigit() else Q(pk=-1))
+            ).first()
+
+        if not user or not default_token_generator.check_token(user, token):
+            return Response(
+                {"error": "The password reset link is invalid or has expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate password strength against Django AUTH_PASSWORD_VALIDATORS
+        try:
+            validate_password(new_password, user=user)
+        except DjangoValidationError as exc:
+            return Response(
+                {"errors": {"password": list(exc.messages)}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Atomically update password, sync Teacher model, and invalidate old auth tokens
+        with transaction.atomic():
+            user.set_password(new_password)
+            user.save()
+
+            # Keep Teacher mirror-row in sync
+            Teacher.objects.filter(email__iexact=user.email).update(
+                passwordHash=user.password
+            )
+
+            # Revoke existing auth tokens so old sessions cannot be replayed
+            Token.objects.filter(user=user).delete()
+
+        return Response(
+            {
+                "message": "Your password has been successfully reset. You can now log in with your new password."
+            },
+            status=status.HTTP_200_OK,
+        )
+
 
 
 
