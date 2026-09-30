@@ -303,6 +303,31 @@ describe("api client", () => {
       );
     });
 
+    it("appends section B and C version query parameters to exportStudentRecordPDF request", async () => {
+      localStorage.setItem("neuropath_access_token", "test-token");
+      const mockBlob = new Blob(["%PDF-mock"], { type: "application/pdf" });
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        blob: vi.fn().mockResolvedValue(mockBlob),
+      });
+
+      const blob = await trackingAPI.exportStudentRecordPDF(15, {
+        section_b_version: 1,
+        section_c_version: 2,
+      });
+
+      expect(blob).toBe(mockBlob);
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/tracking/student-records/15/export/?section_b_version=1&section_c_version=2",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: "Token test-token",
+          }),
+        }),
+      );
+    });
+
     it("throws an error when exportStudentRecordPDF request fails", async () => {
       fetch.mockResolvedValueOnce({
         ok: false,

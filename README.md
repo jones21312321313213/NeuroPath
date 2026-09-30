@@ -239,6 +239,7 @@ A secure, web-based database module that aggregates daily behavioral tallies and
 
 **Key capabilities:**
 - Progress dashboards with visual goal attainment forecasting
+- Multi-version Student Records viewing and printing: choose independent IEP versions for Section B (Difficulties & Accommodations) and Section C (Learner Goals) for preview and official PDF export
 - Secure data access with standard cryptographic protocols (DRF TokenAuthentication + bcrypt)
 - SUS-validated usability interface
 - Role-based access control (teacher, administrator)
