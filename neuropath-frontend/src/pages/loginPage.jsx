@@ -106,9 +106,23 @@ export default function LoginPage({
 
   return (
     <div
-      className="min-h-screen grid grid-cols-1 lg:grid-cols-12 font-sans"
+      className="min-h-screen grid grid-cols-1 lg:grid-cols-12 font-sans relative"
       style={{ background: "#fff" }}
     >
+      {/* Back to Home Button (Upper Left) */}
+      <button
+        type="button"
+        onClick={handleNavigateHome}
+        className="absolute top-5 left-5 sm:top-6 sm:left-6 z-30 flex items-center justify-center w-10 h-10 rounded-full bg-white/90 text-slate-600 hover:text-slate-900 hover:bg-white border border-slate-200/80 shadow-sm transition-all hover:scale-105 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-sky-500 lg:bg-white/20 lg:text-white lg:border-white/30 lg:hover:bg-white/30 lg:hover:text-white backdrop-blur-sm group"
+        aria-label="Back to home"
+        title="Back to home"
+      >
+        <ArrowLeftIcon
+          className="w-5 h-5 transition-transform group-hover:-translate-x-0.5"
+          aria-hidden="true"
+        />
+      </button>
+
       {/* LEFT VISUAL SIDEBAR */}
       <div
         className="hidden lg:flex lg:col-span-5 p-12 flex-col items-center justify-center relative overflow-hidden text-left"
@@ -188,20 +202,6 @@ export default function LoginPage({
         style={{ background: "#fff" }}
       >
         <div className="w-full max-w-md flex flex-col text-left">
-          {/* Back to Home Button */}
-          <button
-            type="button"
-            onClick={handleNavigateHome}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-sky-700 transition-colors mb-6 group w-fit cursor-pointer outline-none"
-            aria-label="Back to home"
-          >
-            <ArrowLeftIcon
-              className="w-4 h-4 transition-transform group-hover:-translate-x-0.5"
-              aria-hidden="true"
-            />
-            <span>Back to home</span>
-          </button>
-
           {/* Header */}
           <div className="mb-8">
             <h1
