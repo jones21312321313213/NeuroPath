@@ -773,6 +773,32 @@ function GenerateTab({ onSave, setActivePage, onDraftStatusChange, promptNavigat
 
 // ── Strategy Detail View ──────────────────────────────────────────────────────
 function StrategyDetails({ strategy, onBack, onEdit, onDelete }) {
+  const { toast } = useToast();
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportPdf = async () => {
+    if (isExporting || !strategy?.strategyID) return;
+    setIsExporting(true);
+    try {
+      const blob = await teachingStrategiesAPI.exportPDF(strategy.strategyID);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `StrategyGuide_${strategy.strategyID}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+      toast.success("Strategy guide exported successfully.");
+    } catch (err) {
+      toast.error(err.message || "Failed to export Strategy Guide PDF.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="ts-card">
       <Breadcrumb
@@ -809,15 +835,14 @@ function StrategyDetails({ strategy, onBack, onEdit, onDelete }) {
           ← Back to List
         </button>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <a
-            href={teachingStrategiesAPI.exportUrl(strategy.strategyID)}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            type="button"
             className="ts-btn ts-btn-secondary"
-            style={{ textDecoration: "none" }}
+            onClick={handleExportPdf}
+            disabled={isExporting}
           >
-            Export PDF
-          </a>
+            {isExporting ? "Exporting PDF…" : "Export PDF"}
+          </button>
           {onEdit && (
             <button
               type="button"

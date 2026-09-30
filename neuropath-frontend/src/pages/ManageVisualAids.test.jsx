@@ -45,6 +45,7 @@ vi.mock("../api/client", () => ({
     update: vi.fn(),
     delete: vi.fn(),
     exportUrl: vi.fn((id) => `/api/resources/export-visual-aid/${id}/`),
+    exportPDF: vi.fn().mockResolvedValue(new Blob(["%PDF-1.4 visual aid"], { type: "application/pdf" })),
   },
 }));
 
@@ -119,6 +120,8 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
       }
     };
     window.print = vi.fn();
+    window.URL.createObjectURL = vi.fn(() => "blob:mock-url");
+    window.URL.revokeObjectURL = vi.fn();
   });
 
   const renderComponent = () =>
@@ -347,12 +350,15 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
       expect(screen.queryByText(/AI 3-Panel Sequential Task Analysis Storyboard/i)).not.toBeInTheDocument();
       expect(screen.getByDisplayValue("Turn on Water & Apply Soap")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /save captions/i })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: /download classroom pdf/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /download classroom pdf/i })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /✕ Close/i })).toBeInTheDocument();
     });
 
-    const pdfLink = screen.getByRole("link", { name: /download classroom pdf/i });
-    expect(pdfLink).toHaveAttribute("href", "/api/resources/export-visual-aid/55/");
+    const pdfBtn = screen.getByRole("button", { name: /download classroom pdf/i });
+    fireEvent.click(pdfBtn);
+    await waitFor(() => {
+      expect(visualAidsAPI.exportPDF).toHaveBeenCalledWith(55);
+    });
 
     fireEvent.click(screen.getByRole("button", { name: /✕ Close/i }));
     await waitFor(() => {

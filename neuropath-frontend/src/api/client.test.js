@@ -6,6 +6,7 @@ import {
   trackingAPI,
   lessonPlansAPI,
   teachingStrategiesAPI,
+  visualAidsAPI,
   resourcesAPI,
   iepAPI,
 } from "./client";
@@ -459,6 +460,70 @@ describe("api client", () => {
           body: JSON.stringify(payload),
         }),
       );
+    });
+
+    it("exports teaching strategy PDF with auth token", async () => {
+      localStorage.setItem("neuropath_access_token", "test-token");
+      const mockBlob = new Blob(["%PDF-1.4 strategy test"], { type: "application/pdf" });
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        blob: vi.fn().mockResolvedValueOnce(mockBlob),
+      });
+
+      const result = await teachingStrategiesAPI.exportPDF(42);
+
+      expect(result).toBe(mockBlob);
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/resources/query-strategies/42/export/",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: "Token test-token",
+          }),
+        }),
+      );
+    });
+
+    it("throws an error when teachingStrategiesAPI.exportPDF fails", async () => {
+      fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: vi.fn().mockResolvedValueOnce({ error: "Strategy not found." }),
+      });
+
+      await expect(teachingStrategiesAPI.exportPDF(999)).rejects.toThrow("Strategy not found.");
+    });
+  });
+
+  describe("visualAidsAPI", () => {
+    it("exports visual aid PDF with auth token", async () => {
+      localStorage.setItem("neuropath_access_token", "test-token");
+      const mockBlob = new Blob(["%PDF-1.4 visual aid test"], { type: "application/pdf" });
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        blob: vi.fn().mockResolvedValueOnce(mockBlob),
+      });
+
+      const result = await visualAidsAPI.exportPDF(55);
+
+      expect(result).toBe(mockBlob);
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/resources/export-visual-aid/55/",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: "Token test-token",
+          }),
+        }),
+      );
+    });
+
+    it("throws an error when visualAidsAPI.exportPDF fails", async () => {
+      fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: vi.fn().mockResolvedValueOnce({ error: "Saved Visual Aid not found." }),
+      });
+
+      await expect(visualAidsAPI.exportPDF(999)).rejects.toThrow("Saved Visual Aid not found.");
     });
   });
 

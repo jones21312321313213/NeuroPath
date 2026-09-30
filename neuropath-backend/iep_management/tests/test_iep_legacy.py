@@ -372,3 +372,29 @@ class IEPDashboardAndInsightEndpointsTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
+class IEPGenerationAILoggingTests(TestCase):
+    """Verify that AIGenerationLog rows persist with the correct Teacher FK."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user, self.teacher, self.token = create_teacher_with_login('ailogger@example.com')
+        self.student = create_student(self.teacher, name='Log Student')
+
+    def test_generate_iep_persists_ai_generation_log_with_teacher_fk(self):
+        from tracking.models import AIGenerationLog
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        response = self.client.post('/api/iep/generate-iep/', {
+            'action': 'generate',
+            'studentID': self.student.pk,
+            'baselineData': 'Struggles with transitions.',
+            'domains': 'Behavioral, Communication',
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        log = AIGenerationLog.objects.filter(teacher=self.teacher).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.teacher, self.teacher)
+        self.assertIn('draft_goals', log.ai_response)
+
+
+
