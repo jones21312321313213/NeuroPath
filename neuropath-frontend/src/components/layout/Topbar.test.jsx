@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useEffect } from "react";
 import { MemoryRouter } from "react-router-dom";
 import Topbar from "./Topbar";
 import { useAuth } from "../../context/AuthContext";
@@ -110,5 +111,47 @@ describe("Topbar component", () => {
     );
 
     expect(screen.queryByRole("button", { name: /sidebar navigation/i })).not.toBeInTheDocument();
+  });
+
+  it("intercepts user profile pill click when an unsaved changes guard is active", async () => {
+    const user = userEvent.setup();
+    const mockGuardPrompt = vi.fn();
+
+    const { UnsavedChangesProvider, useUnsavedChangesContext } = await import(
+      "../../context/UnsavedChangesContext"
+    );
+
+    function GuardRegister() {
+      const { registerGuard } = useUnsavedChangesContext();
+      useEffect(() => {
+        return registerGuard({
+          id: "active-draft-guard",
+          isDirty: true,
+          promptNavigation: mockGuardPrompt,
+        });
+      }, [registerGuard]);
+      return null;
+    }
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard/strategies"]}>
+        <UnsavedChangesProvider>
+          <GuardRegister />
+          <Topbar
+            breadcrumb="DASHBOARD / Instructional Support / Teaching Strategies"
+            setActivePage={mockSetActivePage}
+          />
+        </UnsavedChangesProvider>
+      </MemoryRouter>
+    );
+
+    const pill = screen.getByRole("button", {
+      name: "View user profile for Teacher Jane",
+    });
+    await user.click(pill);
+
+    expect(mockGuardPrompt).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockSetActivePage).not.toHaveBeenCalled();
   });
 });

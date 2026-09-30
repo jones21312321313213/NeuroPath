@@ -95,6 +95,7 @@ describe("ManageLessonPlans Multi-IEP Selection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useAuth.mockReturnValue({ user: { id: 1, email: "teacher@test.com" } });
+    studentsAPI.list.mockResolvedValue([]);
     lessonPlansAPI.getDirectory.mockResolvedValue({ directory: mockStudentsDirectory });
     lessonPlansAPI.list.mockResolvedValue([]);
     iepAPI.listByStudent.mockResolvedValue(mockIepsVance);
@@ -314,6 +315,108 @@ describe("ManageLessonPlans Multi-IEP Selection", () => {
 
     // Button should now be enabled
     expect(generateBtn).not.toBeDisabled();
+  });
+
+  it("prompts confirmation modal when user tries to switch tabs with an unsaved generated lesson plan, and stays on 'No, Stay'", async () => {
+    lessonPlansAPI.generate.mockResolvedValue({
+      lesson_plans: [
+        {
+          objective_focus: "Break Request",
+          introduction: "Demonstrate break cards",
+          core_activity: "Practice break request during math",
+          assessment: "Self-check",
+          materials_needed: ["Cards"],
+        },
+      ],
+    });
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Lucas Vance").closest(".ts-student-card"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Behavioral Skills")).toBeInTheDocument();
+    });
+
+    const generateBtn = screen.getByRole("button", { name: /generate lesson plan/i });
+    fireEvent.click(generateBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /confirm & save plan/i })).toBeInTheDocument();
+    });
+
+    // Try to switch tabs to "Manage"
+    const manageTabBtn = screen.getByRole("tab", { name: /manage/i });
+    fireEvent.click(manageTabBtn);
+
+    // Confirmation modal should appear
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /unsaved lesson plan/i })).toBeInTheDocument();
+      expect(screen.getByText(/if you leave without saving, your generated plan will be lost/i)).toBeInTheDocument();
+    });
+
+    // Click "No, Stay"
+    const stayBtn = screen.getByRole("button", { name: /no, stay/i });
+    fireEvent.click(stayBtn);
+
+    // Modal should close and generated plan remains on screen
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: /unsaved lesson plan/i })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /confirm & save plan/i })).toBeInTheDocument();
+    });
+  });
+
+  it("allows tab switch when user confirms 'Yes, Leave Without Saving' on unsaved lesson plan", async () => {
+    lessonPlansAPI.generate.mockResolvedValue({
+      lesson_plans: [
+        {
+          objective_focus: "Break Request",
+          introduction: "Demonstrate break cards",
+          core_activity: "Practice break request during math",
+          assessment: "Self-check",
+          materials_needed: ["Cards"],
+        },
+      ],
+    });
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Lucas Vance").closest(".ts-student-card"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Behavioral Skills")).toBeInTheDocument();
+    });
+
+    const generateBtn = screen.getByRole("button", { name: /generate lesson plan/i });
+    fireEvent.click(generateBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /confirm & save plan/i })).toBeInTheDocument();
+    });
+
+    // Try to switch tabs to "Manage"
+    const manageTabBtn = screen.getByRole("tab", { name: /manage/i });
+    fireEvent.click(manageTabBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /unsaved lesson plan/i })).toBeInTheDocument();
+    });
+
+    // Confirm leave
+    const leaveBtn = screen.getByRole("button", { name: /yes, leave without saving/i });
+    fireEvent.click(leaveBtn);
+
+    // Modal closes and Manage Plans tab renders
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: /unsaved lesson plan/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /confirm & save plan/i })).not.toBeInTheDocument();
+    });
   });
 });
 

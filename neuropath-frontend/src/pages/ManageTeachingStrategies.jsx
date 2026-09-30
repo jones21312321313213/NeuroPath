@@ -271,7 +271,7 @@ function StrategyRowList({
 }
 
 // ── Generate Tab ──────────────────────────────────────────────────────────────
-function GenerateTab({ onSave, setActivePage }) {
+function GenerateTab({ onSave, setActivePage, onDraftStatusChange, promptNavigation }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [directory, setDirectory] = useState([]);
@@ -287,6 +287,13 @@ function GenerateTab({ onSave, setActivePage }) {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const isDraft = Boolean(generated && !saved);
+  useEffect(() => {
+    if (onDraftStatusChange) {
+      onDraftStatusChange(isDraft);
+    }
+  }, [isDraft, onDraftStatusChange]);
 
   useEffect(() => {
     teachingStrategiesAPI
@@ -356,6 +363,7 @@ function GenerateTab({ onSave, setActivePage }) {
     setGenerated(null);
     setError("");
     setSaved(false);
+    if (onDraftStatusChange) onDraftStatusChange(false);
     setLoadingIEPs(true);
 
     let iepList = [];
@@ -399,17 +407,27 @@ function GenerateTab({ onSave, setActivePage }) {
     }
   };
 
+  const handleSelectStudent = (student) => {
+    if (generated && !saved && promptNavigation) {
+      promptNavigation(() => selectStudent(student));
+      return;
+    }
+    selectStudent(student);
+  };
+
   const handleGenerate = async () => {
     if (!selectedStudent || !selectedGoal) return;
     setLoading(true);
     setError("");
     setGenerated(null);
     setSaved(false);
+    if (onDraftStatusChange) onDraftStatusChange(false);
     try {
       const data = await teachingStrategiesAPI.generate({
         goalID: selectedGoal.goalID,
       });
       setGenerated(data);
+      if (onDraftStatusChange) onDraftStatusChange(true);
     } catch (err) {
       setError(
         err.message || "AI Generation pipeline failed. Is Ollama running?",
@@ -431,6 +449,7 @@ function GenerateTab({ onSave, setActivePage }) {
       };
       const response = await teachingStrategiesAPI.save(payload);
       setSaved(true);
+      if (onDraftStatusChange) onDraftStatusChange(false);
       if (onSave) {
         onSave(response?.data || generated.data);
       }
@@ -473,7 +492,7 @@ function GenerateTab({ onSave, setActivePage }) {
                 <div
                   key={student.studentID}
                   className={`ts-student-card ${isSelected ? "selected" : ""}`}
-                  onClick={() => selectStudent(student)}
+                  onClick={() => handleSelectStudent(student)}
                 >
                   <div className="ts-avatar">
                     {getInitials(student.studentName)}
@@ -1325,8 +1344,24 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ManageTeachingStrategies({ setActivePage }) {
   const [activeTab, setActiveTab] = useState("generate");
+  const [hasDraft, setHasDraft] = useState(false);
   const [, setStrategies] = useState([]);
   const { toast } = useToast();
+
+  const { showPrompt, promptNavigation, confirmLeave, cancelLeave } =
+    useUnsavedChanges({
+      isDirty: hasDraft,
+    });
+
+  const handleTabClick = (tabKey) => {
+    if (tabKey === activeTab) return;
+    promptNavigation(() => setActiveTab(tabKey));
+  };
+
+  const handleConfirmLeave = () => {
+    setHasDraft(false);
+    confirmLeave();
+  };
 
   const saveStrategy = (strategy) => {
     if (strategy) {
@@ -1370,7 +1405,7 @@ export default function ManageTeachingStrategies({ setActivePage }) {
                 role="tab"
                 aria-selected={isActive}
                 className={`ts-tab-btn ${isActive ? "active" : ""}`}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => handleTabClick(tab.key)}
               >
                 <span className="ts-tab-icon">{tab.icon}</span>
                 {tab.label}
@@ -1386,15 +1421,27 @@ export default function ManageTeachingStrategies({ setActivePage }) {
           <GenerateTab
             onSave={saveStrategy}
             setActivePage={setActivePage}
+            onDraftStatusChange={setHasDraft}
+            promptNavigation={promptNavigation}
           />
         )}
         {isManageTab && (
           <ManageStrategiesTab
             setActivePage={setActivePage}
-            onGoToGenerate={() => setActiveTab("generate")}
+            onGoToGenerate={() => handleTabClick("generate")}
           />
         )}
       </div>
+
+      <UnsavedChangesModal
+        isOpen={showPrompt}
+        onConfirm={handleConfirmLeave}
+        onCancel={cancelLeave}
+        title="Unsaved Teaching Strategy"
+        message="You have an unsaved teaching strategy. If you leave without saving, your generated strategy will be lost. Do you want to leave without saving?"
+        confirmText="Yes, Leave Without Saving"
+        cancelText="No, Stay"
+      />
     </div>
   );
 }

@@ -180,6 +180,7 @@ REST_FRAMEWORK = {
 
 # AI SERVICES CONFIGURATION
 HF_TOKEN = env('HF_TOKEN', default='MISSING_TOKEN')
+HF_IMAGE_MODEL = env('HF_IMAGE_MODEL', default='black-forest-labs/FLUX.1-schnell')
 GROQ_API_KEY = env('GROQ_API_KEY', default='MISSING_KEY')
 GROQ_MODEL = env('GROQ_MODEL', default='llama-3.3-70b-versatile')
 

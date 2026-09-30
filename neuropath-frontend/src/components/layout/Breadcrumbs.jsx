@@ -1,6 +1,11 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useUnsavedChangesContext } from "../../context/UnsavedChangesContext";
 
 export default function Breadcrumbs({ items }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { promptNavigation } = useUnsavedChangesContext();
+
   if (!items) return null;
 
   if (typeof items === "string") {
@@ -8,6 +13,12 @@ export default function Breadcrumbs({ items }) {
   }
 
   if (!Array.isArray(items) || items.length === 0) return null;
+
+  const handleLinkClick = (e, to) => {
+    e.preventDefault();
+    if (location?.pathname === to) return;
+    promptNavigation(() => navigate(to));
+  };
 
   return (
     <nav aria-label="Breadcrumb" className="topbar-breadcrumbs">
@@ -32,6 +43,7 @@ export default function Breadcrumbs({ items }) {
               ) : (
                 <Link
                   to={item.to}
+                  onClick={(e) => handleLinkClick(e, item.to)}
                   className="text-slate-500 hover:text-sky-700 uppercase text-xs tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 rounded px-0.5"
                 >
                   {item.label}

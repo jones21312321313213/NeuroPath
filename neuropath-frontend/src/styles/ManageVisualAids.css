@@ -521,6 +521,83 @@
   box-shadow: 0 4px 20px rgba(61, 157, 232, 0.15);
 }
 
+/* ── 3-Panel Storyboard Strip ── */
+.va-storyboard-3strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  width: 100%;
+  padding: 8px 0;
+}
+
+@media (max-width: 768px) {
+  .va-storyboard-3strip {
+    grid-template-columns: 1fr;
+  }
+}
+
+.va-storyboard-panel {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.va-storyboard-panel:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+}
+
+.va-storyboard-panel-badge {
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #1e40af;
+  background: #dbeafe;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.va-storyboard-panel-img-wrap {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+}
+
+.va-storyboard-panel-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.va-storyboard-panel:hover .va-storyboard-panel-img {
+  transform: scale(1.03);
+}
+
+.va-storyboard-panel-caption {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1e293b;
+  text-align: center;
+  margin: 0;
+  line-height: 1.35;
+}
+
 .va-preview-title {
   font-size: 17px;
   font-weight: 800;
@@ -1114,4 +1191,332 @@
   gap: 8px;
   align-items: center;
   flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Bundle 5: Sequential 3-Step Task Analysis Visual Aids
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Preset Quick Chips ────────────────────────────── */
+.va-presets-box {
+  margin-top: 14px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.va-presets-header {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #475569;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.va-presets-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.va-preset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.va-preset-chip:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.va-preset-chip.active {
+  background: #dbeafe;
+  border-color: #2563eb;
+  color: #1e40af;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.2);
+}
+
+/* ── Interactive 3-Step Sequence Viewer ──────────────── */
+.va-sequence-viewer {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.va-sequence-nav {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 12px;
+}
+
+.va-step-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.va-step-tab:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.va-step-tab.active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.15);
+}
+
+.va-step-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.va-step-tab.active .va-step-tab-badge {
+  background: #2563eb;
+}
+
+/* ── 3-Step Cards Grid ───────────────────────────────── */
+.va-step-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .va-step-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.va-step-card {
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.va-step-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.va-step-card.active {
+  border-color: #2563eb;
+  background: #fafcff;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.12);
+}
+
+.va-step-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.va-step-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.va-step-card.active .va-step-indicator {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.va-step-title-input {
+  width: 100%;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 6px;
+  background: transparent;
+  transition: border-color 0.2s;
+}
+
+.va-step-title-input:focus,
+.va-step-title-input:hover {
+  border-color: #94a3b8;
+  background: #ffffff;
+}
+
+.va-caption-textarea {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.45;
+  font-family: inherit;
+  background: #ffffff;
+  transition: border-color 0.2s ease;
+}
+
+.va-caption-textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.va-step-card-img-wrap {
+  width: 100%;
+  height: 140px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f1f5f9;
+  margin: 6px 0 8px 0;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.va-step-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.va-step-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.va-audio-narrate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.va-audio-narrate-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.va-audio-narrate-btn.speaking {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #b45309;
+  animation: pulse 1.5s infinite;
+}
+
+/* ── Detail Modal for View Tab ───────────────────────── */
+.va-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.va-modal-dialog-large {
+  background: #ffffff;
+  border-radius: 16px;
+  max-width: 900px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px 28px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  position: relative;
+}
+
+/* ── Print Flashcards Styling ────────────────────────── */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .va-printable-area,
+  .va-printable-area * {
+    visibility: visible;
+  }
+  .va-printable-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 20px;
+    background: #ffffff;
+  }
+  .va-no-print {
+    display: none !important;
+  }
+  .va-step-card {
+    break-inside: avoid;
+    border: 2px dashed #64748b !important;
+  }
 }

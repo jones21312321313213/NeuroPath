@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useUnsavedChangesContext } from "../../context/UnsavedChangesContext";
 import LogoutModal from "./LogoutModal";
 
 const navItems = [
@@ -61,8 +62,23 @@ export default function Sidebar({
   const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { promptNavigation } = useUnsavedChangesContext();
 
   const currentPath = location?.pathname || "/dashboard";
+
+  const normalizePath = (p) => {
+    if (!p) return "";
+    const cleaned = p.split("?")[0].split("#")[0].replace(/\/+$/, "");
+    return cleaned === "" ? "/" : cleaned;
+  };
+
+  const navigateWithPrompt = (targetPath, targetKey) => {
+    if (normalizePath(currentPath) === normalizePath(targetPath)) return;
+    promptNavigation(() => {
+      navigate(targetPath);
+      if (setActivePage) setActivePage(targetKey || targetPath);
+    });
+  };
 
   const [expanded, setExpanded] = useState({
     "student-profiling": false,
@@ -117,8 +133,7 @@ export default function Sidebar({
       if (item.children.length > 0) {
         setExpanded((prev) => ({ ...prev, [item.key]: true }));
       } else if (item.path) {
-        navigate(item.path);
-        if (setActivePage) setActivePage(item.key || item.path);
+        navigateWithPrompt(item.path, item.key || item.path);
       }
       return;
     }
@@ -126,8 +141,7 @@ export default function Sidebar({
     if (item.children.length > 0) {
       toggleExpand(item.key);
     } else if (item.path) {
-      navigate(item.path);
-      if (setActivePage) setActivePage(item.key || item.path);
+      navigateWithPrompt(item.path, item.key || item.path);
     }
   };
 
@@ -223,8 +237,7 @@ export default function Sidebar({
                           aria-current={isChildActive ? "page" : undefined}
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(child.path);
-                            if (setActivePage) setActivePage(child.key || child.path);
+                            navigateWithPrompt(child.path, child.key || child.path);
                           }}
                         >
                           <span className="subnav-bullet" aria-hidden="true" />

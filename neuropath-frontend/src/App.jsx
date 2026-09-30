@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
+import { UnsavedChangesProvider } from "./context/UnsavedChangesContext";
 import ToastContainer from "./components/ui/ToastContainer";
 import LandingPage from "./pages/landingPage";
 import LoginPage from "./pages/loginPage";
@@ -242,8 +243,10 @@ export default function App() {
   return (
     <ToastProvider>
       <AuthProvider>
-        <AppRoutes />
-        <ToastContainer />
+        <UnsavedChangesProvider>
+          <AppRoutes />
+          <ToastContainer />
+        </UnsavedChangesProvider>
       </AuthProvider>
     </ToastProvider>
   );

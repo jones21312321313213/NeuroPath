@@ -7,6 +7,8 @@ export default function UnsavedChangesModal({
   onCancel,
   title = "Unsaved Changes",
   message = "You have unsaved changes. Are you sure you want to leave this page? Any uncommitted edits will be lost.",
+  confirmText = "Discard & Leave",
+  cancelText = "Stay on Page",
 }) {
   useEffect(() => {
     if (!isOpen) return;
@@ -63,14 +65,14 @@ export default function UnsavedChangesModal({
             onClick={onConfirm}
             className="px-4 py-2.5 text-sm font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
           >
-            Discard & Leave
+            {confirmText}
           </button>
           <button
             type="button"
             onClick={onCancel}
             className="px-5 py-2.5 text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-xl shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
           >
-            Stay on Page
+            {cancelText}
           </button>
         </div>
       </div>
