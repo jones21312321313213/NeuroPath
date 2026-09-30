@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
 from unittest.mock import patch
 from users.models import Teacher, StudentProfile
@@ -167,6 +167,7 @@ class AIPipelinePrivacyTestCase(TestCase):
         self.assertIn('RA 10173', response.data.get('error', ''))
         mock_ai.assert_not_called()
 
+    @override_settings(GEMINI_API_KEY='', HF_TOKEN='')
     @patch('resources.views.VisualAidGeneratorService.fetch_image_from_pollinations')
     def test_generate_visual_aid_prompt_excludes_student_name(self, mock_fetch):
         from iep_management.models import IEPGoal
@@ -177,11 +178,12 @@ class AIPipelinePrivacyTestCase(TestCase):
             'category': 'Visual'
         })
         self.assertEqual(response.status_code, 201)
-        mock_fetch.assert_called_once()
-        prompt_arg = mock_fetch.call_args[0][0]
-        self.assertNotIn('Marco', prompt_arg)
-        self.assertNotIn('Polo', prompt_arg)
-        self.assertIn('elementary learner', prompt_arg)
+        self.assertGreaterEqual(mock_fetch.call_count, 1)
+        for call in mock_fetch.call_args_list:
+            prompt_arg = call[0][0]
+            self.assertNotIn('Marco', prompt_arg)
+            self.assertNotIn('Polo', prompt_arg)
+            self.assertIn('elementary learner', prompt_arg)
 
     def test_generate_visual_aid_blocked_without_consent(self):
         from iep_management.models import IEPGoal

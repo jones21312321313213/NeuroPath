@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useEffect } from "react";
 import { MemoryRouter } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import { useAuth } from "../../context/AuthContext";
@@ -212,6 +213,113 @@ describe("Sidebar component", () => {
 
     const viewBtn = screen.getByRole("button", { name: /view student profile/i });
     expect(viewBtn).not.toHaveAttribute("aria-current");
+  });
+
+  it("intercepts top-level nav click (Home) when an unsaved changes guard is active", async () => {
+    const user = userEvent.setup();
+    const mockGuardPrompt = vi.fn();
+
+    const { UnsavedChangesProvider, useUnsavedChangesContext } = await import(
+      "../../context/UnsavedChangesContext"
+    );
+
+    function GuardRegister() {
+      const { registerGuard } = useUnsavedChangesContext();
+      useEffect(() => {
+        return registerGuard({
+          id: "active-draft-guard",
+          isDirty: true,
+          promptNavigation: mockGuardPrompt,
+        });
+      }, [registerGuard]);
+      return null;
+    }
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard/strategies"]}>
+        <UnsavedChangesProvider>
+          <GuardRegister />
+          <Sidebar collapsed={false} onToggleCollapse={mockOnToggleCollapse} />
+        </UnsavedChangesProvider>
+      </MemoryRouter>
+    );
+
+    const homeBtn = screen.getByRole("button", { name: /^home$/i });
+    await user.click(homeBtn);
+
+    expect(mockGuardPrompt).toHaveBeenCalledTimes(1);
+    expect(mockGuardPrompt).toHaveBeenCalledWith(expect.any(Function));
+  });
+
+  it("intercepts subnav click when an unsaved changes guard is active", async () => {
+    const user = userEvent.setup();
+    const mockGuardPrompt = vi.fn();
+
+    const { UnsavedChangesProvider, useUnsavedChangesContext } = await import(
+      "../../context/UnsavedChangesContext"
+    );
+
+    function GuardRegister() {
+      const { registerGuard } = useUnsavedChangesContext();
+      useEffect(() => {
+        return registerGuard({
+          id: "active-draft-guard",
+          isDirty: true,
+          promptNavigation: mockGuardPrompt,
+        });
+      }, [registerGuard]);
+      return null;
+    }
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard/strategies"]}>
+        <UnsavedChangesProvider>
+          <GuardRegister />
+          <Sidebar collapsed={false} onToggleCollapse={mockOnToggleCollapse} />
+        </UnsavedChangesProvider>
+      </MemoryRouter>
+    );
+
+    // Instructional Support should already be expanded because we are on /dashboard/strategies
+    const visualAidsBtn = screen.getByRole("button", { name: /manage visual aids/i });
+    await user.click(visualAidsBtn);
+
+    expect(mockGuardPrompt).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not trigger prompt or navigation when clicking the currently active subnav tab", async () => {
+    const user = userEvent.setup();
+    const mockGuardPrompt = vi.fn();
+
+    const { UnsavedChangesProvider, useUnsavedChangesContext } = await import(
+      "../../context/UnsavedChangesContext"
+    );
+
+    function GuardRegister() {
+      const { registerGuard } = useUnsavedChangesContext();
+      useEffect(() => {
+        return registerGuard({
+          id: "active-draft-guard",
+          isDirty: true,
+          promptNavigation: mockGuardPrompt,
+        });
+      }, [registerGuard]);
+      return null;
+    }
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard/strategies"]}>
+        <UnsavedChangesProvider>
+          <GuardRegister />
+          <Sidebar collapsed={false} onToggleCollapse={mockOnToggleCollapse} />
+        </UnsavedChangesProvider>
+      </MemoryRouter>
+    );
+
+    const strategiesBtn = screen.getByRole("button", { name: /manage teaching strategies/i });
+    await user.click(strategiesBtn);
+
+    expect(mockGuardPrompt).not.toHaveBeenCalled();
   });
 });
 
