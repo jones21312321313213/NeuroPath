@@ -599,12 +599,23 @@ class RecentActivityAPIView(APIView):
 
         activities = []
 
+        # Slices up to query_limit for each category so that after combining and
+        # chronological sorting, the top `limit` activities across all categories are returned.
+        limit_param = request.query_params.get('limit')
+        try:
+            limit = int(limit_param) if limit_param is not None else 15
+            limit = max(1, min(limit, 50))
+        except (ValueError, TypeError):
+            limit = 15
+
+        query_limit = max(limit, 20)
+
         # 1. Recent IEPs for teacher's students
         from iep_management.models import IEPModel
         recent_ieps = (
             IEPModel.objects.filter(studentID__teacher=teacher)
             .select_related('studentID')
-            .order_by('-createdDate')[:10]
+            .order_by('-createdDate')[:query_limit]
         )
         for iep in recent_ieps:
             student_name = iep.studentID.name if iep.studentID else "Student"
@@ -624,7 +635,7 @@ class RecentActivityAPIView(APIView):
         # 2. Recent Student Profiles
         recent_students = (
             StudentProfile.objects.filter(teacher=teacher)
-            .order_by('-updated_at')[:10]
+            .order_by('-updated_at')[:query_limit]
         )
         for student in recent_students:
             timestamp = student.updated_at or student.created_at
@@ -651,7 +662,7 @@ class RecentActivityAPIView(APIView):
         recent_progress = (
             StudentProgress.objects.filter(student__teacher=teacher)
             .select_related('student')
-            .order_by('-dateLogged')[:10]
+            .order_by('-dateLogged')[:query_limit]
         )
         for prog in recent_progress:
             student_name = prog.student.name if prog.student else "Student"
@@ -678,7 +689,7 @@ class RecentActivityAPIView(APIView):
         activities.sort(key=get_sort_key, reverse=True)
 
         response_data = []
-        for item in activities[:10]:
+        for item in activities[:limit]:
             clean_item = {k: v for k, v in item.items() if k != "_sort_key"}
             response_data.append(clean_item)
 

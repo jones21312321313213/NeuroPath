@@ -197,6 +197,35 @@ describe("Overview - Getting Started 3-Step Path", () => {
     expect(mockSetActivePage).toHaveBeenCalledWith("/dashboard/lessons");
   });
 
+  it("with 1+ resources created: step 3 is completed and shows Done button instead of pending", async () => {
+    studentsAPI.list.mockResolvedValue([{ id: 101, name: "Student A" }]);
+    iepAPI.dashboardStats.mockResolvedValue({ active_ieps: 1, ai_insights: 0 });
+    resourcesAPI.dashboardStats.mockResolvedValue({
+      total: 3,
+      total_resources: 3,
+      lesson_plans: 1,
+      teaching_strategies: 1,
+      visual_aids: 1,
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <Overview setActivePage={mockSetActivePage} />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(resourcesAPI.dashboardStats).toHaveBeenCalled();
+    });
+
+    const step3 = screen.getByTestId("getting-started-step-3");
+    expect(await within(step3).findByText(/completed/i)).toBeInTheDocument();
+    expect(within(step3).queryByText(/pending/i)).not.toBeInTheDocument();
+
+    const step3Btn = within(step3).getByRole("button", { name: /done/i });
+    expect(step3Btn).toBeDisabled();
+  });
+
   it("disables student-dependent quick actions when no students exist", async () => {
     studentsAPI.list.mockResolvedValue([]);
     iepAPI.dashboardStats.mockResolvedValue({ active_ieps: 0, ai_insights: 0 });
@@ -433,6 +462,116 @@ describe("Overview - At a Glance Stats (Option 2: Classroom & Resource Readiness
       await user.click(viewBtn);
 
       expect(mockNavigate).toHaveBeenCalledWith("/dashboard/iep");
+    });
+
+    it("defaults to 10 items and shows 'Show more' when count > 10", async () => {
+      const mockActivities = Array.from({ length: 14 }, (_, i) => ({
+        id: `act-${i + 1}`,
+        type: i % 2 === 0 ? "iep" : "student",
+        title: `Activity item ${i + 1}`,
+        description: `Description ${i + 1}`,
+        timestamp: new Date(Date.now() - (i + 1) * 60 * 1000).toISOString(),
+        target_path: "/dashboard/iep",
+      }));
+      trackingAPI.getRecentActivity.mockResolvedValue(mockActivities);
+
+      renderWithQueryClient(
+        <MemoryRouter>
+          <Overview setActivePage={vi.fn()} />
+        </MemoryRouter>,
+      );
+
+      // Verify first 10 are rendered
+      expect(await screen.findByText("Activity item 1")).toBeInTheDocument();
+      expect(screen.getByText("Activity item 10")).toBeInTheDocument();
+      // Item 11 should not be displayed yet
+      expect(screen.queryByText("Activity item 11")).not.toBeInTheDocument();
+
+      // Show more button appears
+      const showMoreBtn = screen.getByRole("button", { name: /show more/i });
+      expect(showMoreBtn).toBeInTheDocument();
+    });
+
+    it("does not show 'Show more' control when activities count <= 10", async () => {
+      const mockActivities = Array.from({ length: 10 }, (_, i) => ({
+        id: `act-${i + 1}`,
+        type: "iep",
+        title: `Activity item ${i + 1}`,
+        description: `Description ${i + 1}`,
+        timestamp: new Date().toISOString(),
+      }));
+      trackingAPI.getRecentActivity.mockResolvedValue(mockActivities);
+
+      renderWithQueryClient(
+        <MemoryRouter>
+          <Overview setActivePage={vi.fn()} />
+        </MemoryRouter>,
+      );
+
+      expect(await screen.findByText("Activity item 1")).toBeInTheDocument();
+      expect(screen.getByText("Activity item 10")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /show more/i })).not.toBeInTheDocument();
+    });
+
+    it("expands to 15 total items (+5) upon clicking 'Show more' and hides the control", async () => {
+      const mockActivities = Array.from({ length: 18 }, (_, i) => ({
+        id: `act-${i + 1}`,
+        type: "iep",
+        title: `Activity item ${i + 1}`,
+        description: `Description ${i + 1}`,
+        timestamp: new Date(Date.now() - (i + 1) * 60 * 1000).toISOString(),
+      }));
+      trackingAPI.getRecentActivity.mockResolvedValue(mockActivities);
+      const user = userEvent.setup();
+
+      renderWithQueryClient(
+        <MemoryRouter>
+          <Overview setActivePage={vi.fn()} />
+        </MemoryRouter>,
+      );
+
+      // Wait for initial render with 10 items
+      const showMoreBtn = await screen.findByRole("button", { name: /show more/i });
+      expect(screen.queryByText("Activity item 11")).not.toBeInTheDocument();
+
+      // Click show more
+      await user.click(showMoreBtn);
+
+      // Total 15 items should now be visible (items 1 through 15)
+      expect(screen.getByText("Activity item 11")).toBeInTheDocument();
+      expect(screen.getByText("Activity item 15")).toBeInTheDocument();
+      // Item 16 should still not be rendered
+      expect(screen.queryByText("Activity item 16")).not.toBeInTheDocument();
+
+      // Show more control should now be hidden
+      expect(screen.queryByRole("button", { name: /show more/i })).not.toBeInTheDocument();
+    });
+
+    it("expands to show all items when total is between 11 and 15, then hides 'Show more'", async () => {
+      const mockActivities = Array.from({ length: 12 }, (_, i) => ({
+        id: `act-${i + 1}`,
+        type: "student",
+        title: `Activity item ${i + 1}`,
+        description: `Description ${i + 1}`,
+        timestamp: new Date(Date.now() - (i + 1) * 60 * 1000).toISOString(),
+      }));
+      trackingAPI.getRecentActivity.mockResolvedValue(mockActivities);
+      const user = userEvent.setup();
+
+      renderWithQueryClient(
+        <MemoryRouter>
+          <Overview setActivePage={vi.fn()} />
+        </MemoryRouter>,
+      );
+
+      const showMoreBtn = await screen.findByRole("button", { name: /show more/i });
+      expect(screen.queryByText("Activity item 11")).not.toBeInTheDocument();
+
+      await user.click(showMoreBtn);
+
+      expect(screen.getByText("Activity item 11")).toBeInTheDocument();
+      expect(screen.getByText("Activity item 12")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /show more/i })).not.toBeInTheDocument();
     });
   });
 });

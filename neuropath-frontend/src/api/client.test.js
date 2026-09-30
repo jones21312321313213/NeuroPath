@@ -240,6 +240,21 @@ describe("api client", () => {
       );
     });
 
+    it("fetches recent activity feed with query params", async () => {
+      const mockActivity = [
+        { id: "iep-1", type: "iep", title: "IEP v1 for Alice" },
+      ];
+      fetch.mockResolvedValueOnce(jsonResponse(mockActivity));
+
+      const result = await trackingAPI.getRecentActivity({ limit: 15 });
+
+      expect(result).toEqual(mockActivity);
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/tracking/recent-activity/?limit=15",
+        expect.anything(),
+      );
+    });
+
     it("fetches progress dashboard for a student", async () => {
       fetch.mockResolvedValueOnce(jsonResponse([{ name: "Math", progress: 85 }]));
 
