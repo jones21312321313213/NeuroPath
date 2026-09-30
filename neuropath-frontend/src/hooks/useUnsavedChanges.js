@@ -5,14 +5,13 @@ let nextGuardId = 0;
 
 export function useUnsavedChanges({ isDirty = false, onLeave } = {}) {
   const [showPrompt, setShowPrompt] = useState(false);
+  const [guardId] = useState(() => ++nextGuardId);
   const pendingActionRef = useRef(null);
   const isDirtyRef = useRef(isDirty);
-  isDirtyRef.current = isDirty;
 
-  const idRef = useRef(null);
-  if (idRef.current === null) {
-    idRef.current = ++nextGuardId;
-  }
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
 
   const { registerGuard } = useUnsavedChangesContext();
 
@@ -52,12 +51,12 @@ export function useUnsavedChanges({ isDirty = false, onLeave } = {}) {
   useEffect(() => {
     if (typeof registerGuard !== "function") return;
     return registerGuard({
-      id: idRef.current,
+      id: guardId,
       isDirty,
       getIsDirty: () => isDirtyRef.current,
       promptNavigation,
     });
-  }, [registerGuard, isDirty, promptNavigation]);
+  }, [registerGuard, guardId, isDirty, promptNavigation]);
 
   useEffect(() => {
     if (!isDirty) return;

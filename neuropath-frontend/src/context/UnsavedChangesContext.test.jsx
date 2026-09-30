@@ -1,4 +1,4 @@
-import { render, screen, act } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import {
@@ -60,7 +60,7 @@ describe("UnsavedChangesContext", () => {
   it("intercepts navigation when a registered guard is dirty", async () => {
     const user = userEvent.setup();
     const onNavigate = vi.fn();
-    const guardPromptNavigation = vi.fn((action) => {
+    const guardPromptNavigation = vi.fn(() => {
       // Mock guard intercepting action
       return false;
     });

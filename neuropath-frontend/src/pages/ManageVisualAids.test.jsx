@@ -424,7 +424,7 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
   });
 
   it("prompts confirmation modal when user tries to switch tabs with an unsaved draft, and stays when clicking 'No, Stay'", async () => {
-    const { container } = renderComponent();
+    renderComponent();
 
     await waitFor(() => {
       expect(screen.getByText("Leo Miller")).toBeInTheDocument();

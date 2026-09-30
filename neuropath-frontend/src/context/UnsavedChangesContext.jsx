@@ -77,6 +77,7 @@ const defaultContextValue = {
   },
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useUnsavedChangesContext() {
   const context = useContext(UnsavedChangesContext);
   return context || defaultContextValue;

@@ -183,15 +183,19 @@ class VisualAidSequentialTaskAnalysisTests(TestCase):
 
     # ── Unit Test 5b: Hugging Face FLUX.1 Inference Mock ─────────────────────
     @override_settings(HF_TOKEN="test-valid-hf-token", HF_IMAGE_MODEL="black-forest-labs/FLUX.1-schnell")
-    @patch('huggingface_hub.InferenceClient.text_to_image')
-    def test_fetch_image_from_hf_success(self, mock_t2i):
+    def test_fetch_image_from_hf_success(self):
         from PIL import Image
+        mock_client = MagicMock()
         mock_img = Image.new('RGB', (100, 100), color=(0, 255, 0))
-        mock_t2i.return_value = mock_img
+        mock_client.text_to_image.return_value = mock_img
 
-        result = VisualAidGeneratorService.fetch_image_from_hf("Educational cartoon cat")
-        self.assertTrue(result.startswith("data:image/jpeg;base64,"))
-        mock_t2i.assert_called_once()
+        mock_hub = MagicMock()
+        mock_hub.InferenceClient.return_value = mock_client
+
+        with patch.dict('sys.modules', {'huggingface_hub': mock_hub}):
+            result = VisualAidGeneratorService.fetch_image_from_hf("Educational cartoon cat")
+            self.assertTrue(result.startswith("data:image/jpeg;base64,"))
+            mock_client.text_to_image.assert_called_once()
 
     # ── Unit Test 5c: HF FLUX.1 preferred when GEMINI_API_KEY is unset ───────
     @override_settings(GEMINI_API_KEY="", HF_TOKEN="test-valid-hf-token")

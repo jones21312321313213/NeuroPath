@@ -249,12 +249,14 @@ function SequentialSequenceViewer({
         ];
 
   const [steps, setSteps] = useState(initialSteps);
+  const [prevStepsData, setPrevStepsData] = useState(aid?.steps_data);
 
-  useEffect(() => {
+  if (aid?.steps_data !== prevStepsData) {
+    setPrevStepsData(aid?.steps_data);
     if (aid?.steps_data && Array.isArray(aid.steps_data) && aid.steps_data.length > 0) {
       setSteps(aid.steps_data);
     }
-  }, [aid?.steps_data]);
+  }
 
   const handleNarrate = (stepNum, textToRead) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
