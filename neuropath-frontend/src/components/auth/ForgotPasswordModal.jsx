@@ -1,15 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
 import { CloseIcon, CheckIcon, WarningIcon } from "../ui/icons";
+import { authAPI } from "../../api/client";
 
-export default function ForgotPasswordModal({ isOpen, onClose }) {
+export default function ForgotPasswordModal({ isOpen, onClose, onNavigateResetPassword }) {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleClose = useCallback(() => {
     setEmail("");
     setSubmitted(false);
     setError("");
+    setLoading(false);
     onClose();
   }, [onClose]);
 
@@ -25,14 +28,29 @@ export default function ForgotPasswordModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) {
       setError("Please enter a valid email address.");
       return;
     }
     setError("");
-    setSubmitted(true);
+    setLoading(true);
+
+    try {
+      await authAPI.forgotPassword(email.trim().toLowerCase());
+      setSubmitted(true);
+    } catch (err) {
+      const msg =
+        err.message ||
+        err.data?.error ||
+        err.data?.message ||
+        "Failed to send reset instructions. Please try again.";
+      setError(msg);
+      setSubmitted(false);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -77,6 +95,18 @@ export default function ForgotPasswordModal({ isOpen, onClose }) {
             >
               Return to Sign In
             </button>
+            {onNavigateResetPassword && (
+              <button
+                type="button"
+                onClick={() => {
+                  handleClose();
+                  onNavigateResetPassword();
+                }}
+                className="w-full py-2 px-4 text-xs font-semibold text-sky-600 hover:text-sky-800 hover:bg-sky-50 rounded-xl transition-all"
+              >
+                Have a reset token? Enter it here →
+              </button>
+            )}
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 mt-4">
@@ -117,17 +147,41 @@ export default function ForgotPasswordModal({ isOpen, onClose }) {
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all"
+                disabled={loading}
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 disabled:opacity-50 rounded-xl transition-all"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-xl shadow-md transition-all"
+                disabled={loading}
+                className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-50 disabled:pointer-events-none rounded-xl shadow-md transition-all"
               >
-                Send Reset Instructions
+                {loading ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" aria-hidden="true" />
+                    <span>Sending...</span>
+                  </>
+                ) : (
+                  "Send Reset Instructions"
+                )}
               </button>
             </div>
+
+            {onNavigateResetPassword && (
+              <div className="pt-2 text-center border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleClose();
+                    onNavigateResetPassword();
+                  }}
+                  className="text-xs font-medium text-sky-600 hover:text-sky-800 hover:underline transition-colors"
+                >
+                  Already have a reset link or token? Click here
+                </button>
+              </div>
+            )}
           </form>
         )}
       </div>

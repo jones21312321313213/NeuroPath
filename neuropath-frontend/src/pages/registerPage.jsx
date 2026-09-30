@@ -6,11 +6,12 @@ import {
   WarningIcon,
   EyeIcon,
   EyeSlashIcon,
+  ArrowLeftIcon,
 } from "../components/ui/icons";
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 import { evaluatePasswordRules } from "../utils/password";
 
-export default function RegisterPage({ onNavigateLogin }) {
+export default function RegisterPage({ onNavigateLogin, onNavigateHome }) {
   const { register } = useAuth();
   const [form, setForm] = useState({
     firstName: "",
@@ -23,6 +24,14 @@ export default function RegisterPage({ onNavigateLogin }) {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
+
+  const handleNavigateHome = () => {
+    if (onNavigateHome) {
+      onNavigateHome();
+    } else if (typeof window !== "undefined") {
+      window.location.href = "/";
+    }
+  };
 
   const validate = () => {
     const e = {};
@@ -236,6 +245,20 @@ export default function RegisterPage({ onNavigateLogin }) {
         style={{ background: "#fff" }}
       >
         <div className="w-full max-w-md flex flex-col text-left">
+          {/* Back to Home Button */}
+          <button
+            type="button"
+            onClick={handleNavigateHome}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-sky-700 transition-colors mb-6 group w-fit cursor-pointer outline-none"
+            aria-label="Back to home"
+          >
+            <ArrowLeftIcon
+              className="w-4 h-4 transition-transform group-hover:-translate-x-0.5"
+              aria-hidden="true"
+            />
+            <span>Back to home</span>
+          </button>
+
           <div className="mb-8">
             <h1
               className="text-2xl sm:text-3xl font-black tracking-tight mb-2"

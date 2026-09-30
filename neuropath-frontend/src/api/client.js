@@ -85,6 +85,18 @@ export const authAPI = {
       skipAuthRedirect: true,
       ...options,
     }),
+  forgotPassword: (payload) => {
+    const body = typeof payload === "string" ? { email: payload } : payload;
+    return request("/users/password-reset/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+  resetPasswordConfirm: (payload) =>
+    request("/users/password-reset/confirm/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };
 
 // ── Students ───────────────────────────────────────────────────────────────────

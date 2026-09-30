@@ -9,11 +9,14 @@ import {
   WarningIcon,
   EyeIcon,
   EyeSlashIcon,
+  ArrowLeftIcon,
 } from "../components/ui/icons";
 import ForgotPasswordModal from "../components/auth/ForgotPasswordModal";
 
 export default function LoginPage({
   onNavigateRegister,
+  onNavigateHome,
+  onNavigateResetPassword,
   onLoginSuccess,
   successMessage,
   onClearMessage,
@@ -66,6 +69,14 @@ export default function LoginPage({
       setForm((prev) => ({ ...prev, email: prefilledEmail }));
     }
   }
+
+  const handleNavigateHome = () => {
+    if (onNavigateHome) {
+      onNavigateHome();
+    } else if (typeof window !== "undefined") {
+      window.location.href = "/";
+    }
+  };
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -177,6 +188,20 @@ export default function LoginPage({
         style={{ background: "#fff" }}
       >
         <div className="w-full max-w-md flex flex-col text-left">
+          {/* Back to Home Button */}
+          <button
+            type="button"
+            onClick={handleNavigateHome}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-sky-700 transition-colors mb-6 group w-fit cursor-pointer outline-none"
+            aria-label="Back to home"
+          >
+            <ArrowLeftIcon
+              className="w-4 h-4 transition-transform group-hover:-translate-x-0.5"
+              aria-hidden="true"
+            />
+            <span>Back to home</span>
+          </button>
+
           {/* Header */}
           <div className="mb-8">
             <h1
@@ -395,6 +420,7 @@ export default function LoginPage({
       <ForgotPasswordModal
         isOpen={showForgotModal}
         onClose={() => setShowForgotModal(false)}
+        onNavigateResetPassword={onNavigateResetPassword}
       />
     </div>
   );

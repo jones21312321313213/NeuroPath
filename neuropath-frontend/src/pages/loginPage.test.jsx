@@ -245,5 +245,17 @@ describe("LoginPage", () => {
     const emailInput = screen.getByLabelText(/email address/i);
     expect(emailInput).toHaveValue("state_user@school.org");
   });
+
+  it("renders back to home button and handles click", async () => {
+    const user = userEvent.setup();
+    const onNavigateHome = vi.fn();
+    renderPage({ onNavigateHome });
+
+    const backBtn = screen.getByRole("button", { name: /back to home/i });
+    expect(backBtn).toBeInTheDocument();
+
+    await user.click(backBtn);
+    expect(onNavigateHome).toHaveBeenCalled();
+  });
 });
 

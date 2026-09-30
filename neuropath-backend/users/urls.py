@@ -1,19 +1,25 @@
 from django.urls import path
-from .views import( StudentProfileListCreateView, 
-                   ProfileUpdateController,
-                   ProfileViewController,
-                   AIInsightController,
-                   TeacherCreateController,
-                   TeacherLoginController,
-                   TeacherLogoutController,
-                   TeacherProfileUpdateController,
-                   TeacherTutorialCompleteController,
-                   ConsentCertificatePdfView)
+from .views import (
+    StudentProfileListCreateView, 
+    ProfileUpdateController,
+    ProfileViewController,
+    AIInsightController,
+    TeacherCreateController,
+    TeacherLoginController,
+    TeacherLogoutController,
+    TeacherProfileUpdateController,
+    TeacherTutorialCompleteController,
+    ConsentCertificatePdfView,
+    PasswordResetRequestController,
+    PasswordResetConfirmController,
+)
 
 urlpatterns = [
     path('register/', TeacherCreateController.as_view(), name='teacher-register'),
     path('login/', TeacherLoginController.as_view(), name='teacher-login'),
     path('logout/', TeacherLogoutController.as_view(), name='teacher-logout'),
+    path('password-reset/', PasswordResetRequestController.as_view(), name='password-reset-request'),
+    path('password-reset/confirm/', PasswordResetConfirmController.as_view(), name='password-reset-confirm'),
     path('tutorial-complete/', TeacherTutorialCompleteController.as_view(), name='teacher-tutorial-complete'),
     
     path('teachers/', TeacherCreateController.as_view(), name='teacher-create'),

@@ -189,3 +189,14 @@ GEMINI_MODEL = env('GEMINI_MODEL', default='gemini-1.5-flash')
 
 OPENROUTER_API_KEY = env('OPENROUTER_API_KEY', default='MISSING_KEY')
 OPENROUTER_MODEL = env('OPENROUTER_MODEL', default='meta-llama/llama-3.3-70b-instruct:free')
+
+# ── Email Configuration ─────────────────────────────────
+EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = env('EMAIL_HOST', default='localhost')
+EMAIL_PORT = env.int('EMAIL_PORT', default=587)
+EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=not DEBUG)
+EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='NeuroPath Support <noreply@neuropath.app>')
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:5173')
+PASSWORD_RESET_TIMEOUT = env.int('PASSWORD_RESET_TIMEOUT', default=86400)
