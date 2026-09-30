@@ -55,6 +55,9 @@ class IEPExportPDFTestCase(TestCase):
         self.row = IEPObjectiveRow.objects.create(
             parent_goal=self.goal,
             enroute_objectives='Use PECS card to request help',
+            month_1_target='Given PECS cards and direct physical guidance, request help in 70% of opportunities',
+            month_2_target='Given PECS cards and faded verbal cues, request help in 75% of opportunities',
+            month_3_target='Given PECS cards, independently initiate help requests with 80% accuracy in 4 of 5 trials',
             interventions_procedures='Prompting hierarchy',
             timeline_mins_session='15 mins daily',
             individuals_responsible='SPED Teacher, SLP',
@@ -108,3 +111,27 @@ class IEPExportPDFTestCase(TestCase):
         self.client.force_authenticate(user=self.user)
         response = self.client.get('/api/iep/999999/export/')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_objective_row_persists_monthly_milestones(self):
+        self.row.refresh_from_db()
+        self.assertIn('direct physical guidance', self.row.month_1_target)
+        self.assertIn('faded verbal cues', self.row.month_2_target)
+        self.assertIn('independently initiate', self.row.month_3_target)
+
+    def test_standalone_goal_serializer_monthly_milestones(self):
+        from iep_management.serializers import StandaloneIEPGoalSerializer
+        serializer = StandaloneIEPGoalSerializer(self.goal)
+        data = serializer.data
+        self.assertEqual(len(data['objective_rows']), 1)
+        row_data = data['objective_rows'][0]
+        self.assertEqual(row_data['month_1_target'], self.row.month_1_target)
+        self.assertEqual(row_data['month_2_target'], self.row.month_2_target)
+        self.assertEqual(row_data['month_3_target'], self.row.month_3_target)
+
+    def test_export_pdf_renders_monthly_milestone_table(self):
+        from iep_management.views import IEPBinaryReportRenderEngine
+        pdf_stream = IEPBinaryReportRenderEngine.generate_iep_pdf_stream(self.iep)
+        content = pdf_stream.getvalue()
+        self.assertTrue(content.startswith(b'%PDF-'))
+        self.assertGreater(len(content), 1000)
+

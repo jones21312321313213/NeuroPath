@@ -106,6 +106,54 @@ export const studentsAPI = {
     request(`/users/students/${id}/`, {
       method: "DELETE",
     }),
+
+  // RA 10173 Parental Consent Certificate PDF Export (Bundle 2)
+  exportConsentPDF: async (studentIdOrPayload) => {
+    const token = localStorage.getItem("neuropath_access_token");
+    const headers = {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+    };
+
+    let url;
+    let options;
+    if (
+      typeof studentIdOrPayload === "number" ||
+      (typeof studentIdOrPayload === "string" && !isNaN(Number(studentIdOrPayload)))
+    ) {
+      url = `${BASE_URL}/users/students/${studentIdOrPayload}/consent-pdf/`;
+      options = { headers };
+    } else {
+      url = `${BASE_URL}/users/students/consent-pdf/`;
+      options = {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(studentIdOrPayload || {}),
+      };
+    }
+
+    const response = await fetch(url, options);
+
+    if (!response.ok) {
+      if (response.status === 401 && token) {
+        forceReauth();
+      }
+      let message = "Failed to export RA 10173 Consent Certificate PDF.";
+      try {
+        const data = await response.json();
+        message = data.errors || data.detail || data.error || message;
+      } catch {
+        // Fallback to default message
+      }
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.blob();
+  },
 };
 
 // ── Lesson Plans ───────────────────────────────────────────────────────────────

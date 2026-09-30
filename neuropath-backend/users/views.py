@@ -420,3 +420,384 @@ class TeacherTutorialCompleteController(APIView):
         )
 
 
+# =====================================================================
+# SDD MODULE: RA 10173 PARENTAL CONSENT PDF EXPORT (BUNDLE 2)
+# Component Name: ConsentCertificatePdfEngine & ConsentCertificatePdfView
+# Description: Generates official DepEd-standard downloadable PDF
+#              certificates for RA 10173 Parental Consent agreements.
+# =====================================================================
+class ConsentCertificatePdfEngine:
+    @staticmethod
+    def generate_pdf_stream(data: dict):
+        """
+        Generates an official DepEd RA 10173 Parental Consent Certificate PDF stream.
+        Expected keys in data:
+            - learner_name
+            - guardian_name
+            - guardian_relationship
+            - school
+            - school_year
+            - grade
+            - consent_date
+            - teacher_name
+        """
+        import io
+        import html
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.units import mm
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
+
+        def esc(val):
+            if val is None:
+                return ""
+            return html.escape(str(val))
+
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=14 * mm,
+            leftMargin=14 * mm,
+            topMargin=12 * mm,
+            bottomMargin=12 * mm,
+        )
+
+        styles = getSampleStyleSheet()
+
+        style_republic = ParagraphStyle(
+            'RepTitle',
+            parent=styles['Normal'],
+            fontSize=8.5,
+            fontName='Helvetica-Bold',
+            leading=11,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#1E293B'),
+            spaceAfter=1,
+        )
+        style_deped = ParagraphStyle(
+            'DepEdTitle',
+            parent=styles['Normal'],
+            fontSize=10,
+            fontName='Helvetica-Bold',
+            leading=13,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#0F172A'),
+            spaceAfter=1,
+        )
+        style_bureau = ParagraphStyle(
+            'BureauSubtitle',
+            parent=styles['Normal'],
+            fontSize=8,
+            fontName='Helvetica',
+            leading=10,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#475569'),
+            spaceAfter=4,
+        )
+        style_doc_title = ParagraphStyle(
+            'DocTitle',
+            parent=styles['Normal'],
+            fontSize=11,
+            fontName='Helvetica-Bold',
+            leading=14,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#1E3A8A'),
+            spaceAfter=2,
+        )
+        style_act_subtitle = ParagraphStyle(
+            'ActSubtitle',
+            parent=styles['Normal'],
+            fontSize=8,
+            fontName='Helvetica-Bold',
+            leading=10,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#0284C7'),
+            spaceAfter=5,
+        )
+        style_table_label = ParagraphStyle(
+            'TableLabel',
+            parent=styles['Normal'],
+            fontSize=7.5,
+            fontName='Helvetica-Bold',
+            leading=9.5,
+            textColor=colors.HexColor('#1E293B'),
+        )
+        style_table_value = ParagraphStyle(
+            'TableVal',
+            parent=styles['Normal'],
+            fontSize=7.5,
+            fontName='Helvetica',
+            leading=9.5,
+            textColor=colors.HexColor('#334155'),
+        )
+        style_sec_heading = ParagraphStyle(
+            'SecHeading',
+            parent=styles['Normal'],
+            fontSize=8,
+            fontName='Helvetica-Bold',
+            leading=10.5,
+            textColor=colors.HexColor('#1E3A8A'),
+            spaceBefore=3,
+            spaceAfter=1.5,
+        )
+        style_body = ParagraphStyle(
+            'BodyJustified',
+            parent=styles['Normal'],
+            fontSize=7.2,
+            fontName='Helvetica',
+            leading=9.5,
+            alignment=TA_JUSTIFY,
+            textColor=colors.HexColor('#334155'),
+            spaceAfter=2,
+        )
+        style_attestation_heading = ParagraphStyle(
+            'AttestHeading',
+            parent=styles['Normal'],
+            fontSize=7.5,
+            fontName='Helvetica-Bold',
+            leading=9.5,
+            textColor=colors.HexColor('#1E293B'),
+        )
+        style_attestation_body = ParagraphStyle(
+            'AttestBody',
+            parent=styles['Normal'],
+            fontSize=7,
+            fontName='Helvetica',
+            leading=9,
+            alignment=TA_JUSTIFY,
+            textColor=colors.HexColor('#1E293B'),
+        )
+        style_sig_name = ParagraphStyle(
+            'SigName',
+            parent=styles['Normal'],
+            fontSize=8,
+            fontName='Helvetica-Bold',
+            alignment=TA_CENTER,
+            leading=10,
+            textColor=colors.HexColor('#0F172A'),
+        )
+        style_sig_role = ParagraphStyle(
+            'SigRole',
+            parent=styles['Normal'],
+            fontSize=7,
+            fontName='Helvetica',
+            alignment=TA_CENTER,
+            leading=8.5,
+            textColor=colors.HexColor('#475569'),
+        )
+        style_footer_notice = ParagraphStyle(
+            'FootNotice',
+            parent=styles['Normal'],
+            fontSize=6.5,
+            fontName='Helvetica-Oblique',
+            alignment=TA_CENTER,
+            leading=8,
+            textColor=colors.HexColor('#94A3B8'),
+        )
+
+        story = []
+        story.append(Paragraph("REPUBLIC OF THE PHILIPPINES", style_republic))
+        story.append(Paragraph("DEPARTMENT OF EDUCATION", style_deped))
+        story.append(Paragraph("Bureau of Learning Delivery &mdash; Student Inclusion Division &bull; SPED Program", style_bureau))
+        story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#1E3A8A'), spaceBefore=2, spaceAfter=4))
+        story.append(Paragraph("PARENTAL CONSENT &amp; STATUTORY DATA PRIVACY DISCLOSURE AGREEMENT", style_doc_title))
+        story.append(Paragraph("In Strict Compliance with Republic Act No. 10173 (Data Privacy Act of 2012) &amp; NPC Guidelines", style_act_subtitle))
+        story.append(Spacer(1, 1.5 * mm))
+
+        learner = esc(data.get('learner_name') or '—')
+        guardian = esc(data.get('guardian_name') or '—')
+        relation = esc(data.get('guardian_relationship') or 'Parent / Legal Guardian')
+        school = esc(data.get('school') or 'Department of Education Special Education Center')
+        sy = esc(data.get('school_year') or '—')
+        grade = esc(data.get('grade') or '—')
+        date_str = esc(data.get('consent_date') or '—')
+        teacher = esc(data.get('teacher_name') or 'Licensed SPED Teacher / Case Manager')
+
+        meta_rows = [
+            [
+                Paragraph("<b>Learner Name:</b>", style_table_label),
+                Paragraph(f"<b>{learner}</b>", style_table_value),
+                Paragraph("<b>Grade &amp; School Year:</b>", style_table_label),
+                Paragraph(f"{grade} / {sy}", style_table_value),
+            ],
+            [
+                Paragraph("<b>Parent / Guardian:</b>", style_table_label),
+                Paragraph(f"<b>{guardian}</b> ({relation})", style_table_value),
+                Paragraph("<b>School / Center:</b>", style_table_label),
+                Paragraph(school, style_table_value),
+            ],
+            [
+                Paragraph("<b>Verification Date:</b>", style_table_label),
+                Paragraph(date_str, style_table_value),
+                Paragraph("<b>Assigned Case Manager:</b>", style_table_label),
+                Paragraph(teacher, style_table_value),
+            ]
+        ]
+        meta_table = Table(meta_rows, colWidths=[38 * mm, 53 * mm, 40 * mm, 51 * mm])
+        meta_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
+            ('BOX', (0, 0), (-1, -1), 0.75, colors.HexColor('#CBD5E1')),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
+            ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 3),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        story.append(meta_table)
+        story.append(Spacer(1, 2 * mm))
+
+        story.append(Paragraph("1. Categories of Sensitive Personal Information Collected", style_sec_heading))
+        story.append(Paragraph(
+            "In formulating and implementing the learner's Individualized Education Plan (IEP), NeuroPath processes learner demographics, clinical diagnostic categories (ASD), present levels of academic achievement and functional performance (PLAAFP), specialized accommodations, behavioral observations, and longitudinal skill mastery benchmarks.",
+            style_body
+        ))
+
+        story.append(Paragraph("2. Educational Purpose &amp; Human-in-the-Loop AI Safeguards", style_sec_heading))
+        story.append(Paragraph(
+            "All gathered data is processed exclusively for authorized educational planning, individualized instruction, and developmental tracking. Generative artificial intelligence operates solely as an assistive drafting tool subject to mandatory review, modification, and authorization by licensed special education educators. Learner records are never commercialized, never shared with third-party advertisers, and strictly excluded from training public commercial models.",
+            style_body
+        ))
+
+        story.append(Paragraph("3. Data Security, Retention &amp; Confidentiality", style_sec_heading))
+        story.append(Paragraph(
+            "Learner records are safeguarded using cryptographic protections in transit (TLS 1.3) and at rest. Access is strictly scoped to the authenticated educator of record and designated school personnel, adhering to statutory DepEd record retention schedules.",
+            style_body
+        ))
+
+        story.append(Paragraph("4. Statutory Rights of the Parent / Legal Guardian (RA 10173 Section 16)", style_sec_heading))
+        story.append(Paragraph(
+            "Parents and legal guardians retain absolute statutory rights to be informed, inspect and obtain copies of records, rectify inaccurate data, object to or revoke consent for automated AI processing at any time without compromising the learner's entitlement to standard educational accommodations, and file complaints with the National Privacy Commission (NPC).",
+            style_body
+        ))
+        story.append(Spacer(1, 2 * mm))
+
+        attest_content = [
+            [Paragraph("<b>LEGAL GUARDIAN ATTESTATION &amp; INFORMED CONSENT DECLARATION:</b>", style_attestation_heading)],
+            [Paragraph(
+                "I hereby certify that I am the parent or legal guardian of the learner identified above. I confirm that I have been fully informed of the educational purposes, automated AI processing safeguards, and statutory rights provided under Republic Act No. 10173 (Data Privacy Act of 2012). I grant my explicit, informed, and freely given consent for the collection, processing, and management of sensitive educational records strictly for the formulation and administration of the learner's Individualized Education Plan (IEP).",
+                style_attestation_body
+            )]
+        ]
+        attest_table = Table(attest_content, colWidths=[182 * mm])
+        attest_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F1F5F9')),
+            ('BOX', (0, 0), (-1, -1), 0.75, colors.HexColor('#94A3B8')),
+            ('LINEBELOW', (0, 0), (-1, 0), 0.5, colors.HexColor('#CBD5E1')),
+            ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        story.append(attest_table)
+        story.append(Spacer(1, 3 * mm))
+
+        sig_data = [
+            [
+                Paragraph(f"<b>{guardian}</b>", style_sig_name),
+                Paragraph(f"<b>{teacher}</b>", style_sig_name),
+            ],
+            [
+                Paragraph(f"Signature over Printed Name of Parent / Guardian ({relation})", style_sig_role),
+                Paragraph("Signature over Printed Name of Case Manager / Evaluator", style_sig_role),
+            ],
+            [
+                Paragraph(f"Date Signed: {date_str}", style_sig_role),
+                Paragraph(f"Verification Date: {date_str}", style_sig_role),
+            ]
+        ]
+        sig_table = Table(sig_data, colWidths=[91 * mm, 91 * mm])
+        sig_table.setStyle(TableStyle([
+            ('LINEABOVE', (0, 0), (0, 0), 1, colors.HexColor('#0F172A')),
+            ('LINEABOVE', (1, 0), (1, 0), 1, colors.HexColor('#0F172A')),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ]))
+        story.append(sig_table)
+        story.append(Spacer(1, 2 * mm))
+
+        story.append(Paragraph(
+            "Official DepEd SPED IEP Form &bull; Formulated under Republic Act No. 10173 (Data Privacy Act of 2012) &bull; National Privacy Commission (NPC) Compliant",
+            style_footer_notice
+        ))
+
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+
+
+class ConsentCertificatePdfView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _generate_response(self, data):
+        import re
+        from django.http import HttpResponse
+
+        pdf_stream = ConsentCertificatePdfEngine.generate_pdf_stream(data)
+        clean_name = re.sub(r'[^a-zA-Z0-9_-]+', '_', data.get('learner_name') or 'Learner').strip('_') or 'Learner'
+        filename = f"RA10173_Parental_Consent_Certificate_{clean_name}.pdf"
+        response = HttpResponse(pdf_stream, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+    def get(self, request, pk=None, *args, **kwargs):
+        teacher = get_teacher_for_user(request.user)
+        if not teacher:
+            return Response({"error": "Teacher profile not found."}, status=status.HTTP_403_FORBIDDEN)
+
+        if pk is not None:
+            try:
+                student = StudentProfile.objects.get(pk=pk, teacher=teacher)
+            except StudentProfile.DoesNotExist:
+                return Response({"error": "Student profile not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            profile_details = student.profileDetails if isinstance(student.profileDetails, dict) else {}
+            data = {
+                'learner_name': student.name or profile_details.get('studentName') or profile_details.get('learnerName'),
+                'guardian_name': student.guardian_name or profile_details.get('guardianName'),
+                'guardian_relationship': student.guardian_relationship or profile_details.get('guardianRelationship') or 'Parent / Legal Guardian',
+                'school': profile_details.get('school') or 'Department of Education Special Education Center',
+                'school_year': profile_details.get('schoolYear') or '',
+                'grade': str(student.grade) if student.grade else str(profile_details.get('grade') or ''),
+                'consent_date': str(student.consent_date) if student.consent_date else str(profile_details.get('consentDate') or ''),
+                'teacher_name': teacher.name if hasattr(teacher, 'name') and teacher.name else f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username,
+            }
+            return self._generate_response(data)
+
+        # GET without pk: fallback using query params if any
+        data = {
+            'learner_name': request.query_params.get('learnerName', ''),
+            'guardian_name': request.query_params.get('guardianName', ''),
+            'guardian_relationship': request.query_params.get('guardianRelationship', 'Parent / Legal Guardian'),
+            'school': request.query_params.get('school', 'Department of Education Special Education Center'),
+            'school_year': request.query_params.get('schoolYear', ''),
+            'grade': request.query_params.get('grade', ''),
+            'consent_date': request.query_params.get('consentDate', ''),
+            'teacher_name': teacher.name if hasattr(teacher, 'name') and teacher.name else f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username,
+        }
+        return self._generate_response(data)
+
+    def post(self, request, pk=None, *args, **kwargs):
+        teacher = get_teacher_for_user(request.user)
+        if not teacher:
+            return Response({"error": "Teacher profile not found."}, status=status.HTTP_403_FORBIDDEN)
+
+        payload = request.data or {}
+        data = {
+            'learner_name': payload.get('learnerName') or payload.get('name') or '',
+            'guardian_name': payload.get('guardianName') or payload.get('guardian_name') or '',
+            'guardian_relationship': payload.get('guardianRelationship') or payload.get('guardian_relationship') or 'Parent / Legal Guardian',
+            'school': payload.get('school') or 'Department of Education Special Education Center',
+            'school_year': payload.get('schoolYear') or payload.get('school_year') or '',
+            'grade': payload.get('grade') or '',
+            'consent_date': payload.get('consentDate') or payload.get('consent_date') or '',
+            'teacher_name': teacher.name if hasattr(teacher, 'name') and teacher.name else f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username,
+        }
+        return self._generate_response(data)
+
+
+

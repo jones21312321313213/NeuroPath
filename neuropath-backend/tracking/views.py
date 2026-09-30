@@ -320,6 +320,9 @@ class BinaryReportRenderEngine:
                     if rows.exists():
                         g_data = [[
                             Paragraph("Objective", style_cell_label),
+                            Paragraph("Month 1 Milestone (1st Month)", style_cell_label),
+                            Paragraph("Month 2 Milestone (2nd Month)", style_cell_label),
+                            Paragraph("Month 3 Milestone (3rd Month)", style_cell_label),
                             Paragraph("Interventions", style_cell_label),
                             Paragraph("Timeline", style_cell_label),
                             Paragraph("Responsible", style_cell_label),
@@ -328,20 +331,23 @@ class BinaryReportRenderEngine:
                         for r in rows:
                             g_data.append([
                                 Paragraph(esc(r.enroute_objectives or '—'), style_cell_value),
+                                Paragraph(esc(r.month_1_target or '—'), style_cell_value),
+                                Paragraph(esc(r.month_2_target or '—'), style_cell_value),
+                                Paragraph(esc(r.month_3_target or '—'), style_cell_value),
                                 Paragraph(esc(r.interventions_procedures or '—'), style_cell_value),
                                 Paragraph(esc(r.timeline_mins_session or '—'), style_cell_value),
                                 Paragraph(esc(r.individuals_responsible or '—'), style_cell_value),
                                 Paragraph(esc(r.progress_instructional or '—'), style_cell_value),
                             ])
-                        g_table = Table(g_data, colWidths=[36 * mm, 40 * mm, 28 * mm, 32 * mm, 34 * mm])
+                        g_table = Table(g_data, colWidths=[28 * mm, 22 * mm, 22 * mm, 22 * mm, 26 * mm, 18 * mm, 20 * mm, 22 * mm])
                         g_table.setStyle(TableStyle([
                             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
                             ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
                             ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
                             ('TOPPADDING', (0, 0), (-1, -1), 3),
                             ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-                            ('LEFTPADDING', (0, 0), (-1, -1), 4),
-                            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                            ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
                             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                         ]))
                         story.append(g_table)

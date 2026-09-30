@@ -84,6 +84,9 @@ class IEPObjectiveRow(models.Model):
     
     # --- PHYSICAL GRID COLUMNS ---
     enroute_objectives = models.TextField(help_text="Harvest from K-12 Curriculum", blank=True, null=True) 
+    month_1_target = models.TextField(help_text="Month 1 Milestone (1st Month)", blank=True, null=True)
+    month_2_target = models.TextField(help_text="Month 2 Milestone (2nd Month)", blank=True, null=True)
+    month_3_target = models.TextField(help_text="Month 3 Milestone (3rd Month)", blank=True, null=True)
     interventions_procedures = models.TextField(help_text="Interventions/Activities/Procedure", blank=True, null=True) 
     timeline_mins_session = models.CharField(max_length=255, help_text="e.g., 15 to 20 minutes every day", blank=True, null=True) 
     individuals_responsible = models.CharField(max_length=255, help_text="e.g., SNED Teacher, Parents", blank=True, null=True) 

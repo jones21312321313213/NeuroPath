@@ -2020,6 +2020,334 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       expect(customInput.value).toBe("Speech Therapist");
     });
   });
+
+  describe("Section C 3-Month Quarter Milestone Columns & SMART ABCD Goals (Issue #215)", () => {
+    it("renders 3 monthly milestone columns in Section C Read-Only mode", async () => {
+      const mockGoal = {
+        goalID: 101,
+        subject_category: "Mathematics",
+        annual_goal: "Count 1 to 10 with 80% accuracy",
+        objective_rows: [
+          {
+            rowID: 201,
+            enroute_objectives: "Count 1-5 using blocks",
+            month_1_target: "Count 1-2 with physical prompts",
+            month_2_target: "Count 1-3 with faded cues",
+            month_3_target: "Count 1-5 independently",
+            interventions_procedures: "Block manipulation",
+            timeline_mins_session: "15 mins",
+            individuals_responsible: "Teacher",
+            progress_instructional: "Checklist",
+            remarks: "Good effort",
+          },
+        ],
+      };
+
+      iepAPI.listByStudent.mockResolvedValue([
+        {
+          iepID: 10,
+          studentID: 1,
+          studentName: "Alex Doe",
+          version: 1,
+          goals: "Improve numeracy",
+        },
+      ]);
+      iepAPI.listGoalsByIep.mockResolvedValue([mockGoal]);
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Section C: Learner's Goals")).toBeInTheDocument();
+        expect(screen.getByText("MONTH 1 MILESTONE (1ST MONTH)")).toBeInTheDocument();
+      });
+
+      expect(screen.getByText("MONTH 2 MILESTONE (2ND MONTH)")).toBeInTheDocument();
+      expect(screen.getByText("MONTH 3 MILESTONE (3RD MONTH)")).toBeInTheDocument();
+      expect(screen.getByText("Count 1-2 with physical prompts")).toBeInTheDocument();
+      expect(screen.getByText("Count 1-3 with faded cues")).toBeInTheDocument();
+      expect(screen.getByText("Count 1-5 independently")).toBeInTheDocument();
+    });
+
+    it("renders 3 monthly milestone columns and textareas in Edit Section C mode", async () => {
+      const user = userEvent.setup();
+      const mockGoal = {
+        goalID: 101,
+        subject_category: "Mathematics",
+        annual_goal: "Count 1 to 10 with 80% accuracy",
+        objective_rows: [
+          {
+            rowID: 201,
+            enroute_objectives: "Count 1-5 using blocks",
+            month_1_target: "Count 1-2 with physical prompts",
+            month_2_target: "Count 1-3 with faded cues",
+            month_3_target: "Count 1-5 independently",
+            interventions_procedures: "Block manipulation",
+            timeline_mins_session: "15 mins",
+            individuals_responsible: "Teacher",
+            progress_instructional: "Checklist",
+            remarks: "Good effort",
+          },
+        ],
+      };
+
+      iepAPI.listByStudent.mockResolvedValue([
+        {
+          iepID: 10,
+          studentID: 1,
+          studentName: "Alex Doe",
+          version: 1,
+          goals: "Improve numeracy",
+        },
+      ]);
+      iepAPI.listGoalsByIep.mockResolvedValue([mockGoal]);
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("EDIT IEP"));
+
+      expect(screen.getByText("Edit Section C: Learner's Goals")).toBeInTheDocument();
+      expect(screen.getByText("Month 1 Milestone (1st Month)")).toBeInTheDocument();
+      expect(screen.getByText("Month 2 Milestone (2nd Month)")).toBeInTheDocument();
+      expect(screen.getByText("Month 3 Milestone (3rd Month)")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Count 1-2 with physical prompts")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Count 1-3 with faded cues")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Count 1-5 independently")).toBeInTheDocument();
+    });
+
+    it("allows adding manual goal with 3-month milestones in Step 2 and saves to API", async () => {
+      const user = userEvent.setup();
+      iepAPI.save.mockResolvedValue({ iepID: 99, studentID: 1 });
+      iepAPI.saveGoal.mockResolvedValue({ goalID: 888 });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("NEXT"));
+
+      const addManualBtn = screen.getByRole("button", { name: /\+ Add Goal Manually/i });
+      await user.click(addManualBtn);
+
+      expect(screen.getByText("Manual Goal Entry")).toBeInTheDocument();
+      expect(screen.getByText("Month 1 Milestone (1st Month)")).toBeInTheDocument();
+      expect(screen.getByText("Month 2 Milestone (2nd Month)")).toBeInTheDocument();
+      expect(screen.getByText("Month 3 Milestone (3rd Month)")).toBeInTheDocument();
+
+      const goalAreaInput = screen.getByPlaceholderText(/Communication Skills/i);
+      await user.type(goalAreaInput, "Mathematics");
+
+      const annualGoalInput = screen.getByPlaceholderText("Write the annual learner goal.");
+      await user.type(annualGoalInput, "Will count 1 to 10 with 80% accuracy.");
+
+      const m1Input = screen.getByPlaceholderText("1st Month Milestone");
+      const m2Input = screen.getByPlaceholderText("2nd Month Milestone");
+      const m3Input = screen.getByPlaceholderText("3rd Month Milestone");
+
+      await user.type(m1Input, "Identify 1-3 counters with full cues");
+      await user.type(m2Input, "Identify 1-5 counters with verbal cues");
+      await user.type(m3Input, "Identify 5-10 counters independently");
+
+      const saveManualBtn = screen.getByRole("button", { name: /save goal manually/i });
+      await user.click(saveManualBtn);
+
+      await waitFor(() => {
+        expect(iepAPI.saveGoal).toHaveBeenCalled();
+      });
+
+      const saveGoalPayload = iepAPI.saveGoal.mock.calls[0][0];
+      expect(saveGoalPayload.objective_rows[0].month_1_target).toBe("Identify 1-3 counters with full cues");
+      expect(saveGoalPayload.objective_rows[0].month_2_target).toBe("Identify 1-5 counters with verbal cues");
+      expect(saveGoalPayload.objective_rows[0].month_3_target).toBe("Identify 5-10 counters independently");
+    });
+  });
+
+  describe("IEP UX Refinements (Issue #215 / Section B check / View IEP archives / search icon)", () => {
+    it("removes redundant empty state box in View IEP mode when no student is selected", async () => {
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/Search student by name/i)).toBeInTheDocument();
+      });
+
+      // Redundant empty state box should NOT be present
+      expect(
+        screen.queryByText(/The IEP preview will appear here after selecting a student from the search above/i),
+      ).not.toBeInTheDocument();
+
+      // Student Profiles roster is displayed
+      expect(screen.getByText(/Student Profiles/i)).toBeInTheDocument();
+    });
+
+    it("removes search icon from student search input and applies standard padding", async () => {
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/Search student by name/i)).toBeInTheDocument();
+      });
+
+      const searchInput = screen.getByLabelText(/Search student by name/i);
+      expect(searchInput.style.paddingLeft).toBe("14px");
+
+      // Verify no ti-search or vsp-search-icon elements exist in search input container
+      const searchWrap = searchInput.closest(".vsp-search-wrap");
+      expect(searchWrap.querySelector(".vsp-search-icon")).toBeNull();
+      expect(searchWrap.querySelector(".ti-search")).toBeNull();
+    });
+
+    it("renders Archived IEPs button aligned with View IEP and opens modal listing archived versions", async () => {
+      const user = userEvent.setup();
+      const archivedIep = {
+        ...mockIep,
+        iepID: 102,
+        version: 1,
+        is_archived: true,
+        formattedDate: "August 15, 2026",
+      };
+      const activeIep = {
+        ...mockIep,
+        iepID: 103,
+        version: 2,
+        is_archived: false,
+        formattedDate: "September 8, 2026",
+      };
+      iepAPI.listByStudent.mockResolvedValue([activeIep, archivedIep]);
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        const btn = screen.getByRole("button", { name: /view archived ieps/i });
+        expect(within(btn).getByText("1")).toBeInTheDocument();
+      });
+
+      const archiveBtn = screen.getByRole("button", { name: /view archived ieps/i });
+      await user.click(archiveBtn);
+
+      await waitFor(() => {
+        expect(screen.getByRole("dialog")).toBeInTheDocument();
+        expect(screen.getByText(/Archived IEPs — Alex Doe/i)).toBeInTheDocument();
+      });
+
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText(/Version 1 \(Archived\)/i)).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "View" })).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "Unarchive" })).toBeInTheDocument();
+
+      // Test View action in modal
+      await user.click(within(dialog).getByRole("button", { name: "View" }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      });
+    });
+
+    it("unarchives an IEP from the Archived IEPs modal", async () => {
+      const user = userEvent.setup();
+      const archivedIep = {
+        ...mockIep,
+        iepID: 102,
+        version: 1,
+        is_archived: true,
+      };
+      iepAPI.listByStudent.mockResolvedValue([archivedIep]);
+      iepAPI.archive.mockResolvedValue({ message: "IEP unarchived successfully." });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /view archived ieps/i })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole("button", { name: /view archived ieps/i }));
+
+      const dialog = await screen.findByRole("dialog");
+      const unarchiveBtn = within(dialog).getByRole("button", { name: "Unarchive" });
+      await user.click(unarchiveBtn);
+
+      await waitFor(() => {
+        expect(iepAPI.archive).toHaveBeenCalledWith(102, false);
+      });
+    });
+
+    it("does not mark Section B complete in Generate IEP stepper before a student is chosen", async () => {
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Section B: Special Factors & Barriers")).toBeInTheDocument();
+      });
+
+      const sectionBStep = screen
+        .getByText("Section B: Special Factors & Barriers")
+        .closest(".iep-wizard-step");
+
+      // Section B must NOT be completed and must NOT have the checkmark
+      expect(sectionBStep).not.toHaveClass("completed");
+      expect(within(sectionBStep).queryByText("✓")).toBeNull();
+      expect(within(sectionBStep).getByText("Pending")).toBeInTheDocument();
+    });
+
+    it("marks Section B complete in Generate IEP stepper after a student with difficulties is chosen", async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Section B: Special Factors & Barriers")).toBeInTheDocument();
+      });
+
+      const selectStudentBtn = screen.getByRole("button", { name: /select alex doe/i });
+      await user.click(selectStudentBtn);
+
+      await waitFor(() => {
+        const sectionBStep = screen
+          .getByText("Section B: Special Factors & Barriers")
+          .closest(".iep-wizard-step");
+        expect(sectionBStep).toHaveClass("completed");
+        expect(within(sectionBStep).getByText("✓")).toBeInTheDocument();
+        expect(within(sectionBStep).getByText("Completed")).toBeInTheDocument();
+      });
+    });
+  });
 });
 
 

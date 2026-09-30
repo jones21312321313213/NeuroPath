@@ -119,6 +119,12 @@ function normalizeGoal(goal) {
     rows: (goal.objective_rows || goal.rows || []).map((row, idx) => ({
       id: row.rowID || row.id || idx,
       objective: row.enroute_objectives || row.objective || "—",
+      month1: row.month_1_target || row.month1 || row.month_1 || "—",
+      month2: row.month_2_target || row.month2 || row.month_2 || "—",
+      month3: row.month_3_target || row.month3 || row.month_3 || "—",
+      month_1_target: row.month_1_target || row.month1 || row.month_1 || "—",
+      month_2_target: row.month_2_target || row.month2 || row.month_2 || "—",
+      month_3_target: row.month_3_target || row.month3 || row.month_3 || "—",
       interventions: row.interventions_procedures || row.interventions || "—",
       timeline: row.timeline_mins_session || row.timeline || "—",
       responsible: row.individuals_responsible || row.responsible || "—",
@@ -130,26 +136,60 @@ function normalizeGoal(goal) {
 
 function GoalTable({ rows = [] }) {
   if (!rows.length) return null;
-  const columns = [
-    ["objective", "Enroute Objectives / Procedure"],
-    ["interventions", "Interventions / Activities / Procedure"],
-    ["timeline", "Timeline / Session"],
-    ["responsible", "Individuals Responsible"],
-    ["evaluation", "Progress / Instructional Evaluation"],
-    ["remarks", "Remarks"],
-  ];
   return (
     <div className="vsr-table-scroll">
+      <div className="iep-scroll-hint">
+        <span className="iep-scroll-hint-pill">
+          ↔ Scroll horizontally for full 3-month milestones &amp; details
+        </span>
+      </div>
       <table className="vsr-table vsr-goal-table">
         <thead>
-          <tr>{columns.map(([, label]) => <th key={label}>{label}</th>)}</tr>
+          <tr>
+            <th rowSpan={2} className="vsr-sticky-col iep-col-objective">Enroute Objectives / Procedure</th>
+            <th colSpan={3} className="vsr-th-grouped iep-col-quarter-group">Quarterly Milestone Progression (3 Months)</th>
+            <th rowSpan={2} className="iep-col-interventions">Interventions / Activities / Procedure</th>
+            <th rowSpan={2} className="iep-col-timeline">Timeline / Session</th>
+            <th rowSpan={2} className="iep-col-responsible">Individuals Responsible</th>
+            <th rowSpan={2} className="iep-col-evaluation">Progress / Instructional Evaluation</th>
+            <th rowSpan={2} className="iep-col-remarks">Remarks</th>
+          </tr>
+          <tr>
+            <th className="vsr-th-sub iep-col-month">Month 1 Milestone (1st Month)</th>
+            <th className="vsr-th-sub iep-col-month">Month 2 Milestone (2nd Month)</th>
+            <th className="vsr-th-sub iep-col-month">Month 3 Milestone (3rd Month)</th>
+          </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.id}>
-              {columns.map(([field]) => (
-                <td key={field}>{row[field] || "—"}</td>
-              ))}
+              <td className="vsr-sticky-col iep-col-objective">
+                {row.objective || "—"}
+              </td>
+              <td className="iep-col-month">
+                {row.month1 || row.month_1_target || "—"}
+              </td>
+              <td className="iep-col-month">
+                {row.month2 || row.month_2_target || "—"}
+              </td>
+              <td className="iep-col-month">
+                {row.month3 || row.month_3_target || "—"}
+              </td>
+              <td className="iep-col-interventions">
+                {row.interventions || "—"}
+              </td>
+              <td className="iep-col-timeline">
+                {row.timeline || "—"}
+              </td>
+              <td className="iep-col-responsible">
+                {row.responsible || "—"}
+              </td>
+              <td className="iep-col-evaluation">
+                {row.evaluation || "—"}
+              </td>
+              <td className="iep-col-remarks">
+                {row.remarks || "—"}
+              </td>
             </tr>
           ))}
         </tbody>

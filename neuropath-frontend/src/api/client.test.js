@@ -512,5 +512,56 @@ describe("api client", () => {
 
       await expect(iepAPI.exportPDF(999)).rejects.toThrow("IEP document not found.");
     });
+
+    it("exports RA 10173 consent certificate PDF with student ID", async () => {
+      const mockBlob = new Blob(["%PDF-1.4 consent test"], { type: "application/pdf" });
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        blob: vi.fn().mockResolvedValueOnce(mockBlob),
+      });
+
+      const result = await studentsAPI.exportConsentPDF(10);
+
+      expect(result).toBe(mockBlob);
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/users/students/10/consent-pdf/",
+        expect.objectContaining({
+          headers: expect.any(Object),
+        }),
+      );
+    });
+
+    it("exports RA 10173 consent certificate PDF with payload object", async () => {
+      const mockBlob = new Blob(["%PDF-1.4 consent test"], { type: "application/pdf" });
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        blob: vi.fn().mockResolvedValueOnce(mockBlob),
+      });
+
+      const payload = { learnerName: "Lucas Garcia" };
+      const result = await studentsAPI.exportConsentPDF(payload);
+
+      expect(result).toBe(mockBlob);
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/users/students/consent-pdf/",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            "Content-Type": "application/json",
+          }),
+          body: JSON.stringify(payload),
+        }),
+      );
+    });
+
+    it("throws an error when exportConsentPDF fails", async () => {
+      fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: vi.fn().mockResolvedValueOnce({ error: "Failed to generate PDF." }),
+      });
+
+      await expect(studentsAPI.exportConsentPDF(999)).rejects.toThrow("Failed to generate PDF.");
+    });
   });
 });
