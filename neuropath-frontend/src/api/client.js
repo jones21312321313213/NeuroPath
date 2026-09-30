@@ -245,6 +245,35 @@ export const visualAidsAPI = {
       body: JSON.stringify(payload),
     }),
   exportUrl: (id) => `${BASE_URL}/resources/export-visual-aid/${id}/`,
+  exportPDF: async (id) => {
+    const token = localStorage.getItem("neuropath_access_token");
+    const headers = {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+    };
+
+    const response = await fetch(
+      `${BASE_URL}/resources/export-visual-aid/${id}/`,
+      { headers },
+    );
+
+    if (!response.ok) {
+      if (response.status === 401 && token) {
+        forceReauth();
+      }
+      let message = "Failed to export visual aid PDF.";
+      try {
+        const data = await response.json();
+        message = data.errors || data.detail || data.error || message;
+      } catch {
+        // Fallback to default message
+      }
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.blob();
+  },
 };
 
 // ── Teaching Strategies ────────────────────────────────────────────────────────
@@ -286,6 +315,35 @@ export const teachingStrategiesAPI = {
     request(`/resources/query-strategies/?studentID=${studentID}`),
   get: (id) => request(`/resources/query-strategies/${id}/`),
   exportUrl: (id) => `${BASE_URL}/resources/query-strategies/${id}/export/`,
+  exportPDF: async (id) => {
+    const token = localStorage.getItem("neuropath_access_token");
+    const headers = {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+    };
+
+    const response = await fetch(
+      `${BASE_URL}/resources/query-strategies/${id}/export/`,
+      { headers },
+    );
+
+    if (!response.ok) {
+      if (response.status === 401 && token) {
+        forceReauth();
+      }
+      let message = "Failed to export teaching strategy PDF.";
+      try {
+        const data = await response.json();
+        message = data.errors || data.detail || data.error || message;
+      } catch {
+        // Fallback to default message
+      }
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.blob();
+  },
   update: (id, payload) =>
     request(`/resources/edit-strategy/${id}/`, {
       method: "PUT",
@@ -421,7 +479,10 @@ export const usersAPI = {
 
 // ── Tracking & Outcome Monitoring ──────────────────────────────────────────────
 export const trackingAPI = {
-  getRecentActivity: () => request("/tracking/recent-activity/"),
+  getRecentActivity: (params) => {
+    const query = params ? `?${new URLSearchParams(params).toString()}` : "";
+    return request(`/tracking/recent-activity/${query}`);
+  },
   getProgressDashboard: (studentId) =>
     request(`/tracking/progress-dashboard/?studentID=${studentId}`),
   getAnalytics: (studentId, subject) => {
@@ -434,14 +495,29 @@ export const trackingAPI = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  exportStudentRecordPDF: async (studentId) => {
+  exportStudentRecordPDF: async (studentId, params = {}) => {
     const token = localStorage.getItem("neuropath_access_token");
     const headers = {
       ...(token ? { Authorization: `Token ${token}` } : {}),
     };
 
+    const searchParams = new URLSearchParams();
+    if (params?.section_b_version !== undefined && params?.section_b_version !== null && params?.section_b_version !== "") {
+      searchParams.append("section_b_version", params.section_b_version);
+    }
+    if (params?.section_c_version !== undefined && params?.section_c_version !== null && params?.section_c_version !== "") {
+      searchParams.append("section_c_version", params.section_c_version);
+    }
+    if (params?.section_b_id !== undefined && params?.section_b_id !== null && params?.section_b_id !== "") {
+      searchParams.append("section_b_id", params.section_b_id);
+    }
+    if (params?.section_c_id !== undefined && params?.section_c_id !== null && params?.section_c_id !== "") {
+      searchParams.append("section_c_id", params.section_c_id);
+    }
+    const qs = searchParams.toString();
+
     const response = await fetch(
-      `${BASE_URL}/tracking/student-records/${studentId}/export/`,
+      `${BASE_URL}/tracking/student-records/${studentId}/export/${qs ? `?${qs}` : ""}`,
       { headers },
     );
 

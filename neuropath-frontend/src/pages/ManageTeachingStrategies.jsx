@@ -430,7 +430,7 @@ function GenerateTab({ onSave, setActivePage, onDraftStatusChange, promptNavigat
       if (onDraftStatusChange) onDraftStatusChange(true);
     } catch (err) {
       setError(
-        err.message || "AI Generation pipeline failed. Is Ollama running?",
+        err.message || "Failed to generate teaching strategy.",
       );
     } finally {
       setLoading(false);
@@ -676,14 +676,14 @@ function GenerateTab({ onSave, setActivePage, onDraftStatusChange, promptNavigat
 
       {/* Loading / AI generation */}
       {loading && (
-        <div className="ts-card">
+        <div className="ts-card" role="status" aria-live="polite">
           <div className="ts-ai-generating">
-            <div className="ts-ai-orb flex items-center justify-center">
+            <div className="ts-ai-orb flex items-center justify-center" aria-hidden="true">
               <SparklesIcon className="w-7 h-7 text-blue-600 animate-pulse" aria-hidden="true" />
             </div>
-            <p className="ts-ai-label">Invoking Llama AI Pipeline…</p>
+            <p className="ts-ai-label">Crafting Teaching Strategy…</p>
             <p className="ts-ai-sub">
-              Crafting a personalised teaching strategy based on the IEP goal
+              Structuring pedagogical approaches and instructional adaptations based on the IEP goal
             </p>
           </div>
         </div>
@@ -773,6 +773,32 @@ function GenerateTab({ onSave, setActivePage, onDraftStatusChange, promptNavigat
 
 // ── Strategy Detail View ──────────────────────────────────────────────────────
 function StrategyDetails({ strategy, onBack, onEdit, onDelete }) {
+  const { toast } = useToast();
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportPdf = async () => {
+    if (isExporting || !strategy?.strategyID) return;
+    setIsExporting(true);
+    try {
+      const blob = await teachingStrategiesAPI.exportPDF(strategy.strategyID);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `StrategyGuide_${strategy.strategyID}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+      toast.success("Strategy guide exported successfully.");
+    } catch (err) {
+      toast.error(err.message || "Failed to export Strategy Guide PDF.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="ts-card">
       <Breadcrumb
@@ -809,15 +835,14 @@ function StrategyDetails({ strategy, onBack, onEdit, onDelete }) {
           ← Back to List
         </button>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <a
-            href={teachingStrategiesAPI.exportUrl(strategy.strategyID)}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            type="button"
             className="ts-btn ts-btn-secondary"
-            style={{ textDecoration: "none" }}
+            onClick={handleExportPdf}
+            disabled={isExporting}
           >
-            Export PDF
-          </a>
+            {isExporting ? "Exporting PDF…" : "Export PDF"}
+          </button>
           {onEdit && (
             <button
               type="button"

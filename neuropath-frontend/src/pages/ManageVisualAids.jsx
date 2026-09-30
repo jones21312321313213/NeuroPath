@@ -172,7 +172,37 @@ function AidRowList({
   onAction,
   actionClass = "va-btn va-btn-primary",
   showDownload = false,
+  onDownloadPdf,
 }) {
+  const { toast } = useToast();
+  const [downloadingId, setDownloadingId] = useState(null);
+
+  const handleDownload = async (aid) => {
+    if (onDownloadPdf) {
+      return onDownloadPdf(aid);
+    }
+    if (downloadingId) return;
+    setDownloadingId(aid.visualAidID);
+    try {
+      const blob = await visualAidsAPI.exportPDF(aid.visualAidID);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `VisualAid_${aid.visualAidID}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+      toast.success("Visual Aid PDF downloaded successfully.");
+    } catch (err) {
+      toast.error(err.message || "Failed to export Visual Aid PDF.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   return (
     <div className="va-aids-list">
       {aids.map((aid) => (
@@ -207,15 +237,14 @@ function AidRowList({
               {actionLabel}
             </button>
             {showDownload && aid.imageUrl && (
-              <a
-                href={visualAidsAPI.exportUrl(aid.visualAidID)}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
                 className="va-btn va-btn-ghost"
-                style={{ textDecoration: "none" }}
+                onClick={() => handleDownload(aid)}
+                disabled={downloadingId === aid.visualAidID}
               >
-                PDF
-              </a>
+                {downloadingId === aid.visualAidID ? "Exporting…" : "PDF"}
+              </button>
             )}
           </div>
         </div>
@@ -238,6 +267,30 @@ function SequentialSequenceViewer({
   const [activeStep, setActiveStep] = useState(1);
   const [speakingStep, setSpeakingStep] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (downloadingPdf || !aid?.visualAidID) return;
+    setDownloadingPdf(true);
+    try {
+      const blob = await visualAidsAPI.exportPDF(aid.visualAidID);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `VisualAid_${aid.visualAidID}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+      toast.success("Visual Aid PDF downloaded successfully.");
+    } catch (err) {
+      toast.error(err.message || "Failed to export Visual Aid PDF.");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   const initialSteps =
     aid?.steps_data && Array.isArray(aid.steps_data) && aid.steps_data.length > 0
@@ -481,16 +534,16 @@ function SequentialSequenceViewer({
                 {saving ? "Saving…" : "Save Captions"}
               </button>
               {aid.visualAidID && (
-                <a
-                  href={visualAidsAPI.exportUrl(aid.visualAidID)}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
                   className="va-btn va-btn-ghost"
-                  style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
+                  onClick={handleDownloadPdf}
+                  disabled={downloadingPdf}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
                 >
                   <PrinterIcon className="w-4 h-4 text-slate-600" aria-hidden="true" />
-                  Download Classroom PDF
-                </a>
+                  {downloadingPdf ? "Exporting PDF…" : "Download Classroom PDF"}
+                </button>
               )}
             </>
           )}

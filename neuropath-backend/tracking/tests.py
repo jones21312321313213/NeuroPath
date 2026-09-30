@@ -159,6 +159,129 @@ class BinaryReportRenderEngineTestCase(TestCase):
         self.assertIn('Alice & Bob <Special>', full_text)
         self.assertIn('Math & Logic <STEM>', full_text)
 
+    def test_generate_report_stream_with_selected_section_b_and_c_versions(self):
+        from iep_management.models import IEPModel, IEPGoal, IEPObjectiveRow
+
+        # Version 1: Focus on Reading
+        iep_v1 = IEPModel.objects.create(
+            studentID=self.student,
+            version=1,
+            difficulties='v1 Difficulty in Reading',
+            learning_barriers='v1 Barriers in Reading Words',
+            learning_facilitators='v1 Phonetic Charts',
+            learning_accommodations='v1 Extra Time 15m',
+        )
+        goal_v1 = IEPGoal.objects.create(
+            iep=iep_v1,
+            goalName='v1 Reading Goal',
+            subject_category='Literacy v1',
+            annual_goal='Master Grade 1 Reading Skills',
+            target_metric='80%',
+        )
+        IEPObjectiveRow.objects.create(
+            parent_goal=goal_v1,
+            enroute_objectives='v1 Objective: Decode simple vowels',
+        )
+
+        # Version 2: Focus on Math
+        iep_v2 = IEPModel.objects.create(
+            studentID=self.student,
+            version=2,
+            difficulties='v2 Difficulty in Arithmetic',
+            learning_barriers='v2 Multi-digit operations',
+            learning_facilitators='v2 Number line blocks',
+            learning_accommodations='v2 Calculator usage',
+        )
+        goal_v2 = IEPGoal.objects.create(
+            iep=iep_v2,
+            goalName='v2 Math Goal',
+            subject_category='Mathematics v2',
+            annual_goal='Master Grade 2 Math Skills',
+            target_metric='85%',
+        )
+        IEPObjectiveRow.objects.create(
+            parent_goal=goal_v2,
+            enroute_objectives='v2 Objective: Add two-digit numbers',
+        )
+
+        # Scenario: Section B is picked from v1, Section C is picked from v2
+        pdf_stream = BinaryReportRenderEngine.generate_report_stream(
+            self.student,
+            section_b_version=1,
+            section_c_version=2,
+        )
+        reader = PdfReader(io.BytesIO(pdf_stream.getvalue()))
+        full_text = " ".join("".join([page.extract_text() for page in reader.pages]).split())
+
+        # Section B should reflect v1
+        self.assertIn('Section B: Difficulties, Barriers, and Enabling Supports (Version 1)', full_text)
+        self.assertIn('v1 Difficulty in Reading', full_text)
+        self.assertIn('v1 Phonetic Charts', full_text)
+        self.assertNotIn('v2 Difficulty in Arithmetic', full_text)
+
+        # Section C should reflect v2
+        self.assertIn("Section C: Learner's Goals (Version 2)", full_text)
+        self.assertIn('Mathematics v2', full_text)
+        self.assertIn('v2 Objective: Add two-digit numbers', full_text)
+        self.assertNotIn('Literacy v1', full_text)
+
+    def test_export_record_pdf_endpoint_with_version_query_params(self):
+        from iep_management.models import IEPModel, IEPGoal, IEPObjectiveRow
+
+        iep_v1 = IEPModel.objects.create(
+            studentID=self.student,
+            version=1,
+            difficulties='v1 Speech and Articulation Difficulties',
+        )
+        IEPGoal.objects.create(
+            iep=iep_v1,
+            goalName='v1 Speech Goal',
+            subject_category='Speech v1',
+            annual_goal='Clear pronunciation',
+        )
+
+        iep_v2 = IEPModel.objects.create(
+            studentID=self.student,
+            version=2,
+            difficulties='v2 Social Communication Difficulties',
+        )
+        goal_v2 = IEPGoal.objects.create(
+            iep=iep_v2,
+            goalName='v2 Social Goal',
+            subject_category='Social v2',
+            annual_goal='Engage in group conversations',
+        )
+        IEPObjectiveRow.objects.create(
+            parent_goal=goal_v2,
+            enroute_objectives='v2 Turn-taking during circle time',
+        )
+
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        response = self.client.get(
+            f'/api/tracking/student-records/{self.student.pk}/export/?section_b_version=1&section_c_version=2'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+
+        reader = PdfReader(io.BytesIO(response.content))
+        full_text = " ".join("".join([page.extract_text() for page in reader.pages]).split())
+        self.assertIn('v1 Speech and Articulation Difficulties', full_text)
+        self.assertIn('Social v2', full_text)
+        self.assertIn('v2 Turn-taking during circle time', full_text)
+
+    def test_export_record_pdf_endpoint_with_missing_version_handled_gracefully(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        response = self.client.get(
+            f'/api/tracking/student-records/{self.student.pk}/export/?section_b_version=999&section_c_version=999'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+
+        reader = PdfReader(io.BytesIO(response.content))
+        full_text = " ".join("".join([page.extract_text() for page in reader.pages]).split())
+        self.assertIn('No Section B factors recorded for version 999.', full_text)
+        self.assertIn('No learner goals recorded for version 999.', full_text)
+
 
 class TrackingAuthAndTenantIsolationTests(TestCase):
     """Student tracking/progress data must require authentication and must
@@ -440,6 +563,54 @@ class RecentActivityAPITestCase(TestCase):
         types = [item['type'] for item in data]
         self.assertIn('iep', types)
         self.assertIn('progress', types)
+
+    def test_recent_activity_default_limit_returns_up_to_15(self):
+        from iep_management.models import IEPModel
+        self._auth(self.token1)
+
+        # Create 16 IEPs for student 1
+        for i in range(16):
+            IEPModel.objects.create(
+                studentID=self.student1,
+                version=i + 1,
+                baselineData=f'Baseline {i}',
+            )
+
+        response = self.client.get('/api/tracking/recent-activity/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Default limit should cap response to 15 items
+        self.assertEqual(len(response.data), 15)
+
+    def test_recent_activity_custom_limit_query_param(self):
+        from iep_management.models import IEPModel
+        self._auth(self.token1)
+
+        for i in range(12):
+            IEPModel.objects.create(
+                studentID=self.student1,
+                version=i + 1,
+                baselineData=f'Baseline {i}',
+            )
+
+        response = self.client.get('/api/tracking/recent-activity/?limit=5')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 5)
+
+    def test_recent_activity_invalid_limit_falls_back_to_15(self):
+        from iep_management.models import IEPModel
+        self._auth(self.token1)
+
+        for i in range(16):
+            IEPModel.objects.create(
+                studentID=self.student1,
+                version=i + 1,
+                baselineData=f'Baseline {i}',
+            )
+
+        response = self.client.get('/api/tracking/recent-activity/?limit=invalid')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 15)
+
 
 
 

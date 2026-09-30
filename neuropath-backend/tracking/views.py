@@ -76,7 +76,7 @@ class ContextualDataIsolationFilter:
 # =====================================================================
 class BinaryReportRenderEngine:
     @staticmethod
-    def generate_report_stream(student_record):
+    def generate_report_stream(student_record, section_b_version=None, section_c_version=None, section_b_id=None, section_c_id=None):
         # Generates a standard PDF byte stream for local client-side download using ReportLab
         import html
         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
@@ -269,16 +269,62 @@ class BinaryReportRenderEngine:
         story.append(Paragraph(esc(curriculum_impact), style_body))
         story.append(Spacer(1, 5 * mm))
 
-        # Section B & Section C (IEP Factors & Learner Goals)
-        latest_iep = student_record.ieps.order_by('-version').first() if hasattr(student_record, 'ieps') else None
-        if latest_iep:
-            story.append(Paragraph("Section B: Difficulties, Barriers, and Enabling Supports", style_section_heading))
+        # Resolve IEPs for Section B and Section C
+        ieps_qs = student_record.ieps.all() if hasattr(student_record, 'ieps') else None
+        latest_iep = ieps_qs.order_by('-version').first() if ieps_qs and ieps_qs.exists() else None
 
-            diff_list = [d.strip() for d in (latest_iep.difficulties or '').split('\n') if d.strip()]
-            barr_list = [b.strip() for b in (latest_iep.learning_barriers or '').split('\n') if b.strip()]
-            facil_list = [f.strip() for f in (latest_iep.learning_facilitators or '').split('\n') if f.strip()]
-            accom_list = [a.strip() for a in (latest_iep.learning_accommodations or '').split('\n') if a.strip()]
+        def _parse_int_safe(val):
+            if val is None or val == "":
+                return None
+            try:
+                return int(val)
+            except (ValueError, TypeError):
+                return None
+
+        sec_b_ver = _parse_int_safe(section_b_version)
+        sec_c_ver = _parse_int_safe(section_c_version)
+        sec_b_pk = _parse_int_safe(section_b_id)
+        sec_c_pk = _parse_int_safe(section_c_id)
+
+        section_b_iep = None
+        if ieps_qs and ieps_qs.exists():
+            if sec_b_pk is not None:
+                section_b_iep = ieps_qs.filter(iepID=sec_b_pk).first()
+            elif sec_b_ver is not None:
+                section_b_iep = ieps_qs.filter(version=sec_b_ver).first()
+            if not section_b_iep and sec_b_pk is None and sec_b_ver is None:
+                section_b_iep = latest_iep
+
+        section_c_iep = None
+        if ieps_qs and ieps_qs.exists():
+            if sec_c_pk is not None:
+                section_c_iep = ieps_qs.filter(iepID=sec_c_pk).first()
+            elif sec_c_ver is not None:
+                section_c_iep = ieps_qs.filter(version=sec_c_ver).first()
+            if not section_c_iep and sec_c_pk is None and sec_c_ver is None:
+                section_c_iep = latest_iep
+
+        # Section B (IEP Factors & Accommodations)
+        sec_b_title = "Section B: Difficulties, Barriers, and Enabling Supports"
+        if section_b_iep:
+            sec_b_title += f" (Version {section_b_iep.version})"
+        story.append(Paragraph(sec_b_title, style_section_heading))
+
+        if section_b_iep:
+            diff_list = [d.strip() for d in (section_b_iep.difficulties or '').split('\n') if d.strip()]
+            barr_list = [b.strip() for b in (section_b_iep.learning_barriers or '').split('\n') if b.strip()]
+            facil_list = [f.strip() for f in (section_b_iep.learning_facilitators or '').split('\n') if f.strip()]
+            accom_list = [a.strip() for a in (section_b_iep.learning_accommodations or '').split('\n') if a.strip()]
             max_len = max(len(diff_list), len(barr_list), len(facil_list), len(accom_list), 0)
+
+            if max_len == 0 and isinstance(section_b_iep.generatedDetails, dict):
+                barrier_rows = section_b_iep.generatedDetails.get('barrierRows', [])
+                if barrier_rows:
+                    diff_list = [r.get('difficulty', '') for r in barrier_rows]
+                    barr_list = [r.get('barrierQualifier', '') for r in barrier_rows]
+                    facil_list = [r.get('facilitator', '') for r in barrier_rows]
+                    accom_list = [r.get('accommodation', '') for r in barrier_rows]
+                    max_len = len(barrier_rows)
 
             if max_len > 0:
                 sec_b_data = [[
@@ -308,10 +354,24 @@ class BinaryReportRenderEngine:
                 story.append(b_table)
             else:
                 story.append(Paragraph("No Section B factors recorded.", style_body))
+        else:
+            if sec_b_ver:
+                story.append(Paragraph(f"No Section B factors recorded for version {sec_b_ver}.", style_body))
+            else:
+                story.append(Paragraph("No Section B factors recorded.", style_body))
 
-            story.append(Spacer(1, 4 * mm))
-            story.append(Paragraph("Section C: Learner's Goals", style_section_heading))
-            goals = latest_iep.individual_goals.all() if hasattr(latest_iep, 'individual_goals') else []
+        story.append(Spacer(1, 4 * mm))
+
+        # Section C (Learner Goals)
+        sec_c_title = "Section C: Learner's Goals"
+        if section_c_iep:
+            sec_c_title += f" (Version {section_c_iep.version})"
+        story.append(Paragraph(sec_c_title, style_section_heading))
+
+        if section_c_iep:
+            from resources.views import _sync_goals_from_generated_details
+            _sync_goals_from_generated_details(section_c_iep)
+            goals = section_c_iep.individual_goals.all() if hasattr(section_c_iep, 'individual_goals') else []
             if goals.exists():
                 for g in goals:
                     goal_header = f"<b>{esc(g.subject_category or g.goalName or 'Goal')}:</b> {esc(g.annual_goal or g.target_metric or '')}"
@@ -352,6 +412,11 @@ class BinaryReportRenderEngine:
                         ]))
                         story.append(g_table)
                         story.append(Spacer(1, 3 * mm))
+            else:
+                story.append(Paragraph("No learner goals recorded for this IEP.", style_body))
+        else:
+            if sec_c_ver:
+                story.append(Paragraph(f"No learner goals recorded for version {sec_c_ver}.", style_body))
             else:
                 story.append(Paragraph("No learner goals recorded for this IEP.", style_body))
 
@@ -405,8 +470,19 @@ class StudentRecordQueryController(viewsets.ViewSet):
         except StudentProfile.DoesNotExist:
             return Response({"error": "Student record not found."}, status=status.HTTP_404_NOT_FOUND)
             
+        section_b_version = request.query_params.get('section_b_version')
+        section_c_version = request.query_params.get('section_c_version')
+        section_b_id = request.query_params.get('section_b_id')
+        section_c_id = request.query_params.get('section_c_id')
+
         # Trigger SDD Component: BinaryReportRenderEngine
-        pdf_stream = BinaryReportRenderEngine.generate_report_stream(student)
+        pdf_stream = BinaryReportRenderEngine.generate_report_stream(
+            student,
+            section_b_version=section_b_version,
+            section_c_version=section_c_version,
+            section_b_id=section_b_id,
+            section_c_id=section_c_id,
+        )
         
         # Package the payload with standard download transmission headers
         response = HttpResponse(pdf_stream, content_type='application/pdf')
@@ -599,12 +675,23 @@ class RecentActivityAPIView(APIView):
 
         activities = []
 
+        # Slices up to query_limit for each category so that after combining and
+        # chronological sorting, the top `limit` activities across all categories are returned.
+        limit_param = request.query_params.get('limit')
+        try:
+            limit = int(limit_param) if limit_param is not None else 15
+            limit = max(1, min(limit, 50))
+        except (ValueError, TypeError):
+            limit = 15
+
+        query_limit = max(limit, 20)
+
         # 1. Recent IEPs for teacher's students
         from iep_management.models import IEPModel
         recent_ieps = (
             IEPModel.objects.filter(studentID__teacher=teacher)
             .select_related('studentID')
-            .order_by('-createdDate')[:10]
+            .order_by('-createdDate')[:query_limit]
         )
         for iep in recent_ieps:
             student_name = iep.studentID.name if iep.studentID else "Student"
@@ -624,7 +711,7 @@ class RecentActivityAPIView(APIView):
         # 2. Recent Student Profiles
         recent_students = (
             StudentProfile.objects.filter(teacher=teacher)
-            .order_by('-updated_at')[:10]
+            .order_by('-updated_at')[:query_limit]
         )
         for student in recent_students:
             timestamp = student.updated_at or student.created_at
@@ -651,7 +738,7 @@ class RecentActivityAPIView(APIView):
         recent_progress = (
             StudentProgress.objects.filter(student__teacher=teacher)
             .select_related('student')
-            .order_by('-dateLogged')[:10]
+            .order_by('-dateLogged')[:query_limit]
         )
         for prog in recent_progress:
             student_name = prog.student.name if prog.student else "Student"
@@ -678,7 +765,7 @@ class RecentActivityAPIView(APIView):
         activities.sort(key=get_sort_key, reverse=True)
 
         response_data = []
-        for item in activities[:10]:
+        for item in activities[:limit]:
             clean_item = {k: v for k, v in item.items() if k != "_sort_key"}
             response_data.append(clean_item)
 

@@ -51,6 +51,7 @@ vi.mock("../../api/client", () => ({
     listForDelete: vi.fn(),
     delete: vi.fn(),
     exportUrl: vi.fn(),
+    exportPDF: vi.fn(),
   },
   visualAidsAPI: {
     listStudents: vi.fn(),
@@ -62,6 +63,7 @@ vi.mock("../../api/client", () => ({
     get: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    exportPDF: vi.fn(),
   },
   lessonPlansAPI: {
     getDirectory: vi.fn(),

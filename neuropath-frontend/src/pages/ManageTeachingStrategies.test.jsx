@@ -32,6 +32,7 @@ vi.mock("../api/client", () => ({
     listForDelete: vi.fn(),
     delete: vi.fn(),
     exportUrl: vi.fn((id) => `/export/${id}`),
+    exportPDF: vi.fn().mockResolvedValue(new Blob(["%PDF-1.4 strategy"], { type: "application/pdf" })),
   },
 }));
 
@@ -80,6 +81,8 @@ describe("ManageTeachingStrategies - Issue #158 Decoupled Save", () => {
     iepAPI.listByStudent.mockResolvedValue(mockRiveraIeps);
     iepAPI.listGoalsByIep.mockResolvedValue(mockRiveraGoals);
     iepAPI.listLatestGoalsByStudent.mockResolvedValue(mockRiveraGoals);
+    window.URL.createObjectURL = vi.fn(() => "blob:mock-url");
+    window.URL.revokeObjectURL = vi.fn();
   });
 
   it("generates strategy draft without automatically saving to the database", async () => {
@@ -668,7 +671,13 @@ describe("ManageTeachingStrategies - Unified Manage Interface (Issue #161)", () 
       expect(screen.getByText("Use graphic organizers and chunked passages.")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Edit Strategy/i })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Delete Strategy/i })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: /Export PDF/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Export PDF/i })).toBeInTheDocument();
+    });
+
+    const exportBtn = screen.getByRole("button", { name: /Export PDF/i });
+    fireEvent.click(exportBtn);
+    await waitFor(() => {
+      expect(teachingStrategiesAPI.exportPDF).toHaveBeenCalledWith(11);
     });
 
     // Click Back to List
@@ -755,6 +764,115 @@ describe("ManageTeachingStrategies - Unified Manage Interface (Issue #161)", () 
     await waitFor(() => {
       expect(teachingStrategiesAPI.delete).toHaveBeenCalledWith(11);
       expect(screen.getByText(/was deleted/i)).toBeInTheDocument();
+    });
+  });
+
+  describe("Issue #225 Friendly AI Loading Copy & Clean Error Messages", () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      useAuth.mockReturnValue({ user: { id: 1, email: "teacher@test.com" } });
+      teachingStrategiesAPI.getDirectory.mockResolvedValue({
+        directory: [
+          {
+            studentID: 101,
+            studentName: "Lucas Vance",
+            grade: 3,
+          },
+        ],
+      });
+      iepAPI.listByStudent.mockResolvedValue([
+        {
+          iepID: 202,
+          version: 2,
+          formattedDate: "September 14, 2026",
+        },
+      ]);
+      iepAPI.listGoalsByIep.mockResolvedValue([
+        {
+          goalID: 302,
+          goalName: "Behavioral Skills",
+          subject_category: "Behavioral Skills",
+          annual_goal: "Lucas will self-regulate using sensory tools.",
+        },
+      ]);
+    });
+
+    it("displays friendly pedagogical loading copy and no technical AI jargon while generating", async () => {
+      let resolveGenerate;
+      teachingStrategiesAPI.generate.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveGenerate = resolve;
+          }),
+      );
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText("Lucas Vance").closest(".ts-student-card"));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Behavioral Skills/i)).toBeInTheDocument();
+      });
+
+      const generateBtn = screen.getByRole("button", { name: /Generate Teaching Strategy/i });
+      fireEvent.click(generateBtn);
+
+      // Verify loading indicator is displayed with friendly teacher-facing copy and accessible status role
+      const loadingCard = screen.getByRole("status");
+      expect(loadingCard).toBeInTheDocument();
+      expect(screen.getByText("Crafting Teaching Strategy…")).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Structuring pedagogical approaches and instructional adaptations based on the IEP goal",
+        ),
+      ).toBeInTheDocument();
+
+      // Verify technical AI jargon (llama, pipeline, ollama) is NOT displayed
+      expect(screen.queryByText(/Invoking Llama AI Pipeline/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/llama/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/pipeline/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/ollama/i)).not.toBeInTheDocument();
+
+      // Resolve generation
+      resolveGenerate({
+        message: "Teaching strategy successfully generated.",
+        data: {
+          title: "Strategy for Reading",
+          strategyContent: "Strategy content here",
+          goalID: 302,
+        },
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      });
+    });
+
+    it("displays clean error message without technical pipeline or vendor jargon on generation failure", async () => {
+      teachingStrategiesAPI.generate.mockRejectedValue(new Error(""));
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText("Lucas Vance").closest(".ts-student-card"));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Behavioral Skills/i)).toBeInTheDocument();
+      });
+
+      const generateBtn = screen.getByRole("button", { name: /Generate Teaching Strategy/i });
+      fireEvent.click(generateBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText("Failed to generate teaching strategy.")).toBeInTheDocument();
+        expect(screen.queryByText(/ollama/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/pipeline/i)).not.toBeInTheDocument();
+      });
     });
   });
 });
