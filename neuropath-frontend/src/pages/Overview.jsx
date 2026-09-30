@@ -127,7 +127,7 @@ export default function Overview({ setActivePage }) {
 
   const studentList = Array.isArray(students) ? students : (students?.results || []);
   const activities = Array.isArray(recentActivities) ? recentActivities : [];
-
+  const [visibleActivitiesCount, setVisibleActivitiesCount] = useState(10);
 
   const counts = {
     students: studentList.length,
@@ -140,6 +140,7 @@ export default function Overview({ setActivePage }) {
 
   const hasStudents = counts.students > 0;
   const hasIeps = counts.ieps > 0;
+  const hasResources = counts.resources > 0;
 
   const gettingStartedSteps = [
     {
@@ -177,8 +178,8 @@ export default function Overview({ setActivePage }) {
       path: "/dashboard/lessons",
       page: "manage-lesson-plans",
       actionLabel: "Open Tools",
-      isUnlocked: hasIeps,
-      isCompleted: false,
+      isUnlocked: hasIeps || hasResources,
+      isCompleted: hasResources,
       lockReason: "Requires a saved IEP",
     },
   ];
@@ -431,52 +432,68 @@ export default function Overview({ setActivePage }) {
                 </p>
               </div>
             ) : (
-              <div className="overview-activity-list" role="list">
-                {activities.map((item) => {
-                  const iconClass =
-                    item.type === "iep"
-                      ? "ti-file-text"
-                      : item.type === "progress"
-                      ? "ti-chart-bar"
-                      : "ti-user";
+              <>
+                <div className="overview-activity-list" role="list">
+                  {activities.slice(0, visibleActivitiesCount).map((item) => {
+                    const iconClass =
+                      item.type === "iep"
+                        ? "ti-file-text"
+                        : item.type === "progress"
+                        ? "ti-chart-bar"
+                        : "ti-user";
 
-                  return (
-                    <div
-                      key={item.id}
-                      className="overview-activity-item"
-                      role="listitem"
-                      data-testid={`activity-item-${item.id}`}
+                    return (
+                      <div
+                        key={item.id}
+                        className="overview-activity-item"
+                        role="listitem"
+                        data-testid={`activity-item-${item.id}`}
+                      >
+                        <div className="overview-activity-left">
+                          <div className={`overview-activity-icon ${item.type}`}>
+                            <i className={`ti ${iconClass}`} aria-hidden="true" />
+                          </div>
+                          <div className="overview-activity-info">
+                            <h4 className="overview-activity-title">{item.title}</h4>
+                            <p className="overview-activity-desc">{item.description}</p>
+                          </div>
+                        </div>
+                        <div className="overview-activity-right">
+                          <span className="overview-activity-time">
+                            {formatRelativeTime(item.timestamp)}
+                          </span>
+                          {item.target_path && (
+                            <button
+                              type="button"
+                              className="overview-activity-link"
+                              onClick={() => handleNavigate(item.target_path, item.target_path)}
+                              title={`View details for ${item.title}`}
+                              aria-label={`View details for ${item.title}`}
+                            >
+                              View
+                              <i className="ti ti-chevron-right" aria-hidden="true" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {activities.length > 10 && visibleActivitiesCount < Math.min(activities.length, 15) && (
+                  <div className="overview-activity-footer">
+                    <button
+                      type="button"
+                      className="overview-activity-show-more-btn"
+                      onClick={() =>
+                        setVisibleActivitiesCount((prev) => Math.min(prev + 5, 15))
+                      }
                     >
-                      <div className="overview-activity-left">
-                        <div className={`overview-activity-icon ${item.type}`}>
-                          <i className={`ti ${iconClass}`} aria-hidden="true" />
-                        </div>
-                        <div className="overview-activity-info">
-                          <h4 className="overview-activity-title">{item.title}</h4>
-                          <p className="overview-activity-desc">{item.description}</p>
-                        </div>
-                      </div>
-                      <div className="overview-activity-right">
-                        <span className="overview-activity-time">
-                          {formatRelativeTime(item.timestamp)}
-                        </span>
-                        {item.target_path && (
-                          <button
-                            type="button"
-                            className="overview-activity-link"
-                            onClick={() => handleNavigate(item.target_path, item.target_path)}
-                            title={`View details for ${item.title}`}
-                            aria-label={`View details for ${item.title}`}
-                          >
-                            View
-                            <i className="ti ti-chevron-right" aria-hidden="true" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                      Show more
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>

@@ -441,5 +441,53 @@ class RecentActivityAPITestCase(TestCase):
         self.assertIn('iep', types)
         self.assertIn('progress', types)
 
+    def test_recent_activity_default_limit_returns_up_to_15(self):
+        from iep_management.models import IEPModel
+        self._auth(self.token1)
+
+        # Create 16 IEPs for student 1
+        for i in range(16):
+            IEPModel.objects.create(
+                studentID=self.student1,
+                version=i + 1,
+                baselineData=f'Baseline {i}',
+            )
+
+        response = self.client.get('/api/tracking/recent-activity/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Default limit should cap response to 15 items
+        self.assertEqual(len(response.data), 15)
+
+    def test_recent_activity_custom_limit_query_param(self):
+        from iep_management.models import IEPModel
+        self._auth(self.token1)
+
+        for i in range(12):
+            IEPModel.objects.create(
+                studentID=self.student1,
+                version=i + 1,
+                baselineData=f'Baseline {i}',
+            )
+
+        response = self.client.get('/api/tracking/recent-activity/?limit=5')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 5)
+
+    def test_recent_activity_invalid_limit_falls_back_to_15(self):
+        from iep_management.models import IEPModel
+        self._auth(self.token1)
+
+        for i in range(16):
+            IEPModel.objects.create(
+                studentID=self.student1,
+                version=i + 1,
+                baselineData=f'Baseline {i}',
+            )
+
+        response = self.client.get('/api/tracking/recent-activity/?limit=invalid')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 15)
+
+
 
 

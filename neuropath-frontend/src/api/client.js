@@ -386,7 +386,10 @@ export const usersAPI = {
 
 // ── Tracking & Outcome Monitoring ──────────────────────────────────────────────
 export const trackingAPI = {
-  getRecentActivity: () => request("/tracking/recent-activity/"),
+  getRecentActivity: (params) => {
+    const query = params ? `?${new URLSearchParams(params).toString()}` : "";
+    return request(`/tracking/recent-activity/${query}`);
+  },
   getProgressDashboard: (studentId) =>
     request(`/tracking/progress-dashboard/?studentID=${studentId}`),
   getAnalytics: (studentId, subject) => {
