@@ -120,22 +120,14 @@ export default function ViewProgressDashboard() {
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
 
   const loadStudents = useCallback(() => {
+    let ignore = false;
     setLoading(true);
     setError("");
     studentsAPI
       .list(user?.id)
-      .then(setStudents)
-      .catch(() => setError("Failed to load students."))
-      .finally(() => setLoading(false));
-  }, [user?.id]);
-
-  useEffect(() => {
-    let ignore = false;
-    studentsAPI
-      .list(user?.id)
       .then((data) => {
         if (!ignore) {
-          setStudents(data);
+          setStudents(Array.isArray(data) ? data : data?.results || data?.data || []);
           setError("");
         }
       })
@@ -149,6 +141,14 @@ export default function ViewProgressDashboard() {
       ignore = true;
     };
   }, [user?.id]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    const cancel = loadStudents();
+    return () => {
+      if (typeof cancel === "function") cancel();
+    };
+  }, [loadStudents]);
 
   const refreshSubjects = async (studentId) => {
     if (!studentId) return;

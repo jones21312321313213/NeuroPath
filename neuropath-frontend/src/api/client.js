@@ -89,8 +89,9 @@ export const authAPI = {
 
 // ── Students ───────────────────────────────────────────────────────────────────
 export const studentsAPI = {
-  list: (teacherId) =>
-    request(`/users/students/${teacherId ? `?teacher_id=${teacherId}` : ""}`),
+  // Teacher is resolved from the Authorization token header on the backend;
+  // client query parameters like teacher_id are ignored.
+  list: () => request("/users/students/"),
   get: (id) => request(`/users/students/${id}/view/`),
   create: (payload) =>
     request("/users/students/", {
@@ -158,10 +159,26 @@ export const studentsAPI = {
 
 // ── Lesson Plans ───────────────────────────────────────────────────────────────
 export const lessonPlansAPI = {
-  getDirectory: (teacherId, studentId, iepId) => {
+  getDirectory: (arg1, arg2, arg3) => {
+    // Teacher is authenticated from the Authorization token header.
+    // Ignored teacher_id query parameters are omitted.
     const params = new URLSearchParams();
-    if (teacherId) params.append("teacher_id", teacherId);
-    if (studentId) params.append("student_id", studentId);
+    let studentId;
+    let iepId;
+    if (typeof arg1 === "object" && arg1 !== null) {
+      studentId = arg1.studentID ?? arg1.studentId;
+      iepId = arg1.iepId ?? arg1.iep_id;
+    } else if (arg2 !== undefined || arg3 !== undefined) {
+      studentId = arg2;
+      iepId = arg3;
+    } else if (arg1 && typeof arg1 !== "object") {
+      // If called with single ID, could be studentId
+      studentId = arg1;
+    }
+    if (studentId) {
+      params.append("studentID", studentId);
+      params.append("student_id", studentId);
+    }
     if (iepId) params.append("iep_id", iepId);
     const qs = params.toString();
     return request(`/resources/generate-lesson/${qs ? `?${qs}` : ""}`);
@@ -200,11 +217,15 @@ export const lessonPlansAPI = {
 // ── Visual Aids ────────────────────────────────────────────────────────────────
 export const visualAidsAPI = {
   list: (params = {}) => {
-    const qs = new URLSearchParams(params).toString();
+    const normalized = { ...params };
+    if (normalized.student_id && !normalized.studentID) {
+      normalized.studentID = normalized.student_id;
+    }
+    const qs = new URLSearchParams(normalized).toString();
     return request(`/resources/visual-aids/${qs ? "?" + qs : ""}`);
   },
-  listByStudent: (studentId) =>
-    request(`/resources/visual-aids/?student_id=${studentId}`),
+  listByStudent: (studentID) =>
+    request(`/resources/visual-aids/?studentID=${studentID}&student_id=${studentID}`),
   get: (id) => request(`/resources/visual-aids/${id}/`),
   generate: (payload) =>
     request("/resources/generate-visual-aid/", {
@@ -228,10 +249,25 @@ export const visualAidsAPI = {
 
 // ── Teaching Strategies ────────────────────────────────────────────────────────
 export const teachingStrategiesAPI = {
-  getDirectory: (teacherId, studentId, iepId) => {
+  getDirectory: (arg1, arg2, arg3) => {
+    // Teacher is authenticated from the Authorization token header.
+    // Ignored teacher_id query parameters are omitted.
     const params = new URLSearchParams();
-    if (teacherId) params.append("teacher_id", teacherId);
-    if (studentId) params.append("student_id", studentId);
+    let studentId;
+    let iepId;
+    if (typeof arg1 === "object" && arg1 !== null) {
+      studentId = arg1.studentID ?? arg1.studentId;
+      iepId = arg1.iepId ?? arg1.iep_id;
+    } else if (arg2 !== undefined || arg3 !== undefined) {
+      studentId = arg2;
+      iepId = arg3;
+    } else if (arg1 && typeof arg1 !== "object") {
+      studentId = arg1;
+    }
+    if (studentId) {
+      params.append("studentID", studentId);
+      params.append("student_id", studentId);
+    }
     if (iepId) params.append("iep_id", iepId);
     const qs = params.toString();
     return request(`/resources/generate-strategy/${qs ? `?${qs}` : ""}`);
@@ -263,6 +299,7 @@ export const teachingStrategiesAPI = {
 
 // ── IEP Generation / Viewing ─────────────────────────────────────────────────
 export const iepAPI = {
+  // Legacy draft generation path: superseded by iepAPI.generateGoalsFromIep.
   generate: (payload) =>
     request("/iep/generate-iep/", {
       method: "POST",
@@ -273,10 +310,8 @@ export const iepAPI = {
       method: "POST",
       body: JSON.stringify({ action: "save", ...payload }),
     }),
-  listByStudent: (studentID, teacherId) =>
-    request(
-      `/iep/student/${studentID}/${teacherId ? `?teacher_id=${teacherId}` : ""}`,
-    ),
+  listByStudent: (studentID) =>
+    request(`/iep/student/${studentID}/`),
   get: (id) => request(`/iep/${id}/`),
   update: (id, payload) =>
     request(`/iep/edit/${id}/`, {

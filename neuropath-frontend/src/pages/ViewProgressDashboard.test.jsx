@@ -31,7 +31,7 @@ describe("ViewProgressDashboard", () => {
     useAuth.mockReturnValue({ user: { id: 101, name: "Test Teacher" } });
   });
 
-  it("loads and displays the student list", async () => {
+  it("loads and displays the student list with a single fetch call on mount", async () => {
     studentsAPI.list.mockResolvedValueOnce(mockStudents);
     render(
       <MemoryRouter>
@@ -41,6 +41,7 @@ describe("ViewProgressDashboard", () => {
 
     expect(await screen.findByText("Alice Wonderland")).toBeInTheDocument();
     expect(screen.getByText("Bob Builder")).toBeInTheDocument();
+    expect(studentsAPI.list).toHaveBeenCalledTimes(1);
   });
 
   it("filters students based on search input", async () => {

@@ -193,13 +193,13 @@ describe("api client", () => {
     );
   });
 
-  it("includes the teacher_id query param when listing students with one", async () => {
+  it("omits the teacher_id query param when listing students even if teacher id is passed", async () => {
     fetch.mockResolvedValueOnce(jsonResponse([]));
 
     await studentsAPI.list(42);
 
     expect(fetch).toHaveBeenCalledWith(
-      "http://localhost:8000/api/users/students/?teacher_id=42",
+      "http://localhost:8000/api/users/students/",
       expect.anything(),
     );
   });
