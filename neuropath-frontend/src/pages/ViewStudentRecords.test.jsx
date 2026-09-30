@@ -134,6 +134,7 @@ describe("ViewStudentRecords Component", () => {
 
     expect(await screen.findByText("Alice Johnson")).toBeInTheDocument();
     expect(screen.getByText("Bob Smith")).toBeInTheDocument();
+    expect(studentsAPI.list).toHaveBeenCalledTimes(1);
 
     const searchInput = screen.getByPlaceholderText(/search student records/i);
     await user.type(searchInput, "Alice");

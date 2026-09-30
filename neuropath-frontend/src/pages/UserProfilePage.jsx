@@ -16,7 +16,7 @@ export default function MyProfile() {
   const fileInputRef = useRef(null);
 
   const [isEditing, setIsEditing] = useState(false);
-  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(user?.profile_picture || null);
   const [selectedFile, setSelectedFile] = useState(null);
 
   const [form, setForm] = useState({
@@ -111,7 +111,11 @@ export default function MyProfile() {
       formData.append("last_name", form.lastName.trim());
       formData.append("email", form.email.trim().toLowerCase());
       if (form.password) formData.append("password", form.password);
-      if (selectedFile) formData.append("profile_picture", selectedFile);
+      if (selectedFile) {
+        formData.append("profile_picture", selectedFile);
+      } else if (!avatarPreview && user?.profile_picture) {
+        formData.append("remove_profile_picture", "true");
+      }
 
       await updateUser(formData);
       setIsEditing(false);
@@ -217,12 +221,35 @@ export default function MyProfile() {
                     </div>
                   )}
                 </div>
-                {!isEditing && (
+                {isEditing ? (
+                  <div className="up-avatar-info">
+                    <p className="up-avatar-storage-note">
+                      Profile photo is stored locally on this device.
+                    </p>
+                    {avatarPreview && (
+                      <button
+                        type="button"
+                        className="up-avatar-remove-btn"
+                        onClick={() => {
+                          setSelectedFile(null);
+                          setAvatarPreview(null);
+                        }}
+                      >
+                        Remove Photo
+                      </button>
+                    )}
+                  </div>
+                ) : (
                   <div className="up-avatar-info">
                     <p className="up-name">
                       {user?.first_name} {user?.last_name}
                     </p>
                     <p className="up-role">Special Education Teacher</p>
+                    {avatarPreview && (
+                      <p className="up-avatar-storage-note-subtle">
+                        Stored locally on this device
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

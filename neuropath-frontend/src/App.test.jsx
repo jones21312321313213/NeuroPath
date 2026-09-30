@@ -411,5 +411,23 @@ describe("App Semantic Layout Landmarks and Accessibility", () => {
 
     expect(await screen.findByRole("button", { name: /edit info/i })).toBeInTheDocument();
   });
+
+  it("collapses sidebar on mobile viewport upon route navigation inside useEffect without render-phase state updates", async () => {
+    // Simulate mobile viewport width <= 768
+    const originalInnerWidth = window.innerWidth;
+    window.innerWidth = 500;
+
+    const { container } = renderWithQueryClient(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <App />
+      </MemoryRouter>
+    );
+
+    const layout = container.querySelector(".app-layout");
+    expect(layout).toHaveClass("sidebar-collapsed");
+
+    window.innerWidth = originalInnerWidth;
+  });
 });
+
 

@@ -522,7 +522,7 @@ class ProgressAnalyticsAPIView(APIView):
         """Matches Class Diagram: getAnalyticsData(studentID, subject)"""
         
         # 1. Matches Class Diagram: validateQueryParameters()
-        student_id = request.query_params.get('studentID')
+        student_id = request.query_params.get('studentID') or request.query_params.get('student_id')
         subject = request.query_params.get('subject') # This parameter is optional initially
         
         if not student_id:
@@ -552,7 +552,7 @@ class ProgressAnalyticsAPIView(APIView):
 
     def post(self, request, *args, **kwargs):
         """Matches SDD: Records a new progress performance log for a student."""
-        student_id = request.data.get('studentID')
+        student_id = request.data.get('studentID') or request.data.get('student_id')
         subject_name = request.data.get('subjectName')
         performance_score = request.data.get('performanceScore')
 
@@ -599,7 +599,7 @@ class StudentProgressDashboardView(APIView):
     permission_classes = [SessionAuthenticationGuard]
 
     def get(self, request, *args, **kwargs):
-        student_id = request.query_params.get('studentID')
+        student_id = request.query_params.get('studentID') or request.query_params.get('student_id')
         if not student_id:
             return Response(
                 {"error": "A valid studentID query parameter is required."},

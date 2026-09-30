@@ -54,116 +54,73 @@ Below is the complete structural schematic for the NeuroPath Django backend and 
 📦 NeuroPath
 │
 ├── 📂 neuropath-backend                        # Mission Control (Django Backend)
-│   ├── 📄 .env                                 # Environment variables (never commit)
-│   ├── 📄 .gitignore
+│   ├── 📄 .env.example                         # Environment variables template
 │   ├── 📄 manage.py                            # Django management entry point
-│   ├── 📄 requirements.txt                     # Python dependencies
-│   ├── 📄 Pipfile / Pipfile.lock               # (Optional) Pipenv lockfile
+│   ├── 📄 requirements.txt                     # Production Python dependencies
+│   ├── 📄 requirements-dev.txt                 # Development & test dependencies
 │   │
-│   ├── 📂 neuropath                            # Django project settings package
-│   │   ├── 📄 __init__.py
-│   │   ├── 📄 settings.py                      # Core Django & Supabase/PostgreSQL config
+│   ├── 📂 neuropath_core                       # Django project configuration & core settings
+│   │   ├── 📄 settings.py                      # Core Django & PostgreSQL/Supabase config
 │   │   ├── 📄 urls.py                          # Root URL dispatcher
 │   │   ├── 📄 wsgi.py                          # WSGI entry point (production)
 │   │   └── 📄 asgi.py                          # ASGI entry point (async support)
 │   │
-│   ├── 📂 apps                                 # Django applications (one per module)
-│   │   │
-│   │   ├── 📂 accounts                         # Teacher authentication & user management
-│   │   │   ├── 📄 __init__.py
-│   │   │   ├── 📄 admin.py
-│   │   │   ├── 📄 models.py                    # Custom User model (Teacher profile)
-│   │   │   ├── 📄 serializers.py               # DRF serializers for auth endpoints
-│   │   │   ├── 📄 views.py                     # Register, login, token refresh views
-│   │   │   ├── 📄 urls.py
-│   │   │   └── 📄 permissions.py               # Role-based access (teacher, admin)
-│   │   │
-│   │   ├── 📂 students                         # Module 1 — Student Profiling
-│   │   │   ├── 📄 __init__.py
-│   │   │   ├── 📄 admin.py
-│   │   │   ├── 📄 models.py                    # Student & PLAAFP data models
-│   │   │   ├── 📄 serializers.py               # PLAAFP input validation & serialization
-│   │   │   ├── 📄 views.py                     # Student CRUD API views
-│   │   │   ├── 📄 urls.py
-│   │   │   └── 📄 validators.py                # PLAAFP completeness & formatting checks (≤5% error)
-│   │   │
-│   │   ├── 📂 iep                              # Module 2 — IEP Generation
-│   │   │   ├── 📄 __init__.py
-│   │   │   ├── 📄 admin.py
-│   │   │   ├── 📄 models.py                    # IEP document, Goal, CompletionThreshold models
-│   │   │   ├── 📄 serializers.py
-│   │   │   ├── 📄 views.py                     # IEP generation & retrieval API views
-│   │   │   ├── 📄 urls.py
-│   │   │   └── 📂 services                     # Business logic & AI integration
-│   │   │       ├── 📄 ai_service.py            # OpenAI API calls for goal generation
-│   │   │       ├── 📄 rgori_validator.py       # R-GORI compliance scoring engine (≥65%)
-│   │   │       └── 📄 completeness_algorithm.py # Multi-threshold quality check (20/59/80/100%)
-│   │   │
-│   │   ├── 📂 instructional                    # Module 3 — Instructional Support
-│   │   │   ├── 📄 __init__.py
-│   │   │   ├── 📄 admin.py
-│   │   │   ├── 📄 models.py                    # LessonPlan, VisualAid, GeneralizationStrategy models
-│   │   │   ├── 📄 serializers.py
-│   │   │   ├── 📄 views.py                     # Lesson plan & visual aid generation views
-│   │   │   ├── 📄 urls.py
-│   │   │   └── 📂 services
-│   │   │       ├── 📄 lesson_plan_service.py   # Auto-populates templates from IEP goals (≥95%)
-│   │   │       ├── 📄 visual_aid_service.py    # Generates print-ready, localized picture cards
-│   │   │       └── 📄 generalization_service.py # Real-world transfer strategy recommendations
-│   │   │
-│   │   └── 📂 progress                         # Module 4 — Outcome Monitoring & Security
-│   │       ├── 📄 __init__.py
-│   │       ├── 📄 admin.py
-│   │       ├── 📄 models.py                    # ProgressLog, BehavioralTally, GoalMilestone models
-│   │       ├── 📄 serializers.py
-│   │       ├── 📄 views.py                     # Analytics dashboard API views
-│   │       └── 📄 urls.py
+│   ├── 📂 users                                # Teacher authentication & user management
+│   │   ├── 📄 models.py                        # Custom User model & Teacher profile
+│   │   ├── 📄 serializers.py                   # Auth serializers & profile validation
+│   │   ├── 📄 views.py                         # Registration, login, profile management
+│   │   └── 📄 urls.py                          # Auth endpoints (/api/auth/)
 │   │
-│   └── 📂 core                                 # Shared utilities & middleware
-│       ├── 📄 middleware.py                     # Request logging, error handling
-│       ├── 📄 pagination.py                     # Custom DRF pagination
-│       └── 📄 utils.py                          # Shared helper functions
+│   ├── 📂 iep_management                       # Module 1 & 2 — Student Profiling & IEP Generation
+│   │   ├── 📄 models.py                        # Student, IEPDocument, IEPGoal models
+│   │   ├── 📄 serializers.py                   # Student profile & IEP goal serializers
+│   │   ├── 📄 views.py                         # Student CRUD & AI goal generation endpoints
+│   │   ├── 📄 urls.py                          # Student & IEP endpoints (/api/students/, /api/iep/)
+│   │   └── 📂 services                         # AI goal generation & R-GORI validation engine
+│   │
+│   ├── 📂 resources                            # Module 3 — Instructional Support
+│   │   ├── 📄 models.py                        # LessonPlan, VisualAid, TeachingStrategy models
+│   │   ├── 📄 serializers.py                   # Resource generation & directory serializers
+│   │   ├── 📄 views.py                         # Lesson plan, visual aid, & strategy endpoints
+│   │   ├── 📄 urls.py                          # Resource endpoints (/api/resources/)
+│   │   └── 📂 services                         # AI resource generation services
+│   │
+│   └── 📂 tracking                             # Module 4 — Outcome Monitoring & Analytics
+│       ├── 📄 models.py                        # ProgressLog, BehavioralTally, Milestone models
+│       ├── 📄 serializers.py                   # Progress tracking & analytics serializers
+│       ├── 📄 views.py                         # Analytics dashboard & outcome monitoring views
+│       ├── 📄 urls.py                          # Tracking endpoints (/api/tracking/)
+│       └── 📂 services                         # Progress analytics & milestone services
 │
-└── 📂 src                                      # Flight Interface (React Frontend)
-    ├── 📄 index.css                             # Global styles & design tokens
-    ├── 📄 main.jsx                              # React DOM entry point
+└── 📂 neuropath-frontend                       # Flight Interface (React + Vite Frontend)
+    ├── 📄 package.json                         # Node dependencies & build scripts
+    ├── 📄 vite.config.js                       # Vite bundler configuration
+    ├── 📄 eslint.config.js                     # ESLint configuration
     │
-    ├── 📂 components                            # UI Modules
-    │   ├── 📄 App.jsx                           # Root component & routing
-    │   ├── 📄 Header.jsx
-    │   ├── 📄 Sidebar.jsx
-    │   ├── 📄 ProtectedRoute.jsx                # Auth-guarded routes
-    │   │
-    │   ├── 📂 auth                              # Authentication screens
-    │   │   ├── 📄 Login.jsx
-    │   │   └── 📄 Register.jsx
-    │   │
-    │   ├── 📂 dashboard                         # Module 4 — Analytics & monitoring
-    │   │   ├── 📄 Dashboard.jsx
-    │   │   ├── 📄 ProgressChart.jsx
-    │   │   └── 📄 GoalAttainmentWidget.jsx
-    │   │
-    │   ├── 📂 students                          # Module 1 — Student profiling
-    │   │   ├── 📄 StudentList.jsx
-    │   │   ├── 📄 StudentProfile.jsx
-    │   │   └── 📄 PLAAFPForm.jsx                # Structured PLAAFP data entry form
-    │   │
-    │   ├── 📂 iep                               # Module 2 — IEP Generation
-    │   │   ├── 📄 IEPGenerator.jsx
-    │   │   ├── 📄 IEPGoalEditor.jsx
-    │   │   ├── 📄 CompletenessIndicator.jsx     # Visual 20/59/80/100% threshold gauge
-    │   │   └── 📄 IEPDocument.jsx               # Printable IEP output
-    │   │
-    │   └── 📂 instructional                     # Module 3 — Instructional support
-    │       ├── 📄 LessonPlanView.jsx
-    │       ├── 📄 VisualAidGenerator.jsx        # Printable picture cards & visual supports
-    │       └── 📄 GeneralizationTips.jsx        # Real-world transfer strategy recommendations
-    │
-    └── 📂 hooks                                 # Custom React Hooks
-        ├── 📄 useAuth.js                        # Auth state & token management
-        ├── 📄 useStudent.js                     # Student data fetching & mutations
-        ├── 📄 useIEP.js                         # IEP generation & quality score state
-        └── 📄 useProgress.js                   # Progress tracking & analytics data
+    └── 📂 src
+        ├── 📄 App.jsx                          # Root router & layout component
+        ├── 📄 main.jsx                         # Application mount entry point
+        ├── 📄 index.css                        # Global design tokens & styling
+        │
+        ├── 📂 api                              # Centralized API client modules
+        │   └── 📄 client.js                    # Unified REST client with interceptors
+        ├── 📂 components                       # Reusable UI widgets & layout elements
+        │   ├── 📄 Sidebar.jsx                  # Navigation sidebar
+        │   └── 📄 ProtectedRoute.jsx           # Auth-guarded routes
+        ├── 📂 context                          # Application state (AuthContext, etc.)
+        ├── 📂 hooks                            # Custom React hooks
+        ├── 📂 pages                            # Route-level views
+        │   ├── 📄 DashboardPage.jsx            # Module 4 — Analytics overview
+        │   ├── 📄 StudentProfileForm.jsx       # Module 1 — Student data entry
+        │   ├── 📄 ViewStudentRecords.jsx       # Module 1 — Student records directory
+        │   ├── 📄 IEPGoalsForm.jsx             # Module 2 — AI goal generation & scoring
+        │   ├── 📄 GenerateLessonPlan.jsx       # Module 3 — Lesson plan generation
+        │   ├── 📄 GenerateVisualAids.jsx       # Module 3 — Visual aid card generator
+        │   ├── 📄 TeachingStrategiesDirectory.jsx # Module 3 — Teaching strategies
+        │   ├── 📄 ViewProgressDashboard.jsx    # Module 4 — Progress analytics charts
+        │   └── 📄 UserProfilePage.jsx          # Teacher profile & settings
+        ├── 📂 styles                           # Modular CSS stylesheets
+        └── 📂 test                             # Vitest test helpers & mocks
 ```
 
 ---
@@ -325,18 +282,52 @@ python manage.py runserver
 # The API will be running at http://localhost:8000
 ```
 
+#### Running Tests
+
+NeuroPath has comprehensive backend and frontend test suites.
+
+**Backend Tests (Django):**
+```bash
+cd neuropath-backend
+
+# Standard test run (CI-compatible, non-interactive)
+python manage.py test --noinput
+
+# Fast iterative testing (preserves test database between runs)
+python manage.py test --noinput --keepdb
+
+# Fast local testing with SQLite (no local PostgreSQL service required):
+# Windows PowerShell:
+$env:DB_ENGINE='django.db.backends.sqlite3'; $env:DB_NAME='test_db.sqlite3'; python manage.py test --noinput --keepdb
+
+# macOS / Linux:
+DB_ENGINE=django.db.backends.sqlite3 DB_NAME=test_db.sqlite3 python manage.py test --noinput --keepdb
+```
+> **Note on AI Services:** AI generation services (Groq, Hugging Face, Pollinations) are mocked or provide deterministic fallbacks in the test suite, allowing fast, offline, and quota-free automated test execution.
+
+**Frontend Tests (Vitest):**
+```bash
+cd neuropath-frontend
+
+# Run all Vitest suites
+npm test -- --run
+
+# Run ESLint check
+npm run lint
+```
+
 ---
 
 ### 3. Frontend Setup (React)
 
-Open a **second terminal** and navigate to the root directory:
+Open a **second terminal** and navigate to the frontend directory:
 
 ```bash
-# From the root NeuroPath/ folder
+cd neuropath-frontend
 npm install
 ```
 
-Create a `.env` file in the root directory:
+Create a `.env` file in the `neuropath-frontend/` directory:
 
 ```bash
 cp .env.example .env
@@ -403,7 +394,7 @@ OLLAMA_HOST=http://localhost:11434
 
 ---
 
-### Frontend — `.env` (root directory)
+### Frontend — `neuropath-frontend/.env`
 
 ```env
 # ───────────────────────────────────────────
@@ -468,11 +459,12 @@ NeuroPath is developed as part of a Capstone/Software Engineering project and is
 ## 🗺️ Roadmap
 
 - [x] Project scaffolding & repository setup
-- [ ] Module 1 — Student Profiling & PLAAFP Form (Sprint 1)
-- [ ] Module 2 — AI-Driven IEP Generation & R-GORI Validator (Sprint 2)
-- [ ] Module 3 — Lesson Plans, Visual Aids & Generalization Tools (Sprint 3)
-- [ ] Module 4 — Progress Dashboard, Security & SUS Testing (Sprint 4)
-- [ ] SRS & SDD Documentation
+- [x] Module 1 — Student Profiling & PLAAFP Form (Sprint 1 - Complete)
+- [x] Module 2 — AI-Driven IEP Generation & R-GORI Validator (Sprint 2 - Complete)
+- [x] Module 3 — Lesson Plans, Visual Aids & Generalization Tools (Sprint 3 - Complete)
+- [x] Module 4 — Progress Dashboard, Multi-Tenant Security & Analytics (Sprint 4 - Complete)
+- [x] Multi-tenant teacher data isolation & backend authentication hardening
+- [x] Client reliability, deduplicated API queries & dual ID parameter compatibility
 - [ ] Pilot testing with Region VII SPED teachers
 - [ ] Production deployment
 

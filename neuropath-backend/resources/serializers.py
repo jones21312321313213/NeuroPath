@@ -236,6 +236,13 @@ class TeachingStrategySerializer(serializers.ModelSerializer):
 # =====================================================================
 class StrategyDeleteValidationSerializer(serializers.Serializer):
     studentID = serializers.IntegerField(required=False)
+    student_id = serializers.IntegerField(required=False)
+
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+        if 'studentID' not in ret and 'student_id' in ret:
+            ret['studentID'] = ret['student_id']
+        return ret
     
     def validate_studentID(self, value):
         if value <= 0:
