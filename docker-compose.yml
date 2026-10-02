@@ -23,6 +23,7 @@ services:
     build:
       context: ./neuropath-backend
       dockerfile: Dockerfile
+    command: ./entrypoint.dev.sh
     container_name: neuropath_backend
     restart: unless-stopped
     ports:
@@ -44,7 +45,7 @@ services:
   frontend:
     build:
       context: ./neuropath-frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: neuropath_frontend
     restart: unless-stopped
     ports:
