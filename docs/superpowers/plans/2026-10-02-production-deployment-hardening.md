@@ -1,6 +1,6 @@
 # Production Deployment Hardening Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Transform NeuroPath from a local development configuration into a hardened, production-ready system with Gunicorn WSGI process supervision, WhiteNoise static asset delivery, production SSL reverse-proxy security headers, multi-stage Nginx frontend containerization, cloud database connection pooling, and health check monitoring.
 
@@ -30,7 +30,7 @@
 - Consumes: Existing Python dependencies in `requirements.txt`.
 - Produces: `gunicorn` package for WSGI serving and `whitenoise` for static asset compression.
 
-- [ ] **Step 1: Add gunicorn and whitenoise to requirements.txt**
+- [x] **Step 1: Add gunicorn and whitenoise to requirements.txt**
 
 Append `gunicorn==23.0.0` and `whitenoise==6.8.2` to `neuropath-backend/requirements.txt`:
 
@@ -57,12 +57,12 @@ gunicorn==23.0.0
 whitenoise==6.8.2
 ```
 
-- [ ] **Step 2: Verify package installation**
+- [x] **Step 2: Verify package installation**
 
 Run: `pip install -r neuropath-backend/requirements.txt`
 Expected: Successfully installed gunicorn and whitenoise (or requirement already satisfied).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add neuropath-backend/requirements.txt
@@ -80,7 +80,7 @@ git commit -m "build(backend): add gunicorn and whitenoise for production WSGI a
 - Consumes: `whitenoise` package.
 - Produces: Static file handling for admin and API UI when `DEBUG=False`.
 
-- [ ] **Step 1: Configure WhiteNoise middleware and storages in settings.py**
+- [x] **Step 1: Configure WhiteNoise middleware and storages in settings.py**
 
 In `neuropath-backend/neuropath_core/settings.py`:
 1. Insert `whitenoise.middleware.WhiteNoiseMiddleware` immediately after `django.middleware.security.SecurityMiddleware`.
@@ -113,12 +113,12 @@ STORAGES = {
 }
 ```
 
-- [ ] **Step 2: Test collectstatic command**
+- [x] **Step 2: Test collectstatic command**
 
 Run: `python neuropath-backend/manage.py collectstatic --noinput`
 Expected: Static files copied and post-processed into `neuropath-backend/staticfiles/` without error.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add neuropath-backend/neuropath_core/settings.py
@@ -136,7 +136,7 @@ git commit -m "feat(backend): configure WhiteNoise middleware and compressed man
 - Consumes: `DEBUG`, `SECURE_SSL_REDIRECT`, `SECURE_HSTS_SECONDS` from environment variables.
 - Produces: 0 warnings on `python manage.py check --deploy`.
 
-- [ ] **Step 1: Write production security settings block**
+- [x] **Step 1: Write production security settings block**
 
 In `neuropath-backend/neuropath_core/settings.py`, add conditional security configuration when `not DEBUG`:
 
@@ -155,12 +155,12 @@ if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 ```
 
-- [ ] **Step 2: Run deploy check to verify security settings**
+- [x] **Step 2: Run deploy check to verify security settings**
 
 Run: `python neuropath-backend/manage.py check --deploy`
 Expected: 0 critical issues and 0 warnings (except when DEBUG=True locally, which is bypassed when DEBUG=False).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add neuropath-backend/neuropath_core/settings.py
@@ -178,7 +178,7 @@ git commit -m "feat(security): enforce SSL redirect, secure cookies, and HSTS wh
 - Consumes: `DATABASE_URL` (optional) or `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`.
 - Produces: Standardized Django `DATABASES` dictionary compatible with Supabase, AWS RDS, Railway, and local Postgres.
 
-- [ ] **Step 1: Update DATABASES configuration in settings.py**
+- [x] **Step 1: Update DATABASES configuration in settings.py**
 
 In `neuropath-backend/neuropath_core/settings.py`:
 
@@ -208,12 +208,12 @@ if not DEBUG and ('supabase' in db_host or 'aws' in db_host or 'pooler' in db_ho
     DATABASES['default'].setdefault('OPTIONS', {})['sslmode'] = 'require'
 ```
 
-- [ ] **Step 2: Run migrations check to verify database configuration**
+- [x] **Step 2: Run migrations check to verify database configuration**
 
 Run: `python neuropath-backend/manage.py check`
 Expected: `System check identified no issues (0 silenced).`
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add neuropath-backend/neuropath_core/settings.py
@@ -233,7 +233,7 @@ git commit -m "feat(db): support DATABASE_URL connection string and automatic cl
 - Consumes: HTTP GET `/api/health/`.
 - Produces: HTTP 200 JSON `{"status": "ok", "app": "neuropath-backend"}` without hitting DB or requiring auth.
 
-- [ ] **Step 1: Write the failing health check test**
+- [x] **Step 1: Write the failing health check test**
 
 Create `neuropath-backend/neuropath_core/tests.py`:
 
@@ -248,12 +248,12 @@ class HealthCheckTests(SimpleTestCase):
         self.assertIn('app', response.json())
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python neuropath-backend/manage.py test neuropath_core --keepdb`
 Expected: FAIL with 404 Not Found.
 
-- [ ] **Step 3: Implement health check view and wire URL**
+- [x] **Step 3: Implement health check view and wire URL**
 
 Create `neuropath-backend/neuropath_core/views.py`:
 
@@ -288,12 +288,12 @@ urlpatterns = [
 ]
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python neuropath-backend/manage.py test neuropath_core --keepdb`
 Expected: `Ran 1 test ... OK`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add neuropath-backend/neuropath_core/views.py neuropath-backend/neuropath_core/urls.py neuropath-backend/neuropath_core/tests.py
@@ -313,7 +313,7 @@ git commit -m "feat(health): add lightweight unauthenticated /api/health/ endpoi
 - Consumes: Node 20 build stage with `ARG VITE_API_URL`.
 - Produces: Nginx alpine image serving static assets on port 80 with SPA fallback.
 
-- [ ] **Step 1: Create Nginx configuration file**
+- [x] **Step 1: Create Nginx configuration file**
 
 Create `neuropath-frontend/nginx.conf`:
 
@@ -359,7 +359,7 @@ server {
 }
 ```
 
-- [ ] **Step 2: Create Dockerfile.dev for local hot-reload**
+- [x] **Step 2: Create Dockerfile.dev for local hot-reload**
 
 Create `neuropath-frontend/Dockerfile.dev`:
 
@@ -373,7 +373,7 @@ EXPOSE 5173
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 ```
 
-- [ ] **Step 3: Refactor neuropath-frontend/Dockerfile to multi-stage production build**
+- [x] **Step 3: Refactor neuropath-frontend/Dockerfile to multi-stage production build**
 
 In `neuropath-frontend/Dockerfile`:
 
@@ -405,12 +405,12 @@ EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
 ```
 
-- [ ] **Step 4: Verify frontend build compiles cleanly**
+- [x] **Step 4: Verify frontend build compiles cleanly**
 
 Run: `npm --prefix neuropath-frontend run build`
 Expected: `✓ built in ...` with exit code 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add neuropath-frontend/nginx.conf neuropath-frontend/Dockerfile neuropath-frontend/Dockerfile.dev
@@ -429,7 +429,7 @@ git commit -m "build(frontend): implement multi-stage production Dockerfile and 
 - Consumes: Django management commands and environment variables (`GUNICORN_WORKERS`, `GUNICORN_THREADS`, `GUNICORN_TIMEOUT`).
 - Produces: Supervised Gunicorn process listening on `0.0.0.0:8000`.
 
-- [ ] **Step 1: Create entrypoint.dev.sh for local development**
+- [x] **Step 1: Create entrypoint.dev.sh for local development**
 
 Create `neuropath-backend/entrypoint.dev.sh`:
 
@@ -444,7 +444,7 @@ echo "Starting Django development server..."
 exec python manage.py runserver 0.0.0.0:8000
 ```
 
-- [ ] **Step 2: Update entrypoint.sh for production Gunicorn execution**
+- [x] **Step 2: Update entrypoint.sh for production Gunicorn execution**
 
 In `neuropath-backend/entrypoint.sh`:
 
@@ -472,7 +472,7 @@ exec gunicorn neuropath_core.wsgi:application \
     --error-logfile -
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add neuropath-backend/entrypoint.sh neuropath-backend/entrypoint.dev.sh
@@ -493,7 +493,7 @@ git commit -m "feat(backend): configure entrypoint.sh to run migrations, collect
 - Consumes: `.env` and `.env.production` files.
 - Produces: Self-contained production container stack with health checks.
 
-- [ ] **Step 1: Create docker-compose.prod.yml**
+- [x] **Step 1: Create docker-compose.prod.yml**
 
 Create `docker-compose.prod.yml`:
 
@@ -533,7 +533,7 @@ services:
         condition: service_healthy
 ```
 
-- [ ] **Step 2: Create production environment examples**
+- [x] **Step 2: Create production environment examples**
 
 Create `neuropath-backend/.env.production.example`:
 
@@ -569,11 +569,11 @@ Create `neuropath-frontend/.env.production.example`:
 VITE_API_URL=https://api.yourdomain.com/api
 ```
 
-- [ ] **Step 3: Update dev docker-compose.yml to reference Dockerfile.dev**
+- [x] **Step 3: Update dev docker-compose.yml to reference Dockerfile.dev**
 
 In `docker-compose.yml`, ensure the frontend service references `dockerfile: Dockerfile.dev` or the dev CMD so local contributors keep hot-reloading.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docker-compose.prod.yml docker-compose.yml neuropath-backend/.env.production.example neuropath-frontend/.env.production.example
@@ -591,27 +591,27 @@ git commit -m "chore(deploy): add docker-compose.prod.yml and production environ
 - Consumes: Test runners for Vitest and Django.
 - Produces: 100% test pass rate with zero regression.
 
-- [ ] **Step 1: Run complete backend test suite**
+- [x] **Step 1: Run complete backend test suite**
 
 Run: `python neuropath-backend/manage.py test --keepdb`
 Expected: All tests pass cleanly (`OK`).
 
-- [ ] **Step 2: Run complete frontend test suite**
+- [x] **Step 2: Run complete frontend test suite**
 
 Run: `npm --prefix neuropath-frontend run test`
 Expected: All 55 test files pass (539+ tests passing).
 
-- [ ] **Step 3: Run ESLint**
+- [x] **Step 3: Run ESLint**
 
 Run: `npm --prefix neuropath-frontend run lint`
 Expected: 0 errors and 0 warnings.
 
-- [ ] **Step 4: Run Django deployment check**
+- [x] **Step 4: Run Django deployment check**
 
 Run: `python neuropath-backend/manage.py check --deploy`
 Expected: 0 critical issues.
 
-- [ ] **Step 5: Final branch verification and commit**
+- [x] **Step 5: Final branch verification and commit**
 
 ```bash
 git status
