@@ -91,17 +91,28 @@ WSGI_APPLICATION = 'neuropath_core.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': env('DB_ENGINE', default='django.db.backends.postgresql'),
-        'NAME': env('DB_NAME', default='postgres'),
-        'USER': env('DB_USER', default='postgres'),
-        'PASSWORD': env('DB_PASSWORD', default=''),
-        'HOST': env('DB_HOST', default='localhost'),
-        'PORT': env('DB_PORT', default='5432'),
+db_url = env('DATABASE_URL', default=None)
+if db_url:
+    DATABASES = {
+        'default': env.db('DATABASE_URL')
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': env('DB_ENGINE', default='django.db.backends.postgresql'),
+            'NAME': env('DB_NAME', default='postgres'),
+            'USER': env('DB_USER', default='postgres'),
+            'PASSWORD': env('DB_PASSWORD', default=''),
+            'HOST': env('DB_HOST', default='localhost'),
+            'PORT': env('DB_PORT', default='5432'),
+        }
+    }
+
+# Require SSL connection when connecting to Supabase / cloud DBs in production
+db_host = str(DATABASES['default'].get('HOST', '')).lower()
+if not DEBUG and ('supabase' in db_host or 'aws' in db_host or 'pooler' in db_host):
+    DATABASES['default'].setdefault('OPTIONS', {})['sslmode'] = 'require'
+
 
 
 # Password validation
