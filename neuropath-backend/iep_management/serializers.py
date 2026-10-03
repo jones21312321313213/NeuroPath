@@ -19,13 +19,15 @@ class IEPDataSerializer(serializers.ModelSerializer):
             'barrier_qualifiers',
             'learning_facilitators',
             'facilitator_qualifiers',
-            'learning_accommodations'
+            'learning_accommodations',
+            'is_archived'
         ]
         extra_kwargs = {
             'baselineData': {'required': False, 'allow_blank': True},
             'goals': {'required': False, 'allow_blank': True},
             'accommodations': {'required': False, 'allow_blank': True},
             'generatedDetails': {'required': False},
+            'is_archived': {'required': False},
         }
 
 
@@ -52,7 +54,8 @@ class IEPListDetailSerializer(serializers.ModelSerializer):
             'barrier_qualifiers',
             'learning_facilitators',
             'facilitator_qualifiers',
-            'learning_accommodations'
+            'learning_accommodations',
+            'is_archived'
         ]
 
 
@@ -64,22 +67,24 @@ class IEPUpdateSerializer(serializers.ModelSerializer):
             # 🎯 ADDED NEW SECTION B FIELDS HERE so PUT/PATCH edits work
             'program_type', 'difficulties', 'learning_barriers', 
             'barrier_qualifiers', 'learning_facilitators', 'facilitator_qualifiers',
-            'learning_accommodations'
+            'learning_accommodations', 'is_archived'
         ]
         extra_kwargs = {
             'baselineData': {'required': False, 'allow_blank': True},
             'goals': {'required': False, 'allow_blank': True},
             'accommodations': {'required': False, 'allow_blank': True},
             'generatedDetails': {'required': False},
+            'is_archived': {'required': False},
         }
 
 class IEPObjectiveRowSerializer(serializers.ModelSerializer):
     class Meta:
         model = IEPObjectiveRow
         fields = [
-            'rowID', 'enroute_objectives', 'interventions_procedures', 
-            'timeline_mins_session', 'individuals_responsible', 
-            'progress_instructional', 'remarks'
+            'rowID', 'enroute_objectives', 
+            'month_1_target', 'month_2_target', 'month_3_target',
+            'interventions_procedures', 'timeline_mins_session', 
+            'individuals_responsible', 'progress_instructional', 'remarks'
         ]
 
 class StandaloneIEPGoalSerializer(serializers.ModelSerializer):

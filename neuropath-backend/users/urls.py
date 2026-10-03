@@ -5,12 +5,16 @@ from .views import( StudentProfileListCreateView,
                    AIInsightController,
                    TeacherCreateController,
                    TeacherLoginController,
-                   TeacherProfileUpdateController)
+                   TeacherLogoutController,
+                   TeacherProfileUpdateController,
+                   TeacherTutorialCompleteController,
+                   ConsentCertificatePdfView)
 
 urlpatterns = [
     path('register/', TeacherCreateController.as_view(), name='teacher-register'),
     path('login/', TeacherLoginController.as_view(), name='teacher-login'),
-    
+    path('logout/', TeacherLogoutController.as_view(), name='teacher-logout'),
+    path('tutorial-complete/', TeacherTutorialCompleteController.as_view(), name='teacher-tutorial-complete'),
     
     path('teachers/', TeacherCreateController.as_view(), name='teacher-create'),
     
@@ -19,5 +23,7 @@ urlpatterns = [
     path('students/<int:pk>/', ProfileUpdateController.as_view(), name='student-detail-update'),
     path('students/<int:pk>/view/', ProfileViewController.as_view(), name='student-view'),
     path('students/<int:pk>/generate-insight/', AIInsightController.as_view(), name='student-generate-insight'),
+    path('students/<int:pk>/consent-pdf/', ConsentCertificatePdfView.as_view(), name='student-consent-pdf'),
+    path('students/consent-pdf/', ConsentCertificatePdfView.as_view(), name='generate-consent-pdf'),
     path('profile/update/', TeacherProfileUpdateController.as_view(), name='teacher-profile-update'),
 ]

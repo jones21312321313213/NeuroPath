@@ -1,6 +1,4 @@
 from django.db import models
-from users.models import StudentProfile
-from iep_management.models import IEPModel as IEP
 from iep_management.models import IEPGoal  # 🚀 Cross-app import to target specific goals
 
 class LessonPlan(models.Model):
@@ -17,8 +15,9 @@ class VisualAid(models.Model):
     # 🔗 Changed to link directly to the specific target goal!
     iep_goal = models.ForeignKey(IEPGoal, on_delete=models.CASCADE, related_name='visual_aids')
     title = models.CharField(max_length=255)
-    imageUrl = models.TextField()  # TextField — no length limit, supports long Pollinations URLs
+    imageUrl = models.TextField()  # TextField — no length limit, supports long Pollinations URLs or base64 data URIs
     prompt_used = models.TextField(blank=True, null=True) # Optional: save what the teacher input
+    steps_data = models.JSONField(default=list, blank=True) # 3-step sequence decomposition data
     dateCreated = models.DateTimeField(auto_now_add=True)
 
 class TeachingStrategy(models.Model):

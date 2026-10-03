@@ -1,7 +1,67 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { iepAPI, studentsAPI } from "../api/client";
+import {
+  Button,
+  Callout,
+  ErrorModal,
+  IepLoadingModal,
+  IepPostGenerationModal,
+  Modal,
+} from "../components/ui";
+import UnsavedChangesModal from "../components/ui/UnsavedChangesModal";
+import { useToast } from "../context/ToastContext";
+import { useUnsavedChanges } from "../hooks/useUnsavedChanges";
+import { queryClient } from "../queryClient";
+import { queryKeys } from "../hooks/queries";
+import { sanitizeDifficulties } from "../utils/difficultyUtils";
+import {
+  SearchIcon,
+  ClockIcon,
+  DocumentIcon,
+  SparklesIcon,
+  PencilIcon,
+  LightBulbIcon,
+  BookOpenIcon,
+  PhotoIcon,
+  TargetIcon,
+  HomeIcon,
+  TrashIcon,
+  CloseIcon,
+  CheckIcon,
+  PlusIcon,
+  RocketIcon,
+  WarningIcon,
+} from "../components/ui/icons";
+import { Pagination } from "../components/ui/Pagination";
+import { formatRelativeTime } from "../utils/dateUtils";
+import "../styles/ViewStudentProfile.css";
+
+
 
 // ─── Constants ────────────────────────────────────────────────────────────────
+
+const ASSISTIVE_TECH_PRESETS = [
+  "AAC Communication Board",
+  "Speech-to-Text / Audio Dictation",
+  "Visual Schedule & Choice Cards",
+  "Screen Magnifier / Reader",
+  "FM Listening System",
+  "Pencil Grip / Adaptive Utensils",
+];
+
+const MAX_ASSISTIVE_TECH_ITEMS = 5;
+
+const MAX_SPECIAL_FACTOR_NOTES_LENGTH = 500;
+
+const SPECIAL_FACTOR_NOTES_PRESETS = [
+  "Positive Behavior Support Plan (PBSP) active",
+  "Sensory sensitivity: frequent quiet breaks",
+  "Non-verbal communication: requires AAC",
+  "Visual schedules & explicit verbal cues",
+  "Fine motor fatigue: allow speech-to-text",
+  "Transition warnings & structured routine",
+];
 
 const barrierQualifierOptions = [
   "No barrier",
@@ -49,13 +109,67 @@ function getGoalTypesForGrade(grade) {
   ];
 }
 
+const LEARNING_FACILITATOR_OPTIONS = [
+  "SPED Teacher",
+  "General Education Teacher",
+  "Physical Therapist",
+  "Parent / Guardian",
+  "Doctor / Developmental Pediatrician",
+  "Other",
+];
+
 // ─── Small reusable UI ────────────────────────────────────────────────────────
 
-function SectionHeader({ title, subtitle }) {
+function SectionHeader({ title, subtitle, action }) {
   return (
     <div className="iep-section-header">
-      <h2 className="form-section-title">{title}</h2>
-      {subtitle && <p className="iep-section-subtitle">{subtitle}</p>}
+      <div className="iep-section-header-row">
+        <div>
+          <h2 className="form-section-title">{title}</h2>
+          {subtitle && <p className="iep-section-subtitle">{subtitle}</p>}
+        </div>
+        {action && <div className="iep-section-header-action">{action}</div>}
+      </div>
+    </div>
+  );
+}
+
+function LearningFacilitatorSelector({
+  value,
+  onChange,
+  ariaLabel = "Learning facilitator",
+}) {
+  const isStandard = LEARNING_FACILITATOR_OPTIONS.slice(0, 5).includes(value);
+  const selectValue = isStandard ? value : value ? "Other" : "";
+  const showCustomInput = !isStandard && (value !== "" || selectValue === "Other");
+
+  return (
+    <div className="iep-facilitator-select-group">
+      <select
+        aria-label={ariaLabel}
+        value={selectValue}
+        className="form-select iep-small-select"
+        onChange={(e) => {
+          const val = e.target.value;
+          onChange(val);
+        }}
+      >
+        <option value="">Select facilitator...</option>
+        {LEARNING_FACILITATOR_OPTIONS.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </select>
+      {showCustomInput && (
+        <input
+          type="text"
+          className="form-input iep-small-input"
+          placeholder="Type facilitator/s"
+          value={value === "Other" ? "" : value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
     </div>
   );
 }
@@ -84,37 +198,187 @@ function TextAreaField({ label, placeholder, value, onChange, rows = 3 }) {
   );
 }
 
+function SpecialFactorNotesField({
+  value = "",
+  onChange,
+  label = "Other special factor notes",
+  placeholder = "Add notes about behavior, communication, sensory, or other special factors.",
+  id = "special-factor-notes-input",
+}) {
+  const currentLength = value?.length || 0;
+  const isLimitReached = currentLength >= MAX_SPECIAL_FACTOR_NOTES_LENGTH;
+  const isNearLimit = currentLength >= MAX_SPECIAL_FACTOR_NOTES_LENGTH * 0.9;
+
+  const handleAddPreset = (preset) => {
+    if (isLimitReached) return;
+    const trimmed = (value || "").trim();
+    if (!trimmed) {
+      onChange(preset.slice(0, MAX_SPECIAL_FACTOR_NOTES_LENGTH));
+      return;
+    }
+    if (trimmed.toLowerCase().includes(preset.toLowerCase())) return;
+    const appended = `${trimmed}; ${preset}`;
+    onChange(appended.slice(0, MAX_SPECIAL_FACTOR_NOTES_LENGTH));
+  };
+
+  const handleClear = () => {
+    onChange("");
+  };
+
+  return (
+    <div className="form-group iep-special-notes-field">
+      <div className="iep-special-notes-header">
+        <label htmlFor={id} className="form-label">
+          {label}
+        </label>
+        {currentLength > 0 && (
+          <button
+            type="button"
+            className="iep-notes-clear-btn"
+            onClick={handleClear}
+            aria-label="Clear notes"
+          >
+            <CloseIcon className="w-3.5 h-3.5 inline mr-1" aria-hidden="true" />
+            Clear notes
+          </button>
+        )}
+      </div>
+
+      <div className="iep-preset-chips-container">
+        <span className="iep-preset-chips-label">Quick Suggestions:</span>
+        <div className="iep-preset-chips-list">
+          {SPECIAL_FACTOR_NOTES_PRESETS.map((preset) => {
+            const wouldExceed =
+              currentLength + (currentLength > 0 ? 2 : 0) + preset.length >
+              MAX_SPECIAL_FACTOR_NOTES_LENGTH;
+            const isDisabled = isLimitReached || wouldExceed;
+            return (
+              <button
+                key={preset}
+                type="button"
+                className="iep-preset-chip"
+                onClick={() => handleAddPreset(preset)}
+                disabled={isDisabled}
+                title={
+                  isDisabled
+                    ? "Note character limit reached"
+                    : `Add note: ${preset}`
+                }
+              >
+                + {preset}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <textarea
+        id={id}
+        rows={3}
+        maxLength={MAX_SPECIAL_FACTOR_NOTES_LENGTH}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="form-textarea iep-special-notes-textarea"
+        aria-describedby={`${id}-helper ${id}-counter`}
+      />
+
+      <div className="iep-textarea-footer">
+        <span id={`${id}-helper`} className="iep-notes-helper">
+          Notes guide AI goal synthesis and classroom accommodations.
+        </span>
+        <span
+          id={`${id}-counter`}
+          className={`iep-char-counter ${
+            isLimitReached
+              ? "iep-char-limit-reached"
+              : isNearLimit
+              ? "iep-char-limit-warning"
+              : ""
+          }`}
+        >
+          {currentLength} / {MAX_SPECIAL_FACTOR_NOTES_LENGTH} characters
+          {isLimitReached ? " (Maximum reached)" : ""}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ─── Read-only goal table ─────────────────────────────────────────────────────
 
 function ReadOnlyGoalTable({ rows = [] }) {
-  const columns = [
-    ["objective", "ENROUTE OBJECTIVES / PROCEDURE"],
-    ["interventions", "INTERVENTIONS / ACTIVITIES / PROCEDURE"],
-    ["timeline", "TIMELINE / SESSION"],
-    ["responsible", "INDIVIDUALS RESPONSIBLE"],
-    ["evaluation", "PROGRESS / INSTRUCTIONAL EVALUATION"],
-    ["remarks", "REMARKS"],
-  ];
   if (!rows.length)
     return <p className="iep-muted">No learner goal rows available.</p>;
+
   return (
     <div className="iep-table-wrap">
-      <table className="iep-table iep-goal-table">
+      <div className="iep-scroll-hint">
+        <span className="iep-scroll-hint-pill">
+          ↔ Scroll horizontally for full 3-month milestones &amp; details
+        </span>
+      </div>
+      <table className="iep-table iep-goal-table iep-section-c-table">
         <thead>
           <tr>
-            {columns.map(([, label]) => (
-              <th key={label}>{label}</th>
-            ))}
+            <th rowSpan={2} className="iep-sticky-col iep-col-objective">
+              ENROUTE OBJECTIVES / PROCEDURE
+            </th>
+            <th colSpan={3} className="iep-th-grouped iep-col-quarter-group">
+              QUARTERLY MILESTONE PROGRESSION (3 MONTHS)
+            </th>
+            <th rowSpan={2} className="iep-col-interventions">
+              INTERVENTIONS / ACTIVITIES / PROCEDURE
+            </th>
+            <th rowSpan={2} className="iep-col-timeline">
+              TIMELINE / SESSION
+            </th>
+            <th rowSpan={2} className="iep-col-responsible">
+              INDIVIDUALS RESPONSIBLE
+            </th>
+            <th rowSpan={2} className="iep-col-evaluation">
+              PROGRESS / INSTRUCTIONAL EVALUATION
+            </th>
+            <th rowSpan={2} className="iep-col-remarks">
+              REMARKS
+            </th>
+          </tr>
+          <tr>
+            <th className="iep-th-sub iep-col-month">MONTH 1 MILESTONE (1ST MONTH)</th>
+            <th className="iep-th-sub iep-col-month">MONTH 2 MILESTONE (2ND MONTH)</th>
+            <th className="iep-th-sub iep-col-month">MONTH 3 MILESTONE (3RD MONTH)</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row, i) => (
             <tr key={row.id || i}>
-              {columns.map(([field]) => (
-                <td key={field} className="iep-readonly-cell">
-                  {row[field] || "—"}
-                </td>
-              ))}
+              <td className="iep-readonly-cell iep-sticky-col iep-col-objective">
+                {row.objective || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-month">
+                {row.month1 || row.month_1_target || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-month">
+                {row.month2 || row.month_2_target || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-month">
+                {row.month3 || row.month_3_target || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-interventions">
+                {row.interventions || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-timeline">
+                {row.timeline || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-responsible">
+                {row.responsible || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-evaluation">
+                {row.evaluation || "—"}
+              </td>
+              <td className="iep-readonly-cell iep-col-remarks">
+                {row.remarks || "—"}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -188,6 +452,12 @@ function normalizeTextList(value) {
 
 function getStudentProfileDifficulties(student) {
   const p = getStudentProfileDetails(student);
+  if (Array.isArray(p?.difficultyMarkers)) {
+    return normalizeTextList(p.difficultyMarkers);
+  }
+  if (Array.isArray(student?.difficultyMarkers)) {
+    return normalizeTextList(student.difficultyMarkers);
+  }
   const candidates = [
     p.difficultyMarkers,
     p.difficulties,
@@ -226,17 +496,26 @@ function buildProfileBarrierRows(difficulties, previousRows = []) {
 }
 
 function normalizeDbGoal(dbGoal) {
+  if (!dbGoal) return null;
+  const g = dbGoal.data || dbGoal;
+  if (!g || typeof g !== "object") return null;
   return {
-    goalID: dbGoal.goalID,
-    iep: dbGoal.iep,
-    type: dbGoal.subject_category || dbGoal.goalName || "Goal",
-    annualGoal: dbGoal.annual_goal || dbGoal.goalName || "—",
-    goalName: dbGoal.goalName || dbGoal.subject_category || "Goal",
-    targetMetric: dbGoal.target_metric || "Standard IEP Metric",
-    rows: (dbGoal.objective_rows || []).map((row) => ({
+    goalID: g.goalID,
+    iep: g.iep,
+    type: g.subject_category || g.goalName || "Goal",
+    annualGoal: g.annual_goal || g.goalName || "—",
+    goalName: g.goalName || g.subject_category || "Goal",
+    targetMetric: g.target_metric || "Standard IEP Metric",
+    rows: (g.objective_rows || []).map((row) => ({
       id: row.rowID,
       rowID: row.rowID,
       objective: row.enroute_objectives || "",
+      month1: row.month_1_target || "",
+      month2: row.month_2_target || "",
+      month3: row.month_3_target || "",
+      month_1_target: row.month_1_target || "",
+      month_2_target: row.month_2_target || "",
+      month_3_target: row.month_3_target || "",
       interventions: row.interventions_procedures || "",
       timeline: row.timeline_mins_session || "",
       responsible: row.individuals_responsible || "",
@@ -255,6 +534,9 @@ function goalToApiPayload(goal, iepID) {
     target_metric: goal.targetMetric || "Standard IEP Metric",
     objective_rows: (goal.rows || []).map((row) => ({
       enroute_objectives: row.objective || "",
+      month_1_target: row.month_1_target || row.month1 || "",
+      month_2_target: row.month_2_target || row.month2 || "",
+      month_3_target: row.month_3_target || row.month3 || "",
       interventions_procedures: row.interventions || "",
       timeline_mins_session: row.timeline || "",
       individuals_responsible: row.responsible || "",
@@ -273,6 +555,12 @@ const emptyEditableGoal = () => ({
   rows: [
     {
       objective: "",
+      month1: "",
+      month2: "",
+      month3: "",
+      month_1_target: "",
+      month_2_target: "",
+      month_3_target: "",
       interventions: "",
       timeline: "",
       responsible: "",
@@ -302,6 +590,19 @@ function buildBarrierRowsFromFlat(iep) {
 
 // ─── Shared student search box ────────────────────────────────────────────────
 
+function getInitials(name = "") {
+  return (
+    name
+      .trim()
+      .split(" ")
+      .filter(Boolean)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "S"
+  );
+}
+
 function StudentSearchBox({
   searchTerm,
   setSearchTerm,
@@ -309,42 +610,254 @@ function StudentSearchBox({
   onSelect,
   filteredStudents,
   loadingStudents,
+  ieps = [],
 }) {
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
+
+  const totalPages = Math.ceil(filteredStudents.length / pageSize) || 1;
+  const currentPage = Math.min(page, totalPages);
+  const paginatedStudents = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredStudents.slice(start, start + pageSize);
+  }, [filteredStudents, currentPage, pageSize]);
+
   return (
-    <div className="form-group iep-search-group">
-      <label className="form-label">Search Student</label>
-      <input
-        type="text"
-        value={searchTerm}
-        className="form-input"
-        placeholder="Type student name..."
-        onChange={(e) => {
-          setSearchTerm(e.target.value);
-          onSelect(null);
+    <div className="form-group iep-search-group" data-testid="iep-search-group">
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "6px",
         }}
-      />
-      {searchTerm && !selectedStudent && (
-        <div className="iep-search-results">
-          {loadingStudents ? (
-            <p>Loading students...</p>
-          ) : filteredStudents.length > 0 ? (
-            filteredStudents.map((student) => (
-              <button
-                key={getStudentId(student) || getStudentName(student)}
-                type="button"
-                onClick={() => {
-                  onSelect(student);
-                  setSearchTerm(getStudentName(student));
-                }}
-              >
-                <strong>{getStudentName(student)}</strong>
-                <span>
-                  Grade {student.grade || "—"} · Age {student.age || "—"}
-                </span>
-              </button>
-            ))
-          ) : (
-            <p>No similar student names found.</p>
+      >
+        <label
+          className="form-label"
+          htmlFor="iep-student-search-input"
+          style={{ margin: 0 }}
+        >
+          Search Student
+        </label>
+        {selectedStudent && (
+          <button
+            type="button"
+            className="btn btn-secondary iep-change-btn iep-change-student-btn"
+            style={{ padding: "4px 12px", fontSize: "0.8rem", borderRadius: "8px" }}
+            onClick={() => {
+              onSelect(null);
+              setSearchTerm("");
+              setPage(1);
+            }}
+          >
+            Change Student
+          </button>
+        )}
+      </div>
+
+      <div className="vsp-search-wrap !mb-0" style={{ position: "relative" }}>
+        <input
+          id="iep-student-search-input"
+          type="text"
+          value={searchTerm}
+          className="vsp-search form-input"
+          placeholder="Type student name..."
+          style={{ paddingLeft: "14px" }}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setPage(1);
+            if (selectedStudent) {
+              onSelect(null);
+            }
+          }}
+          aria-label="Search student by name"
+        />
+        {searchTerm && (
+          <button
+            type="button"
+            className="iep-search-clear-btn"
+            onClick={() => {
+              setSearchTerm("");
+              setPage(1);
+              if (selectedStudent) {
+                onSelect(null);
+              }
+            }}
+            title="Clear search"
+            aria-label="Clear search"
+          >
+            ×
+          </button>
+        )}
+      </div>
+
+      {!selectedStudent && (
+        <div className="iep-roster-section" data-testid="iep-roster-section">
+          <div className="vsp-header" style={{ marginBottom: "6px" }}>
+            <h3 className="vsp-title" style={{ fontSize: "18px", margin: 0 }}>
+              Student Profiles
+            </h3>
+            <span className="vsp-count-badge">
+              {loadingStudents
+                ? "Loading students..."
+                : `Enrolled Students (${filteredStudents.length})`}
+            </span>
+          </div>
+          <p className="vsp-subtitle" style={{ fontSize: "13px", marginBottom: "16px" }}>
+            Browse and select an enrolled student to formulate or review their Individualized Education Plan.
+          </p>
+
+          <div
+            className="vsp-grid iep-roster-grid"
+            role="list"
+            aria-label="Student selection roster"
+          >
+            {loadingStudents ? (
+              <div className="vsp-empty" style={{ gridColumn: "1 / -1", padding: "28px 16px" }}>
+                <p className="vsp-empty-text">Loading student records...</p>
+              </div>
+            ) : filteredStudents.length > 0 ? (
+              paginatedStudents.map((student) => {
+                const sid = getStudentId(student);
+                const studentIepList = (ieps || []).filter(
+                  (i) =>
+                    String(i.studentID?.pk ?? i.studentID) === String(sid),
+                );
+                const activeStudentIep = studentIepList.find((i) => !i.is_archived);
+                const vTag = activeStudentIep
+                  ? `v${activeStudentIep.version} (Active)`
+                  : studentIepList.length > 0
+                    ? `v${studentIepList[0].version}`
+                    : student.latest_iep_version
+                      ? `v${student.latest_iep_version} (Active)`
+                      : student.iep_version
+                        ? `v${student.iep_version}`
+                        : null;
+
+                return (
+                  <div
+                    key={sid || getStudentName(student)}
+                    className="vsp-card iep-roster-card"
+                    role="listitem"
+                    tabIndex={0}
+                    onClick={() => {
+                      onSelect(student);
+                      setSearchTerm(getStudentName(student));
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onSelect(student);
+                        setSearchTerm(getStudentName(student));
+                      }
+                    }}
+                    style={{ cursor: "pointer" }}
+                  >
+                    {/* Top row */}
+                    <div className="vsp-card-top">
+                      <div className="vsp-avatar" aria-hidden="true">
+                        {getInitials(getStudentName(student))}
+                      </div>
+                      <div className="vsp-card-info">
+                        <p className="vsp-card-name">{getStudentName(student)}</p>
+                        <span className="vsp-card-meta">
+                          {student.diagnosis || student.asdBackground || "No diagnosis on record"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Pills */}
+                    <div className="vsp-card-pills">
+                      <span className="vsp-pill grade">
+                        Grade {student.grade || "—"}
+                      </span>
+                      {student.gender && (
+                        <span className="vsp-pill">{student.gender}</span>
+                      )}
+                      {student.age && (
+                        <span className="vsp-pill">{student.age} yrs</span>
+                      )}
+                      {vTag && (
+                        <span
+                          className={`vsp-pill ${
+                            activeStudentIep ? "grade font-semibold" : ""
+                          }`}
+                        >
+                          {vTag}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Recently Updated Indicator */}
+                    <div className="vsp-card-updated">
+                      <i className="ti ti-clock" aria-hidden="true" />
+                      <span>
+                        Updated {formatRelativeTime(student.updated_at || student.created_at)}
+                      </span>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="vsp-card-footer">
+                      <button
+                        type="button"
+                        className="vsp-view-btn iep-roster-select-btn"
+                        aria-label={`Select ${getStudentName(student)}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelect(student);
+                          setSearchTerm(getStudentName(student));
+                        }}
+                      >
+                        Select Student
+                        <i className="ti ti-arrow-right" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="vsp-empty" style={{ gridColumn: "1 / -1", padding: "28px 16px" }}>
+                <div className="vsp-empty-icon">
+                  <i className="ti ti-users-group" />
+                </div>
+                <p className="vsp-empty-text">
+                  {searchTerm
+                    ? `No students found matching "${searchTerm}".`
+                    : "No students registered yet. Create a student profile first."}
+                </p>
+                <p className="vsp-empty-sub">
+                  {searchTerm
+                    ? "Try a different name or clear the search filter."
+                    : "Create a student profile first to generate an IEP."}
+                </p>
+                {searchTerm && (
+                  <button
+                    type="button"
+                    className="vsp-empty-btn vsp-empty-btn-secondary"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setPage(1);
+                      if (selectedStudent) {
+                        onSelect(null);
+                      }
+                    }}
+                  >
+                    <i className="ti ti-x" aria-hidden="true" />
+                    Clear Search
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredStudents.length}
+              pageSize={pageSize}
+              onPageChange={setPage}
+            />
           )}
         </div>
       )}
@@ -368,20 +881,91 @@ function ViewIEPPanel({
   viewError,
   onDeleteIep,
   onUpdateIep,
+  onUpdateArchive,
+  setActivePage,
 }) {
+  const navigate = useNavigate();
   const selectedStudentId = getStudentId(selectedStudent);
-  const studentIeps = selectedStudentId
-    ? ieps.filter(
-        (iep) =>
-          String(iep.studentID) === String(selectedStudentId) ||
-          String(iep.studentID?.pk ?? iep.studentID) ===
-            String(selectedStudentId),
-      )
-    : [];
+  const studentIeps = useMemo(() => {
+    if (!selectedStudentId) return [];
+    return ieps.filter(
+      (iep) =>
+        String(iep.studentID) === String(selectedStudentId) ||
+        String(iep.studentID?.pk ?? iep.studentID) ===
+          String(selectedStudentId),
+    );
+  }, [selectedStudentId, ieps]);
+
+  const activeIeps = useMemo(
+    () => studentIeps.filter((i) => !i.is_archived),
+    [studentIeps],
+  );
+  const archivedIeps = useMemo(
+    () => studentIeps.filter((i) => Boolean(i.is_archived)),
+    [studentIeps],
+  );
+  const latestActiveVersion = useMemo(() => {
+    if (!activeIeps.length) return null;
+    return Math.max(...activeIeps.map((i) => Number(i.version) || 0));
+  }, [activeIeps]);
 
   const details = normalizeGeneratedDetails(selectedIep);
+  const { toast } = useToast();
+  const [showArchivedModal, setShowArchivedModal] = useState(false);
+
+  const handleToggleArchive = async (targetIep, shouldArchive = true) => {
+    if (!targetIep?.iepID) return;
+    try {
+      await iepAPI.archive(targetIep.iepID, shouldArchive);
+      const updatedIep = { ...targetIep, is_archived: shouldArchive };
+      if (onUpdateArchive) {
+        onUpdateArchive(updatedIep);
+      }
+      toast.success(
+        `IEP Version ${targetIep.version} has been ${shouldArchive ? "archived" : "restored to active"}.`,
+      );
+    } catch (err) {
+      toast.error(err.message || "Failed to update IEP archive status.");
+    }
+  };
+
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [exportPdfError, setExportPdfError] = useState("");
+
+  const handleExportPDF = async () => {
+    if (isExportingPdf || !selectedIep?.iepID) return;
+    setIsExportingPdf(true);
+    setExportPdfError("");
+    try {
+      const blob = await iepAPI.exportPDF(selectedIep.iepID);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const cleanName = (
+        selectedIep.studentName ||
+        getStudentName(selectedStudent) ||
+        "Student"
+      ).replace(/\s+/g, "_");
+      link.download = `IEP_${cleanName}_v${selectedIep.version || 1}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+      toast.success("IEP exported as PDF successfully.");
+    } catch (err) {
+      const errMsg = err.message || "Failed to export IEP PDF. Please try again.";
+      setExportPdfError(errMsg);
+      toast.error(errMsg);
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   const [isEditing, setIsEditing] = useState(false);
   const [editBarrierRows, setEditBarrierRows] = useState([]);
+  const [editSpecialFactorNotes, setEditSpecialFactorNotes] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
   const [iepGoals, setIepGoals] = useState([]);
   const [loadingGoals, setLoadingGoals] = useState(false);
@@ -389,6 +973,12 @@ function ViewIEPPanel({
   const [goalsToDelete, setGoalsToDelete] = useState([]);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deletingIep, setDeletingIep] = useState(false);
+
+  const [initialEditData, setInitialEditData] = useState({
+    barrierRows: [],
+    specialFactorNotes: "",
+    goals: [],
+  });
 
   // Fetch goals from DB whenever selected IEP changes
   useEffect(() => {
@@ -404,9 +994,12 @@ function ViewIEPPanel({
         const list = Array.isArray(data)
           ? data
           : data.results || data.data || [];
-        // Filter out the junk "GENERAL" goals auto-created from empty goals text
+        // Filter out placeholder/empty goals while keeping legitimate concise manual goals
         const realGoals = list.filter(
-          (g) => g.subject_category !== "GENERAL" && g.annual_goal?.length > 20,
+          (g) =>
+            g &&
+            g.annual_goal?.trim() &&
+            (g.subject_category !== "GENERAL" || g.annual_goal.trim() !== "GENERAL"),
         );
         if (mounted) setIepGoals(realGoals.map(normalizeDbGoal));
       } catch {
@@ -422,13 +1015,17 @@ function ViewIEPPanel({
   }, [selectedIep?.iepID]);
 
   useEffect(() => {
-    setIsEditing(false);
-    setEditBarrierRows([]);
-    setEditGoals([]);
-    setGoalsToDelete([]);
-    setIepGoals([]);
-    setDeleteTarget(null);
-  }, [selectedIep]);
+    const specialNotes =
+      details?.specialFactorNotes || details?.special_factor_notes || "";
+    queueMicrotask(() => {
+      setIsEditing(false);
+      setEditBarrierRows([]);
+      setEditSpecialFactorNotes(specialNotes);
+      setEditGoals([]);
+      setGoalsToDelete([]);
+      setDeleteTarget(null);
+    });
+  }, [selectedIep, details?.specialFactorNotes, details?.special_factor_notes]);
 
   const barrierRowsToRender =
     (details?.barrierRows?.length ? details.barrierRows : null) ||
@@ -438,27 +1035,68 @@ function ViewIEPPanel({
   const goalsToRender =
     iepGoals.length > 0 ? iepGoals : details?.learnerGoals || [];
 
+  const isFormDirty = useMemo(() => {
+    if (!isEditing) return false;
+    if (goalsToDelete.length > 0) return true;
+    if (
+      editSpecialFactorNotes !== initialEditData.specialFactorNotes
+    ) {
+      return true;
+    }
+    if (
+      JSON.stringify(editBarrierRows) !==
+      JSON.stringify(initialEditData.barrierRows)
+    ) {
+      return true;
+    }
+    if (
+      JSON.stringify(editGoals) !==
+      JSON.stringify(initialEditData.goals)
+    ) {
+      return true;
+    }
+    return false;
+  }, [
+    isEditing,
+    goalsToDelete,
+    editSpecialFactorNotes,
+    editBarrierRows,
+    editGoals,
+    initialEditData,
+  ]);
+
+  const { showPrompt, promptNavigation, confirmLeave, cancelLeave } =
+    useUnsavedChanges({ isDirty: isFormDirty });
+
   const openEdit = () => {
-    setEditBarrierRows(
-      barrierRowsToRender.length
-        ? barrierRowsToRender.map((r) => ({ ...r }))
-        : [
-            {
-              difficulty: "",
-              barrierQualifier: "Moderate barrier",
-              facilitator: "",
-              accommodation: "",
-            },
-          ],
-    );
-    setEditGoals(
-      goalsToRender.length
-        ? goalsToRender.map((goal) => ({
-            ...goal,
-            rows: (goal.rows || []).map((row) => ({ ...row })),
-          }))
-        : [emptyEditableGoal()],
-    );
+    const specialNotes =
+      details?.specialFactorNotes || details?.special_factor_notes || "";
+    const barrierRows = barrierRowsToRender.length
+      ? barrierRowsToRender.map((r) => ({ ...r }))
+      : [
+          {
+            difficulty: "",
+            barrierQualifier: "Moderate barrier",
+            facilitator: "",
+            accommodation: "",
+          },
+        ];
+    const goals = goalsToRender.length
+      ? goalsToRender.map((goal) => ({
+          ...goal,
+          rows: (goal.rows || []).map((row) => ({ ...row })),
+        }))
+      : [emptyEditableGoal()];
+
+    setInitialEditData({
+      specialFactorNotes: specialNotes,
+      barrierRows: JSON.parse(JSON.stringify(barrierRows)),
+      goals: JSON.parse(JSON.stringify(goals)),
+    });
+
+    setEditSpecialFactorNotes(specialNotes);
+    setEditBarrierRows(barrierRows);
+    setEditGoals(goals);
     setGoalsToDelete([]);
     setIsEditing(true);
   };
@@ -505,9 +1143,17 @@ function ViewIEPPanel({
         idx === goalIndex
           ? {
               ...goal,
-              rows: goal.rows.map((row, rIdx) =>
-                rIdx === rowIndex ? { ...row, [field]: value } : row,
-              ),
+              rows: goal.rows.map((row, rIdx) => {
+                if (rIdx !== rowIndex) return row;
+                const updated = { ...row, [field]: value };
+                if (field === "month1") updated.month_1_target = value;
+                if (field === "month2") updated.month_2_target = value;
+                if (field === "month3") updated.month_3_target = value;
+                if (field === "month_1_target") updated.month1 = value;
+                if (field === "month_2_target") updated.month2 = value;
+                if (field === "month_3_target") updated.month3 = value;
+                return updated;
+              }),
             }
           : goal,
       ),
@@ -523,6 +1169,12 @@ function ViewIEPPanel({
                 ...(goal.rows || []),
                 {
                   objective: "",
+                  month1: "",
+                  month2: "",
+                  month3: "",
+                  month_1_target: "",
+                  month_2_target: "",
+                  month_3_target: "",
                   interventions: "",
                   timeline: "",
                   responsible: "",
@@ -552,7 +1204,12 @@ function ViewIEPPanel({
     setDeletingIep(true);
     try {
       await onDeleteIep(deleteTarget);
+      toast.success(
+        `IEP Version ${deleteTarget?.version || ""} deleted successfully.`,
+      );
       setDeleteTarget(null);
+    } catch (err) {
+      toast.error(err.message || "Failed to delete IEP record.");
     } finally {
       setDeletingIep(false);
     }
@@ -565,23 +1222,29 @@ function ViewIEPPanel({
       const updatedDetails = {
         ...existingDetails,
         barrierRows: editBarrierRows,
+        specialFactorNotes: editSpecialFactorNotes,
+        special_factor_notes: editSpecialFactorNotes,
       };
-      await onUpdateIep(selectedIep, {
-        baselineData: selectedIep.baselineData,
-        goals: selectedIep.goals,
-        accommodations: selectedIep.accommodations,
-        generatedDetails: { ...updatedDetails, learnerGoals: editGoals },
-        difficulties: editBarrierRows.map((r) => r.difficulty).join("\n"),
-        learning_barriers: editBarrierRows
-          .map((r) => r.barrierQualifier)
-          .join("\n"),
-        learning_facilitators: editBarrierRows
-          .map((r) => r.facilitator)
-          .join("\n"),
-        learning_accommodations: editBarrierRows
-          .map((r) => r.accommodation)
-          .join("\n"),
-      });
+      await onUpdateIep(
+        selectedIep,
+        {
+          baselineData: selectedIep.baselineData,
+          goals: selectedIep.goals,
+          accommodations: selectedIep.accommodations,
+          generatedDetails: { ...updatedDetails, learnerGoals: editGoals },
+          difficulties: editBarrierRows.map((r) => r.difficulty).join("\n"),
+          learning_barriers: editBarrierRows
+            .map((r) => r.barrierQualifier)
+            .join("\n"),
+          learning_facilitators: editBarrierRows
+            .map((r) => r.facilitator)
+            .join("\n"),
+          learning_accommodations: editBarrierRows
+            .map((r) => r.accommodation)
+            .join("\n"),
+        },
+        editBarrierRows,
+      );
 
       for (const goalID of goalsToDelete) {
         await iepAPI.deleteGoal(goalID);
@@ -594,16 +1257,50 @@ function ViewIEPPanel({
           continue;
         if (goal.goalID) {
           const updatedGoal = await iepAPI.updateGoal(goal.goalID, payload);
-          savedGoals.push(normalizeDbGoal(updatedGoal));
+          const normalized = normalizeDbGoal(updatedGoal);
+          if (normalized) savedGoals.push(normalized);
         } else {
           const createdGoal = await iepAPI.saveGoal(payload);
-          savedGoals.push(normalizeDbGoal(createdGoal));
+          const normalized = normalizeDbGoal(createdGoal);
+          if (normalized) savedGoals.push(normalized);
         }
       }
       setIepGoals(savedGoals);
       setIsEditing(false);
+      toast.success("IEP changes saved successfully!");
+    } catch (err) {
+      toast.error(err.message || "Failed to save IEP changes.");
     } finally {
       setSavingEdit(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setGoalsToDelete([]);
+    setEditSpecialFactorNotes(
+      details?.specialFactorNotes || details?.special_factor_notes || "",
+    );
+    setEditBarrierRows(
+      barrierRowsToRender.length
+        ? barrierRowsToRender.map((r) => ({ ...r }))
+        : [],
+    );
+    setEditGoals(
+      goalsToRender.length
+        ? goalsToRender.map((goal) => ({
+            ...goal,
+            rows: (goal.rows || []).map((row) => ({ ...row })),
+          }))
+        : [],
+    );
+  };
+
+  const handleCancelClick = () => {
+    if (isFormDirty) {
+      promptNavigation(handleCancelEdit);
+    } else {
+      handleCancelEdit();
     }
   };
 
@@ -612,38 +1309,75 @@ function ViewIEPPanel({
       <SectionHeader
         title="View IEP"
         subtitle="Search a student name, select a matching result — the latest IEP loads automatically."
+        action={
+          <button
+            type="button"
+            className="iep-archives-btn"
+            onClick={() => setShowArchivedModal(true)}
+            aria-label="View archived IEPs"
+          >
+            <i className="ti ti-archive" aria-hidden="true" style={{ fontSize: "1rem" }} />
+            <span>Archived IEPs</span>
+            {selectedStudent && (
+              <span className="iep-count-badge">
+                {archivedIeps.length}
+              </span>
+            )}
+          </button>
+        }
       />
 
-      <div className="iep-view-controls">
+      <div
+        className={`iep-view-controls ${selectedStudent ? "has-selected" : "full-width"}`}
+      >
         <StudentSearchBox
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           selectedStudent={selectedStudent}
-          onSelect={setSelectedStudent}
+          onSelect={(student) => {
+            if (isFormDirty) {
+              promptNavigation(() => setSelectedStudent(student));
+            } else {
+              setSelectedStudent(student);
+            }
+          }}
           filteredStudents={filteredStudents}
           loadingStudents={loadingStudents}
+          ieps={ieps}
         />
-        {selectedStudent && studentIeps.length > 1 && (
+        {selectedStudent && (activeIeps.length > 1 || studentIeps.length > 1) && (
           <div className="form-group iep-version-group">
-            <label className="form-label">IEP Version</label>
+            <label className="form-label">Active IEP Version</label>
             <select
               value={selectedIep?.iepID || ""}
               className="form-select"
               disabled={loadingIeps}
-              onChange={(e) =>
-                setSelectedIep(
+              onChange={(e) => {
+                const targetIep =
                   studentIeps.find(
                     (iep) => String(iep.iepID) === e.target.value,
-                  ) || null,
-                )
-              }
+                  ) || null;
+                if (isFormDirty) {
+                  promptNavigation(() => setSelectedIep(targetIep));
+                } else {
+                  setSelectedIep(targetIep);
+                }
+              }}
             >
-              {studentIeps.map((iep) => (
-                <option key={iep.iepID} value={iep.iepID}>
-                  Version {iep.version}
-                  {iep.formattedDate ? ` · ${iep.formattedDate}` : ""}
-                </option>
-              ))}
+              {(activeIeps.length > 0 ? activeIeps : studentIeps).map((iep) => {
+                const isAct = !iep.is_archived && Number(iep.version) === latestActiveVersion;
+                const statusTag = iep.is_archived
+                  ? "(Archived)"
+                  : isAct
+                    ? "(Active)"
+                    : "(Superseded)";
+                return (
+                  <option key={iep.iepID} value={iep.iepID}>
+                    Version {iep.version} {statusTag}
+                    {iep.formattedDate ? ` · Last Updated: ${iep.formattedDate}` : ""}
+                  </option>
+                );
+              })}
             </select>
           </div>
         )}
@@ -653,32 +1387,42 @@ function ViewIEPPanel({
         <div className="iep-alert iep-alert-error">{viewError}</div>
       )}
 
-      {!selectedStudent ? (
+      {!selectedStudent ? null : loadingIeps ? (
         <div className="iep-empty-state">
-          <div>⌕</div>
-          <strong>Search and select a student</strong>
-          <span>
-            The IEP preview will appear here after selecting a student.
-          </span>
-        </div>
-      ) : loadingIeps ? (
-        <div className="iep-empty-state">
-          <div style={{ fontSize: 28 }}>⏳</div>
+          <div className="flex items-center justify-center text-blue-600 mb-2">
+            <ClockIcon className="w-8 h-8 animate-spin" aria-hidden="true" />
+          </div>
           <strong>Loading IEP records…</strong>
           <span>Please wait while we fetch this student's IEP history.</span>
         </div>
       ) : studentIeps.length === 0 ? (
         <div className="iep-empty-state">
-          <div>📄</div>
+          <div className="flex items-center justify-center text-slate-400 mb-2">
+            <DocumentIcon className="w-8 h-8" aria-hidden="true" />
+          </div>
           <strong>No IEP records found</strong>
           <span>
-            No saved IEP records were found for this student. Use Generate IEP
-            to create one.
+            No saved IEP records were found for this student. Use Generate IEP to
+            create one.
           </span>
+          <button
+            type="button"
+            className="btn btn-submit"
+            style={{ marginTop: 12 }}
+            onClick={() => {
+              navigate("/dashboard/iep/generate");
+              if (setActivePage) setActivePage("generate-iep");
+            }}
+          >
+            <SparklesIcon className="w-4 h-4 mr-1.5 inline" aria-hidden="true" />
+            GENERATE IEP
+          </button>
         </div>
       ) : !selectedIep ? (
         <div className="iep-empty-state">
-          <div>📄</div>
+          <div className="flex items-center justify-center text-slate-400 mb-2">
+            <DocumentIcon className="w-8 h-8" aria-hidden="true" />
+          </div>
           <strong>No IEP selected</strong>
           <span>Choose an IEP version from the dropdown above.</span>
         </div>
@@ -688,43 +1432,178 @@ function ViewIEPPanel({
           <div className="iep-view-header">
             <div>
               <span>Student</span>
-              <h3>
-                {selectedIep.studentName ||
-                  getStudentName(selectedStudent) ||
-                  "—"}
-              </h3>
+              <div className="iep-view-title-row">
+                <h3>
+                  {selectedIep.studentName ||
+                    getStudentName(selectedStudent) ||
+                    "—"}
+                </h3>
+                {isEditing && (
+                  <span
+                    className="iep-editing-badge"
+                    role="status"
+                    aria-label="Editing IEP Mode"
+                  >
+                    <PencilIcon className="w-3.5 h-3.5 inline mr-1" aria-hidden="true" />
+                    Editing IEP
+                  </span>
+                )}
+              </div>
               <p>
                 Grade {selectedStudent.grade || "—"} · Age{" "}
                 {selectedStudent.age || "—"}
               </p>
             </div>
-            <div className="iep-view-actions">
-              <button className="btn btn-back" onClick={openEdit}>
-                EDIT IEP
-              </button>
-              <button
-                className="btn iep-btn-danger"
-                onClick={() => setDeleteTarget(selectedIep)}
-              >
-                DELETE IEP
-              </button>
-            </div>
+            {!isEditing && (
+              <div className="iep-view-actions">
+                <button className="btn btn-back" onClick={openEdit}>
+                  EDIT IEP
+                </button>
+                {selectedIep.is_archived ? (
+                  <button
+                    type="button"
+                    className="btn btn-back"
+                    onClick={() => handleToggleArchive(selectedIep, false)}
+                  >
+                    UNARCHIVE VERSION
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-back"
+                    onClick={() => handleToggleArchive(selectedIep, true)}
+                  >
+                    ARCHIVE VERSION
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-back iep-export-pdf-btn"
+                  onClick={handleExportPDF}
+                  disabled={isExportingPdf}
+                >
+                  {isExportingPdf ? "Exporting PDF..." : "EXPORT PDF"}
+                </button>
+                <button
+                  className="btn iep-btn-danger"
+                  onClick={() => setDeleteTarget(selectedIep)}
+                >
+                  DELETE IEP
+                </button>
+              </div>
+            )}
           </div>
 
-          <div className="iep-view-meta">
-            <p>
-              <strong>Version:</strong> {selectedIep.version || "—"}
-            </p>
-            <p>
-              <strong>Date:</strong>{" "}
-              {selectedIep.formattedDate || "Date unavailable"}
-            </p>
+          {exportPdfError && (
+            <div role="alert" className="iep-alert iep-alert-error" style={{ marginBottom: 12 }}>
+              {exportPdfError}
+            </div>
+          )}
+
+          <div className="iep-view-meta iep-view-meta-badges">
+            <span
+              className={`iep-status-badge iep-version-badge ${
+                selectedIep.is_archived
+                  ? "badge-archived"
+                  : Number(selectedIep.version) === latestActiveVersion
+                    ? "badge-active"
+                    : "badge-superseded"
+              }`}
+            >
+              {`Version ${selectedIep.version || 1} (${
+                selectedIep.is_archived
+                  ? "Archived"
+                  : Number(selectedIep.version) === latestActiveVersion
+                    ? "Active"
+                    : "Superseded"
+              })`}
+            </span>
+            <span className="iep-status-badge iep-date-badge">
+              {`Last Updated: ${selectedIep.formattedDate || "Date unavailable"}`}
+            </span>
           </div>
+
+          {/* Post-IEP Next Steps / Classroom Tools */}
+          {!isEditing && (
+            <section
+              className="iep-next-steps-card"
+              aria-label="Instructional Support Next Steps"
+            >
+              <header className="iep-next-steps-header">
+                <span className="iep-next-steps-icon" aria-hidden="true">
+                  <LightBulbIcon className="w-5 h-5 text-amber-500" aria-hidden="true" />
+                </span>
+                <div>
+                  <h4>Instructional Support: Use this IEP in the Classroom</h4>
+                  <p>
+                    This IEP is ready. Generate tailored lesson plans, visual aids, and teaching strategies based on this student's goals.
+                  </p>
+                </div>
+              </header>
+              <nav
+                className="iep-next-steps-grid"
+                aria-label="Classroom tool actions"
+              >
+                <button
+                  type="button"
+                  className="iep-next-step-btn"
+                  onClick={() => {
+                    navigate("/dashboard/lessons");
+                    if (setActivePage) setActivePage("manage-lesson-plans");
+                  }}
+                >
+                  <BookOpenIcon className="w-4 h-4 mr-1.5 inline text-blue-600" aria-hidden="true" />
+                  Create Lesson Plan
+                </button>
+                <button
+                  type="button"
+                  className="iep-next-step-btn"
+                  onClick={() => {
+                    navigate("/dashboard/visual-aids");
+                    if (setActivePage) setActivePage("manage-visual-aids");
+                  }}
+                >
+                  <PhotoIcon className="w-4 h-4 mr-1.5 inline text-purple-600" aria-hidden="true" />
+                  Create Visual Aid
+                </button>
+                <button
+                  type="button"
+                  className="iep-next-step-btn iep-next-step-btn-secondary"
+                  onClick={() => {
+                    navigate("/dashboard/strategies");
+                    if (setActivePage) setActivePage("manage-teaching-strategies");
+                  }}
+                >
+                  <TargetIcon className="w-4 h-4 mr-1.5 inline text-emerald-600" aria-hidden="true" />
+                  Teaching Strategies
+                </button>
+                <button
+                  type="button"
+                  className="iep-next-step-btn iep-next-step-btn-ghost"
+                  onClick={() => {
+                    navigate("/dashboard");
+                    if (setActivePage) setActivePage("overview");
+                  }}
+                >
+                  <HomeIcon className="w-4 h-4 mr-1.5 inline text-slate-600" aria-hidden="true" />
+                  Back to Overview
+                </button>
+              </nav>
+            </section>
+          )}
 
           {/* Inline edit panel */}
           {isEditing && (
             <div className="iep-edit-panel">
-              <h3>
+              <h3>Edit Considerations of Special Factors</h3>
+              <SpecialFactorNotesField
+                id="edit-special-factor-notes"
+                label="Other special factor notes"
+                placeholder="Add notes about behavior, communication, sensory, or other special factors."
+                value={editSpecialFactorNotes}
+                onChange={(val) => setEditSpecialFactorNotes(val)}
+              />
+              <h3 style={{ marginTop: 22 }}>
                 Edit Section B: Difficulties, Barriers, and Enabling Supports
               </h3>
               <div className="iep-table-wrap">
@@ -769,13 +1648,11 @@ function ViewIEPPanel({
                           </select>
                         </td>
                         <td>
-                          <textarea
+                          <LearningFacilitatorSelector
                             value={row.facilitator}
-                            rows={3}
-                            placeholder="Type facilitator/s"
-                            className="form-textarea iep-small-textarea"
-                            onChange={(e) =>
-                              updateEditRow(i, "facilitator", e.target.value)
+                            ariaLabel={`Edit learning facilitator for row ${i + 1}`}
+                            onChange={(val) =>
+                              updateEditRow(i, "facilitator", val)
                             }
                           />
                         </td>
@@ -848,34 +1725,60 @@ function ViewIEPPanel({
                       }
                     />
                     <div className="iep-table-wrap">
-                      <table className="iep-table iep-edit-goal-table">
+                      <div className="iep-scroll-hint">
+                        <span className="iep-scroll-hint-pill">
+                          ↔ Scroll horizontally for full 3-month milestones &amp; details
+                        </span>
+                      </div>
+                      <table className="iep-table iep-edit-goal-table iep-section-c-table">
                         <thead>
                           <tr>
-                            <th>Enroute Objectives / Procedure</th>
-                            <th>Interventions / Activities / Procedure</th>
-                            <th>Timeline / Session</th>
-                            <th>Individuals Responsible</th>
-                            <th>Progress / Instructional Evaluation</th>
-                            <th>Remarks</th>
-                            <th>Action</th>
+                            <th rowSpan={2} className="iep-sticky-col iep-col-objective">Enroute Objectives / Procedure</th>
+                            <th colSpan={3} className="iep-th-grouped iep-col-quarter-group">Quarterly Milestone Progression (3 Months)</th>
+                            <th rowSpan={2} className="iep-col-interventions">Interventions / Activities / Procedure</th>
+                            <th rowSpan={2} className="iep-col-timeline">Timeline / Session</th>
+                            <th rowSpan={2} className="iep-col-responsible">Individuals Responsible</th>
+                            <th rowSpan={2} className="iep-col-evaluation">Progress / Instructional Evaluation</th>
+                            <th rowSpan={2} className="iep-col-remarks">Remarks</th>
+                            <th rowSpan={2} className="iep-action-cell iep-col-action">Action</th>
+                          </tr>
+                          <tr>
+                            <th className="iep-th-sub iep-col-month">Month 1 Milestone (1st Month)</th>
+                            <th className="iep-th-sub iep-col-month">Month 2 Milestone (2nd Month)</th>
+                            <th className="iep-th-sub iep-col-month">Month 3 Milestone (3rd Month)</th>
                           </tr>
                         </thead>
                         <tbody>
                           {(goal.rows || []).map((row, rowIndex) => (
                             <tr key={row.rowID || rowIndex}>
                               {[
-                                ["objective", "Objective"],
-                                ["interventions", "Intervention"],
-                                ["timeline", "Timeline"],
-                                ["responsible", "Responsible"],
-                                ["evaluation", "Evaluation"],
-                                ["remarks", "Remarks"],
-                              ].map(([field, placeholder]) => (
-                                <td key={field}>
+                                ["objective", "Objective", "iep-sticky-col iep-col-objective"],
+                                ["month1", "1st Month Milestone", "iep-col-month"],
+                                ["month2", "2nd Month Milestone", "iep-col-month"],
+                                ["month3", "3rd Month Milestone", "iep-col-month"],
+                                ["interventions", "Intervention", "iep-col-interventions"],
+                                ["timeline", "Timeline", "iep-col-timeline"],
+                                ["responsible", "Responsible", "iep-col-responsible"],
+                                ["evaluation", "Evaluation", "iep-col-evaluation"],
+                                ["remarks", "Remarks", "iep-col-remarks"],
+                              ].map(([field, placeholder, colClass]) => (
+                                <td key={field} className={colClass}>
                                   <textarea
                                     className="form-textarea iep-small-textarea"
-                                    rows={3}
-                                    value={row[field] || ""}
+                                    rows={2}
+                                    value={
+                                      row[field] ||
+                                      row[
+                                        field === "month1"
+                                          ? "month_1_target"
+                                          : field === "month2"
+                                            ? "month_2_target"
+                                            : field === "month3"
+                                              ? "month_3_target"
+                                              : field
+                                      ] ||
+                                      ""
+                                    }
                                     placeholder={placeholder}
                                     onChange={(e) =>
                                       updateEditGoalRow(
@@ -926,7 +1829,7 @@ function ViewIEPPanel({
                 <button
                   type="button"
                   className="btn btn-back"
-                  onClick={() => setIsEditing(false)}
+                  onClick={handleCancelClick}
                 >
                   CANCEL
                 </button>
@@ -942,95 +1845,116 @@ function ViewIEPPanel({
             </div>
           )}
 
-          {/* Section B read-only */}
-          <div>
-            <h3 className="iep-view-section-title">
-              Section B: Difficulties, Barriers, and Enabling Supports
-            </h3>
-            <div className="iep-table-wrap">
-              <table className="iep-table">
-                <thead>
-                  <tr>
-                    <th>Difficulty</th>
-                    <th>Learning Barriers</th>
-                    <th>Learning Facilitators</th>
-                    <th>Accommodation</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {barrierRowsToRender.length ? (
-                    barrierRowsToRender.map((row, i) => (
-                      <tr key={i}>
-                        <td className="iep-readonly-cell">
-                          {row.difficulty || "—"}
-                        </td>
-                        <td className="iep-readonly-cell">
-                          {row.barrierQualifier || "—"}
-                        </td>
-                        <td className="iep-readonly-cell">
-                          {row.facilitator || "—"}
-                        </td>
-                        <td className="iep-readonly-cell">
-                          {row.accommodation || "—"}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan="4"
-                        className="iep-readonly-cell"
-                        style={{ textAlign: "center", color: "#999" }}
-                      >
-                        No Section B details available.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            {(details?.generatedAccommodations ||
-              selectedIep.accommodations) && (
-              <InfoBlock title="AI-Generated Accommodations / Resources">
-                {details?.generatedAccommodations || selectedIep.accommodations}
-              </InfoBlock>
-            )}
-          </div>
-
-          {/* Section C: goals from DB */}
-          <div>
-            <h3 className="iep-view-section-title">
-              Section C: Learner's Goals
-            </h3>
-            {loadingGoals ? (
-              <p className="iep-muted">Loading learner goals…</p>
-            ) : goalsToRender.length ? (
-              goalsToRender.map((goal, idx) => (
-                <div key={goal.type || idx} className="iep-goal-preview">
-                  <InfoBlock title={`${goal.type} — Annual Goal / Long Term`}>
-                    {goal.annualGoal}
+          {/* Read-only sections only rendered when !isEditing */}
+          {!isEditing && (
+            <>
+              {/* Considerations of Special Factors */}
+              {(details?.specialFactorNotes || details?.special_factor_notes) && (
+                <div style={{ marginBottom: 20 }}>
+                  <h3 className="iep-view-section-title">
+                    Considerations of Special Factors
+                  </h3>
+                  <InfoBlock title="Other Special Factor Notes">
+                    {details?.specialFactorNotes || details?.special_factor_notes}
                   </InfoBlock>
-                  <ReadOnlyGoalTable rows={goal.rows} />
                 </div>
-              ))
-            ) : (
-              <div className="iep-empty-state compact">
-                <div>🎯</div>
-                <strong>No goals recorded yet</strong>
-                <span>
-                  Goals are generated by the AI when you create an IEP. They
-                  will appear here once saved.
-                </span>
+              )}
+
+              {/* Section B read-only */}
+              <div>
+                <h3 className="iep-view-section-title">
+                  Section B: Difficulties, Barriers, and Enabling Supports
+                </h3>
+                <div className="iep-table-wrap">
+                  <table className="iep-table">
+                    <thead>
+                      <tr>
+                        <th>Difficulty</th>
+                        <th>Learning Barriers</th>
+                        <th>Learning Facilitators</th>
+                        <th>Accommodation</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {barrierRowsToRender.length ? (
+                        barrierRowsToRender.map((row, i) => (
+                          <tr key={i}>
+                            <td className="iep-readonly-cell">
+                              {row.difficulty || "—"}
+                            </td>
+                            <td className="iep-readonly-cell">
+                              {row.barrierQualifier || "—"}
+                            </td>
+                            <td className="iep-readonly-cell">
+                              {row.facilitator || "—"}
+                            </td>
+                            <td className="iep-readonly-cell">
+                              {row.accommodation || "—"}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan="4"
+                            className="iep-readonly-cell"
+                            style={{ textAlign: "center", color: "#999" }}
+                          >
+                            No Section B details available.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {(details?.generatedAccommodations ||
+                  selectedIep.accommodations) && (
+                  <InfoBlock title="AI-Generated Accommodations / Resources">
+                    {details?.generatedAccommodations || selectedIep.accommodations}
+                  </InfoBlock>
+                )}
               </div>
-            )}
-          </div>
+
+              {/* Section C: goals from DB */}
+              <div>
+                <h3 className="iep-view-section-title">
+                  Section C: Learner's Goals
+                </h3>
+                {loadingGoals ? (
+                  <p className="iep-muted">Loading learner goals…</p>
+                ) : goalsToRender.length ? (
+                  goalsToRender.map((goal, idx) => (
+                    <div key={goal.goalID || `${goal.type}-${idx}` || idx} className="iep-goal-preview">
+                      <InfoBlock title={`${goal.type} — Annual Goal / Long Term`}>
+                        {goal.annualGoal}
+                      </InfoBlock>
+                      <ReadOnlyGoalTable rows={goal.rows} />
+                    </div>
+                  ))
+                ) : (
+                  <div className="iep-empty-state compact">
+                    <div className="flex items-center justify-center text-slate-400 mb-2">
+                      <TargetIcon className="w-8 h-8" aria-hidden="true" />
+                    </div>
+                    <strong>No goals recorded yet</strong>
+                    <span>
+                      Goals are generated by the AI when you create an IEP. They
+                      will appear here once saved.
+                    </span>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 
       {deleteTarget && (
         <div className="ts-modal-overlay">
           <div className="ts-modal">
-            <div className="ts-modal-icon">🗑️</div>
+            <div className="ts-modal-icon">
+              <TrashIcon className="w-6 h-6 text-red-600" aria-hidden="true" />
+            </div>
             <p className="ts-modal-title">Delete IEP?</p>
             <p className="ts-modal-body">
               You're about to permanently delete{" "}
@@ -1056,13 +1980,211 @@ function ViewIEPPanel({
           </div>
         </div>
       )}
+
+      {/* Archived IEPs Modal */}
+      <Modal
+        isOpen={showArchivedModal}
+        onClose={() => setShowArchivedModal(false)}
+        title={
+          selectedStudent
+            ? `Archived IEPs — ${getStudentName(selectedStudent)}`
+            : "Archived IEP Records"
+        }
+        size="lg"
+        footer={
+          <div className="flex items-center justify-end w-full">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowArchivedModal(false)}
+            >
+              Close
+            </Button>
+          </div>
+        }
+      >
+        {!selectedStudent ? (
+          <div className="iep-empty-state" style={{ padding: "24px 16px" }}>
+            <div className="flex items-center justify-center text-slate-400 mb-2">
+              <i className="ti ti-user-x" style={{ fontSize: "2rem" }} aria-hidden="true" />
+            </div>
+            <strong>No student selected</strong>
+            <span>
+              Please select a student from the student search or roster to view their archived IEP records.
+            </span>
+          </div>
+        ) : archivedIeps.length === 0 ? (
+          <div className="iep-empty-state" style={{ padding: "24px 16px" }}>
+            <div className="flex items-center justify-center text-slate-400 mb-2">
+              <i className="ti ti-archive-off" style={{ fontSize: "2rem" }} aria-hidden="true" />
+            </div>
+            <strong>No archived IEPs found</strong>
+            <span>
+              There are currently no archived IEP records for {getStudentName(selectedStudent)}.
+              When previous versions are archived, they will appear here.
+            </span>
+          </div>
+        ) : (
+          <div className="iep-archived-list" style={{ marginTop: 4 }}>
+            <p style={{ fontSize: "0.85rem", color: "#64748b", marginBottom: 12 }}>
+              The following IEP versions are archived. You can preview an archived version or restore it to active status.
+            </p>
+            {archivedIeps.map((aIep) => (
+              <div
+                key={aIep.iepID}
+                className={`iep-archived-item ${
+                  selectedIep?.iepID === aIep.iepID ? "selected" : ""
+                }`}
+              >
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span className="iep-status-badge iep-version-badge badge-archived">
+                    Version {aIep.version} (Archived)
+                  </span>
+                  <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                    Last Updated: {aIep.formattedDate || "Date unavailable"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    type="button"
+                    className="btn btn-back"
+                    style={{ fontSize: "0.78rem", padding: "5px 12px" }}
+                    onClick={() => {
+                      if (isFormDirty) {
+                        promptNavigation(() => {
+                          setSelectedIep(aIep);
+                          setShowArchivedModal(false);
+                        });
+                      } else {
+                        setSelectedIep(aIep);
+                        setShowArchivedModal(false);
+                      }
+                    }}
+                  >
+                    View
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-back"
+                    style={{ fontSize: "0.78rem", padding: "5px 12px" }}
+                    onClick={async () => {
+                      await handleToggleArchive(aIep, false);
+                    }}
+                  >
+                    Unarchive
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
+
+      <UnsavedChangesModal
+        isOpen={showPrompt}
+        onConfirm={confirmLeave}
+        onCancel={cancelLeave}
+      />
     </div>
+  );
+}
+
+// ─── Section A-B-C Wizard Stepper (ENH27) ────────────────────────────────────
+
+function IepWizardStepper({
+  currentStep,
+  selectedStudent,
+  form,
+  aiGeneratedGoals,
+}) {
+  const isSectionAComplete = Boolean(selectedStudent);
+  const isSectionBComplete = Boolean(
+    selectedStudent &&
+      form?.barrierRows?.some((r) => r.difficulty && r.difficulty.trim()),
+  );
+  const isSectionCComplete = Boolean(
+    selectedStudent && aiGeneratedGoals?.length > 0,
+  );
+
+  const steps = [
+    {
+      id: "section-a",
+      label: "Section A: Learner Profile",
+      stepNum: 1,
+      isComplete: isSectionAComplete,
+      isActive: currentStep === 1 && !isSectionAComplete,
+    },
+    {
+      id: "section-b",
+      label: "Section B: Special Factors & Barriers",
+      stepNum: 1,
+      isComplete: isSectionBComplete,
+      isActive: currentStep === 1 && isSectionAComplete,
+    },
+    {
+      id: "section-c",
+      label: "Section C: Annual Goals & Objectives",
+      stepNum: 2,
+      isComplete: isSectionCComplete,
+      isActive: currentStep === 2,
+    },
+  ];
+
+  return (
+    <nav className="iep-wizard-stepper" aria-label="IEP Section Progress">
+      <div className="iep-wizard-stepper-grid">
+        {steps.map((st, idx) => (
+          <div
+            key={st.id}
+            className={`iep-wizard-step ${st.isActive ? "active" : ""} ${
+              st.isComplete ? "completed" : ""
+            }`}
+            aria-current={st.isActive ? "step" : undefined}
+          >
+            <div className="iep-wizard-step-indicator">
+              {st.isComplete ? (
+                <span className="iep-step-check" aria-hidden="true">✓</span>
+              ) : (
+                <span>{idx + 1}</span>
+              )}
+            </div>
+            <div className="iep-wizard-step-content">
+              <span className="iep-wizard-step-title">{st.label}</span>
+              <span
+                className={`iep-wizard-step-badge ${
+                  st.isComplete
+                    ? "badge-completed"
+                    : st.isActive
+                      ? "badge-in-progress"
+                      : "badge-pending"
+                }`}
+              >
+                {st.isComplete
+                  ? "Completed"
+                  : st.isActive
+                    ? "In Progress"
+                    : "Pending"}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </nav>
   );
 }
 
 // ─── Generate IEP Page ────────────────────────────────────────────────────────
 
-export default function IEPGenerationPage({ mode = "generate" }) {
+export default function IEPGenerationPage({
+  mode = "generate",
+  initialStudentId = null,
+  setActivePage,
+  setSelectedStudentId,
+}) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const effectiveStudentId = id || initialStudentId;
   const activeView = mode;
 
   const currentUser = useMemo(() => {
@@ -1086,6 +2208,25 @@ export default function IEPGenerationPage({ mode = "generate" }) {
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [loadingIeps, setLoadingIeps] = useState(false);
   const [viewError, setViewError] = useState("");
+  const [errorModal, setErrorModal] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    details: null,
+  });
+
+  const showError = (message, title = "Action Required", details = null) => {
+    setErrorModal({
+      isOpen: true,
+      title,
+      message,
+      details,
+    });
+  };
+
+  const closeError = () => {
+    setErrorModal((prev) => ({ ...prev, isOpen: false }));
+  };
 
   // Section C
   const [selectedGoalCategory, setSelectedGoalCategory] = useState("");
@@ -1101,6 +2242,47 @@ export default function IEPGenerationPage({ mode = "generate" }) {
   const [aiGeneratedGoals, setAiGeneratedGoals] = useState([]);
   const [generationDone, setGenerationDone] = useState(false);
   const resultRef = useRef(null);
+
+  // Post-generation preview modal (Issue #157)
+  const [showPostGenModal, setShowPostGenModal] = useState(false);
+  const [pendingGeneratedGoals, setPendingGeneratedGoals] = useState([]);
+  const [pendingIepId, setPendingIepId] = useState(null);
+  const [isSavingPendingGoals, setIsSavingPendingGoals] = useState(false);
+
+  // Issue #205 Workflow & Lifecycle states (ENH25, ENH26)
+  const [showRegenConfirmModal, setShowRegenConfirmModal] = useState(false);
+  const [singleGoalRegenModal, setSingleGoalRegenModal] = useState({
+    isOpen: false,
+    goalIndex: null,
+    goal: null,
+    prompt: "",
+    isRegenerating: false,
+  });
+
+  // Manual goal state in Section C
+  const [showManualGoal, setShowManualGoal] = useState(false);
+  const [savingManualGoal, setSavingManualGoal] = useState(false);
+  const [manualGoal, setManualGoal] = useState({
+    type: "",
+    annualGoal: "",
+    targetMetric: "Standard IEP Metric",
+    rows: [
+      {
+        objective: "",
+        month1: "",
+        month2: "",
+        month3: "",
+        month_1_target: "",
+        month_2_target: "",
+        month_3_target: "",
+        interventions: "",
+        timeline: "",
+        responsible: "",
+        evaluation: "",
+        remarks: "",
+      },
+    ],
+  });
 
   const [form, setForm] = useState({
     school: "",
@@ -1134,12 +2316,124 @@ export default function IEPGenerationPage({ mode = "generate" }) {
 
   // Reset state when switching tabs
   useEffect(() => {
-    setSearchTerm("");
-    setSelectedStudent(null);
-    setIeps([]);
-    setSelectedIep(null);
-    setViewError("");
-  }, [activeView]);
+    queueMicrotask(() => {
+      if (!effectiveStudentId) {
+        setSearchTerm("");
+        setSelectedStudent(null);
+      }
+      setIeps([]);
+      setSelectedIep(null);
+      setViewError("");
+    });
+  }, [activeView, effectiveStudentId]);
+
+  const lastLoadedStudentIdRef = useRef(null);
+
+  // Auto-select student if effectiveStudentId is provided
+  useEffect(() => {
+    if (!effectiveStudentId || !students.length) return;
+    const found = students.find(
+      (s) => String(getStudentId(s)) === String(effectiveStudentId),
+    );
+    if (found) {
+      queueMicrotask(() => {
+        setSelectedStudent(found);
+        setSearchTerm(getStudentName(found));
+        if (setSelectedStudentId) setSelectedStudentId(getStudentId(found));
+      });
+    }
+  }, [effectiveStudentId, students, activeView, setSelectedStudentId]);
+
+  // Subscribe to React Query Cache for immediate reactivity (ENH20)
+  useEffect(() => {
+    if (!queryClient) return;
+
+    const queryCache = queryClient.getQueryCache();
+    const unsubscribe = queryCache.subscribe(async (event) => {
+      const key = event?.query?.queryKey;
+      if (!key || !Array.isArray(key)) return;
+
+      const sid = getStudentId(selectedStudent) || effectiveStudentId;
+
+      // 1. Direct student query update: ['student', studentId]
+      if (key[0] === "student" && sid && String(key[1]) === String(sid)) {
+        if (event.action?.type === "invalidate") {
+          try {
+            const fetched = await studentsAPI.get(sid);
+            const studentData = fetched?.data || fetched;
+            if (studentData) {
+              setSelectedStudent((prev) => ({ ...prev, ...studentData }));
+              setStudents((prev) =>
+                prev.map((s) =>
+                  String(getStudentId(s)) === String(sid)
+                    ? { ...s, ...studentData }
+                    : s,
+                ),
+              );
+            }
+          } catch (err) {
+            console.error("Failed to refetch student after cache invalidation:", err);
+          }
+        } else if (event.type === "updated") {
+          const rawData = event.query?.state?.data;
+          const studentData = rawData?.data || rawData;
+          if (studentData) {
+            setSelectedStudent((prev) => ({ ...prev, ...studentData }));
+            setStudents((prev) =>
+              prev.map((s) =>
+                String(getStudentId(s)) === String(sid)
+                  ? { ...s, ...studentData }
+                  : s,
+              ),
+            );
+          }
+        }
+      }
+
+      // 2. Students list query update: ['students', currentUserId]
+      if (
+        key[0] === "students" &&
+        currentUserId &&
+        String(key[1]) === String(currentUserId)
+      ) {
+        if (event.action?.type === "invalidate") {
+          try {
+            const fetched = await studentsAPI.list(currentUserId);
+            const list = Array.isArray(fetched)
+              ? fetched
+              : fetched?.results || fetched?.data || [];
+            setStudents(list);
+            if (sid) {
+              const found = list.find(
+                (s) => String(getStudentId(s)) === String(sid),
+              );
+              if (found) setSelectedStudent(found);
+            }
+          } catch (err) {
+            console.error("Failed to refetch students after cache invalidation:", err);
+          }
+        } else if (event.type === "updated") {
+          const rawList = event.query?.state?.data;
+          const list = Array.isArray(rawList)
+            ? rawList
+            : rawList?.results || rawList?.data || [];
+          if (Array.isArray(list) && list.length) {
+            setStudents(list);
+            if (sid) {
+              const found = list.find(
+                (s) => String(getStudentId(s)) === String(sid),
+              );
+              if (found) setSelectedStudent(found);
+            }
+          }
+        }
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [selectedStudent, effectiveStudentId, currentUserId]);
 
   // Load students
   useEffect(() => {
@@ -1155,7 +2449,28 @@ export default function IEPGenerationPage({ mode = "generate" }) {
         const list = Array.isArray(data)
           ? data
           : data.results || data.data || [];
-        if (mounted) setStudents(list);
+        if (mounted) {
+          setStudents(list);
+          if (queryClient) {
+            queryClient.setQueryData(queryKeys.students(currentUserId), list);
+            list.forEach((s) => {
+              const sid = getStudentId(s);
+              if (sid) {
+                queryClient.setQueryData(queryKeys.student(sid), s);
+              }
+            });
+          }
+          if (effectiveStudentId) {
+            const found = list.find(
+              (s) => String(getStudentId(s)) === String(effectiveStudentId),
+            );
+            if (found) {
+              setSelectedStudent(found);
+              setSearchTerm(getStudentName(found));
+              if (setSelectedStudentId) setSelectedStudentId(getStudentId(found));
+            }
+          }
+        }
       } catch (err) {
         if (mounted) {
           setStudents([]);
@@ -1169,7 +2484,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
     return () => {
       mounted = false;
     };
-  }, [currentUserId]);
+  }, [currentUserId, effectiveStudentId, setSelectedStudentId]);
 
   // Load IEPs when student changes
   useEffect(() => {
@@ -1190,7 +2505,18 @@ export default function IEPGenerationPage({ mode = "generate" }) {
           : data.results || data.data || [];
         if (mounted) {
           setIeps(list);
-          setSelectedIep(list[0] || null);
+          const latest = list[0] || null;
+          setSelectedIep(latest);
+          if (latest && activeView !== "generate") {
+            const d = normalizeGeneratedDetails(latest);
+            const notes = d?.specialFactorNotes || d?.special_factor_notes;
+            if (notes) {
+              setForm((prev) => ({
+                ...prev,
+                specialFactorNotes: prev.specialFactorNotes || notes,
+              }));
+            }
+          }
         }
       } catch (err) {
         if (mounted) {
@@ -1206,98 +2532,150 @@ export default function IEPGenerationPage({ mode = "generate" }) {
     return () => {
       mounted = false;
     };
-  }, [selectedStudent, currentUserId]);
+  }, [selectedStudent, currentUserId, activeView]);
 
   // Pre-fill form from student profile
   useEffect(() => {
-    if (activeView !== "generate" || !selectedStudent) return;
+    if (activeView !== "generate") return;
+    if (!selectedStudent) {
+      lastLoadedStudentIdRef.current = null;
+      queueMicrotask(() => {
+        setForm((prev) => ({
+          ...prev,
+          learnerName: "",
+          birthdate: "",
+          disabilityCategory: "",
+          diagnosisDetails: "",
+          presentEvaluation: "",
+          academicStrengths: "",
+          academicNeeds: "",
+          parentalConcerns: "",
+          curriculumImpact: "",
+          specialFactorNotes: "",
+          difficultyMarkers: [],
+          barrierRows: [
+            {
+              difficulty: "",
+              barrierQualifier: "Moderate barrier",
+              facilitator: "",
+              accommodation: "",
+            },
+          ],
+        }));
+        setGenerationDone(false);
+        setAiGeneratedGoals([]);
+        setGoalSaveStatus("");
+        setActiveGeneratedIepId(null);
+        setTeacherPrompt("");
+        setSelectedGoalCategory("");
+        setGeneratedAccommodations("");
+        setShowManualGoal(false);
+        setSavingManualGoal(false);
+        setStep(1);
+      });
+      return;
+    }
     const p = getStudentProfileDetails(selectedStudent);
     const profileDifficulties = getStudentProfileDifficulties(selectedStudent);
+    const sid = getStudentId(selectedStudent);
+    const isNewStudent = String(lastLoadedStudentIdRef.current) !== String(sid);
+    lastLoadedStudentIdRef.current = sid;
 
-    setForm((prev) => ({
-      ...prev,
-      school: p.school || prev.school,
-      schoolYear: p.schoolYear || prev.schoolYear,
-      learnerName:
-        p.studentName ||
-        p.learnerName ||
-        getStudentName(selectedStudent) ||
-        prev.learnerName,
-      birthdate: p.birthdate || prev.birthdate,
-      disabilityCategory:
-        p.disabilityCategory ||
-        selectedStudent.diagnosis ||
-        prev.disabilityCategory,
-      diagnosisDetails:
-        p.diagnosisDetails ||
-        selectedStudent.asdBackground ||
-        selectedStudent.diagnosis ||
-        prev.diagnosisDetails,
-      presentEvaluation:
-        p.presentEvaluation ||
-        selectedStudent.assessmentResult ||
-        prev.presentEvaluation,
-      academicStrengths: p.academicStrengths || prev.academicStrengths,
-      academicNeeds:
-        p.academicNeeds || selectedStudent.support_needs || prev.academicNeeds,
-      parentalConcerns: p.parentalConcerns || prev.parentalConcerns,
-      curriculumImpact: p.curriculumImpact || prev.curriculumImpact,
-      // Difficulties must come from the saved student profile only.
-      // Teachers can adjust barriers, facilitators, and accommodations here,
-      // but the difficulty labels themselves stay locked to the profile.
-      difficultyMarkers: profileDifficulties,
-      barrierRows: buildProfileBarrierRows(
-        profileDifficulties,
-        prev.barrierRows,
-      ),
-    }));
-    // Reset generation state on student switch
-    setGenerationDone(false);
-    setAiGeneratedGoals([]);
-    setGoalSaveStatus("");
-    setActiveGeneratedIepId(null);
-    setTeacherPrompt("");
-    setSelectedGoalCategory("");
-    setGeneratedAccommodations("");
-    setStep(1);
+    queueMicrotask(() => {
+      setForm((prev) => ({
+        ...prev,
+        school: p.school || prev.school,
+        schoolYear: p.schoolYear || prev.schoolYear,
+        learnerName:
+          p.studentName ||
+          p.learnerName ||
+          getStudentName(selectedStudent) ||
+          prev.learnerName,
+        birthdate: p.birthdate || prev.birthdate,
+        disabilityCategory:
+          p.disabilityCategory ||
+          selectedStudent.diagnosis ||
+          prev.disabilityCategory,
+        diagnosisDetails:
+          p.diagnosisDetails ||
+          selectedStudent.asdBackground ||
+          selectedStudent.diagnosis ||
+          prev.diagnosisDetails,
+        presentEvaluation:
+          p.presentEvaluation ||
+          selectedStudent.assessmentResult ||
+          prev.presentEvaluation,
+        academicStrengths: p.academicStrengths || prev.academicStrengths,
+        academicNeeds:
+          p.academicNeeds || selectedStudent.support_needs || prev.academicNeeds,
+        parentalConcerns: p.parentalConcerns || prev.parentalConcerns,
+        curriculumImpact: p.curriculumImpact || prev.curriculumImpact,
+        specialFactorNotes:
+          p.specialFactorNotes ||
+          p.special_factor_notes ||
+          prev.specialFactorNotes ||
+          "",
+        // Difficulties must come from the saved student profile only.
+        // Teachers can adjust barriers, facilitators, and accommodations here,
+        // but the difficulty labels themselves stay locked to the profile.
+        difficultyMarkers: profileDifficulties,
+        barrierRows: buildProfileBarrierRows(
+          profileDifficulties,
+          prev.barrierRows,
+        ),
+      }));
+      if (isNewStudent) {
+        // Reset generation state on student switch
+        setGenerationDone(false);
+        setAiGeneratedGoals([]);
+        setGoalSaveStatus("");
+        setActiveGeneratedIepId(null);
+        setTeacherPrompt("");
+        setSelectedGoalCategory("");
+        setGeneratedAccommodations("");
+        setShowManualGoal(false);
+        setSavingManualGoal(false);
+        setStep(1);
+      }
+    });
   }, [activeView, selectedStudent]);
 
   const filteredStudents = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return [];
-    return students
-      .filter((s) => getStudentName(s).toLowerCase().includes(q))
-      .slice(0, 6);
+    if (!q) return students;
+    return students.filter((s) => {
+      const name = getStudentName(s).toLowerCase();
+      const grade = String(s.grade || "").toLowerCase();
+      const diag = String(s.diagnosis || s.asdBackground || "").toLowerCase();
+      return name.includes(q) || grade.includes(q) || diag.includes(q);
+    });
   }, [students, searchTerm]);
 
   // ── Form helpers ──────────────────────────────────────────────────────────
 
-  const setField = (field) => (e) =>
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
-
-  const addDifficultyRow = () =>
-    setForm((prev) => ({
-      ...prev,
-      difficultyMarkers: [...prev.difficultyMarkers, ""],
-    }));
-  const updateDifficultyRow = (i, v) =>
-    setForm((prev) => ({
-      ...prev,
-      difficultyMarkers: prev.difficultyMarkers.map((x, idx) =>
-        idx === i ? v : x,
-      ),
-    }));
-  const removeDifficultyRow = (i) =>
-    setForm((prev) => ({
-      ...prev,
-      difficultyMarkers: prev.difficultyMarkers.filter((_, idx) => idx !== i),
-    }));
-
-  const addAssistiveTechRow = () =>
-    setForm((prev) => ({
-      ...prev,
-      assistiveTechnologies: [...prev.assistiveTechnologies, ""],
-    }));
+  const addAssistiveTechRow = (value = "") =>
+    setForm((prev) => {
+      if (prev.assistiveTechnologies.length >= MAX_ASSISTIVE_TECH_ITEMS) {
+        return prev;
+      }
+      return {
+        ...prev,
+        assistiveTechnologies: [
+          ...prev.assistiveTechnologies,
+          typeof value === "string" ? value : "",
+        ],
+      };
+    });
+  const handleAddAssistiveTechPreset = (preset) =>
+    setForm((prev) => {
+      if (prev.assistiveTechnologies.length >= MAX_ASSISTIVE_TECH_ITEMS) {
+        return prev;
+      }
+      return {
+        ...prev,
+        assistiveTechnologies: [...prev.assistiveTechnologies, preset],
+      };
+    });
   const updateAssistiveTechRow = (i, v) =>
     setForm((prev) => ({
       ...prev,
@@ -1320,23 +2698,49 @@ export default function IEPGenerationPage({ mode = "generate" }) {
         idx === i ? { ...row, [field]: value } : row,
       ),
     }));
-  const addBarrierRow = () =>
-    setForm((prev) => ({
+
+  const addManualGoalObjectiveRow = () =>
+    setManualGoal((prev) => ({
       ...prev,
-      barrierRows: [
-        ...prev.barrierRows,
+      rows: [
+        ...prev.rows,
         {
-          difficulty: "",
-          barrierQualifier: "Moderate barrier",
-          facilitator: "",
-          accommodation: "",
+          objective: "",
+          month1: "",
+          month2: "",
+          month3: "",
+          month_1_target: "",
+          month_2_target: "",
+          month_3_target: "",
+          interventions: "",
+          timeline: "",
+          responsible: "",
+          evaluation: "",
+          remarks: "",
         },
       ],
     }));
-  const removeBarrierRow = (i) =>
-    setForm((prev) => ({
+
+  const updateManualGoalObjectiveRow = (rowIndex, field, value) =>
+    setManualGoal((prev) => ({
       ...prev,
-      barrierRows: prev.barrierRows.filter((_, idx) => idx !== i),
+      rows: prev.rows.map((row, idx) => {
+        if (idx !== rowIndex) return row;
+        const updated = { ...row, [field]: value };
+        if (field === "month1") updated.month_1_target = value;
+        if (field === "month2") updated.month_2_target = value;
+        if (field === "month3") updated.month_3_target = value;
+        if (field === "month_1_target") updated.month1 = value;
+        if (field === "month_2_target") updated.month2 = value;
+        if (field === "month_3_target") updated.month3 = value;
+        return updated;
+      }),
+    }));
+
+  const removeManualGoalObjectiveRow = (rowIndex) =>
+    setManualGoal((prev) => ({
+      ...prev,
+      rows: prev.rows.filter((_, idx) => idx !== rowIndex),
     }));
 
   // ── Accommodation builder ─────────────────────────────────────────────────
@@ -1354,27 +2758,194 @@ export default function IEPGenerationPage({ mode = "generate" }) {
     return `Based on ${difficulties} and the selected goal areas (${goalLabel}), AI recommends structured routines, shortened tasks, visual prompts, positive reinforcement, sensory or movement breaks when needed, and assistive supports such as ${supports}. The teacher may adjust these accommodations based on actual classroom observation and learner performance.`;
   };
 
+  const ensureIepDocument = async () => {
+    let savedIepId = activeGeneratedIepId;
+    if (savedIepId) return savedIepId;
+
+    const accommodationText = buildGeneratedAccommodations();
+    setGeneratedAccommodations(accommodationText);
+
+    const baselineText = [
+      `Student: ${form.learnerName || getStudentName(selectedStudent) || ""}`,
+      `Diagnosis: ${form.disabilityCategory || ""}`,
+      `Assessment / Diagnosis Details: ${form.diagnosisDetails || ""}`,
+      `Present Evaluation: ${form.presentEvaluation || ""}`,
+      `Academic Strengths: ${form.academicStrengths || ""}`,
+      `Academic Needs: ${form.academicNeeds || ""}`,
+      `Parental Concerns: ${form.parentalConcerns || ""}`,
+      `Curriculum Impact: ${form.curriculumImpact || ""}`,
+    ].join("\n");
+
+    const special_factors_considerations = form.barrierRows
+      .filter((r) => r.difficulty.trim())
+      .map((row, i) => ({
+        difficulty: row.difficulty,
+        assistive_technology:
+          form.assistiveTechnologies[i] ||
+          form.assistiveTechnologies[0] ||
+          "",
+      }));
+
+    const saved = await iepAPI.save({
+      studentID: getStudentId(selectedStudent),
+      teacherID: currentUserId,
+      baselineData: baselineText,
+      goals: "",
+      accommodations: accommodationText,
+      generatedDetails: {
+        ...form,
+        specialFactorNotes: form.specialFactorNotes,
+        special_factor_notes: form.specialFactorNotes,
+        generatedAccommodations: accommodationText,
+        special_factors_considerations,
+      },
+      difficulties: form.barrierRows.map((r) => r.difficulty).join("\n"),
+      learning_barriers: form.barrierRows
+        .map((r) => r.barrierQualifier)
+        .join("\n"),
+      learning_facilitators: form.barrierRows
+        .map((r) => r.facilitator)
+        .join("\n"),
+      learning_accommodations: form.barrierRows
+        .map((r) => r.accommodation)
+        .join("\n"),
+    });
+
+    const savedData = saved?.data || saved;
+    savedIepId = savedData?.iepID;
+    setActiveGeneratedIepId(savedIepId);
+    if (
+      String(savedData?.studentID) === String(getStudentId(selectedStudent))
+    ) {
+      setIeps((prev) => [savedData, ...prev]);
+    }
+    setSelectedIep(savedData);
+    return savedIepId;
+  };
+
+  const handleSaveManualGoal = async () => {
+    if (!getStudentId(selectedStudent)) {
+      showError("Please select a student first.", "Student Required");
+      return;
+    }
+    const goalCategory = manualGoal.type.trim() || selectedGoalCategory;
+    if (!goalCategory) {
+      showError("Please enter or select a goal area.", "Goal Area Required");
+      return;
+    }
+    if (!manualGoal.annualGoal.trim()) {
+      showError("Please enter the annual goal text.", "Goal Text Required");
+      return;
+    }
+
+    setSavingManualGoal(true);
+    try {
+      const savedIepId = await ensureIepDocument();
+      if (!savedIepId) {
+        throw new Error("Could not create or locate an IEP record for this goal.");
+      }
+
+      const payload = goalToApiPayload(
+        {
+          type: goalCategory,
+          goalName: goalCategory,
+          annualGoal: manualGoal.annualGoal,
+          targetMetric: manualGoal.targetMetric || "Standard IEP Metric",
+          rows: manualGoal.rows,
+        },
+        savedIepId,
+      );
+
+      const savedGoalRes = await iepAPI.saveGoal(payload);
+      const savedGoalData = savedGoalRes?.data || savedGoalRes;
+
+      const newGoal = {
+        goalID: savedGoalData?.goalID,
+        subject_category: goalCategory,
+        annual_goal: manualGoal.annualGoal,
+        _rgori_score: 100,
+        _rgori_feedback: "Custom goal manually added by teacher.",
+        objective_rows: manualGoal.rows.map((row) => ({
+          enroute_objectives: row.objective,
+          month_1_target: row.month_1_target || row.month1 || "",
+          month_2_target: row.month_2_target || row.month2 || "",
+          month_3_target: row.month_3_target || row.month3 || "",
+          month1: row.month_1_target || row.month1 || "",
+          month2: row.month_2_target || row.month2 || "",
+          month3: row.month_3_target || row.month3 || "",
+          interventions_procedures: row.interventions,
+          timeline_mins_session: row.timeline,
+          individuals_responsible: row.responsible,
+          progress_instructional: row.evaluation,
+          remarks: row.remarks,
+        })),
+      };
+
+      setAiGeneratedGoals((prev) => [...prev, newGoal]);
+      setGenerationDone(true);
+      setGoalSaveStatus("saved");
+      toast.success("Goal added successfully!");
+      setManualGoal({
+        type: "",
+        annualGoal: "",
+        targetMetric: "Standard IEP Metric",
+        rows: [
+          {
+            objective: "",
+            month1: "",
+            month2: "",
+            month3: "",
+            month_1_target: "",
+            month_2_target: "",
+            month_3_target: "",
+            interventions: "",
+            timeline: "",
+            responsible: "",
+            evaluation: "",
+            remarks: "",
+          },
+        ],
+      });
+      setShowManualGoal(false);
+      if (queryClient) {
+        queryClient.invalidateQueries({ queryKey: ["iep"] });
+      }
+    } catch (err) {
+      showError(err.message || "Unknown error", "Failed to Save Custom Goal");
+    } finally {
+      setSavingManualGoal(false);
+    }
+  };
+
   // ── Generate Final IEP ────────────────────────────────────────────────────
 
-  const handleGenerateFinalIep = async () => {
+  const handleGenerateFinalIep = async (overrideTeacherPrompt) => {
     if (!getStudentId(selectedStudent)) {
-      alert("Please select a student first.");
+      showError("Please select a student first.", "Student Required");
+      return;
+    }
+    if (selectedStudent && selectedStudent.parental_consent_obtained === false) {
+      showError(
+        "RA 10173 Parental Consent Pending: Generating AI goals requires verified parental consent. Please update the student profile with parental consent or manually author goals below.",
+        "Parental Consent Required",
+      );
       return;
     }
     if (!selectedGoalCategory) {
-      alert("Please select a learner goal area.");
+      showError("Please select a learner goal area.", "Goal Area Required");
       return;
     }
     if (form.barrierRows.every((r) => !r.difficulty.trim())) {
-      alert(
+      showError(
         "No difficulties were found in this student profile. Please update the student profile difficulties first before generating an IEP.",
+        "Student Profile Incomplete",
       );
       return;
     }
 
     setGeneratingFinalIep(true);
     setGenerationDone(false);
-    setAiGeneratedGoals([]);
+    setPendingGeneratedGoals([]);
     setGoalSaveStatus("");
 
     // Step 1: Save the IEP document once for this generation session.
@@ -1407,44 +2978,15 @@ export default function IEPGenerationPage({ mode = "generate" }) {
         }));
 
       if (!savedIepId) {
-        const saved = await iepAPI.save({
-          studentID: getStudentId(selectedStudent),
-          teacherID: currentUserId,
-          baselineData: baselineText,
-          goals: "",
-          accommodations: accommodationText,
-          generatedDetails: {
-            ...form,
-            generatedAccommodations: accommodationText,
-            special_factors_considerations,
-          },
-          difficulties: form.barrierRows.map((r) => r.difficulty).join("\n"),
-          learning_barriers: form.barrierRows
-            .map((r) => r.barrierQualifier)
-            .join("\n"),
-          learning_facilitators: form.barrierRows
-            .map((r) => r.facilitator)
-            .join("\n"),
-          learning_accommodations: form.barrierRows
-            .map((r) => r.accommodation)
-            .join("\n"),
-        });
-
-        const savedData = saved?.data || saved;
-        savedIepId = savedData?.iepID;
-        setActiveGeneratedIepId(savedIepId);
-        if (
-          String(savedData?.studentID) === String(getStudentId(selectedStudent))
-        ) {
-          setIeps((prev) => [savedData, ...prev]);
-        }
-        setSelectedIep(savedData);
+        savedIepId = await ensureIepDocument();
       } else {
         await iepAPI.update(savedIepId, {
           baselineData: baselineText,
           accommodations: accommodationText,
           generatedDetails: {
             ...form,
+            specialFactorNotes: form.specialFactorNotes,
+            special_factor_notes: form.specialFactorNotes,
             generatedAccommodations: accommodationText,
             special_factors_considerations,
           },
@@ -1461,7 +3003,7 @@ export default function IEPGenerationPage({ mode = "generate" }) {
         });
       }
     } catch (err) {
-      alert("Failed to save IEP document: " + (err.message || "Unknown error"));
+      showError(err.message || "Unknown error", "Failed to Save IEP Document");
       setGeneratingFinalIep(false);
       return;
     }
@@ -1478,11 +3020,17 @@ export default function IEPGenerationPage({ mode = "generate" }) {
             "",
         }));
 
+      const effectiveTeacherPrompt =
+        typeof overrideTeacherPrompt === "string"
+          ? overrideTeacherPrompt
+          : teacherPrompt;
+
       const result = await iepAPI.generateGoalsFromIep({
         iep_id: savedIepId,
         student_name: form.learnerName || getStudentName(selectedStudent) || "",
         goal_area: selectedGoalCategory,
-        teacher_prompt: teacherPrompt,
+        teacher_prompt: effectiveTeacherPrompt,
+        special_factor_notes: form.specialFactorNotes,
         accommodations: form.barrierRows
           .map((r) => r.accommodation)
           .join(" | "),
@@ -1499,67 +3047,209 @@ export default function IEPGenerationPage({ mode = "generate" }) {
         facilitator_qualifiers: form.barrierRows
           .map((r) => r.facilitator)
           .join(", "),
-        generatedDetails: { special_factors_considerations },
+        generatedDetails: {
+          special_factors_considerations,
+          specialFactorNotes: form.specialFactorNotes,
+          special_factor_notes: form.specialFactorNotes,
+        },
       });
 
       const goals = result?.goals || [];
-      setAiGeneratedGoals(goals);
-      setGenerationDone(true);
-
-      // Step 3: Auto-save each goal to /api/iep/goals/
-      if (goals.length > 0) {
-        setSavingGoals(true);
-        setGoalSaveStatus("saving");
-        let allSaved = true;
-        for (const goal of goals) {
-          try {
-            const {
-              _rgori_score,
-              _rgori_feedback,
-              _attempts,
-              _rgori_warning,
-              ...goalPayload
-            } = goal;
-            await iepAPI.saveGoal({
-              ...goalPayload,
-              iep: savedIepId,
-              goalName:
-                goalPayload.goalName || goalPayload.subject_category || "Goal",
-              target_metric: goalPayload.target_metric || "Standard IEP Metric",
-            });
-          } catch {
-            allSaved = false;
-          }
-        }
-        setGoalSaveStatus(allSaved ? "saved" : "error");
-        setSavingGoals(false);
-      }
-
-      setTimeout(
-        () =>
-          resultRef.current?.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-          }),
-        200,
-      );
+      setPendingGeneratedGoals(goals);
+      setPendingIepId(savedIepId);
+      setShowPostGenModal(true);
     } catch (err) {
-      alert("Failed to generate AI goals: " + (err.message || "Unknown error"));
+      showError(err.message || "Unknown error", "Failed to Generate AI Goals");
       setGenerationDone(false);
     } finally {
       setGeneratingFinalIep(false);
     }
   };
 
+  const handleAcceptAndSaveGoals = async () => {
+    if (!pendingGeneratedGoals.length || !pendingIepId) {
+      setShowPostGenModal(false);
+      return;
+    }
+
+    setIsSavingPendingGoals(true);
+    setSavingGoals(true);
+    setGoalSaveStatus("saving");
+    let allSaved = true;
+
+    for (const goal of pendingGeneratedGoals) {
+      try {
+        const {
+          _rgori_score,
+          _rgori_feedback,
+          _attempts,
+          _rgori_warning,
+          ...goalPayload
+        } = goal;
+        await iepAPI.saveGoal({
+          ...goalPayload,
+          iep: pendingIepId,
+          goalName:
+            goalPayload.goalName || goalPayload.subject_category || "Goal",
+          target_metric: goalPayload.target_metric || "Standard IEP Metric",
+        });
+      } catch {
+        allSaved = false;
+      }
+    }
+
+    setAiGeneratedGoals((prev) => [...prev, ...pendingGeneratedGoals]);
+    setGoalSaveStatus(allSaved ? "saved" : "error");
+    if (allSaved) {
+      toast.success(
+        "Generated IEP goals saved successfully to student record!",
+      );
+    } else {
+      toast.error("Some IEP goals could not be saved.");
+    }
+    setGenerationDone(true);
+    setSavingGoals(false);
+    setIsSavingPendingGoals(false);
+    setShowPostGenModal(false);
+
+    setTimeout(
+      () =>
+        resultRef.current?.scrollIntoView?.({
+          behavior: "smooth",
+          block: "start",
+        }),
+      200,
+    );
+  };
+
+  const handleAddAnotherGoal = () => {
+    setGenerationDone(false);
+    setSelectedGoalCategory("");
+    setTeacherPrompt("");
+    setStep(2);
+  };
+
+  const handleRegenerateFromModal = async (customPrompt) => {
+    setShowPostGenModal(false);
+    setPendingGeneratedGoals([]);
+    if (typeof customPrompt === "string" && customPrompt.trim()) {
+      setTeacherPrompt(customPrompt);
+    }
+    await handleGenerateFinalIep(customPrompt);
+  };
+
+  const handleConfirmSingleGoalRegen = async () => {
+    const { goalIndex, goal, prompt } = singleGoalRegenModal;
+    if (goalIndex === null || !goal) return;
+
+    setSingleGoalRegenModal((prev) => ({ ...prev, isRegenerating: true }));
+
+    try {
+      let savedIepId = activeGeneratedIepId || pendingIepId || selectedIep?.iepID;
+      if (!savedIepId) {
+        savedIepId = await ensureIepDocument();
+      }
+
+      const special_factors_considerations = form.barrierRows
+        .filter((r) => r.difficulty.trim())
+        .map((row, i) => ({
+          difficulty: row.difficulty,
+          assistive_technology:
+            form.assistiveTechnologies[i] ||
+            form.assistiveTechnologies[0] ||
+            "",
+        }));
+
+      const targetCategory =
+        goal.subject_category || goal.goalName || selectedGoalCategory || "Functional Skills";
+
+      const effectivePrompt =
+        typeof prompt === "string" && prompt.trim() ? prompt.trim() : teacherPrompt;
+
+      const result = await iepAPI.generateGoalsFromIep({
+        iep_id: savedIepId,
+        student_name: form.learnerName || getStudentName(selectedStudent) || "",
+        goal_area: targetCategory,
+        teacher_prompt: effectivePrompt,
+        special_factor_notes: form.specialFactorNotes,
+        accommodations: form.barrierRows.map((r) => r.accommodation).join(" | "),
+        difficulties: form.barrierRows.map((r) => r.difficulty).join(" | "),
+        learning_barriers: form.barrierRows.map((r) => r.barrierQualifier).join(" | "),
+        barrier_qualifiers: form.barrierRows.map((r) => r.barrierQualifier).join(", "),
+        learning_facilitators: form.barrierRows.map((r) => r.facilitator).join(" | "),
+        facilitator_qualifiers: form.barrierRows.map((r) => r.facilitator).join(", "),
+        generatedDetails: {
+          special_factors_considerations,
+          specialFactorNotes: form.specialFactorNotes,
+          special_factor_notes: form.specialFactorNotes,
+        },
+      });
+
+      const regeneratedGoals = result?.goals || [];
+      const newGoal = regeneratedGoals[0];
+
+      if (newGoal) {
+        if (goal.goalID) {
+          try {
+            await iepAPI.updateGoal(goal.goalID, {
+              ...newGoal,
+              iep: savedIepId,
+            });
+            newGoal.goalID = goal.goalID;
+          } catch (err) {
+            console.warn("Failed to persist regenerated goal update to backend:", err);
+          }
+        }
+
+        setAiGeneratedGoals((prev) =>
+          prev.map((g, i) =>
+            i === goalIndex
+              ? { ...newGoal, goalID: goal.goalID || newGoal.goalID }
+              : g,
+          ),
+        );
+
+        toast.success(
+          `Goal for ${targetCategory} was successfully regenerated.`,
+        );
+      }
+
+      setSingleGoalRegenModal({
+        isOpen: false,
+        goalIndex: null,
+        goal: null,
+        prompt: "",
+        isRegenerating: false,
+      });
+    } catch (err) {
+      toast.error(err.message || "Failed to regenerate goal.");
+      setSingleGoalRegenModal((prev) => ({ ...prev, isRegenerating: false }));
+    }
+  };
+
+  const handleUpdateArchive = (updatedIep) => {
+    setIeps((prev) =>
+      prev.map((item) =>
+        item.iepID === updatedIep.iepID ? { ...item, ...updatedIep } : item,
+      ),
+    );
+    if (selectedIep?.iepID === updatedIep.iepID) {
+      setSelectedIep((prev) => ({ ...prev, ...updatedIep }));
+    }
+  };
+
+
   // ── IEP CRUD ──────────────────────────────────────────────────────────────
 
-  const handleUpdateIep = async (iep, payload) => {
+  const handleUpdateIep = async (iep, payload, barrierRows) => {
     try {
       let generatedDetails = payload.generatedDetails;
       if (typeof generatedDetails === "string") {
         try {
           generatedDetails = JSON.parse(generatedDetails);
-        } catch {}
+        } catch {
+          // best-effort; failure here shouldn't block the main update
+        }
       }
       const updated = await iepAPI.update(iep.iepID, {
         baselineData: payload.baselineData,
@@ -1579,6 +3269,103 @@ export default function IEPGenerationPage({ mode = "generate" }) {
       );
       setSelectedIep(merged);
       setViewError("");
+
+      // Synchronize newly added Section B difficulties to student profile (#135)
+      const targetStudent =
+        selectedStudent ||
+        students.find(
+          (s) =>
+            String(getStudentId(s)) ===
+            String(iep.studentID?.pk ?? iep.studentID),
+        );
+      const sid =
+        getStudentId(targetStudent) ||
+        (iep.studentID?.pk ?? iep.studentID);
+
+      if (sid && targetStudent) {
+        const rows =
+          barrierRows ||
+          generatedDetails?.barrierRows ||
+          (payload.difficulties
+            ? payload.difficulties.split("\n").map((d) => ({ difficulty: d }))
+            : []);
+        const sanitizedDifficulties = sanitizeDifficulties(rows);
+
+        const currentProfileDetails = getStudentProfileDetails(targetStudent);
+        const updatedProfileDetails = {
+          presentEvaluation: targetStudent.assessmentResult || "Evaluation on file",
+          academicStrengths: "Strengths on file",
+          academicNeeds: targetStudent.support_needs || "Needs on file",
+          parentalConcerns: "Parental concerns on file",
+          curriculumImpact: "Curriculum impact on file",
+          ...currentProfileDetails,
+          difficultyMarkers: sanitizedDifficulties,
+        };
+
+        const studentPayload = {
+          preferences: JSON.stringify(updatedProfileDetails),
+          profileDetails: updatedProfileDetails,
+        };
+
+        try {
+          await studentsAPI.update(sid, studentPayload);
+        } catch (err) {
+          console.error("Failed to update student profile difficulties:", err);
+        }
+
+        const mergedStudent = {
+          ...targetStudent,
+          preferences: JSON.stringify(updatedProfileDetails),
+          profileDetails: updatedProfileDetails,
+          difficultyMarkers: sanitizedDifficulties,
+        };
+
+        setSelectedStudent(mergedStudent);
+        setStudents((prev) =>
+          prev.map((s) =>
+            String(getStudentId(s)) === String(sid) ? mergedStudent : s,
+          ),
+        );
+
+        setForm((prev) => ({
+          ...prev,
+          difficultyMarkers: sanitizedDifficulties,
+          barrierRows: buildProfileBarrierRows(
+            sanitizedDifficulties,
+            prev.barrierRows,
+          ),
+        }));
+
+        if (queryClient) {
+          queryClient.setQueryData(queryKeys.student(sid), (old) =>
+            old ? { ...old, ...mergedStudent } : mergedStudent,
+          );
+          queryClient.setQueryData(queryKeys.student(String(sid)), (old) =>
+            old ? { ...old, ...mergedStudent } : mergedStudent,
+          );
+          if (typeof sid === "string" && !isNaN(Number(sid))) {
+            queryClient.setQueryData(queryKeys.student(Number(sid)), (old) =>
+              old ? { ...old, ...mergedStudent } : mergedStudent,
+            );
+          }
+          if (currentUserId) {
+            queryClient.setQueryData(
+              queryKeys.students(currentUserId),
+              (old) =>
+                Array.isArray(old)
+                  ? old.map((s) =>
+                      String(getStudentId(s)) === String(sid)
+                        ? { ...s, ...mergedStudent }
+                        : s,
+                    )
+                  : old,
+            );
+          }
+          queryClient.invalidateQueries({ queryKey: ["students"] });
+          queryClient.invalidateQueries({ queryKey: ["student"] });
+          queryClient.invalidateQueries({ queryKey: queryKeys.recentActivity() });
+        }
+      }
     } catch (err) {
       setViewError(err.message || "Unable to update IEP record.");
       throw err;
@@ -1629,13 +3416,23 @@ export default function IEPGenerationPage({ mode = "generate" }) {
             </div>
           </div>
 
-          {/* Student search */}
-          <section className="form-section">
+          {/* Section A-B-C Visual Wizard Stepper (ENH27) */}
+          <IepWizardStepper
+            currentStep={step}
+            selectedStudent={selectedStudent}
+            form={form}
+            aiGeneratedGoals={aiGeneratedGoals}
+          />
+
+          {/* Section A: Student search / Learner Profile */}
+          <section className="form-section" id="iep-section-a-heading">
             <SectionHeader
-              title="Select Student"
+              title="Section A: Learner Profile"
               subtitle="Search and select the student profile first. The form will pre-fill from the saved student profile."
             />
-            <div className="iep-view-controls">
+            <div
+              className={`iep-view-controls ${selectedStudent ? "has-selected" : "full-width"}`}
+            >
               <StudentSearchBox
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
@@ -1653,35 +3450,50 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                 }}
                 filteredStudents={filteredStudents}
                 loadingStudents={loadingStudents}
+                ieps={ieps}
               />
-              <div className="iep-selected-student-card">
-                <span>Selected Student</span>
-                <strong>
-                  {getStudentName(selectedStudent) || "No student selected"}
-                </strong>
-                <small>
-                  {selectedStudent
-                    ? `Grade ${selectedStudent.grade || "—"} · Age ${selectedStudent.age || "—"}`
-                    : "Choose a student before continuing."}
-                </small>
-              </div>
+              {selectedStudent ? (
+                <div className="iep-selected-student-card">
+                  <span>Selected Student</span>
+                  <strong>
+                    {getStudentName(selectedStudent) || "No student selected"}
+                  </strong>
+                  <small>
+                    {`Grade ${selectedStudent.grade || "—"} · Age ${selectedStudent.age || "—"}`}
+                  </small>
+                </div>
+              ) : null}
             </div>
           </section>
 
           {!selectedStudent ? (
-            <div className="iep-empty-state compact">
-              <div>⌕</div>
-              <strong>Select a student to start Generate IEP</strong>
-              <span>
-                Search a student above to load their profile and begin filling
-                out the IEP form.
-              </span>
-            </div>
+            students.length === 0 ? (
+              <div className="iep-empty-state compact">
+                <div className="flex items-center justify-center text-slate-400 mb-2">
+                  <SearchIcon className="w-8 h-8" aria-hidden="true" />
+                </div>
+                <strong>No students registered</strong>
+                <span>
+                  You need at least one registered student profile before generating an Individualized Education Plan (IEP).
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-submit"
+                  style={{ marginTop: 12 }}
+                  onClick={() => {
+                    navigate("/dashboard/students/create");
+                    if (setActivePage) setActivePage("create-student-profile");
+                  }}
+                >
+                  + CREATE STUDENT
+                </button>
+              </div>
+            ) : null
           ) : (
             <>
               {/* ── Step 1: Section B ── */}
               {step === 1 && (
-                <section className="form-section">
+                <section className="form-section" id="iep-section-b-heading">
                   <SectionHeader
                     title="Considerations of Special Factors"
                     subtitle="Indicate all difficulties and assistive technology or devices needed."
@@ -1693,18 +3505,13 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                         Loaded from the saved student profile. Update the
                         student profile if these difficulties need to change.
                       </p>
-                      <div className="iep-input-row-list">
+                      <div className="iep-difficulty-list" data-testid="iep-difficulty-list">
                         {form.difficultyMarkers.length ? (
                           form.difficultyMarkers.map((item, i) => (
-                            <div key={i} className="iep-input-row-item">
-                              <input
-                                className="form-input"
-                                value={item}
-                                placeholder={`Difficulty ${i + 1}`}
-                                readOnly
-                                aria-readonly="true"
-                              />
-                            </div>
+                            <p key={i} className="iep-difficulty-item">
+                              <span className="iep-difficulty-bullet" aria-hidden="true">•</span>
+                              <span>{item}</span>
+                            </p>
                           ))
                         ) : (
                           <p className="iep-muted">
@@ -1714,9 +3521,44 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                       </div>
                     </div>
                     <div>
-                      <h3 className="iep-small-title">
-                        Assistive Technologies Needed
-                      </h3>
+                      <div className="iep-assistive-tech-header">
+                        <h3 className="iep-small-title">
+                          Assistive Technologies Needed
+                        </h3>
+                        {form.assistiveTechnologies.length >=
+                          MAX_ASSISTIVE_TECH_ITEMS && (
+                          <span
+                            className="iep-limit-badge"
+                            data-testid="max-limit-badge"
+                          >
+                            (Maximum 5 reached)
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="iep-preset-chips-container">
+                        <span className="iep-preset-chips-label">
+                          Preset Suggestions:
+                        </span>
+                        <div className="iep-preset-chips-list">
+                          {ASSISTIVE_TECH_PRESETS.map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              className="iep-preset-chip"
+                              onClick={() => handleAddAssistiveTechPreset(preset)}
+                              disabled={
+                                form.assistiveTechnologies.length >=
+                                MAX_ASSISTIVE_TECH_ITEMS
+                              }
+                              title={`Add ${preset}`}
+                            >
+                              + {preset}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
                       <div className="iep-input-row-list">
                         {form.assistiveTechnologies.map((item, i) => (
                           <div key={i} className="iep-input-row-item">
@@ -1730,30 +3572,48 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                             />
                             <button
                               type="button"
-                              className="iep-link-danger"
+                              className="iep-link-danger flex items-center justify-center"
                               onClick={() => removeAssistiveTechRow(i)}
+                              aria-label={`Remove technology ${i + 1}`}
                             >
-                              ✕
+                              <CloseIcon className="w-4 h-4" aria-hidden="true" />
                             </button>
                           </div>
                         ))}
-                        <button
-                          type="button"
-                          className="btn btn-back iep-add-row-inline"
-                          onClick={addAssistiveTechRow}
-                        >
-                          + Add Row
-                        </button>
+                        <div className="iep-add-row-actions">
+                          <button
+                            type="button"
+                            className="btn btn-back iep-add-row-inline"
+                            onClick={() => addAssistiveTechRow()}
+                            disabled={
+                              form.assistiveTechnologies.length >=
+                              MAX_ASSISTIVE_TECH_ITEMS
+                            }
+                          >
+                            + Add Row
+                          </button>
+                          {form.assistiveTechnologies.length >=
+                            MAX_ASSISTIVE_TECH_ITEMS && (
+                            <span
+                              className="iep-limit-badge"
+                              data-testid="max-limit-badge-inline"
+                            >
+                              (Maximum 5 reached)
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <TextAreaField
+                  <SpecialFactorNotesField
+                    id="step1-special-factor-notes"
                     label="Other special factor notes"
                     placeholder="Add notes about behavior, communication, sensory, or other special factors."
                     value={form.specialFactorNotes}
-                    onChange={setField("specialFactorNotes")}
-                    rows={3}
+                    onChange={(val) =>
+                      setForm((prev) => ({ ...prev, specialFactorNotes: val }))
+                    }
                   />
 
                   <SectionHeader
@@ -1780,14 +3640,10 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                         )}
                         {form.barrierRows.map((row, i) => (
                           <tr key={i}>
-                            <td>
-                              <input
-                                value={row.difficulty}
-                                className="form-input"
-                                placeholder="Difficulty from profile"
-                                readOnly
-                                aria-readonly="true"
-                              />
+                            <td className="iep-difficulty-td">
+                              <p className="iep-difficulty-cell-text">
+                                {row.difficulty || "—"}
+                              </p>
                             </td>
                             <td>
                               <select
@@ -1807,17 +3663,11 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                               </select>
                             </td>
                             <td>
-                              <textarea
+                              <LearningFacilitatorSelector
                                 value={row.facilitator}
-                                rows={3}
-                                placeholder="Type facilitator/s"
-                                className="form-textarea iep-small-textarea"
-                                onChange={(e) =>
-                                  updateBarrierRow(
-                                    i,
-                                    "facilitator",
-                                    e.target.value,
-                                  )
+                                ariaLabel={`Learning facilitator for row ${i + 1}`}
+                                onChange={(val) =>
+                                  updateBarrierRow(i, "facilitator", val)
                                 }
                               />
                             </td>
@@ -1852,11 +3702,70 @@ export default function IEPGenerationPage({ mode = "generate" }) {
 
               {/* ── Step 2: Section C + Generate ── */}
               {step === 2 && (
-                <section className="form-section">
+                <section className="form-section" id="iep-section-c-heading">
                   <SectionHeader
                     title="Section C: Learner's Goals"
                     subtitle="Select one goal area. The AI will generate the actual goals and objectives when you click Generate Final IEP."
                   />
+
+                  {selectedStudent && selectedStudent.parental_consent_obtained === false && (
+                    <Callout
+                      variant="warning"
+                      className="mb-4"
+                      style={{ marginBottom: "1rem" }}
+                    >
+                      RA 10173 Parental Consent Pending: Generating AI goals requires verified parental consent. Please update the student profile with parental consent or manually author goals below.
+                    </Callout>
+                  )}
+
+                  {aiGeneratedGoals.length > 0 && (
+                    <div
+                      className="iep-active-goals-summary"
+                      data-testid="iep-active-goals-summary"
+                      style={{
+                        marginBottom: 16,
+                        padding: "12px 16px",
+                        background: "#f0fdf4",
+                        border: "1px solid #bbf7d0",
+                        borderRadius: 8,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <strong style={{ color: "#166534", fontSize: "0.88rem" }}>
+                          Goals already added to this IEP ({aiGeneratedGoals.length}):
+                        </strong>
+                        <button
+                          type="button"
+                          className="btn btn-back"
+                          style={{ fontSize: "0.8rem", padding: "4px 10px" }}
+                          onClick={() => setShowRegenConfirmModal(true)}
+                        >
+                          Regenerate Goals
+                        </button>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                        {aiGeneratedGoals.map((g, idx) => (
+                          <span
+                            key={idx}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              padding: "3px 10px",
+                              background: "#dcfce7",
+                              color: "#15803d",
+                              border: "1px solid #86efac",
+                              borderRadius: 14,
+                              fontSize: "0.78rem",
+                              fontWeight: 600,
+                            }}
+                          >
+                            <CheckIcon className="w-3.5 h-3.5 mr-1 text-emerald-600 inline" aria-hidden="true" />
+                            {g.subject_category || g.goalName || `Goal ${idx + 1}`}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="iep-ai-goal-toolbar multi">
                     <div className="form-group">
@@ -1870,7 +3779,6 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                           setGeneratedAccommodations("");
                           setGoalSaveStatus("");
                           setGenerationDone(false);
-                          setAiGeneratedGoals([]);
                         }}
                       >
                         <option value="">Select a goal area</option>
@@ -1885,7 +3793,9 @@ export default function IEPGenerationPage({ mode = "generate" }) {
 
                   {!selectedGoalCategory ? (
                     <div className="iep-empty-state compact">
-                      <div>🤖</div>
+                      <div className="flex items-center justify-center text-slate-400 mb-2">
+                        <SparklesIcon className="w-8 h-8" aria-hidden="true" />
+                      </div>
                       <strong>No learner goal area selected yet</strong>
                       <span>
                         Select a goal area above. The AI will generate learner
@@ -1928,11 +3838,38 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                   </div>
 
                   <div className="iep-final-generate">
+                    {aiGeneratedGoals.length > 0 && (
+                      <button
+                        type="button"
+                        className="btn btn-back"
+                        onClick={() => setShowRegenConfirmModal(true)}
+                        disabled={
+                          generatingFinalIep ||
+                          savingGoals ||
+                          (selectedStudent &&
+                            selectedStudent.parental_consent_obtained === false)
+                        }
+                        style={{ marginRight: 8 }}
+                      >
+                        Regenerate Goals
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="btn btn-submit"
-                      onClick={handleGenerateFinalIep}
-                      disabled={generatingFinalIep || savingGoals}
+                      onClick={() => handleGenerateFinalIep()}
+                      disabled={
+                        generatingFinalIep ||
+                        savingGoals ||
+                        (selectedStudent &&
+                          selectedStudent.parental_consent_obtained === false)
+                      }
+                      title={
+                        selectedStudent &&
+                        selectedStudent.parental_consent_obtained === false
+                          ? "Parental consent under RA 10173 is required to generate AI goals"
+                          : undefined
+                      }
                     >
                       {generatingFinalIep
                         ? "GENERATING..."
@@ -1942,34 +3879,303 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                     </button>
                   </div>
 
+                  {/* ── Expandable Manual Goal Section ── */}
+                  <div className="iep-manual-goal-section" style={{ marginTop: 24, marginBottom: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <strong>Custom Goals</strong>
+                        <p className="iep-muted" style={{ margin: 0, fontSize: "0.85rem" }}>
+                          Optionally add a goal manually without using the AI generator.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-back"
+                        onClick={() => setShowManualGoal((prev) => !prev)}
+                      >
+                        {showManualGoal ? "Cancel Manual Goal" : "+ Add Goal Manually"}
+                      </button>
+                    </div>
+
+                    {showManualGoal && (
+                      <div className="iep-edit-goal-card" style={{ marginTop: 16, border: "1px solid #e0e0e0", borderRadius: 8, padding: 16 }}>
+                        <h4>Manual Goal Entry</h4>
+                        <div className="iep-edit-goal-header">
+                          <div className="form-group" style={{ flex: 1 }}>
+                            <label className="form-label">Skill / Goal Area</label>
+                            <input
+                              className="form-input"
+                              value={manualGoal.type}
+                              placeholder={selectedGoalCategory || "Example: Communication Skills"}
+                              onChange={(e) =>
+                                setManualGoal((prev) => ({ ...prev, type: e.target.value }))
+                              }
+                            />
+                          </div>
+                        </div>
+                        <TextAreaField
+                          label="Annual Goal / Long Term"
+                          value={manualGoal.annualGoal}
+                          rows={3}
+                          placeholder="Write the annual learner goal."
+                          onChange={(e) =>
+                            setManualGoal((prev) => ({
+                              ...prev,
+                              annualGoal: e.target.value,
+                            }))
+                          }
+                        />
+                        <div className="iep-table-wrap">
+                          <div className="iep-scroll-hint">
+                            <span className="iep-scroll-hint-pill">
+                              ↔ Scroll horizontally for full 3-month milestones &amp; details
+                            </span>
+                          </div>
+                          <table className="iep-table iep-edit-goal-table iep-section-c-table">
+                            <thead>
+                              <tr>
+                                <th rowSpan={2} className="iep-sticky-col iep-col-objective">Enroute Objectives / Procedure</th>
+                                <th colSpan={3} className="iep-th-grouped iep-col-quarter-group">Quarterly Milestone Progression (3 Months)</th>
+                                <th rowSpan={2} className="iep-col-interventions">Interventions / Activities / Procedure</th>
+                                <th rowSpan={2} className="iep-col-timeline">Timeline / Session</th>
+                                <th rowSpan={2} className="iep-col-responsible">Individuals Responsible</th>
+                                <th rowSpan={2} className="iep-col-evaluation">Progress / Instructional Evaluation</th>
+                                <th rowSpan={2} className="iep-col-remarks">Remarks</th>
+                                <th rowSpan={2} className="iep-action-cell iep-col-action">Action</th>
+                              </tr>
+                              <tr>
+                                <th className="iep-th-sub iep-col-month">Month 1 Milestone (1st Month)</th>
+                                <th className="iep-th-sub iep-col-month">Month 2 Milestone (2nd Month)</th>
+                                <th className="iep-th-sub iep-col-month">Month 3 Milestone (3rd Month)</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {manualGoal.rows.map((row, rowIndex) => (
+                                <tr key={rowIndex}>
+                                  {[
+                                    ["objective", "Objective", "iep-sticky-col iep-col-objective"],
+                                    ["month1", "1st Month Milestone", "iep-col-month"],
+                                    ["month2", "2nd Month Milestone", "iep-col-month"],
+                                    ["month3", "3rd Month Milestone", "iep-col-month"],
+                                    ["interventions", "Intervention", "iep-col-interventions"],
+                                    ["timeline", "Timeline", "iep-col-timeline"],
+                                    ["responsible", "Responsible", "iep-col-responsible"],
+                                    ["evaluation", "Evaluation", "iep-col-evaluation"],
+                                    ["remarks", "Remarks", "iep-col-remarks"],
+                                  ].map(([field, placeholder, colClass]) => (
+                                    <td key={field} className={colClass}>
+                                      <textarea
+                                        className="form-textarea iep-small-textarea"
+                                        rows={2}
+                                        value={
+                                          row[field] ||
+                                          row[
+                                            field === "month1"
+                                              ? "month_1_target"
+                                              : field === "month2"
+                                                ? "month_2_target"
+                                                : field === "month3"
+                                                  ? "month_3_target"
+                                                  : field
+                                          ] ||
+                                          ""
+                                        }
+                                        placeholder={placeholder}
+                                        onChange={(e) =>
+                                          updateManualGoalObjectiveRow(
+                                            rowIndex,
+                                            field,
+                                            e.target.value,
+                                          )
+                                        }
+                                      />
+                                    </td>
+                                  ))}
+                                  <td className="iep-action-cell">
+                                    <button
+                                      type="button"
+                                      className="iep-link-danger"
+                                      disabled={manualGoal.rows.length <= 1}
+                                      onClick={() =>
+                                        removeManualGoalObjectiveRow(rowIndex)
+                                      }
+                                    >
+                                      Remove
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                          <button
+                            type="button"
+                            className="btn btn-back iep-add-row"
+                            onClick={addManualGoalObjectiveRow}
+                          >
+                            + ADD OBJECTIVE ROW
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-submit"
+                            onClick={handleSaveManualGoal}
+                            disabled={savingManualGoal}
+                          >
+                            {savingManualGoal ? "SAVING GOAL…" : "SAVE GOAL MANUALLY"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* ── Result panel ── */}
                   {generationDone && (
                     <div ref={resultRef} className="iep-generation-result">
                       <div className="iep-result-banner">
-                        <span className="iep-result-icon">✅</span>
+                        <span className="iep-result-icon">
+                          <CheckIcon className="w-6 h-6 text-emerald-600" aria-hidden="true" />
+                        </span>
                         <div>
                           <strong>IEP Generated Successfully!</strong>
                           <p>
                             The IEP has been saved and the AI goals are
                             displayed below. You can view or edit the full
-                            record on the View IEP page.
+                            record on the View IEP page, or proceed to Classroom Tools.
                           </p>
+                          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              data-testid="add-another-goal-btn"
+                              style={{
+                                padding: "6px 14px",
+                                fontSize: 12,
+                                background: "#0284c7",
+                                color: "#ffffff",
+                                borderColor: "#0284c7",
+                              }}
+                              onClick={handleAddAnotherGoal}
+                            >
+                              <PlusIcon className="w-3.5 h-3.5 mr-1 inline" aria-hidden="true" />
+                              Add Another Goal to this IEP
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-submit"
+                              style={{ padding: "6px 14px", fontSize: 12 }}
+                              onClick={() => {
+                                navigate("/dashboard/lessons");
+                                if (setActivePage) setActivePage("manage-lesson-plans");
+                              }}
+                            >
+                              <BookOpenIcon className="w-3.5 h-3.5 mr-1 inline" aria-hidden="true" />
+                              Open Classroom Tools
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-back"
+                              style={{ padding: "6px 14px", fontSize: 12 }}
+                              onClick={() => {
+                                navigate("/dashboard/iep/view");
+                                if (setActivePage) setActivePage("view-iep");
+                              }}
+                            >
+                              View Saved IEP
+                            </button>
+                          </div>
                         </div>
                       </div>
 
+                      {/* --- POST-IEP NEXT STEPS TO CLASSROOM TOOLS --- */}
+                      <section
+                        className="iep-next-steps-card"
+                        aria-label="Post-IEP Next Steps"
+                      >
+                        <header className="iep-next-steps-header">
+                          <span className="iep-next-steps-icon" aria-hidden="true">
+                            <RocketIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+                          </span>
+                          <div>
+                            <h4>Next Steps: Classroom Tools & Instructional Support</h4>
+                            <p>
+                              Your IEP is saved and ready! Put this IEP into action by creating aligned classroom materials or returning to your dashboard.
+                            </p>
+                          </div>
+                        </header>
+                        <nav
+                          className="iep-next-steps-grid"
+                          aria-label="Post-IEP tool actions"
+                        >
+                          <button
+                            type="button"
+                            className="iep-next-step-btn"
+                            onClick={() => {
+                              navigate("/dashboard/lessons");
+                              if (setActivePage) setActivePage("manage-lesson-plans");
+                            }}
+                          >
+                            <BookOpenIcon className="w-4 h-4 mr-1.5 inline text-blue-600" aria-hidden="true" />
+                            Create Lesson Plan
+                          </button>
+                          <button
+                            type="button"
+                            className="iep-next-step-btn"
+                            onClick={() => {
+                              navigate("/dashboard/visual-aids");
+                              if (setActivePage) setActivePage("manage-visual-aids");
+                            }}
+                          >
+                            <PhotoIcon className="w-4 h-4 mr-1.5 inline text-purple-600" aria-hidden="true" />
+                            Create Visual Aid
+                          </button>
+                          <button
+                            type="button"
+                            className="iep-next-step-btn iep-next-step-btn-secondary"
+                            onClick={() => {
+                              navigate("/dashboard/strategies");
+                              if (setActivePage) setActivePage("manage-teaching-strategies");
+                            }}
+                          >
+                            <TargetIcon className="w-4 h-4 mr-1.5 inline text-emerald-600" aria-hidden="true" />
+                            Teaching Strategies
+                          </button>
+                          <button
+                            type="button"
+                            className="iep-next-step-btn iep-next-step-btn-ghost"
+                            onClick={() => {
+                              navigate("/dashboard");
+                              if (setActivePage) setActivePage("overview");
+                            }}
+                          >
+                            <HomeIcon className="w-4 h-4 mr-1.5 inline text-slate-600" aria-hidden="true" />
+                            Back to Overview
+                          </button>
+                        </nav>
+                      </section>
+
                       {goalSaveStatus === "saving" && (
                         <p className="iep-muted" style={{ marginBottom: 12 }}>
-                          💾 Saving goals to IEP record...
+                          <span className="inline-flex items-center gap-1.5">
+                            <ClockIcon className="w-4 h-4 inline animate-spin text-slate-500" aria-hidden="true" />
+                            Saving goals to IEP record...
+                          </span>
                         </p>
                       )}
                       {goalSaveStatus === "saved" && (
                         <p className="iep-save-ok">
-                          ✅ All goals saved successfully to the IEP.
+                          <span className="inline-flex items-center gap-1.5">
+                            <CheckIcon className="w-4 h-4 inline text-emerald-600" aria-hidden="true" />
+                            All goals saved successfully to the IEP.
+                          </span>
                         </p>
                       )}
                       {goalSaveStatus === "error" && (
                         <p className="iep-save-error">
-                          ⚠ Some goals could not be saved. Please try again.
+                          <span className="inline-flex items-center gap-1.5">
+                            <WarningIcon className="w-4 h-4 inline text-amber-600" aria-hidden="true" />
+                            Some goals could not be saved. Please try again.
+                          </span>
                         </p>
                       )}
 
@@ -1982,19 +4188,39 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                             AI-Generated Goals
                           </h3>
                           {aiGeneratedGoals.map((goal, idx) => (
-                            <div key={idx} className="iep-goal-preview">
+                            <div key={goal.goalID || idx} className="iep-goal-preview">
                               <div className="iep-info-block">
-                                <h3>{goal.subject_category} — Annual Goal</h3>
-                                <p
-                                  style={{
-                                    margin: "4px 0 8px",
-                                    color: "#444",
-                                    fontSize: 13,
-                                    lineHeight: 1.6,
-                                  }}
-                                >
-                                  {goal.annual_goal}
-                                </p>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                                  <div>
+                                    <h3>{goal.subject_category || goal.goalName || "Annual Goal"} — Annual Goal</h3>
+                                    <p
+                                      style={{
+                                        margin: "4px 0 8px",
+                                        color: "#444",
+                                        fontSize: 13,
+                                        lineHeight: 1.6,
+                                      }}
+                                    >
+                                      {goal.annual_goal || goal.annualGoal}
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="btn btn-back"
+                                    style={{ fontSize: "0.78rem", padding: "4px 10px", whiteSpace: "nowrap" }}
+                                    onClick={() =>
+                                      setSingleGoalRegenModal({
+                                        isOpen: true,
+                                        goalIndex: idx,
+                                        goal,
+                                        prompt: "",
+                                        isRegenerating: false,
+                                      })
+                                    }
+                                  >
+                                    Regenerate Goal
+                                  </button>
+                                </div>
                                 <small
                                   style={{ color: "#888", fontSize: 11.5 }}
                                 >
@@ -2003,7 +4229,8 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                                   {goal._rgori_warning && (
                                     <span style={{ color: "orange" }}>
                                       {" "}
-                                      ⚠ {goal._rgori_warning}
+                                      <WarningIcon className="w-3.5 h-3.5 inline mr-1 text-amber-600" aria-hidden="true" />
+                                      {goal._rgori_warning}
                                     </span>
                                   )}
                                 </small>
@@ -2012,11 +4239,17 @@ export default function IEPGenerationPage({ mode = "generate" }) {
                                 rows={(goal.objective_rows || []).map(
                                   (row, i) => ({
                                     id: i,
-                                    objective: row.enroute_objectives,
-                                    interventions: row.interventions_procedures,
-                                    timeline: row.timeline_mins_session,
-                                    responsible: row.individuals_responsible,
-                                    evaluation: row.progress_instructional,
+                                    objective: row.enroute_objectives || row.objective,
+                                    month1: row.month_1_target || row.month1 || row.month_1,
+                                    month2: row.month_2_target || row.month2 || row.month_2,
+                                    month3: row.month_3_target || row.month3 || row.month_3,
+                                    month_1_target: row.month_1_target || row.month1 || row.month_1,
+                                    month_2_target: row.month_2_target || row.month2 || row.month_2,
+                                    month_3_target: row.month_3_target || row.month3 || row.month_3,
+                                    interventions: row.interventions_procedures || row.interventions,
+                                    timeline: row.timeline_mins_session || row.timeline,
+                                    responsible: row.individuals_responsible || row.responsible,
+                                    evaluation: row.progress_instructional || row.evaluation,
                                     remarks: row.remarks,
                                   }),
                                 )}
@@ -2083,6 +4316,190 @@ export default function IEPGenerationPage({ mode = "generate" }) {
           viewError={viewError}
           onDeleteIep={handleDeleteIep}
           onUpdateIep={handleUpdateIep}
+          onUpdateArchive={handleUpdateArchive}
+          totalStudents={students.length}
+          setActivePage={setActivePage}
+        />
+      )}
+
+      <IepLoadingModal
+        isOpen={generatingFinalIep}
+        studentName={form.learnerName || getStudentName(selectedStudent) || ""}
+        goalArea={selectedGoalCategory || ""}
+      />
+
+      <IepPostGenerationModal
+        isOpen={showPostGenModal}
+        onClose={() => setShowPostGenModal(false)}
+        goals={pendingGeneratedGoals}
+        accommodations={generatedAccommodations || buildGeneratedAccommodations()}
+        studentName={form.learnerName || getStudentName(selectedStudent) || ""}
+        goalArea={selectedGoalCategory || ""}
+        onAcceptAndSave={handleAcceptAndSaveGoals}
+        onRegenerate={handleRegenerateFromModal}
+        isSaving={isSavingPendingGoals}
+        isRegenerating={generatingFinalIep}
+      />
+
+      {/* Regeneration Confirmation Modal (ENH25) */}
+      <Modal
+        isOpen={showRegenConfirmModal}
+        onClose={() => setShowRegenConfirmModal(false)}
+        title="Are you sure you want to regenerate goals?"
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-3 w-full">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowRegenConfirmModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                setShowRegenConfirmModal(false);
+                handleGenerateFinalIep();
+              }}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              Regenerate Goals
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-slate-700 text-sm leading-relaxed">
+          Are you sure you want to regenerate goals? Any unsaved custom modifications to the active draft will be replaced.
+        </p>
+      </Modal>
+
+      {/* Single-Goal Granular Regeneration Modal (ENH26) */}
+      <Modal
+        isOpen={singleGoalRegenModal.isOpen}
+        onClose={() =>
+          !singleGoalRegenModal.isRegenerating &&
+          setSingleGoalRegenModal((prev) => ({ ...prev, isOpen: false }))
+        }
+        title={`Regenerate Goal: ${singleGoalRegenModal.goal?.subject_category || singleGoalRegenModal.goal?.goalName || "Annual Goal"}`}
+        size="md"
+        closeOnEsc={!singleGoalRegenModal.isRegenerating}
+        closeOnBackdrop={!singleGoalRegenModal.isRegenerating}
+        footer={
+          <div className="flex items-center justify-end gap-3 w-full">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setSingleGoalRegenModal((prev) => ({ ...prev, isOpen: false }))
+              }
+              disabled={singleGoalRegenModal.isRegenerating}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleConfirmSingleGoalRegen}
+              disabled={singleGoalRegenModal.isRegenerating}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {singleGoalRegenModal.isRegenerating
+                ? "Regenerating..."
+                : "Regenerate Goal"}
+            </Button>
+          </div>
+        }
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div>
+            <span
+              style={{
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                color: "#64748b",
+                textTransform: "uppercase",
+              }}
+            >
+              Target Goal Area
+            </span>
+            <p
+              style={{
+                margin: "2px 0 0",
+                fontSize: "0.9rem",
+                fontWeight: 600,
+                color: "#1e293b",
+              }}
+            >
+              {singleGoalRegenModal.goal?.subject_category ||
+                singleGoalRegenModal.goal?.goalName ||
+                "Annual Goal"}
+            </p>
+          </div>
+          <div>
+            <span
+              style={{
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                color: "#64748b",
+                textTransform: "uppercase",
+              }}
+            >
+              Current Goal Description
+            </span>
+            <p
+              style={{
+                margin: "2px 0 0",
+                fontSize: "0.85rem",
+                color: "#475569",
+                background: "#f8fafc",
+                padding: "8px 10px",
+                borderRadius: 6,
+                border: "1px solid #e2e8f0",
+              }}
+            >
+              {singleGoalRegenModal.goal?.annual_goal ||
+                singleGoalRegenModal.goal?.annualGoal ||
+                "—"}
+            </p>
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label
+              htmlFor="single-goal-prompt"
+              className="form-label"
+              style={{ fontSize: "0.82rem" }}
+            >
+              Optional Custom Guidance / Prompt Tweaks
+            </label>
+            <textarea
+              id="single-goal-prompt"
+              className="form-textarea"
+              rows={3}
+              value={singleGoalRegenModal.prompt}
+              onChange={(e) =>
+                setSingleGoalRegenModal((prev) => ({
+                  ...prev,
+                  prompt: e.target.value,
+                }))
+              }
+              placeholder="e.g., Focus on visual schedule transitions, sensory breaks, or smaller incremental steps..."
+            />
+            <small style={{ color: "#64748b", fontSize: "0.75rem" }}>
+              Only this target goal will be regenerated. All other goals will
+              remain untouched.
+            </small>
+          </div>
+        </div>
+      </Modal>
+
+      {errorModal.isOpen && (
+        <ErrorModal
+          isOpen={errorModal.isOpen}
+          title={errorModal.title}
+          message={errorModal.message}
+          details={errorModal.details}
+          onClose={closeError}
         />
       )}
     </div>

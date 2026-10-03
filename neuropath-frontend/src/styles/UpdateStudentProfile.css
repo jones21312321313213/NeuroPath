@@ -31,22 +31,80 @@
 }
 
 .form-label {
-  font-weight: bold;
-  margin-bottom: 5px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 6px;
 }
 
 .form-input,
 .form-select,
 .form-textarea {
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14.5px;
+  color: #1e293b;
+  background: #f8fafc;
+  line-height: 1.5;
+  font-family: inherit;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  border-color: #0284c7;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
+}
+
+.form-input:focus-visible,
+.form-select:focus-visible,
+.form-textarea:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 1px;
 }
 
 /* Make textareas larger by default */
 .form-textarea {
   min-height: 150px; /* increased from 100px */
   resize: vertical; /* allow vertical resizing */
+}
+
+/* ── Inline Field Error & Character Count Styling (WCAG 2.1 AA) ─ */
+.form-input[aria-invalid="true"],
+.form-select[aria-invalid="true"],
+.form-textarea[aria-invalid="true"] {
+  border-color: #e11d48 !important;
+}
+
+.form-input[aria-invalid="true"]:focus,
+.form-select[aria-invalid="true"]:focus,
+.form-textarea[aria-invalid="true"]:focus,
+.form-input[aria-invalid="true"]:focus-visible,
+.form-select[aria-invalid="true"]:focus-visible,
+.form-textarea[aria-invalid="true"]:focus-visible {
+  border-color: #e11d48 !important;
+  outline: 2px solid #e11d48 !important;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.2) !important;
+}
+
+.form-field-error {
+  color: #e11d48;
+  font-size: 0.8rem;
+  margin-top: 4px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.form-char-count {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 500;
 }
 
 .form-actions {
@@ -57,19 +115,24 @@
 }
 
 .btn {
-  padding: 8px 14px;
+  padding: 10px 22px;
   border: none;
-  border-radius: 5px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: all 0.15s ease;
 }
 
 .btn-back {
-  background: #ccc;
-  color: #333;
+  background: #cbd5e1;
+  color: #334155;
 }
 
 .btn-back:hover {
-  background: #b3b3b3;
+  background: #94a3b8;
+  color: #0f172a;
 }
 
 .btn-submit {
@@ -81,16 +144,23 @@
   background: #2c89d0;
 }
 
-/* Very light gray for prefilled values */
+/* High-contrast, clean readability for prefilled values */
 .form-input.gray-input,
 .form-textarea.gray-input {
-  color: #aaa; /* lighter gray than before */
+  color: #1e293b;
+  background: #f8fafc;
 }
 
-/* When user focuses/edits, switch to black */
+.form-input.gray-input::placeholder,
+.form-textarea.gray-input::placeholder {
+  color: #94a3b8;
+}
+
+/* When user focuses/edits, highlight active field */
 .form-input.gray-input:focus,
 .form-textarea.gray-input:focus {
-  color: #000;
+  color: #0f172a;
+  background: #fff;
 }
 
 /* ── Success Modal ─────────────────────────────────────── */
@@ -168,3 +238,41 @@
     transform: translateY(0);
   }
 }
+
+/* ── Responsive Mobile & Tablet Breakpoints ──────────── */
+@media (max-width: 768px) {
+  .form-card {
+    padding: 18px 14px;
+  }
+
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .form-grid-preferences {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .form-actions {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .btn {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .usp-modal {
+    width: 90vw;
+    max-width: 340px;
+    padding: 24px 20px;
+  }
+}
+

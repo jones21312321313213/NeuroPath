@@ -1,23 +1,48 @@
-// Base URL — change for production
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+// Single source of truth for the backend host. Set VITE_API_URL (including the
+// /api prefix) to point the app at a non-localhost backend — see .env.example.
+export const BASE_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+
+// Drop local auth state and route to the login screen. Used when the backend
+// rejects a token we believed was good, so the user gets a way back in instead
+// of a bare "Invalid token." on a dead page.
+function forceReauth() {
+  localStorage.removeItem("neuropath_access_token");
+  localStorage.removeItem("neuropath_user");
+  if (!window.location.pathname.startsWith("/login")) {
+    // replace(), not href: the page we came from is unusable without a token.
+    window.location.replace("/login");
+  }
+}
 
 async function request(endpoint, options = {}) {
+  // skipAuthRedirect is ours, not fetch's — keep it out of the fetch init.
+  const { skipAuthRedirect = false, ...fetchOptions } = options;
   const token = localStorage.getItem("neuropath_access_token");
+  const isFormData =
+    typeof FormData !== "undefined" && fetchOptions.body instanceof FormData;
 
   const headers = {
-    "Content-Type": "application/json",
+    ...(!isFormData ? { "Content-Type": "application/json" } : {}),
     ...(token ? { Authorization: `Token ${token}` } : {}),
-    ...options.headers,
+    ...fetchOptions.headers,
   };
 
   const response = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
+    ...fetchOptions,
     headers,
   });
 
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    // Only a token we actually sent can be stale. A 401 on a request with no
+    // token is the endpoint's own auth failure — e.g. a wrong login password,
+    // where clearing state and reloading would discard the error message.
+    if (response.status === 401 && token && !skipAuthRedirect) {
+      forceReauth();
+    }
+
     const errors = data.errors || data.detail || data;
     let message = "Something went wrong.";
     if (typeof errors === "string") {
@@ -26,38 +51,47 @@ async function request(endpoint, options = {}) {
       const msgs = Object.values(errors).flat();
       message = msgs[0] || message;
     }
-    throw new Error(message);
+    const error = new Error(message);
+    // Callers needing field-level detail (e.g. duplicate-email on register)
+    // inspect the raw body instead of re-parsing the flattened message.
+    error.status = response.status;
+    error.data = data;
+    throw error;
   }
 
   return data;
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────────────
+// Routes live under /api/users/ (see neuropath-backend/users/urls.py).
+// The backend uses DRF TokenAuthentication: tokens do not expire and there is
+// no refresh endpoint, so there is nothing to refresh.
 export const authAPI = {
   register: (payload) =>
-    request("/auth/register/", {
+    request("/users/register/", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
   login: (payload) =>
-    request("/auth/login/", { method: "POST", body: JSON.stringify(payload) }),
-  me: () => request("/auth/me/"),
-  logout: (refreshToken) =>
-    request("/auth/logout/", {
+    request("/users/login/", { method: "POST", body: JSON.stringify(payload) }),
+  // Body is an empty object, not omitted: request() always sends
+  // Content-Type: application/json, so an empty payload must still be valid JSON.
+  // skipAuthRedirect: an already-revoked token 401s here, and the caller is
+  // logging out anyway — it must finish its own teardown, not be redirected.
+  logout: (options = {}) =>
+    request("/users/logout/", {
       method: "POST",
-      body: JSON.stringify({ refresh: refreshToken }),
-    }),
-  refreshToken: (refresh) =>
-    request("/auth/token/refresh/", {
-      method: "POST",
-      body: JSON.stringify({ refresh }),
+      body: JSON.stringify({}),
+      skipAuthRedirect: true,
+      ...options,
     }),
 };
 
 // ── Students ───────────────────────────────────────────────────────────────────
 export const studentsAPI = {
-  list: (teacherId) =>
-    request(`/users/students/${teacherId ? `?teacher_id=${teacherId}` : ""}`),
+  // Teacher is resolved from the Authorization token header on the backend;
+  // client query parameters like teacher_id are ignored.
+  list: () => request("/users/students/"),
   get: (id) => request(`/users/students/${id}/view/`),
   create: (payload) =>
     request("/users/students/", {
@@ -69,18 +103,102 @@ export const studentsAPI = {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
+  delete: (id) =>
+    request(`/users/students/${id}/`, {
+      method: "DELETE",
+    }),
+
+  // RA 10173 Parental Consent Certificate PDF Export (Bundle 2)
+  exportConsentPDF: async (studentIdOrPayload) => {
+    const token = localStorage.getItem("neuropath_access_token");
+    const headers = {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+    };
+
+    let url;
+    let options;
+    if (
+      typeof studentIdOrPayload === "number" ||
+      (typeof studentIdOrPayload === "string" && !isNaN(Number(studentIdOrPayload)))
+    ) {
+      url = `${BASE_URL}/users/students/${studentIdOrPayload}/consent-pdf/`;
+      options = { headers };
+    } else {
+      url = `${BASE_URL}/users/students/consent-pdf/`;
+      options = {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(studentIdOrPayload || {}),
+      };
+    }
+
+    const response = await fetch(url, options);
+
+    if (!response.ok) {
+      if (response.status === 401 && token) {
+        forceReauth();
+      }
+      let message = "Failed to export RA 10173 Consent Certificate PDF.";
+      try {
+        const data = await response.json();
+        message = data.errors || data.detail || data.error || message;
+      } catch {
+        // Fallback to default message
+      }
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.blob();
+  },
 };
 
 // ── Lesson Plans ───────────────────────────────────────────────────────────────
 export const lessonPlansAPI = {
-  getDirectory: (teacherId) =>
-    request(
-      `/resources/generate-lesson/${teacherId ? `?teacher_id=${teacherId}` : ""}`,
-    ),
+  getDirectory: (arg1, arg2, arg3) => {
+    // Teacher is authenticated from the Authorization token header.
+    // Ignored teacher_id query parameters are omitted.
+    const params = new URLSearchParams();
+    let studentId;
+    let iepId;
+    if (typeof arg1 === "object" && arg1 !== null) {
+      studentId = arg1.studentID ?? arg1.studentId;
+      iepId = arg1.iepId ?? arg1.iep_id;
+    } else if (arg2 !== undefined || arg3 !== undefined) {
+      studentId = arg2;
+      iepId = arg3;
+    } else if (arg1 && typeof arg1 !== "object") {
+      // If called with single ID, could be studentId
+      studentId = arg1;
+    }
+    if (studentId) {
+      params.append("studentID", studentId);
+      params.append("student_id", studentId);
+    }
+    if (iepId) params.append("iep_id", iepId);
+    const qs = params.toString();
+    return request(`/resources/generate-lesson/${qs ? `?${qs}` : ""}`);
+  },
   generate: (payload) =>
     request("/resources/generate-lesson/", {
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+  save: (payload) =>
+    request("/resources/lesson-plans/", {
+      method: "POST",
+      body: JSON.stringify({
+        iep_goal: payload.goalID || payload.iep_goal,
+        title: payload.title,
+        lessonContent:
+          typeof payload.content === "object"
+            ? JSON.stringify(payload.content)
+            : payload.content || payload.lessonContent,
+      }),
     }),
   list: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
@@ -99,39 +217,133 @@ export const lessonPlansAPI = {
 // ── Visual Aids ────────────────────────────────────────────────────────────────
 export const visualAidsAPI = {
   list: (params = {}) => {
-    const qs = new URLSearchParams(params).toString();
+    const normalized = { ...params };
+    if (normalized.student_id && !normalized.studentID) {
+      normalized.studentID = normalized.student_id;
+    }
+    const qs = new URLSearchParams(normalized).toString();
     return request(`/resources/visual-aids/${qs ? "?" + qs : ""}`);
   },
-  listByStudent: (studentId) =>
-    request(`/resources/visual-aids/?student_id=${studentId}`),
+  listByStudent: (studentID) =>
+    request(`/resources/visual-aids/?studentID=${studentID}&student_id=${studentID}`),
   get: (id) => request(`/resources/visual-aids/${id}/`),
   generate: (payload) =>
     request("/resources/generate-visual-aid/", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  create: (payload) =>
+    request("/resources/visual-aids/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   delete: (id) =>
     request(`/resources/visual-aids/${id}/`, { method: "DELETE" }),
-  exportUrl: (id) =>
-    `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/resources/export-visual-aid/${id}/`,
+  update: (id, payload) =>
+    request(`/resources/visual-aids/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  exportUrl: (id) => `${BASE_URL}/resources/export-visual-aid/${id}/`,
+  exportPDF: async (id) => {
+    const token = localStorage.getItem("neuropath_access_token");
+    const headers = {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+    };
+
+    const response = await fetch(
+      `${BASE_URL}/resources/export-visual-aid/${id}/`,
+      { headers },
+    );
+
+    if (!response.ok) {
+      if (response.status === 401 && token) {
+        forceReauth();
+      }
+      let message = "Failed to export visual aid PDF.";
+      try {
+        const data = await response.json();
+        message = data.errors || data.detail || data.error || message;
+      } catch {
+        // Fallback to default message
+      }
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.blob();
+  },
 };
 
 // ── Teaching Strategies ────────────────────────────────────────────────────────
 export const teachingStrategiesAPI = {
-  getDirectory: (teacherId) =>
-    request(
-      `/resources/generate-strategy/${teacherId ? `?teacher_id=${teacherId}` : ""}`,
-    ),
+  getDirectory: (arg1, arg2, arg3) => {
+    // Teacher is authenticated from the Authorization token header.
+    // Ignored teacher_id query parameters are omitted.
+    const params = new URLSearchParams();
+    let studentId;
+    let iepId;
+    if (typeof arg1 === "object" && arg1 !== null) {
+      studentId = arg1.studentID ?? arg1.studentId;
+      iepId = arg1.iepId ?? arg1.iep_id;
+    } else if (arg2 !== undefined || arg3 !== undefined) {
+      studentId = arg2;
+      iepId = arg3;
+    } else if (arg1 && typeof arg1 !== "object") {
+      studentId = arg1;
+    }
+    if (studentId) {
+      params.append("studentID", studentId);
+      params.append("student_id", studentId);
+    }
+    if (iepId) params.append("iep_id", iepId);
+    const qs = params.toString();
+    return request(`/resources/generate-strategy/${qs ? `?${qs}` : ""}`);
+  },
   generate: (payload) =>
     request("/resources/generate-strategy/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  save: (payload) =>
+    request("/resources/teaching-strategies/", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
   list: (studentID) =>
     request(`/resources/query-strategies/?studentID=${studentID}`),
   get: (id) => request(`/resources/query-strategies/${id}/`),
-  exportUrl: (id) =>
-    `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/resources/query-strategies/${id}/export/`,
+  exportUrl: (id) => `${BASE_URL}/resources/query-strategies/${id}/export/`,
+  exportPDF: async (id) => {
+    const token = localStorage.getItem("neuropath_access_token");
+    const headers = {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+    };
+
+    const response = await fetch(
+      `${BASE_URL}/resources/query-strategies/${id}/export/`,
+      { headers },
+    );
+
+    if (!response.ok) {
+      if (response.status === 401 && token) {
+        forceReauth();
+      }
+      let message = "Failed to export teaching strategy PDF.";
+      try {
+        const data = await response.json();
+        message = data.errors || data.detail || data.error || message;
+      } catch {
+        // Fallback to default message
+      }
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.blob();
+  },
   update: (id, payload) =>
     request(`/resources/edit-strategy/${id}/`, {
       method: "PUT",
@@ -145,6 +357,7 @@ export const teachingStrategiesAPI = {
 
 // ── IEP Generation / Viewing ─────────────────────────────────────────────────
 export const iepAPI = {
+  // Legacy draft generation path: superseded by iepAPI.generateGoalsFromIep.
   generate: (payload) =>
     request("/iep/generate-iep/", {
       method: "POST",
@@ -155,15 +368,18 @@ export const iepAPI = {
       method: "POST",
       body: JSON.stringify({ action: "save", ...payload }),
     }),
-  listByStudent: (studentID, teacherId) =>
-    request(
-      `/iep/student/${studentID}/${teacherId ? `?teacher_id=${teacherId}` : ""}`,
-    ),
+  listByStudent: (studentID) =>
+    request(`/iep/student/${studentID}/`),
   get: (id) => request(`/iep/${id}/`),
   update: (id, payload) =>
     request(`/iep/edit/${id}/`, {
       method: "PUT",
       body: JSON.stringify(payload),
+    }),
+  archive: (id, is_archived = true) =>
+    request(`/iep/edit/${id}/`, {
+      method: "PUT",
+      body: JSON.stringify({ is_archived }),
     }),
   delete: (id) => request(`/iep/delete/${id}/`, { method: "DELETE" }),
 
@@ -208,32 +424,126 @@ export const iepAPI = {
 
   // Dashboard overview stats: active IEP count + AI insights count
   dashboardStats: () => request("/iep/dashboard-stats/"),
+
+  // Direct IEP PDF Export (ENH22)
+  exportPDF: async (iepId) => {
+    const token = localStorage.getItem("neuropath_access_token");
+    const headers = {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+    };
+
+    const response = await fetch(`${BASE_URL}/iep/${iepId}/export/`, {
+      headers,
+    });
+
+    if (!response.ok) {
+      if (response.status === 401 && token) {
+        forceReauth();
+      }
+      let message = "Failed to export IEP PDF.";
+      try {
+        const data = await response.json();
+        message = data.errors || data.detail || data.error || message;
+      } catch {
+        // Fallback to default message
+      }
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.blob();
+  },
 };
 
 // ── Users / Teacher Profile ────────────────────────────────────────────────────
 export const usersAPI = {
-  // PATCH /api/users/profile/update/ — accepts FormData (supports profile_picture upload)
-  updateProfile: (formData) => {
-    const token = localStorage.getItem("neuropath_access_token");
-    return fetch(`${BASE_URL}/users/profile/update/`, {
+  // PATCH /api/users/profile/update/
+  // Accepts FormData or { first_name, last_name, email, password? } as JSON. The
+  // account is resolved from the Token header.
+  updateProfile: (payload) => {
+    const isFormData =
+      typeof FormData !== "undefined" && payload instanceof FormData;
+    return request("/users/profile/update/", {
       method: "PATCH",
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: formData,
-    }).then(async (res) => {
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const errors = data.errors || data.detail || data;
-        let message = "Failed to update profile.";
-        if (typeof errors === "string") message = errors;
-        else if (typeof errors === "object") {
-          const msgs = Object.values(errors).flat();
-          message = msgs[0] || message;
-        }
-        throw new Error(message);
-      }
-      return data;
+      body: isFormData ? payload : JSON.stringify(payload),
     });
   },
+  // POST /api/users/tutorial-complete/
+  completeTutorial: () =>
+    request("/users/tutorial-complete/", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
 };
+
+// ── Tracking & Outcome Monitoring ──────────────────────────────────────────────
+export const trackingAPI = {
+  getRecentActivity: (params) => {
+    const query = params ? `?${new URLSearchParams(params).toString()}` : "";
+    return request(`/tracking/recent-activity/${query}`);
+  },
+  getProgressDashboard: (studentId) =>
+    request(`/tracking/progress-dashboard/?studentID=${studentId}`),
+  getAnalytics: (studentId, subject) => {
+    const params = new URLSearchParams({ studentID: studentId });
+    if (subject) params.append("subject", subject);
+    return request(`/tracking/analytics/?${params.toString()}`);
+  },
+  recordProgress: (payload) =>
+    request("/tracking/analytics/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  exportStudentRecordPDF: async (studentId, params = {}) => {
+    const token = localStorage.getItem("neuropath_access_token");
+    const headers = {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+    };
+
+    const searchParams = new URLSearchParams();
+    if (params?.section_b_version !== undefined && params?.section_b_version !== null && params?.section_b_version !== "") {
+      searchParams.append("section_b_version", params.section_b_version);
+    }
+    if (params?.section_c_version !== undefined && params?.section_c_version !== null && params?.section_c_version !== "") {
+      searchParams.append("section_c_version", params.section_c_version);
+    }
+    if (params?.section_b_id !== undefined && params?.section_b_id !== null && params?.section_b_id !== "") {
+      searchParams.append("section_b_id", params.section_b_id);
+    }
+    if (params?.section_c_id !== undefined && params?.section_c_id !== null && params?.section_c_id !== "") {
+      searchParams.append("section_c_id", params.section_c_id);
+    }
+    const qs = searchParams.toString();
+
+    const response = await fetch(
+      `${BASE_URL}/tracking/student-records/${studentId}/export/${qs ? `?${qs}` : ""}`,
+      { headers },
+    );
+
+    if (!response.ok) {
+      if (response.status === 401 && token) {
+        forceReauth();
+      }
+      let message = "Failed to export student record PDF.";
+      try {
+        const data = await response.json();
+        message = data.errors || data.detail || data.error || message;
+      } catch {
+        // Fallback to default message
+      }
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.blob();
+  },
+};
+
+// ── Resources Overview Stats ───────────────────────────────────────────────────
+export const resourcesAPI = {
+  dashboardStats: () => request("/resources/dashboard-stats/"),
+  stats: () => request("/resources/dashboard-stats/"),
+};
+

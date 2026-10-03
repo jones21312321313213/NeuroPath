@@ -184,4 +184,80 @@
     border-bottom: 2px solid #eee;
     padding-bottom: 6px;
   }
+
+/* ── Summary vs IEP Distinction Notice ──────────────── */
+.summary-disclaimer-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #f0f7fe;
+  border: 1px solid #cde4f7;
+  border-left: 4px solid #3d9de8;
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+
+.summary-disclaimer-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+}
+
+.summary-disclaimer-icon {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.summary-disclaimer-text {
+  margin: 0 0 4px;
+  font-size: 13.5px;
+  color: #1e3a5f;
+  line-height: 1.45;
+}
+
+.summary-disclaimer-sub {
+  margin: 0;
+  font-size: 12.5px;
+  color: #4a6785;
+  line-height: 1.4;
+}
+
+.btn-go-iep {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  background: #ffffff;
+  color: #2b6cb0;
+  border: 1.5px solid #2b6cb0;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.btn-go-iep:hover {
+  background: #2b6cb0;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(43, 108, 176, 0.25);
+}
+
+@media (max-width: 640px) {
+  .summary-disclaimer-box {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .btn-go-iep {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
   
