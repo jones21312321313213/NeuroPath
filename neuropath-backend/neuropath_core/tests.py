@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.test import TestCase, SimpleTestCase
 from django.urls import resolve
 
 
@@ -51,3 +51,17 @@ class NeuropathCoreUrlRoutingTests(TestCase):
         self.assertIsNotNone(resolve('/api/iep/generate-iep/'))
         self.assertIsNotNone(resolve('/api/resources/lesson-plans/'))
         self.assertIsNotNone(resolve('/api/tracking/student-records/'))
+
+
+class HealthCheckTests(SimpleTestCase):
+    """Test lightweight unauthenticated health check endpoint."""
+
+    def test_health_check_returns_200_without_auth(self):
+        response = self.client.get('/api/health/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json().get('status'), 'ok')
+        self.assertIn('app', response.json())
+
+    def test_health_check_rejects_post(self):
+        response = self.client.post('/api/health/')
+        self.assertEqual(response.status_code, 405)

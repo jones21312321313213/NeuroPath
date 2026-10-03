@@ -10,8 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 import os
+import sys
 from pathlib import Path
 import environ
+
+TESTING = 'test' in sys.argv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -60,6 +63,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -90,17 +94,28 @@ WSGI_APPLICATION = 'neuropath_core.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': env('DB_ENGINE', default='django.db.backends.postgresql'),
-        'NAME': env('DB_NAME', default='postgres'),
-        'USER': env('DB_USER', default='postgres'),
-        'PASSWORD': env('DB_PASSWORD', default=''),
-        'HOST': env('DB_HOST', default='localhost'),
-        'PORT': env('DB_PORT', default='5432'),
+db_url = env('DATABASE_URL', default=None)
+if db_url:
+    DATABASES = {
+        'default': env.db('DATABASE_URL')
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': env('DB_ENGINE', default='django.db.backends.postgresql'),
+            'NAME': env('DB_NAME', default='postgres'),
+            'USER': env('DB_USER', default='postgres'),
+            'PASSWORD': env('DB_PASSWORD', default=''),
+            'HOST': env('DB_HOST', default='localhost'),
+            'PORT': env('DB_PORT', default='5432'),
+        }
+    }
+
+# Require SSL connection when connecting to Supabase / cloud DBs in production
+db_host = str(DATABASES['default'].get('HOST', '')).lower()
+if not DEBUG and ('supabase' in db_host or 'aws' in db_host or 'pooler' in db_host):
+    DATABASES['default'].setdefault('OPTIONS', {})['sslmode'] = 'require'
+
 
 
 # Password validation
@@ -139,6 +154,16 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT.mkdir(parents=True, exist_ok=True)
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 # ── CORS SETTINGS ───────────────────────────────────────
 # Origins the React app is served from. Defaults cover local development; set
@@ -168,6 +193,19 @@ CSRF_TRUSTED_ORIGINS = env.list(
         "http://127.0.0.1:5173",
     ],
 )
+
+# ── Production Security Hardening ───────────────────────
+if not DEBUG and not TESTING:
+    SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=True)
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_HSTS_SECONDS = env.int('SECURE_HSTS_SECONDS', default=31536000)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    # Essential when running behind AWS ALB, Cloudflare, Render, or Nginx reverse proxy:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
