@@ -20,17 +20,16 @@ from django.contrib.auth import authenticate
 # Description: Intercepts POST requests, orchestrates user payload 
 #              validation, and persists credentials into the database.
 # =====================================================================
-#ListCreateAPIView to temp add teacher
-class TeacherCreateController(generics.ListCreateAPIView):
+# CreateAPIView exclusively allows registration; prevents directory harvesting (GET).
+class TeacherCreateController(generics.CreateAPIView):
+    """
+    Exclusively allows account registration (POST).
+    Listing user accounts (GET) is strictly prohibited to prevent reconnaissance.
+    """
     queryset = User.objects.all()
     serializer_class = TeacherSerializer
-
-    def get_permissions(self):
-        # Registration (POST) must stay open to anonymous users; listing every
-        # registered account (GET) must not be exposed to the public.
-        if self.request.method == 'POST':
-            return [AllowAny()]
-        return [IsAuthenticated()]
+    permission_classes = [AllowAny]
+    throttle_scope = 'auth_register'
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -278,6 +277,7 @@ class AIInsightController(APIView):
 class TeacherLoginController(APIView):
     authentication_classes = [] 
     permission_classes = [AllowAny] 
+    throttle_scope = 'auth_login'
 
     def post(self, request, *args, **kwargs):
         email = request.data.get('email')
@@ -350,6 +350,7 @@ class TeacherProfileUpdateController(APIView):
             )
 
         old_email = user.email
+        new_token_key = None
 
         with transaction.atomic():
             # Update the Django User row
@@ -359,6 +360,10 @@ class TeacherProfileUpdateController(APIView):
             user.username   = email   # username == email convention used at registration
             if password:
                 user.set_password(password)
+                # Invalidate existing token on password change to revoke compromised sessions
+                Token.objects.filter(user=user).delete()
+                new_token = Token.objects.create(user=user)
+                new_token_key = new_token.key
             user.save()
 
             # Keep the Teacher mirror-row in sync
@@ -369,16 +374,17 @@ class TeacherProfileUpdateController(APIView):
 
         teacher = get_teacher_for_user(user)
 
-        return Response(
-            {
-                "id":                     user.id,
-                "first_name":             user.first_name,
-                "last_name":              user.last_name,
-                "email":                  user.email,
-                "has_completed_tutorial": teacher.has_completed_tutorial if teacher else False,
-            },
-            status=status.HTTP_200_OK,
-        )
+        response_data = {
+            "id":                     user.id,
+            "first_name":             user.first_name,
+            "last_name":              user.last_name,
+            "email":                  user.email,
+            "has_completed_tutorial": teacher.has_completed_tutorial if teacher else False,
+        }
+        if new_token_key:
+            response_data["token"] = new_token_key
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 # =====================================================================
