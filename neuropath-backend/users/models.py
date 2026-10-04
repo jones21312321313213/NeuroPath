@@ -1,4 +1,5 @@
 from django.db import models
+from .fields import EncryptedCharField, EncryptedTextField
 
 
 class Teacher(models.Model):
@@ -17,8 +18,8 @@ class StudentProfile(models.Model):
     studentID = models.AutoField(primary_key=True)
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, db_column='teacherID')
 
-    # Basic student fields used by existing student profiling pages
-    name = models.CharField(max_length=255, blank=True, default='')
+    # Basic student fields used by existing student profiling pages (name is encrypted at rest)
+    name = EncryptedCharField(max_length=512, blank=True, default='')
     age = models.IntegerField(default=0)
     grade = models.IntegerField(default=0)
     gender = models.CharField(max_length=50, blank=True, default='')
@@ -33,8 +34,8 @@ class StudentProfile(models.Model):
         blank=True,
         help_text="Date when parental/guardian consent was verified"
     )
-    guardian_name = models.CharField(
-        max_length=255,
+    guardian_name = EncryptedCharField(
+        max_length=512,
         blank=True,
         default='',
         help_text="Full legal name of consenting parent or legal guardian"
@@ -46,13 +47,12 @@ class StudentProfile(models.Model):
         help_text="Relationship of consenting guardian to minor (e.g. Mother, Father, Legal Guardian)"
     )
 
-    # Existing fields from the original backend. These are now optional so the
-    # new 2-step profile form will not fail with "This field may not be blank."
-    asdBackground = models.TextField(blank=True, default='')
+    # Sensitive medical and assessment fields encrypted at rest (AES-256)
+    asdBackground = EncryptedTextField(blank=True, default='')
     preferences = models.TextField(blank=True, default='')
-    assessmentResult = models.TextField(blank=True, default='')
+    assessmentResult = EncryptedTextField(blank=True, default='')
     profileStatus = models.BooleanField(default=True)
-    diagnosis = models.TextField(blank=True, default='')
+    diagnosis = EncryptedTextField(blank=True, default='')
     support_needs = models.TextField(blank=True, default='')
     learning_style = models.CharField(max_length=100, blank=True, default='')
     interests = models.TextField(blank=True, default='')
