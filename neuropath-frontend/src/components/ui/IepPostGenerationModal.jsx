@@ -70,7 +70,7 @@ export function IepPostGenerationModal({
       isOpen={isOpen}
       onClose={isSaving || isRegenerating ? undefined : onClose}
       title="Review Generated IEP Draft"
-      size="3xl"
+      size="5xl"
       closeOnEsc={!isSaving && !isRegenerating}
       closeOnBackdrop={!isSaving && !isRegenerating}
       footer={
@@ -207,7 +207,7 @@ export function IepPostGenerationModal({
 
                   {/* Target Metric if present */}
                   {goal.target_metric && (
-                    <div className="text-xs text-slate-600">
+                    <div className="text-sm text-slate-600">
                       <strong>Target Metric:</strong> {goal.target_metric}
                     </div>
                   )}
@@ -215,47 +215,47 @@ export function IepPostGenerationModal({
                   {/* Enroute Objectives Rows */}
                   {objectiveRows.length > 0 && (
                     <div className="space-y-2 pt-1">
-                      <div className="text-xs font-semibold text-slate-700">
+                      <div className="text-sm font-semibold text-slate-800">
                         Enroute Objectives &amp; Instructional Strategies ({objectiveRows.length}):
                       </div>
                       <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                        <table className="w-full text-xs text-left text-slate-700 min-w-[760px]">
+                        <table className="w-full text-sm text-left text-slate-700 min-w-[800px]">
                           <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
                             <tr>
-                              <th rowSpan={2} className="px-3 py-2.5 w-1/4 sticky left-0 bg-slate-50 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]">
+                              <th rowSpan={2} className="px-4 py-3 w-1/4 sticky left-0 bg-slate-50 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)] text-xs font-bold text-slate-700 uppercase tracking-wider">
                                 Objective
                               </th>
-                              <th colSpan={3} className="px-3 py-1.5 text-center bg-slate-100/90 border-b border-slate-200 text-[11px] text-slate-700 tracking-wide font-bold">
+                              <th colSpan={3} className="px-4 py-2 text-center bg-slate-100/90 border-b border-slate-200 text-xs text-slate-700 tracking-wider font-bold uppercase">
                                 Quarterly Milestones (3 Months)
                               </th>
-                              <th rowSpan={2} className="px-3 py-2.5 w-1/4">Interventions</th>
-                              <th rowSpan={2} className="px-3 py-2.5 whitespace-nowrap">Timeline</th>
+                              <th rowSpan={2} className="px-4 py-3 w-1/4 text-xs font-bold text-slate-700 uppercase tracking-wider">Interventions</th>
+                              <th rowSpan={2} className="px-4 py-3 whitespace-nowrap text-xs font-bold text-slate-700 uppercase tracking-wider">Timeline</th>
                             </tr>
                             <tr>
-                              <th className="px-3 py-1.5 w-1/6 text-slate-600 text-center font-semibold bg-slate-50">1st Month</th>
-                              <th className="px-3 py-1.5 w-1/6 text-slate-600 text-center font-semibold bg-slate-50">2nd Month</th>
-                              <th className="px-3 py-1.5 w-1/6 text-slate-600 text-center font-semibold bg-slate-50">3rd Month</th>
+                              <th className="px-3.5 py-2 w-1/6 text-slate-600 text-center font-semibold bg-slate-50 text-xs">1st Month</th>
+                              <th className="px-3.5 py-2 w-1/6 text-slate-600 text-center font-semibold bg-slate-50 text-xs">2nd Month</th>
+                              <th className="px-3.5 py-2 w-1/6 text-slate-600 text-center font-semibold bg-slate-50 text-xs">3rd Month</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
                             {objectiveRows.map((row, rIdx) => (
                               <tr key={rIdx} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="px-3 py-2 align-top font-medium text-slate-900 sticky left-0 bg-white z-5 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.05)]">
+                                <td className="px-4 py-3 align-top font-semibold text-slate-900 sticky left-0 bg-white z-5 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.05)] text-sm leading-relaxed">
                                   {row.enroute_objectives || row.objective || row.procedure || "—"}
                                 </td>
-                                <td className="px-3 py-2 align-top text-slate-600">
+                                <td className="px-3.5 py-3 align-top text-slate-700 text-sm leading-relaxed">
                                   {row.month_1_target || row.month_1 || row.month1 || "—"}
                                 </td>
-                                <td className="px-3 py-2 align-top text-slate-600">
+                                <td className="px-3.5 py-3 align-top text-slate-700 text-sm leading-relaxed">
                                   {row.month_2_target || row.month_2 || row.month2 || "—"}
                                 </td>
-                                <td className="px-3 py-2 align-top text-slate-600">
+                                <td className="px-3.5 py-3 align-top text-slate-700 text-sm leading-relaxed">
                                   {row.month_3_target || row.month_3 || row.month3 || "—"}
                                 </td>
-                                <td className="px-3 py-2 align-top text-slate-600">
+                                <td className="px-3.5 py-3 align-top text-slate-700 text-sm leading-relaxed">
                                   {row.interventions_procedures || row.interventions || row.intervention || "—"}
                                 </td>
-                                <td className="px-3 py-2 align-top text-slate-500 whitespace-nowrap">
+                                <td className="px-3.5 py-3 align-top text-slate-500 whitespace-nowrap text-sm">
                                   {row.timeline_mins_session || row.timeline || "Ongoing"}
                                 </td>
                               </tr>

@@ -30,14 +30,14 @@ import {
 
 const TABS = [
   {
-    key: "generate",
-    label: "Generate",
-    icon: <SparklesIcon className="w-4 h-4" aria-hidden="true" />,
-  },
-  {
     key: "info",
     label: "Info",
     icon: <InfoIcon className="w-4 h-4" aria-hidden="true" />,
+  },
+  {
+    key: "generate",
+    label: "Generate",
+    icon: <SparklesIcon className="w-4 h-4" aria-hidden="true" />,
   },
   {
     key: "manage",
@@ -280,6 +280,7 @@ function StrategyRowList({
 function GenerateTab({ onSave, setActivePage, onDraftStatusChange, promptNavigation }) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -434,6 +435,7 @@ function GenerateTab({ onSave, setActivePage, onDraftStatusChange, promptNavigat
       });
       setGenerated(data);
       if (onDraftStatusChange) onDraftStatusChange(true);
+      toast.success(data.message || "Teaching strategy successfully generated.", { duration: 5000 });
     } catch (err) {
       setError(
         err.message || "Failed to generate teaching strategy.",
@@ -728,12 +730,6 @@ function GenerateTab({ onSave, setActivePage, onDraftStatusChange, promptNavigat
             <StrategyRenderer content={generated.data?.strategyContent} />
           </div>
 
-          {generated.message && (
-            <div className="ts-success-msg flex items-center gap-1.5">
-              <CheckIcon className="w-4 h-4 text-emerald-600 flex-shrink-0" aria-hidden="true" />
-              <span>{generated.message}</span>
-            </div>
-          )}
 
           {saved && (
             <div className="ts-success-msg flex items-center gap-1.5" style={{ marginTop: 8 }}>
