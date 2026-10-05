@@ -4221,19 +4221,6 @@ export default function IEPGenerationPage({
                                     Regenerate Goal
                                   </button>
                                 </div>
-                                <small
-                                  style={{ color: "#888", fontSize: 11.5 }}
-                                >
-                                  R-GORI Score: {goal._rgori_score}/100 ·{" "}
-                                  {goal._rgori_feedback}
-                                  {goal._rgori_warning && (
-                                    <span style={{ color: "orange" }}>
-                                      {" "}
-                                      <WarningIcon className="w-3.5 h-3.5 inline mr-1 text-amber-600" aria-hidden="true" />
-                                      {goal._rgori_warning}
-                                    </span>
-                                  )}
-                                </small>
                               </div>
                               <ReadOnlyGoalTable
                                 rows={(goal.objective_rows || []).map(

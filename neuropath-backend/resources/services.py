@@ -1,6 +1,6 @@
 # resources/services.py
 import json
-from .models import TeachingStrategy, LessonPlan
+from .models import TeachingStrategy
 from iep_management.models import IEPGoal
 from iep_management.ai_engine import AIEngineService
 from iep_management.privacy_utils import (
@@ -198,18 +198,8 @@ Generate a highly tailored lesson plan for EACH Enroute Objective listed above. 
             if not isinstance(parsed_json, dict) or 'lesson_plans' not in parsed_json:
                 raise ValueError("Parsed JSON missing 'lesson_plans' key.")
             
-            # 5. SAVE TO DATABASE AUTOMATICALLY
-            # Extract a safe name for the title
-            goal_area = getattr(goal_instance, 'subject_category', None) or "Target Goal"
-            
-            # Create the database record
-            LessonPlan.objects.create(
-                iep_goal=goal_instance,
-                title=f"Lesson Sequence: {goal_area}",
-                lessonContent=json.dumps(parsed_json),
-                status="Draft"
-            )
-            
+            # 5. Return parsed payload for teacher preview.
+            # Persistence is triggered explicitly when the teacher accepts and saves.
             return parsed_json
             
         except Exception as e:

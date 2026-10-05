@@ -25,6 +25,7 @@ import {
   DiskIcon,
   TrashIcon,
   CloseIcon,
+  InfoIcon,
 } from "../components/ui/icons";
 
 const TABS = [
@@ -32,6 +33,11 @@ const TABS = [
     key: "generate",
     label: "Generate",
     icon: <SparklesIcon className="w-4 h-4" aria-hidden="true" />,
+  },
+  {
+    key: "info",
+    label: "Info",
+    icon: <InfoIcon className="w-4 h-4" aria-hidden="true" />,
   },
   {
     key: "manage",
@@ -1366,6 +1372,181 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
   );
 }
 
+// ── Info Tab ──────────────────────────────────────────────────────────────────
+function TeachingStrategiesInfoTab({ onGoToGenerate, onGoToManage }) {
+  return (
+    <div className="ts-info-container">
+      <div className="ts-info-grid">
+        {/* Card 1: Tool Purpose */}
+        <div className="ts-card">
+          <div className="ts-card-header">
+            <div className="ts-card-icon">
+              <SparklesIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="ts-card-title">About Teaching Strategies</h2>
+              <p className="ts-card-subtitle">
+                Evidence-based pedagogical & behavioral interventions tailored to student needs
+              </p>
+            </div>
+          </div>
+          <div className="ts-info-section">
+            <p style={{ color: "#475569", fontSize: "14px", lineHeight: "1.6", margin: 0 }}>
+              The Teaching Strategies generator synthesizes student functional difficulties, strengths, and active IEP goals to create targeted classroom accommodations and intervention techniques.
+            </p>
+            <div className="ts-info-feature-item">
+              <div className="ts-info-feature-icon">
+                <TargetIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="ts-info-feature-text">
+                <h4>Domain-Specific Support</h4>
+                <p>Targets Behavioral, Academic, Cognitive, Sensory, and Social-Emotional challenges with tailored strategies.</p>
+              </div>
+            </div>
+            <div className="ts-info-feature-item">
+              <div className="ts-info-feature-icon">
+                <ClipboardIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="ts-info-feature-text">
+                <h4>Concrete Implementation Steps</h4>
+                <p>Provides exact instructions, environmental adaptations, and positive reinforcement techniques for teachers.</p>
+              </div>
+            </div>
+            <div className="ts-info-feature-item">
+              <div className="ts-info-feature-icon">
+                <CheckIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="ts-info-feature-text">
+                <h4>Measurable Success Criteria</h4>
+                <p>Includes progress indicators and observable milestones to evaluate strategy efficacy over time.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: What is the Manage Tab */}
+        <div className="ts-card">
+          <div className="ts-card-header">
+            <div className="ts-card-icon">
+              <FolderIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="ts-card-title">What is the "Manage" Tab?</h2>
+              <p className="ts-card-subtitle">
+                Your centralized intervention and accommodation library
+              </p>
+            </div>
+          </div>
+          <div className="ts-info-section">
+            <p style={{ color: "#475569", fontSize: "14px", lineHeight: "1.6", margin: 0 }}>
+              The <strong>Manage</strong> tab is where all generated strategies are stored and organized by student. Use it to track which interventions are active, modify details, and print cards for your teaching team.
+            </p>
+            <div className="ts-info-feature-item">
+              <div className="ts-info-feature-icon">
+                <UserIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="ts-info-feature-text">
+                <h4>Organized by Student Profile</h4>
+                <p>Quickly access all strategies created for a specific learner with grade and keyword filtering.</p>
+              </div>
+            </div>
+            <div className="ts-info-feature-item">
+              <div className="ts-info-feature-icon">
+                <PencilIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="ts-info-feature-text">
+                <h4>In-Place Editing & Status Control</h4>
+                <p>Update strategy text and transition statuses between Draft, Active, and Archived as student mastery grows.</p>
+              </div>
+            </div>
+            <div className="ts-info-feature-item">
+              <div className="ts-info-feature-icon">
+                <BookOpenIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="ts-info-feature-text">
+                <h4>Collaboration & Sharing</h4>
+                <p>Inspect detailed strategy breakdowns to share with co-teachers, classroom aides, and parents.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Card 3: Quick Workflow Guide */}
+      <div className="ts-card">
+        <div className="ts-card-header">
+          <div className="ts-card-icon">
+            <SparklesIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+          </div>
+          <div>
+            <h2 className="ts-card-title">Recommended Workflow</h2>
+            <p className="ts-card-subtitle">
+              How to create, customize, and maintain classroom strategies
+            </p>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
+          <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+              <span style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#3b82f6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700" }}>1</span>
+              <strong style={{ fontSize: "14px", color: "#0f172a" }}>Select Student & Goal</strong>
+            </div>
+            <p style={{ margin: 0, fontSize: "13px", color: "#64748b", lineHeight: "1.5" }}>
+              Pick a student to automatically load their learning difficulties and active IEP goals.
+            </p>
+          </div>
+          <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+              <span style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#3b82f6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700" }}>2</span>
+              <strong style={{ fontSize: "14px", color: "#0f172a" }}>Specify Challenge Area</strong>
+            </div>
+            <p style={{ margin: 0, fontSize: "13px", color: "#64748b", lineHeight: "1.5" }}>
+              Describe the specific classroom challenge, trigger, or behavior you want to address.
+            </p>
+          </div>
+          <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+              <span style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#3b82f6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700" }}>3</span>
+              <strong style={{ fontSize: "14px", color: "#0f172a" }}>Generate & Review</strong>
+            </div>
+            <p style={{ margin: 0, fontSize: "13px", color: "#64748b", lineHeight: "1.5" }}>
+              Review the generated strategy draft. Fine-tune details before committing to your library.
+            </p>
+          </div>
+          <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+              <span style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#3b82f6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700" }}>4</span>
+              <strong style={{ fontSize: "14px", color: "#0f172a" }}>Save to Manage Library</strong>
+            </div>
+            <p style={{ margin: 0, fontSize: "13px", color: "#64748b", lineHeight: "1.5" }}>
+              Click "Accept & Save" to store the strategy in your Manage library for ongoing classroom use.
+            </p>
+          </div>
+        </div>
+
+        <div className="ts-info-actions">
+          <button
+            type="button"
+            className="ts-btn ts-btn-primary flex items-center gap-1.5"
+            onClick={onGoToGenerate}
+          >
+            <SparklesIcon className="w-4 h-4" aria-hidden="true" />
+            Go to Generate
+          </button>
+          <button
+            type="button"
+            className="ts-btn ts-btn-secondary flex items-center gap-1.5"
+            onClick={onGoToManage}
+          >
+            <FolderIcon className="w-4 h-4" aria-hidden="true" />
+            Go to Manage Teaching Strategies
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ManageTeachingStrategies({ setActivePage }) {
   const [activeTab, setActiveTab] = useState("generate");
@@ -1423,7 +1604,7 @@ export default function ManageTeachingStrategies({ setActivePage }) {
           {TABS.map((tab) => {
             const isActive =
               activeTab === tab.key ||
-              (tab.key === "manage" && isManageTab && activeTab !== "generate");
+              (tab.key === "manage" && isManageTab && activeTab !== "generate" && activeTab !== "info");
             return (
               <button
                 key={tab.key}
@@ -1448,6 +1629,12 @@ export default function ManageTeachingStrategies({ setActivePage }) {
             setActivePage={setActivePage}
             onDraftStatusChange={setHasDraft}
             promptNavigation={promptNavigation}
+          />
+        )}
+        {activeTab === "info" && (
+          <TeachingStrategiesInfoTab
+            onGoToGenerate={() => handleTabClick("generate")}
+            onGoToManage={() => handleTabClick("manage")}
           />
         )}
         {isManageTab && (

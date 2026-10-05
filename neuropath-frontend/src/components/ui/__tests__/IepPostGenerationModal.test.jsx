@@ -68,7 +68,7 @@ describe("IepPostGenerationModal", () => {
     expect(screen.getByText("Visual schedule, AAC device")).toBeInTheDocument();
   });
 
-  it("displays R-GORI score badge with appropriate styling and feedback note", () => {
+  it("renders goals cleanly without R-GORI score badge or feedback note", () => {
     render(
       <IepPostGenerationModal
         isOpen={true}
@@ -79,9 +79,11 @@ describe("IepPostGenerationModal", () => {
       />,
     );
 
-    expect(screen.getByText("R-GORI: 88/100 (Exemplary)")).toBeInTheDocument();
+    expect(screen.queryByText(/R-GORI/i)).not.toBeInTheDocument();
     expect(
-      screen.getByText("Well-defined criteria and specific contextual timeline."),
+      screen.getByText(
+        "Student will independently use an AAC device to make 3-word requests.",
+      ),
     ).toBeInTheDocument();
   });
 

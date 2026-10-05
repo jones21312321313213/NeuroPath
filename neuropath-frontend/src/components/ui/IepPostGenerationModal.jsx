@@ -9,7 +9,6 @@ import {
   UserIcon,
   TargetIcon,
   LightBulbIcon,
-  DocumentIcon,
   WrenchIcon,
   ChevronDownIcon,
   ChevronRightIcon,
@@ -162,8 +161,8 @@ export function IepPostGenerationModal({
         <div className="p-3 bg-blue-50/60 border border-blue-200/80 rounded-xl flex items-start gap-2.5 text-xs text-blue-900 leading-relaxed">
           <LightBulbIcon className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" aria-hidden="true" />
           <div>
-            <strong>Pedagogical Review Check:</strong> Inspect the proposed annual goal,
-            enroute objectives, and R-GORI rigor evaluation. Click <strong>Accept &amp; Save</strong> to
+            <strong>Pedagogical Review Check:</strong> Inspect the proposed annual goal and
+            enroute objectives. Click <strong>Accept &amp; Save</strong> to
             commit to the IEP record, or <strong>Regenerate</strong> to formulate an alternate draft.
           </div>
         </div>
@@ -176,24 +175,7 @@ export function IepPostGenerationModal({
         ) : (
           <div className="space-y-4">
             {goals.map((goal, idx) => {
-              const rgoriScore = goal._rgori_score;
-              const rgoriFeedback = goal._rgori_feedback;
               const objectiveRows = goal.objective_rows || [];
-
-              let scoreVariant = "info";
-              let scoreLabel = "Calculated";
-              if (typeof rgoriScore === "number") {
-                if (rgoriScore >= 80) {
-                  scoreVariant = "success";
-                  scoreLabel = "Exemplary";
-                } else if (rgoriScore >= 65) {
-                  scoreVariant = "warning";
-                  scoreLabel = "Compliant";
-                } else {
-                  scoreVariant = "danger";
-                  scoreLabel = "Needs Review";
-                }
-              }
 
               return (
                 <div
@@ -210,14 +192,6 @@ export function IepPostGenerationModal({
                         {goal.subject_category || goal.goalName || "Individualized Goal"}
                       </h4>
                     </div>
-
-                    {rgoriScore != null && (
-                      <div className="flex items-center gap-1.5">
-                        <Badge variant={scoreVariant} size="sm">
-                          R-GORI: {rgoriScore}/100 ({scoreLabel})
-                        </Badge>
-                      </div>
-                    )}
                   </div>
 
                   {/* Annual Goal Statement */}
@@ -235,16 +209,6 @@ export function IepPostGenerationModal({
                   {goal.target_metric && (
                     <div className="text-xs text-slate-600">
                       <strong>Target Metric:</strong> {goal.target_metric}
-                    </div>
-                  )}
-
-                  {/* RGORI Feedback Note */}
-                  {rgoriFeedback && (
-                    <div className="p-2.5 bg-amber-50/50 border border-amber-200/60 rounded-lg text-xs text-amber-900 flex items-start gap-1.5">
-                      <DocumentIcon className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
-                      <div>
-                        <strong>R-GORI Feedback:</strong> {rgoriFeedback}
-                      </div>
                     </div>
                   )}
 
