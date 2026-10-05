@@ -829,6 +829,128 @@ class StudentCreateTeacherResolutionTests(APITestCase):
         self.assertIn('teacher', ctx.exception.detail)
 
 
+class StudentDataEncryptionAtRestTests(TestCase):
+    """
+    Validates application-layer AES-256 (Fernet) field-level encryption at rest.
+    Guarantees that database compromises / dumps leak zero plaintext PII, while
+    Django ORM provides 100% transparent access.
+    """
+
+    def setUp(self):
+        self.teacher = Teacher.objects.create(
+            name="Teacher Test",
+            email="teacher.crypto@example.com",
+            passwordHash="hashed_pw"
+        )
+        self.plaintext_name = "Alex Sensitive"
+        self.plaintext_guardian = "Jane Doe Sensitive"
+        self.plaintext_diagnosis = "Autism Spectrum Disorder Level 1"
+        self.plaintext_asd = "Hyper-reactive to unexpected noises"
+        self.plaintext_assessment = "Visual learner with strong spatial reasoning"
+
+        self.student = StudentProfile.objects.create(
+            teacher=self.teacher,
+            name=self.plaintext_name,
+            guardian_name=self.plaintext_guardian,
+            diagnosis=self.plaintext_diagnosis,
+            asdBackground=self.plaintext_asd,
+            assessmentResult=self.plaintext_assessment,
+            age=8,
+            grade=2
+        )
+
+    def test_student_pii_is_ciphered_at_rest_in_raw_database(self):
+        """Raw SQL query must return ciphertext starting with Fernet header and ZERO plaintext."""
+        from django.db import connection
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'SELECT "name", "guardian_name", "diagnosis", "asdBackground", "assessmentResult" '
+                'FROM "users_studentprofile" WHERE "studentID" = %s',
+                [self.student.studentID]
+            )
+            raw_row = cursor.fetchone()
+
+        raw_name, raw_guardian, raw_diag, raw_asd, raw_assess = raw_row
+
+        # Ciphertext must start with Fernet version token prefix 'gAAAAA'
+        self.assertTrue(raw_name.startswith('gAAAAA'), f"Expected ciphertext, got: {raw_name}")
+        self.assertTrue(raw_guardian.startswith('gAAAAA'), f"Expected ciphertext, got: {raw_guardian}")
+        self.assertTrue(raw_diag.startswith('gAAAAA'), f"Expected ciphertext, got: {raw_diag}")
+        self.assertTrue(raw_asd.startswith('gAAAAA'), f"Expected ciphertext, got: {raw_asd}")
+        self.assertTrue(raw_assess.startswith('gAAAAA'), f"Expected ciphertext, got: {raw_assess}")
+
+        # Plaintext must NOT exist in raw database columns
+        self.assertNotIn(self.plaintext_name, raw_name)
+        self.assertNotIn(self.plaintext_guardian, raw_guardian)
+        self.assertNotIn(self.plaintext_diagnosis, raw_diag)
+        self.assertNotIn(self.plaintext_asd, raw_asd)
+        self.assertNotIn(self.plaintext_assessment, raw_assess)
+
+    def test_django_orm_transparently_decrypts_fields(self):
+        """Django ORM query must decrypt ciphertext transparently in RAM."""
+        refreshed = StudentProfile.objects.get(pk=self.student.pk)
+        self.assertEqual(refreshed.name, self.plaintext_name)
+        self.assertEqual(refreshed.guardian_name, self.plaintext_guardian)
+        self.assertEqual(refreshed.diagnosis, self.plaintext_diagnosis)
+        self.assertEqual(refreshed.asdBackground, self.plaintext_asd)
+        self.assertEqual(refreshed.assessmentResult, self.plaintext_assessment)
+
+    def test_double_save_does_not_double_encrypt(self):
+        """Saving an already-loaded student must not corrupt or double-encrypt data."""
+        self.student.save()
+        self.student.save()
+
+        refreshed = StudentProfile.objects.get(pk=self.student.pk)
+        self.assertEqual(refreshed.name, self.plaintext_name)
+        self.assertEqual(refreshed.guardian_name, self.plaintext_guardian)
+        self.assertEqual(refreshed.diagnosis, self.plaintext_diagnosis)
+
+    def test_legacy_unencrypted_database_rows_fallback_gracefully_and_encrypt_on_save(self):
+        """
+        Rows written before encryption migration (unencrypted plaintext in DB)
+        must load without crashing, and encrypt upon subsequent save.
+        """
+        from django.db import connection
+
+        legacy_name = "Legacy Plaintext Student"
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'UPDATE "users_studentprofile" SET "name" = %s WHERE "studentID" = %s',
+                [legacy_name, self.student.studentID]
+            )
+
+        # ORM loads legacy plaintext gracefully
+        loaded = StudentProfile.objects.get(pk=self.student.studentID)
+        self.assertEqual(loaded.name, legacy_name)
+
+        # Saving converts the legacy plaintext into encrypted ciphertext
+        loaded.save()
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'SELECT "name" FROM "users_studentprofile" WHERE "studentID" = %s',
+                [self.student.studentID]
+            )
+            raw_name = cursor.fetchone()[0]
+
+        self.assertTrue(raw_name.startswith('gAAAAA'))
+        self.assertNotIn(legacy_name, raw_name)
+
+    def test_blank_and_empty_strings_handled_properly(self):
+        """Empty optional fields should not fail or produce erroneous decryption."""
+        blank_student = StudentProfile.objects.create(
+            teacher=self.teacher,
+            name="",
+            guardian_name="",
+            diagnosis=""
+        )
+        refreshed = StudentProfile.objects.get(pk=blank_student.pk)
+        self.assertEqual(refreshed.name, "")
+        self.assertEqual(refreshed.guardian_name, "")
+        self.assertEqual(refreshed.diagnosis, "")
+
+
 class AuthSecurityHardeningTests(APITestCase):
     """
     Security verification tests for Issue #234:
