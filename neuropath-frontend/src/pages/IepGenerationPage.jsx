@@ -21,7 +21,6 @@ import {
   DocumentIcon,
   SparklesIcon,
   PencilIcon,
-  LightBulbIcon,
   BookOpenIcon,
   PhotoIcon,
   TargetIcon,
@@ -1523,74 +1522,6 @@ function ViewIEPPanel({
             </span>
           </div>
 
-          {/* Post-IEP Next Steps / Classroom Tools */}
-          {!isEditing && (
-            <section
-              className="iep-next-steps-card"
-              aria-label="Instructional Support Next Steps"
-            >
-              <header className="iep-next-steps-header">
-                <span className="iep-next-steps-icon" aria-hidden="true">
-                  <LightBulbIcon className="w-5 h-5 text-amber-500" aria-hidden="true" />
-                </span>
-                <div>
-                  <h4>Instructional Support: Use this IEP in the Classroom</h4>
-                  <p>
-                    This IEP is ready. Generate tailored lesson plans, visual aids, and teaching strategies based on this student's goals.
-                  </p>
-                </div>
-              </header>
-              <nav
-                className="iep-next-steps-grid"
-                aria-label="Classroom tool actions"
-              >
-                <button
-                  type="button"
-                  className="iep-next-step-btn"
-                  onClick={() => {
-                    navigate("/dashboard/lessons");
-                    if (setActivePage) setActivePage("manage-lesson-plans");
-                  }}
-                >
-                  <BookOpenIcon className="w-4 h-4 mr-1.5 inline text-blue-600" aria-hidden="true" />
-                  Create Lesson Plan
-                </button>
-                <button
-                  type="button"
-                  className="iep-next-step-btn"
-                  onClick={() => {
-                    navigate("/dashboard/visual-aids");
-                    if (setActivePage) setActivePage("manage-visual-aids");
-                  }}
-                >
-                  <PhotoIcon className="w-4 h-4 mr-1.5 inline text-purple-600" aria-hidden="true" />
-                  Create Visual Aid
-                </button>
-                <button
-                  type="button"
-                  className="iep-next-step-btn iep-next-step-btn-secondary"
-                  onClick={() => {
-                    navigate("/dashboard/strategies");
-                    if (setActivePage) setActivePage("manage-teaching-strategies");
-                  }}
-                >
-                  <TargetIcon className="w-4 h-4 mr-1.5 inline text-emerald-600" aria-hidden="true" />
-                  Teaching Strategies
-                </button>
-                <button
-                  type="button"
-                  className="iep-next-step-btn iep-next-step-btn-ghost"
-                  onClick={() => {
-                    navigate("/dashboard");
-                    if (setActivePage) setActivePage("overview");
-                  }}
-                >
-                  <HomeIcon className="w-4 h-4 mr-1.5 inline text-slate-600" aria-hidden="true" />
-                  Back to Overview
-                </button>
-              </nav>
-            </section>
-          )}
 
           {/* Inline edit panel */}
           {isEditing && (

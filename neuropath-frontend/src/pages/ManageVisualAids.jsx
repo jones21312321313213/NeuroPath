@@ -55,14 +55,14 @@ const DAILY_LIVING_PRESETS = [
 
 const TABS = [
   {
-    key: "generate",
-    label: "Generate",
-    icon: <PhotoIcon className="w-4 h-4" aria-hidden="true" />,
-  },
-  {
     key: "info",
     label: "Info",
     icon: <InfoIcon className="w-4 h-4" aria-hidden="true" />,
+  },
+  {
+    key: "generate",
+    label: "Generate",
+    icon: <PhotoIcon className="w-4 h-4" aria-hidden="true" />,
   },
   {
     key: "view",
@@ -677,7 +677,7 @@ function GenerateTab({ setActivePage, onDraftStatusChange, promptNavigation }) {
         isDraft: true,
       });
       if (onDraftStatusChange) onDraftStatusChange(true);
-      toast.success("Visual aid generated! Please review and decide whether to save.");
+      toast.success("Visual aid generated! Please review and decide whether to save.", { duration: 5000 });
     } catch (err) {
       setError(
         err.message ||

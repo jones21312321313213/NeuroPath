@@ -77,17 +77,17 @@ export function IepLoadingModal({
       size="lg"
       closeOnEsc={false}
       closeOnBackdrop={false}
-      className="border border-indigo-100 shadow-2xl"
+      className="border border-slate-200 shadow-2xl"
     >
       <div className="p-2 space-y-6">
         {/* Header with animated AI Badge */}
         <div className="flex items-start gap-4">
           <div
-            className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs select-none shrink-0 relative"
+            className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-xs select-none shrink-0 relative"
             aria-hidden="true"
           >
-            <SparklesIcon className="w-6 h-6 text-indigo-600 relative z-10" aria-hidden="true" />
-            <span className="absolute inset-0 rounded-2xl bg-indigo-400/20 animate-ping opacity-60 pointer-events-none" />
+            <SparklesIcon className="w-6 h-6 text-blue-600 relative z-10" aria-hidden="true" />
+            <span className="absolute inset-0 rounded-2xl bg-blue-400/20 animate-ping opacity-60 pointer-events-none" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -112,9 +112,9 @@ export function IepLoadingModal({
                   </span>
                 )}
                 {goalArea && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200/60">
-                    <span className="text-indigo-400">Goal Area:</span>
-                    <strong className="text-indigo-800">{goalArea}</strong>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200/60">
+                    <span className="text-blue-400">Goal Area:</span>
+                    <strong className="text-blue-800">{goalArea}</strong>
                   </span>
                 )}
               </div>
@@ -127,8 +127,8 @@ export function IepLoadingModal({
           <div className="flex items-center justify-between text-xs">
             <span className="font-semibold text-slate-700 flex items-center gap-1.5">
               {isAlmostDone ? (
-                <span className="text-emerald-700 font-bold flex items-center gap-1">
-                  <CheckIcon className="w-4 h-4 text-emerald-600 inline-block" aria-hidden="true" />
+                <span className="text-blue-700 font-bold flex items-center gap-1">
+                  <CheckIcon className="w-4 h-4 text-blue-600 inline-block" aria-hidden="true" />
                   <span>Almost done! Finalizing IEP document...</span>
                 </span>
               ) : (
@@ -137,11 +137,7 @@ export function IepLoadingModal({
                 </span>
               )}
             </span>
-            <span
-              className={`font-mono text-sm font-bold ${
-                isAlmostDone ? "text-emerald-600" : "text-indigo-600"
-              }`}
-            >
+            <span className="font-mono text-sm font-bold text-blue-600">
               {roundedProgress}%
             </span>
           </div>
@@ -155,9 +151,7 @@ export function IepLoadingModal({
             className="w-full bg-slate-200/80 rounded-full h-3.5 overflow-hidden p-0.5 border border-slate-300/60"
           >
             <div
-              className={`h-full rounded-full transition-all duration-300 ease-out ${
-                isAlmostDone ? "bg-emerald-600" : "bg-blue-600"
-              }`}
+              className="h-full rounded-full transition-all duration-300 ease-out bg-blue-600"
               style={{ width: `${roundedProgress}%` }}
             />
           </div>
@@ -175,9 +169,9 @@ export function IepLoadingModal({
                 role="listitem"
                 className={`flex items-start gap-3 p-3 rounded-xl transition-colors border ${
                   isActive
-                    ? "bg-indigo-50/60 border-indigo-200/80 shadow-xs"
+                    ? "bg-blue-50/60 border-blue-200/80 shadow-xs"
                     : isCompleted
-                      ? "bg-emerald-50/40 border-emerald-100"
+                      ? "bg-slate-50/70 border-slate-200/80"
                       : "bg-white border-slate-100 opacity-60"
                 }`}
               >
@@ -185,9 +179,9 @@ export function IepLoadingModal({
                 <div
                   className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 select-none ${
                     isCompleted
-                      ? "bg-emerald-500 text-white shadow-xs"
+                      ? "bg-blue-600 text-white shadow-xs"
                       : isActive
-                        ? "bg-indigo-600 text-white ring-4 ring-indigo-100 animate-pulse"
+                        ? "bg-blue-600 text-white ring-4 ring-blue-100 animate-pulse"
                         : "bg-slate-200 text-slate-500"
                   }`}
                   aria-hidden="true"
@@ -204,7 +198,7 @@ export function IepLoadingModal({
                     <p
                       className={`text-sm font-semibold m-0 ${
                         isActive
-                          ? "text-indigo-950 font-bold"
+                          ? "text-blue-950 font-bold"
                           : isCompleted
                             ? "text-slate-800"
                             : "text-slate-500"
@@ -215,9 +209,9 @@ export function IepLoadingModal({
                     <span
                       className={`text-[11px] font-medium tracking-tight uppercase px-2 py-0.5 rounded-full ${
                         isCompleted
-                          ? "bg-emerald-100/70 text-emerald-800 font-semibold"
+                          ? "bg-slate-100 text-slate-700 font-semibold"
                           : isActive
-                            ? "bg-indigo-100 text-indigo-800 font-bold"
+                            ? "bg-blue-100 text-blue-800 font-bold"
                             : "text-slate-400 bg-slate-100"
                       }`}
                     >
@@ -238,8 +232,8 @@ export function IepLoadingModal({
         </div>
 
         {/* Helpful reassurance footnote */}
-        <div className="flex items-center gap-2.5 p-3 rounded-xl bg-amber-50/80 border border-amber-200/60 text-xs text-amber-900">
-          <ClockIcon className="w-4 h-4 text-amber-700 shrink-0 select-none" aria-hidden="true" />
+        <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600">
+          <ClockIcon className="w-4 h-4 text-slate-400 shrink-0 select-none" aria-hidden="true" />
           <p className="m-0 leading-relaxed font-normal">
             Please keep this window open while AI crafts goals and checks rubric compliance. This typically takes 5 to 15 seconds.
           </p>

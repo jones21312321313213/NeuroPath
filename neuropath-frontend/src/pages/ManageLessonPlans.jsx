@@ -31,14 +31,14 @@ import {
 
 const TABS = [
   {
-    key: "generate",
-    label: "Generate",
-    icon: <SparklesIcon className="w-4 h-4" aria-hidden="true" />,
-  },
-  {
     key: "info",
     label: "Info",
     icon: <InfoIcon className="w-4 h-4" aria-hidden="true" />,
+  },
+  {
+    key: "generate",
+    label: "Generate",
+    icon: <SparklesIcon className="w-4 h-4" aria-hidden="true" />,
   },
   {
     key: "manage",
@@ -350,6 +350,7 @@ function StudentGrid({ students, selectedID, onSelect }) {
 function GenerateTab({ onSave, setActivePage, onDraftStatusChange, promptNavigation }) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [directory, setDirectory] = useState([]);
   const [loadingDir, setLoadingDir] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -511,6 +512,7 @@ function GenerateTab({ onSave, setActivePage, onDraftStatusChange, promptNavigat
       });
       setGenerated(res);
       if (onDraftStatusChange) onDraftStatusChange(true);
+      toast.success(res.message || "Lesson plan sequence generated successfully.", { duration: 5000 });
     } catch (err) {
       setError(err.message || "Failed to generate lesson plan.");
     } finally {
@@ -834,12 +836,6 @@ function GenerateTab({ onSave, setActivePage, onDraftStatusChange, promptNavigat
             </div>
           </div>
 
-          {generated.message && (
-            <div className="ts-success-msg flex items-center gap-1.5">
-              <CheckIcon className="w-4 h-4 text-emerald-600 flex-shrink-0" aria-hidden="true" />
-              <span>{generated.message}</span>
-            </div>
-          )}
           {saved && (
             <div className="ts-success-msg flex items-center gap-1.5" style={{ marginTop: 8 }}>
               <CheckIcon className="w-4 h-4 text-emerald-600 flex-shrink-0" aria-hidden="true" />
