@@ -178,15 +178,18 @@ STORAGES = {
 # ── CORS SETTINGS ───────────────────────────────────────
 # Origins the React app is served from. Defaults cover local development; set
 # CORS_ALLOWED_ORIGINS in .env to authorize a deployed frontend origin.
-CORS_ALLOWED_ORIGINS = env.list(
-    'CORS_ALLOWED_ORIGINS',
-    default=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
-)
+CORS_ALLOWED_ORIGINS = [
+    origin.rstrip('/')
+    for origin in env.list(
+        'CORS_ALLOWED_ORIGINS',
+        default=[
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ],
+    )
+]
 
 # Allows credential sharing and session syncing across your local ports
 CORS_ALLOW_CREDENTIALS = True
@@ -196,13 +199,16 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 
 
 # Add this right below your CORS settings!
-CSRF_TRUSTED_ORIGINS = env.list(
-    'CSRF_TRUSTED_ORIGINS',
-    default=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
-)
+CSRF_TRUSTED_ORIGINS = [
+    origin.rstrip('/')
+    for origin in env.list(
+        'CSRF_TRUSTED_ORIGINS',
+        default=[
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ],
+    )
+]
 
 # ── Production Security Hardening ───────────────────────
 if not DEBUG and not TESTING:
