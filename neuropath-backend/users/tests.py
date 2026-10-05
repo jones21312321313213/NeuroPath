@@ -279,9 +279,16 @@ class UsersAuthAndTenantIsolationTests(TestCase):
         }, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-    def test_listing_all_teacher_accounts_requires_authentication(self):
+    def test_listing_all_teacher_accounts_is_prohibited(self):
+        """Listing the full directory of teachers is prohibited to prevent reconnaissance."""
+        # Unauthenticated GET
         response = self.client.get('/api/users/teachers/')
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+        # Authenticated GET
+        self._auth(self.token1)
+        response_auth = self.client.get('/api/users/teachers/')
+        self.assertEqual(response_auth.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
     # ---- Unauthenticated access must be rejected ----
 
@@ -942,6 +949,121 @@ class StudentDataEncryptionAtRestTests(TestCase):
         self.assertEqual(refreshed.name, "")
         self.assertEqual(refreshed.guardian_name, "")
         self.assertEqual(refreshed.diagnosis, "")
+
+
+class AuthSecurityHardeningTests(APITestCase):
+    """
+    Security verification tests for Issue #234:
+    - Rejection of GET on teacher creation / registration (preventing directory harvesting).
+    - Invalidation and rotation of DRF token upon password change.
+    - Rate throttling on TeacherLoginController.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='security.teacher@example.com',
+            email='security.teacher@example.com',
+            password='InitialPassword123!',
+            first_name='Security',
+            last_name='Tester'
+        )
+        self.teacher = Teacher.objects.create(
+            name='Security Tester',
+            email='security.teacher@example.com',
+            passwordHash='hashed'
+        )
+        self.token = Token.objects.create(user=self.user)
+
+    def test_teacher_directory_harvesting_is_blocked(self):
+        """GET requests to /api/users/register/ and /api/users/teachers/ must return 405."""
+        # Unauthenticated
+        res_anon_reg = self.client.get('/api/users/register/')
+        self.assertEqual(res_anon_reg.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+        res_anon_tch = self.client.get('/api/users/teachers/')
+        self.assertEqual(res_anon_tch.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+        # Authenticated
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        res_auth_reg = self.client.get('/api/users/register/')
+        self.assertEqual(res_auth_reg.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+        res_auth_tch = self.client.get('/api/users/teachers/')
+        self.assertEqual(res_auth_tch.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_password_change_revokes_old_token_and_issues_new_token(self):
+        """When a user changes their password, old tokens must be revoked to stop session hijacking."""
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        old_token_key = self.token.key
+
+        update_url = reverse('teacher-profile-update')
+        response = self.client.patch(update_url, {
+            'first_name': 'Security',
+            'last_name': 'Tester',
+            'email': 'security.teacher@example.com',
+            'password': 'BrandNewPassword456!',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        new_token_key = response.data.get('token')
+        self.assertIsNotNone(new_token_key)
+        self.assertNotEqual(old_token_key, new_token_key)
+
+        # The old token must be deleted from database
+        self.assertFalse(Token.objects.filter(key=old_token_key).exists())
+        self.assertTrue(Token.objects.filter(key=new_token_key).exists())
+
+        # Old token must now be rejected with 401
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {old_token_key}')
+        reject_response = self.client.get(reverse('student-create-list'))
+        self.assertEqual(reject_response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # New token must authenticate successfully
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {new_token_key}')
+        accept_response = self.client.get(reverse('student-create-list'))
+        self.assertEqual(accept_response.status_code, status.HTTP_200_OK)
+
+    def test_profile_update_without_password_change_preserves_existing_token(self):
+        """Updating name/email without password change must not revoke the current token."""
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        old_token_key = self.token.key
+
+        update_url = reverse('teacher-profile-update')
+        response = self.client.patch(update_url, {
+            'first_name': 'UpdatedFirst',
+            'last_name': 'UpdatedLast',
+            'email': 'security.teacher@example.com',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Token is unchanged and not sent as rotated
+        self.assertNotIn('token', response.data)
+        self.assertTrue(Token.objects.filter(key=old_token_key).exists())
+
+    def test_login_scoped_rate_throttling(self):
+        """Exceeding the scoped login rate limit must return HTTP 429 Too Many Requests."""
+        from rest_framework.throttling import ScopedRateThrottle
+
+        login_url = reverse('teacher-login')
+        payload = {'email': 'security.teacher@example.com', 'password': 'WrongPassword123!'}
+
+        # Patch THROTTLE_RATES to test 3 attempts per minute limit
+        with mock.patch.dict(ScopedRateThrottle.THROTTLE_RATES, {'auth_login': '3/minute'}):
+            throttled_client = APIClient()
+
+            # Attempts 1, 2, 3 should fail authentication (401) but not be throttled (429)
+            res1 = throttled_client.post(login_url, payload, format='json')
+            self.assertEqual(res1.status_code, status.HTTP_401_UNAUTHORIZED)
+
+            res2 = throttled_client.post(login_url, payload, format='json')
+            self.assertEqual(res2.status_code, status.HTTP_401_UNAUTHORIZED)
+
+            res3 = throttled_client.post(login_url, payload, format='json')
+            self.assertEqual(res3.status_code, status.HTTP_401_UNAUTHORIZED)
+
+            # Attempt 4 must be rate-limited by DRF with 429 Too Many Requests
+            res4 = throttled_client.post(login_url, payload, format='json')
+            self.assertEqual(res4.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
 
 
 

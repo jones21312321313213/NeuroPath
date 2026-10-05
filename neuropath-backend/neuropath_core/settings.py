@@ -224,6 +224,18 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.ScopedRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        # Unconstrained rates during automated test execution to prevent false 429s in unit test suites
+        'anon': '10000/minute' if TESTING else '100/minute',
+        'user': '10000/minute' if TESTING else '1000/minute',
+        'auth_login': '10000/minute' if TESTING else '5/minute',
+        'auth_register': '10000/minute' if TESTING else '10/minute',
+    },
 }
 
 # AI SERVICES CONFIGURATION
