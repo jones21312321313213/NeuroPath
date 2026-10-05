@@ -121,6 +121,11 @@ export function AuthProvider({ children }) {
 
       const data = await usersAPI.updateProfile(formData);
 
+      // If password was changed, update active token in localStorage to match the newly rotated token
+      if (data && data.token) {
+        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.token);
+      }
+
       // Unpack response payload before merging (handles { user: ... }, { teacher: ... }, or flat)
       const updatedUser = (data && (data.user || data.teacher)) || data || {};
 

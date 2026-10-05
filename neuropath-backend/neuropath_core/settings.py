@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 import os
 import sys
+import base64
+import hashlib
 from pathlib import Path
 import environ
 
@@ -30,16 +32,24 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-production-environment')
 
+# Student PII AES-256 Fernet Encryption Key
+# Derives deterministic key from SECRET_KEY if not explicitly set in .env
+def _derive_fernet_key(secret: str) -> str:
+    digest = hashlib.sha256(secret.encode()).digest()
+    return base64.urlsafe_b64encode(digest).decode()
+
+STUDENT_PII_ENCRYPTION_KEY = env('STUDENT_PII_ENCRYPTION_KEY', default=_derive_fernet_key(SECRET_KEY))
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool('DEBUG', default=False)
 
-# Hosts this backend will answer for. Defaults match what DEBUG mode allowed
-# implicitly; set ALLOWED_HOSTS in .env to serve a non-localhost deployment
-# without editing this file.
-ALLOWED_HOSTS = env.list(
-    'ALLOWED_HOSTS',
-    default=['localhost', '127.0.0.1', '[::1]'] if DEBUG else [],
-)
+# Hosts this backend will answer for.
+# Always ensures local loopback is included so container healthchecks succeed.
+ALLOWED_HOSTS = list(set(
+    ['localhost', '127.0.0.1', '[::1]'] +
+    env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', '[::1]'] if DEBUG else [])
+))
+
 
 
 # Application definition
@@ -111,9 +121,9 @@ else:
         }
     }
 
-# Require SSL connection when connecting to Supabase / cloud DBs in production
+# Require SSL connection when connecting to Supabase / cloud DBs
 db_host = str(DATABASES['default'].get('HOST', '')).lower()
-if not DEBUG and ('supabase' in db_host or 'aws' in db_host or 'pooler' in db_host):
+if 'supabase' in db_host or 'pooler' in db_host or (not DEBUG and 'aws' in db_host):
     DATABASES['default'].setdefault('OPTIONS', {})['sslmode'] = 'require'
 
 
@@ -214,6 +224,18 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.ScopedRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        # Unconstrained rates during automated test execution to prevent false 429s in unit test suites
+        'anon': '10000/minute' if TESTING else '100/minute',
+        'user': '10000/minute' if TESTING else '1000/minute',
+        'auth_login': '10000/minute' if TESTING else '5/minute',
+        'auth_register': '10000/minute' if TESTING else '10/minute',
+    },
 }
 
 # AI SERVICES CONFIGURATION

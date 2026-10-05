@@ -279,9 +279,16 @@ class UsersAuthAndTenantIsolationTests(TestCase):
         }, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-    def test_listing_all_teacher_accounts_requires_authentication(self):
+    def test_listing_all_teacher_accounts_is_prohibited(self):
+        """Listing the full directory of teachers is prohibited to prevent reconnaissance."""
+        # Unauthenticated GET
         response = self.client.get('/api/users/teachers/')
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+        # Authenticated GET
+        self._auth(self.token1)
+        response_auth = self.client.get('/api/users/teachers/')
+        self.assertEqual(response_auth.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
     # ---- Unauthenticated access must be rejected ----
 
@@ -820,6 +827,244 @@ class StudentCreateTeacherResolutionTests(APITestCase):
         with self.assertRaises(ValidationError) as ctx:
             serializer.save()
         self.assertIn('teacher', ctx.exception.detail)
+
+
+class StudentDataEncryptionAtRestTests(TestCase):
+    """
+    Validates application-layer AES-256 (Fernet) field-level encryption at rest.
+    Guarantees that database compromises / dumps leak zero plaintext PII, while
+    Django ORM provides 100% transparent access.
+    """
+
+    def setUp(self):
+        self.teacher = Teacher.objects.create(
+            name="Teacher Test",
+            email="teacher.crypto@example.com",
+            passwordHash="hashed_pw"
+        )
+        self.plaintext_name = "Alex Sensitive"
+        self.plaintext_guardian = "Jane Doe Sensitive"
+        self.plaintext_diagnosis = "Autism Spectrum Disorder Level 1"
+        self.plaintext_asd = "Hyper-reactive to unexpected noises"
+        self.plaintext_assessment = "Visual learner with strong spatial reasoning"
+
+        self.student = StudentProfile.objects.create(
+            teacher=self.teacher,
+            name=self.plaintext_name,
+            guardian_name=self.plaintext_guardian,
+            diagnosis=self.plaintext_diagnosis,
+            asdBackground=self.plaintext_asd,
+            assessmentResult=self.plaintext_assessment,
+            age=8,
+            grade=2
+        )
+
+    def test_student_pii_is_ciphered_at_rest_in_raw_database(self):
+        """Raw SQL query must return ciphertext starting with Fernet header and ZERO plaintext."""
+        from django.db import connection
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'SELECT "name", "guardian_name", "diagnosis", "asdBackground", "assessmentResult" '
+                'FROM "users_studentprofile" WHERE "studentID" = %s',
+                [self.student.studentID]
+            )
+            raw_row = cursor.fetchone()
+
+        raw_name, raw_guardian, raw_diag, raw_asd, raw_assess = raw_row
+
+        # Ciphertext must start with Fernet version token prefix 'gAAAAA'
+        self.assertTrue(raw_name.startswith('gAAAAA'), f"Expected ciphertext, got: {raw_name}")
+        self.assertTrue(raw_guardian.startswith('gAAAAA'), f"Expected ciphertext, got: {raw_guardian}")
+        self.assertTrue(raw_diag.startswith('gAAAAA'), f"Expected ciphertext, got: {raw_diag}")
+        self.assertTrue(raw_asd.startswith('gAAAAA'), f"Expected ciphertext, got: {raw_asd}")
+        self.assertTrue(raw_assess.startswith('gAAAAA'), f"Expected ciphertext, got: {raw_assess}")
+
+        # Plaintext must NOT exist in raw database columns
+        self.assertNotIn(self.plaintext_name, raw_name)
+        self.assertNotIn(self.plaintext_guardian, raw_guardian)
+        self.assertNotIn(self.plaintext_diagnosis, raw_diag)
+        self.assertNotIn(self.plaintext_asd, raw_asd)
+        self.assertNotIn(self.plaintext_assessment, raw_assess)
+
+    def test_django_orm_transparently_decrypts_fields(self):
+        """Django ORM query must decrypt ciphertext transparently in RAM."""
+        refreshed = StudentProfile.objects.get(pk=self.student.pk)
+        self.assertEqual(refreshed.name, self.plaintext_name)
+        self.assertEqual(refreshed.guardian_name, self.plaintext_guardian)
+        self.assertEqual(refreshed.diagnosis, self.plaintext_diagnosis)
+        self.assertEqual(refreshed.asdBackground, self.plaintext_asd)
+        self.assertEqual(refreshed.assessmentResult, self.plaintext_assessment)
+
+    def test_double_save_does_not_double_encrypt(self):
+        """Saving an already-loaded student must not corrupt or double-encrypt data."""
+        self.student.save()
+        self.student.save()
+
+        refreshed = StudentProfile.objects.get(pk=self.student.pk)
+        self.assertEqual(refreshed.name, self.plaintext_name)
+        self.assertEqual(refreshed.guardian_name, self.plaintext_guardian)
+        self.assertEqual(refreshed.diagnosis, self.plaintext_diagnosis)
+
+    def test_legacy_unencrypted_database_rows_fallback_gracefully_and_encrypt_on_save(self):
+        """
+        Rows written before encryption migration (unencrypted plaintext in DB)
+        must load without crashing, and encrypt upon subsequent save.
+        """
+        from django.db import connection
+
+        legacy_name = "Legacy Plaintext Student"
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'UPDATE "users_studentprofile" SET "name" = %s WHERE "studentID" = %s',
+                [legacy_name, self.student.studentID]
+            )
+
+        # ORM loads legacy plaintext gracefully
+        loaded = StudentProfile.objects.get(pk=self.student.studentID)
+        self.assertEqual(loaded.name, legacy_name)
+
+        # Saving converts the legacy plaintext into encrypted ciphertext
+        loaded.save()
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'SELECT "name" FROM "users_studentprofile" WHERE "studentID" = %s',
+                [self.student.studentID]
+            )
+            raw_name = cursor.fetchone()[0]
+
+        self.assertTrue(raw_name.startswith('gAAAAA'))
+        self.assertNotIn(legacy_name, raw_name)
+
+    def test_blank_and_empty_strings_handled_properly(self):
+        """Empty optional fields should not fail or produce erroneous decryption."""
+        blank_student = StudentProfile.objects.create(
+            teacher=self.teacher,
+            name="",
+            guardian_name="",
+            diagnosis=""
+        )
+        refreshed = StudentProfile.objects.get(pk=blank_student.pk)
+        self.assertEqual(refreshed.name, "")
+        self.assertEqual(refreshed.guardian_name, "")
+        self.assertEqual(refreshed.diagnosis, "")
+
+
+class AuthSecurityHardeningTests(APITestCase):
+    """
+    Security verification tests for Issue #234:
+    - Rejection of GET on teacher creation / registration (preventing directory harvesting).
+    - Invalidation and rotation of DRF token upon password change.
+    - Rate throttling on TeacherLoginController.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='security.teacher@example.com',
+            email='security.teacher@example.com',
+            password='InitialPassword123!',
+            first_name='Security',
+            last_name='Tester'
+        )
+        self.teacher = Teacher.objects.create(
+            name='Security Tester',
+            email='security.teacher@example.com',
+            passwordHash='hashed'
+        )
+        self.token = Token.objects.create(user=self.user)
+
+    def test_teacher_directory_harvesting_is_blocked(self):
+        """GET requests to /api/users/register/ and /api/users/teachers/ must return 405."""
+        # Unauthenticated
+        res_anon_reg = self.client.get('/api/users/register/')
+        self.assertEqual(res_anon_reg.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+        res_anon_tch = self.client.get('/api/users/teachers/')
+        self.assertEqual(res_anon_tch.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+        # Authenticated
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        res_auth_reg = self.client.get('/api/users/register/')
+        self.assertEqual(res_auth_reg.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+        res_auth_tch = self.client.get('/api/users/teachers/')
+        self.assertEqual(res_auth_tch.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_password_change_revokes_old_token_and_issues_new_token(self):
+        """When a user changes their password, old tokens must be revoked to stop session hijacking."""
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        old_token_key = self.token.key
+
+        update_url = reverse('teacher-profile-update')
+        response = self.client.patch(update_url, {
+            'first_name': 'Security',
+            'last_name': 'Tester',
+            'email': 'security.teacher@example.com',
+            'password': 'BrandNewPassword456!',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        new_token_key = response.data.get('token')
+        self.assertIsNotNone(new_token_key)
+        self.assertNotEqual(old_token_key, new_token_key)
+
+        # The old token must be deleted from database
+        self.assertFalse(Token.objects.filter(key=old_token_key).exists())
+        self.assertTrue(Token.objects.filter(key=new_token_key).exists())
+
+        # Old token must now be rejected with 401
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {old_token_key}')
+        reject_response = self.client.get(reverse('student-create-list'))
+        self.assertEqual(reject_response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # New token must authenticate successfully
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {new_token_key}')
+        accept_response = self.client.get(reverse('student-create-list'))
+        self.assertEqual(accept_response.status_code, status.HTTP_200_OK)
+
+    def test_profile_update_without_password_change_preserves_existing_token(self):
+        """Updating name/email without password change must not revoke the current token."""
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        old_token_key = self.token.key
+
+        update_url = reverse('teacher-profile-update')
+        response = self.client.patch(update_url, {
+            'first_name': 'UpdatedFirst',
+            'last_name': 'UpdatedLast',
+            'email': 'security.teacher@example.com',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Token is unchanged and not sent as rotated
+        self.assertNotIn('token', response.data)
+        self.assertTrue(Token.objects.filter(key=old_token_key).exists())
+
+    def test_login_scoped_rate_throttling(self):
+        """Exceeding the scoped login rate limit must return HTTP 429 Too Many Requests."""
+        from rest_framework.throttling import ScopedRateThrottle
+
+        login_url = reverse('teacher-login')
+        payload = {'email': 'security.teacher@example.com', 'password': 'WrongPassword123!'}
+
+        # Patch THROTTLE_RATES to test 3 attempts per minute limit
+        with mock.patch.dict(ScopedRateThrottle.THROTTLE_RATES, {'auth_login': '3/minute'}):
+            throttled_client = APIClient()
+
+            # Attempts 1, 2, 3 should fail authentication (401) but not be throttled (429)
+            res1 = throttled_client.post(login_url, payload, format='json')
+            self.assertEqual(res1.status_code, status.HTTP_401_UNAUTHORIZED)
+
+            res2 = throttled_client.post(login_url, payload, format='json')
+            self.assertEqual(res2.status_code, status.HTTP_401_UNAUTHORIZED)
+
+            res3 = throttled_client.post(login_url, payload, format='json')
+            self.assertEqual(res3.status_code, status.HTTP_401_UNAUTHORIZED)
+
+            # Attempt 4 must be rate-limited by DRF with 429 Too Many Requests
+            res4 = throttled_client.post(login_url, payload, format='json')
+            self.assertEqual(res4.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
 
 
 
