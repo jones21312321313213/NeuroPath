@@ -9,7 +9,6 @@ import {
   UserIcon,
   TargetIcon,
   LightBulbIcon,
-  DocumentIcon,
   WrenchIcon,
   ChevronDownIcon,
   ChevronRightIcon,

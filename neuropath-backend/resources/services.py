@@ -1,6 +1,6 @@
 # resources/services.py
 import json
-from .models import TeachingStrategy, LessonPlan
+from .models import TeachingStrategy
 from iep_management.models import IEPGoal
 from iep_management.ai_engine import AIEngineService
 from iep_management.privacy_utils import (
