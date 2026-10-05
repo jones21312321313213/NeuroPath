@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     InstructionalSupportDashboardAPIView, 
+    ResourceDashboardStatsAPIView,
     LessonPlanViewSet, 
     GenerateLessonPlanAPIView,
     LessonPlanReadOnlyViewSet,
@@ -33,6 +34,7 @@ router.register(r'teaching-strategies', TeachingStrategyViewSet, basename='teach
 urlpatterns = [
     # Dashboard Gateway (Module 3.0)
     path('instructional-support/', InstructionalSupportDashboardAPIView.as_view(), name='instructional-dashboard'),
+    path('dashboard-stats/', ResourceDashboardStatsAPIView.as_view(), name='resource-dashboard-stats'),
     
     # Generation Workflow Endpoint (Module 3.1.1)
     path('generate-lesson/', GenerateLessonPlanAPIView.as_view(), name='generate-lesson-plan'),
@@ -45,9 +47,6 @@ urlpatterns = [
     
     # Delete Lesson Workflow Endpoint (Module 3.1.4)
     path('delete-lesson/<int:pk>/', LessonPlanDeleteAPIView.as_view(), name='delete-lesson-plan'),
-    
-    # ViewSet Endpoints
-    path('', include(router.urls)),
     
     # Generate Visual Aid Workflow (Module 3.2.1)
     path('generate-visual-aid/', GenerateVisualAidAPIView.as_view(), name='generate-visual-aid'),

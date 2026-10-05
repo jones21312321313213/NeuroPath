@@ -1,25 +1,30 @@
 from django.db.models import Q
 import io
+import json
 import re
-import uuid
 import requests as http_client
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.enums import TA_CENTER
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status,viewsets
-from rest_framework.permissions import IsAuthenticated 
+from rest_framework.permissions import IsAuthenticated
 from django.http import HttpResponse
-from django.contrib.auth.models import User as DjangoUser
 from users.models import Teacher,StudentProfile
+from users.utils import get_teacher_for_user
 from iep_management.models import IEPModel, IEPGoal, IEPObjectiveRow
 from .models import LessonPlan,VisualAid,TeachingStrategy
 from .services import TeachingStrategyGenerationService,LessonPlanGenerationService
-#from .permissions import UserAuthPermissions uncomment this back to check user auth and permission
+from .permissions import UserAuthPermissions
+from iep_management.privacy_utils import verify_ra10173_consent, ConsentRequiredException
+
+
+def _goal_owned_by_teacher(iep_goal, teacher):
+    return bool(teacher and iep_goal and iep_goal.iep.studentID.teacher_id == teacher.teacherID)
 
 
 def _safe_generated_details(details):
@@ -117,14 +122,41 @@ from .serializers import (
 )
 
 
-def _latest_saved_iep_for_student(student):
-    """Return the newest saved IEP/version for one student."""
+def _iep_summary_payload(iep):
+    """Structured IEP descriptor for selection menus and instructional support materials."""
+    created = iep.createdDate.strftime('%B %d, %Y') if iep.createdDate else ''
+    return {
+        "iepID": iep.pk,
+        "version": iep.version,
+        "createdDate": created,
+        "label": f"IEP Version {iep.version} ({created})" if created else f"IEP Version {iep.version}",
+        "program_type": iep.program_type or "Graded",
+        "accommodations": iep.accommodations or "",
+        "difficulties": iep.difficulties or "",
+    }
+
+
+def _saved_ieps_for_student(student):
+    """Return all saved IEPs/versions for one student, newest first."""
     return (
         IEPModel.objects
         .filter(studentID=student)
         .order_by('-version', '-createdDate', '-iepID')
-        .first()
     )
+
+
+def _latest_saved_iep_for_student(student):
+    """Return the newest saved IEP/version for one student."""
+    return _saved_ieps_for_student(student).first()
+
+
+def _get_iep_for_student(student, iep_id=None):
+    """Return specific IEP if requested and owned by student, else latest saved IEP."""
+    if iep_id:
+        iep = IEPModel.objects.filter(studentID=student, iepID=iep_id).first()
+        if iep:
+            return iep
+    return _latest_saved_iep_for_student(student)
 
 
 def _goal_option_payload(goal):
@@ -140,20 +172,31 @@ def _goal_option_payload(goal):
     }
 
 
-def _latest_goal_options_for_student(student):
-    latest_iep = _latest_saved_iep_for_student(student)
-    if not latest_iep:
+def _goal_options_for_iep(iep):
+    """Extract goal options for a specific IEP instance."""
+    if not iep:
         return []
 
-    _sync_goals_from_generated_details(latest_iep)
+    _sync_goals_from_generated_details(iep)
 
     goals = (
         IEPGoal.objects
-        .filter(iep=latest_iep)
+        .filter(iep=iep)
         .prefetch_related('objective_rows')
         .order_by('goalID')
     )
     return [_goal_option_payload(goal) for goal in goals]
+
+
+def _goal_options_for_student(student, iep_id=None):
+    """Return goal options for a student, optionally targeted to an IEP ID."""
+    iep = _get_iep_for_student(student, iep_id=iep_id)
+    return _goal_options_for_iep(iep)
+
+
+def _latest_goal_options_for_student(student):
+    return _goal_options_for_student(student, iep_id=None)
+
 
 
 
@@ -164,17 +207,11 @@ def _latest_goal_options_for_student(student):
 #              the workspace environment, and serving profile metadata.
 # =====================================================================
 class InstructionalSupportDashboardAPIView(APIView):
-    # TEMPORARY: Allow anyone to view this page during local development testing
-    permission_classes = [] 
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        # 1. Check if a real user is logged in via Django sessions/JWT
-        if request.user and request.user.is_authenticated:
-            lookup_email = request.user.email
-        else:
-            # DEVELOPMENT BYPASS: Default to your test teacher's email from your Supabase screenshot
-            lookup_email = "test@gmail.com" 
-            
+        lookup_email = request.user.email
+
         try:
             # Query the custom teacher profile database row
             teacher_profile = Teacher.objects.get(email=lookup_email)
@@ -198,6 +235,45 @@ class InstructionalSupportDashboardAPIView(APIView):
                 {"error": f"Teacher profile metadata for '{lookup_email}' not found."}, 
                 status=status.HTTP_404_NOT_FOUND
             )
+
+
+class ResourceDashboardStatsAPIView(APIView):
+    """
+    GET /api/resources/dashboard-stats/
+    Returns total count of all teacher-owned instructional resources
+    (Lesson Plans + Teaching Strategies + Visual Aids).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        teacher = get_teacher_for_user(request.user)
+        if not teacher:
+            return Response({
+                'total': 0,
+                'total_resources': 0,
+                'lesson_plans': 0,
+                'teaching_strategies': 0,
+                'visual_aids': 0,
+            }, status=status.HTTP_200_OK)
+
+        lesson_plans_count = LessonPlan.objects.filter(
+            iep_goal__iep__studentID__teacher=teacher
+        ).count()
+        teaching_strategies_count = TeachingStrategy.objects.filter(
+            iep_goal__iep__studentID__teacher=teacher
+        ).count()
+        visual_aids_count = VisualAid.objects.filter(
+            iep_goal__iep__studentID__teacher=teacher
+        ).count()
+        total = lesson_plans_count + teaching_strategies_count + visual_aids_count
+
+        return Response({
+            'total': total,
+            'total_resources': total,
+            'lesson_plans': lesson_plans_count,
+            'teaching_strategies': teaching_strategies_count,
+            'visual_aids': visual_aids_count,
+        }, status=status.HTTP_200_OK)
 
 # =====================================================================
 # SDD COMPONENT: LessonPlanManagerService
@@ -223,36 +299,44 @@ class LessonPlanManagerService:
 # =====================================================================
 class LessonPlanViewSet(viewsets.ModelViewSet):
     # ModelViewSet automatically handles list(), retrieve(), update(), and destroy()!
-    queryset = LessonPlan.objects.all()
     serializer_class = LessonPlanSerializer
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready for security
+    permission_classes = [UserAuthPermissions]
+
+    def get_queryset(self):
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return LessonPlan.objects.none()
+        return LessonPlan.objects.filter(iep_goal__iep__studentID__teacher=teacher)
 
     def create(self, request, *args, **kwargs):
-        # Action: "Generate Lesson Plan"
-        student_id = request.data.get('studentID')
-        title = request.data.get('title', 'AI Generated Lesson')
-        topic = request.data.get('topic', 'General Learning')
-        
-        # Trigger the workflow manager
-        generated_content = LessonPlanManagerService.generate_lesson_payload(student_id, topic)
-        
-        # Package the data for the database
-        payload = {
-            'studentID': student_id,
-            'title': title,
-            'content': generated_content,
-            'status': 'Generated'
-        }
-        
-        # Validate and Save Record
-        serializer = self.get_serializer(data=payload)
+        """Matches Sequence Diagram: [Generate / Save Lesson Plan]"""
+        serializer = self.get_serializer(data=request.data)
+
         if serializer.is_valid():
+            teacher = get_teacher_for_user(request.user)
+            if not _goal_owned_by_teacher(serializer.validated_data.get('iep_goal'), teacher):
+                return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if not serializer.validated_data.get('lessonContent'):
+                iep_goal = serializer.validated_data.get('iep_goal')
+                student_id = iep_goal.iep.studentID.pk
+                topic = request.data.get('topic') or serializer.validated_data.get('title') or 'General Learning'
+
+                generated_content = LessonPlanManagerService.generate_lesson_payload(student_id, topic)
+                serializer.validated_data['lessonContent'] = (
+                    json.dumps(generated_content)
+                    if isinstance(generated_content, (dict, list))
+                    else str(generated_content)
+                )
+
+            serializer.validated_data.setdefault('status', request.data.get('status', 'Generated'))
             self.perform_create(serializer)
+
             return Response({
                 "message": "Lesson Plan generated and saved successfully.",
                 "data": serializer.data
             }, status=status.HTTP_201_CREATED)
-            
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -301,7 +385,7 @@ class LessonPlanGeneratorService:
 #              Routes manual parameters to the generation service.
 # =====================================================================
 class GenerateLessonPlanAPIView(APIView):
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
 
     # =================================================================
     # GET: Populates the React Frontend Directory (Step 1 & 2)
@@ -311,21 +395,8 @@ class GenerateLessonPlanAPIView(APIView):
         Returns the directory of students and their IEP Goal Areas for the
         Generate Lesson Plan tab.
         """
-        teacher_id = request.query_params.get("teacher_id")
-        
-        # If no teacher_id is provided in query params, fallback to the authenticated user's ID
-        if not teacher_id and hasattr(request.user, 'id'):
-            teacher_id = request.user.id
-
-        if teacher_id:
-            try:
-                django_user = DjangoUser.objects.get(pk=int(teacher_id))
-                teacher = Teacher.objects.get(email=django_user.email)
-                students = StudentProfile.objects.filter(teacher=teacher)
-            except (DjangoUser.DoesNotExist, Teacher.DoesNotExist, ValueError, TypeError):
-                students = StudentProfile.objects.none()
-        else:
-            students = StudentProfile.objects.none()
+        teacher = get_teacher_for_user(request.user)
+        students = StudentProfile.objects.filter(teacher=teacher) if teacher else StudentProfile.objects.none()
 
         if not students.exists():
             return Response(
@@ -333,13 +404,29 @@ class GenerateLessonPlanAPIView(APIView):
                 status=status.HTTP_200_OK
             )
 
+        student_id = request.query_params.get('student_id') or request.query_params.get('studentID')
+        iep_id = request.query_params.get('iep_id') or request.query_params.get('iepID') or request.query_params.get('iep')
+
         directory_payload = []
         for student in students:
-            # Use the saved Section C goals from the student's latest IEP/version.
-            goal_list = _latest_goal_options_for_student(student)
+            ieps = _saved_ieps_for_student(student)
+            iep_list = [_iep_summary_payload(iep) for iep in ieps]
+
+            target_iep = None
+            if iep_id and student_id and str(student.pk) == str(student_id):
+                target_iep = ieps.filter(pk=iep_id).first()
+            elif iep_id and not student_id:
+                target_iep = ieps.filter(pk=iep_id).first()
+
+            if not target_iep:
+                target_iep = ieps.first()
+
+            goal_list = _goal_options_for_iep(target_iep) if target_iep else []
             directory_payload.append({
                 "studentID": student.pk,
                 "studentName": student.name,
+                "availableIEPs": iep_list,
+                "selectedIEPID": target_iep.pk if target_iep else None,
                 "availableGoals": goal_list,
             })
 
@@ -354,11 +441,31 @@ class GenerateLessonPlanAPIView(APIView):
         
         if serializer.is_valid():
             goal_id = serializer.validated_data['goalID']
+            teacher = get_teacher_for_user(request.user)
+
+            try:
+                target_goal = IEPGoal.objects.select_related('iep__studentID').get(pk=goal_id)
+            except IEPGoal.DoesNotExist:
+                return Response(
+                    {"error": "Targeted IEP Goal could not be located."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            if not teacher or not _goal_owned_by_teacher(target_goal, teacher):
+                return Response(
+                    {"error": "Targeted IEP Goal could not be located."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            try:
+                verify_ra10173_consent(target_goal.iep.studentID)
+            except ConsentRequiredException as e:
+                return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
             try:
                 # 2. Trigger the new Service to generate the JSON Array
                 generated_data = LessonPlanGenerationService.execute_generation(
-                    goal_id=goal_id, 
+                    goal_id=goal_id,
                     teacher_instance=request.user
                 )
                 
@@ -416,10 +523,18 @@ class LessonPlanFilterService:
 # =====================================================================
 class LessonPlanReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = LessonPlanDetailSerializer
+    permission_classes = [UserAuthPermissions]
 
     def get_queryset(self):
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return LessonPlan.objects.none()
         # 🚀 REWIRED: select_related must follow the new chain to optimize database speed
-        base_queryset = LessonPlan.objects.all().select_related('iep_goal__iep__studentID').order_by('-dateCreated')
+        base_queryset = (
+            LessonPlan.objects.filter(iep_goal__iep__studentID__teacher=teacher)
+            .select_related('iep_goal__iep__studentID')
+            .order_by('-dateCreated')
+        )
         filtered_queryset = LessonPlanFilterService.apply_filters(base_queryset, self.request.query_params)
         return filtered_queryset
     
@@ -447,25 +562,27 @@ class LessonPlanUpdateService:
 #              and PUT (to receive updated payloads and execute modifications).
 # =====================================================================
 class LessonPlanEditAPIView(APIView):
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
 
     def get(self, request, pk, *args, **kwargs):
         """Matches Class Diagram: retrieveCurrentPlan(lessonID)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            # Locate the exact record in Supabase
-            lesson_plan = LessonPlan.objects.get(pk=pk)
-            
+            # Locate the exact record, scoped to the requesting teacher's own students
+            lesson_plan = LessonPlan.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
+
             # Re-use our read-only serializer to send the data safely
             serializer = LessonPlanDetailSerializer(lesson_plan)
             return Response(serializer.data, status=status.HTTP_200_OK)
-            
+
         except LessonPlan.DoesNotExist:
             return Response({"error": "Lesson Plan not found."}, status=status.HTTP_404_NOT_FOUND)
 
     def put(self, request, pk, *args, **kwargs):
         """Matches Class Diagram: validateAndSubmitEdits(lessonID, updatedPayload)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            lesson_plan = LessonPlan.objects.get(pk=pk)
+            lesson_plan = LessonPlan.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except LessonPlan.DoesNotExist:
             return Response({"error": "Lesson Plan not found."}, status=status.HTTP_404_NOT_FOUND)
         
@@ -508,22 +625,20 @@ class LessonPlanDeletionService:
 # =====================================================================
 class LessonPlanDeleteAPIView(APIView):
     # Enforces the UserAuthPermissions security component
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
 
     def delete(self, request, pk, *args, **kwargs):
         """Matches Class Diagram: executeDeletion(lessonID)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            lesson_plan = LessonPlan.objects.get(pk=pk)
+            # 1. SDD Security Check: verifyAuthorization(userID, lessonID) — scope the
+            #    lookup itself to the requesting teacher's own students.
+            lesson_plan = LessonPlan.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except LessonPlan.DoesNotExist:
             return Response(
-                {"error": "Lesson Plan not found or already deleted."}, 
+                {"error": "Lesson Plan not found or already deleted."},
                 status=status.HTTP_404_NOT_FOUND
             )
-            
-        # 1. SDD Security Check: verifyAuthorization(userID, lessonID)
-        # Note: Once authentication is fully turned on, you would ensure:
-        # if lesson_plan.student.teacher != request.user:
-        #     return Response({"error": "Unauthorized"}, status=403)
 
         # 2. Trigger Business Logic Service
         LessonPlanDeletionService.execute_deletion(lesson_plan)
@@ -538,10 +653,15 @@ class LessonPlanDeleteAPIView(APIView):
 #              to look up collective rosters or specific file paths.
 # =====================================================================
 class VisualAidViewSet(viewsets.ModelViewSet):
-    http_method_names = ['get', 'post', 'delete']
-    queryset = VisualAid.objects.all().order_by('-dateCreated')
+    http_method_names = ['get', 'post', 'patch', 'put', 'delete']
     serializer_class = VisualAidSerializer
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
+
+    def get_queryset(self):
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return VisualAid.objects.none()
+        return VisualAid.objects.filter(iep_goal__iep__studentID__teacher=teacher).order_by('-dateCreated')
 
     def list(self, request, *args, **kwargs):
         """Return saved visual aids, optionally filtered by student.
@@ -564,13 +684,7 @@ class VisualAidViewSet(viewsets.ModelViewSet):
             return Response([], status=status.HTTP_200_OK)
             
         serializer = self.get_serializer(queryset, many=True)
-        response_data = serializer.data
-        
-        # Route every image URL through the MediaStreamingService
-        for item in response_data:
-            item['imageUrl'] = MediaStreamingService.resolve_secure_stream_url(item['imageUrl'])
-            
-        return Response(response_data, status=status.HTTP_200_OK)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def retrieve(self, request, *args, **kwargs):
         """Matches Sequence Diagram: handleSelectVisualAid(aidId) -> return storageUrl String"""
@@ -580,31 +694,53 @@ class VisualAidViewSet(viewsets.ModelViewSet):
             return Response({"error": "Visual aid asset not found."}, status=status.HTTP_404_NOT_FOUND)
             
         serializer = self.get_serializer(instance)
-        response_data = serializer.data
-        
-        # Route the specific image URL through the MediaStreamingService
-        response_data['imageUrl'] = MediaStreamingService.resolve_secure_stream_url(instance.imageUrl)
-        
-        return Response(response_data, status=status.HTTP_200_OK)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
         """Matches Sequence Diagram: [Tab Option Selected = "Generate Visual Aid"]"""
         serializer = self.get_serializer(data=request.data)
-        
+
         if serializer.is_valid():
+            teacher = get_teacher_for_user(request.user)
+            if not _goal_owned_by_teacher(serializer.validated_data.get('iep_goal'), teacher):
+                return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
+
             self.perform_create(serializer)
             # Matches Sequence Diagram: "Return parsed JSON asset descriptors"
             return Response({
                 "message": "Visual Aid generated and saved successfully.",
                 "data": serializer.data
             }, status=status.HTTP_201_CREATED)
-            
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, *args, **kwargs):
+        return self.partial_update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        """Allows updating visual aid captions, steps_data, or title."""
+        try:
+            instance = self.get_object()
+        except VisualAid.DoesNotExist:
+            return Response({"error": "Visual Aid not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        teacher = get_teacher_for_user(request.user)
+        if not _goal_owned_by_teacher(instance.iep_goal, teacher):
+            return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        if serializer.is_valid():
+            self.perform_update(serializer)
+            return Response({
+                "message": "Visual Aid updated successfully.",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, *args, **kwargs):
         """
         Matches Sequence Diagram: [confirmDelete == true] -> handleConfirmDeletion(aidId)
-        Executes permission checks, drops the database row, and triggers cloud cleanup.
+        Executes permission checks and drops the database row.
         """
         try:
             instance = self.get_object()
@@ -614,34 +750,14 @@ class VisualAidViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # 1. Capture the file path URL before we erase the record from the database
-        target_image_url = instance.imageUrl
-
-        # 2. Drop the row from the Supabase PostgreSQL table (Classic Django ORM Link)
+        # Drop the row from the database
         self.perform_destroy(instance)
 
-        # 3. Trigger SDD Component: StorageCleanupWorker to maintain cloud hygiene
-        StorageCleanupWorker.purge_orphan_file(target_image_url)
-
-        # 4. Return successful execution state (204 No Content is standard for clean API deletes)
+        # Return successful execution state (204 No Content is standard for clean API deletes)
         return Response(
-            {"message": "Visual Aid database entry and storage file successfully deleted."},
+            {"message": "Visual Aid database entry successfully deleted."},
             status=status.HTTP_204_NO_CONTENT
         )
-        
-        
-# =====================================================================
-# SDD COMPONENT: SupabaseStorageManager
-# Description: Establishes secure cloud connections, managing binary data 
-#              streams and bucket directory paths for the visual assets.
-# =====================================================================
-class SupabaseStorageManager:
-    @staticmethod
-    def upload_temp_image(binary_data, filename_hint):
-        # In a production environment, this integrates with the supabase-py client 
-        # to push the binary image into your storage bucket.
-        # For now, we simulate a successful cloud upload returning a public URL.
-        return f"https://your-supabase-project.supabase.co/storage/v1/object/public/visual-aids/preview_{filename_hint}.png"
     
     
 
@@ -653,68 +769,183 @@ class SupabaseStorageManager:
 class PDFExportEngine:
     @staticmethod
     def compile_pdf(visual_aid_record):
-        """Fetch the image and embed it into a proper PDF using ReportLab."""
-        from reportlab.platypus import SimpleDocTemplate, Image as RLImage, Paragraph, Spacer
+        """Fetch the image and embed it into a proper PDF using ReportLab with 3-step flashcards."""
+        import base64
+        import tempfile
+        import os
+        from reportlab.platypus import SimpleDocTemplate, Image as RLImage, Paragraph, Spacer, Table, TableStyle
         from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib import colors
         from reportlab.lib.units import mm
-        import tempfile, os
 
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
             buffer,
             pagesize=A4,
-            rightMargin=20*mm, leftMargin=20*mm,
-            topMargin=20*mm, bottomMargin=20*mm,
+            rightMargin=15*mm, leftMargin=15*mm,
+            topMargin=15*mm, bottomMargin=15*mm,
         )
         styles = getSampleStyleSheet()
+
+        card_title_style = ParagraphStyle(
+            'CardTitle',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=11,
+            leading=14,
+            textColor=colors.HexColor('#1E293B'),
+        )
+        card_desc_style = ParagraphStyle(
+            'CardDesc',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=9,
+            leading=12,
+            textColor=colors.HexColor('#475569'),
+        )
+        step_badge_style = ParagraphStyle(
+            'StepBadge',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=9,
+            leading=11,
+            textColor=colors.HexColor('#2563EB'),
+        )
+
         story = []
 
         # Title
         story.append(Paragraph(visual_aid_record.title, styles['Title']))
-        story.append(Spacer(1, 6*mm))
-
-        # Fetch the image and write to a temp file so ReportLab can read it
-        try:
-            img_resp = http_client.get(visual_aid_record.imageUrl, timeout=30, allow_redirects=True)
-            img_resp.raise_for_status()
-            suffix = '.jpg'
-            ct = img_resp.headers.get('Content-Type', '')
-            if 'png' in ct:
-                suffix = '.png'
-            elif 'webp' in ct:
-                suffix = '.webp'
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                tmp.write(img_resp.content)
-                tmp_path = tmp.name
-
-            # Scale image to fit page width
-            page_width = A4[0] - 40*mm
-            rl_img = RLImage(tmp_path, width=page_width, height=page_width * 0.75)
-            story.append(rl_img)
-            story.append(Spacer(1, 4*mm))
-        except Exception as e:
-            story.append(Paragraph(f"Image could not be loaded: {e}", styles['Normal']))
-            story.append(Paragraph(f"URL: {visual_aid_record.imageUrl}", styles['Normal']))
-            tmp_path = None
-
-        # Metadata
-        if visual_aid_record.prompt_used:
-            story.append(Spacer(1, 4*mm))
-            story.append(Paragraph("<b>Prompt used:</b>", styles['Normal']))
-            story.append(Paragraph(visual_aid_record.prompt_used, styles['Normal']))
-
         story.append(Spacer(1, 4*mm))
-        story.append(Paragraph(
+
+        # Student / Goal metadata
+        goal_text = ""
+        student_name = ""
+        if visual_aid_record.iep_goal:
+            goal_text = visual_aid_record.iep_goal.annual_goal or ""
+            if visual_aid_record.iep_goal.iep and visual_aid_record.iep_goal.iep.studentID:
+                student_name = visual_aid_record.iep_goal.iep.studentID.name
+
+        meta_text = []
+        if student_name:
+            meta_text.append(f"<b>Student:</b> {student_name}")
+        if goal_text:
+            meta_text.append(f"<b>Target Goal:</b> {goal_text}")
+        if meta_text:
+            story.append(Paragraph(" &nbsp; | &nbsp; ".join(meta_text), styles['Normal']))
+            story.append(Spacer(1, 4*mm))
+
+        tmp_cleanup_paths = []
+
+        # Render 3-step sequential cards table if steps_data is available
+        steps = visual_aid_record.steps_data or []
+        if steps and isinstance(steps, list) and len(steps) > 0:
+            table_cells = []
+            for step_item in steps[:3]:
+                step_num = step_item.get("step", 1)
+                title = step_item.get("title", f"Step {step_num}")
+                desc = step_item.get("description", "")
+                step_img_url = step_item.get("imageUrl") or visual_aid_record.imageUrl or ""
+                cell_flowables = [
+                    Paragraph(f"STEP {step_num}", step_badge_style),
+                    Spacer(1, 2*mm),
+                ]
+
+                # Embed step image into the flashcard cell
+                if step_img_url:
+                    try:
+                        s_tmp_path = None
+                        if step_img_url.startswith("data:image/"):
+                            s_head, s_enc = step_img_url.split(",", 1)
+                            s_raw = base64.b64decode(s_enc)
+                            s_suf = ".png" if "png" in s_head else ".jpg"
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=s_suf) as s_tmp:
+                                s_tmp.write(s_raw)
+                                s_tmp_path = s_tmp.name
+                        elif step_img_url.startswith("http://") or step_img_url.startswith("https://"):
+                            s_resp = http_client.get(step_img_url, timeout=15, allow_redirects=True)
+                            s_suf = ".png" if "png" in s_resp.headers.get("Content-Type", "") else ".jpg"
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=s_suf) as s_tmp:
+                                s_tmp.write(s_resp.content)
+                                s_tmp_path = s_tmp.name
+
+                        if s_tmp_path:
+                            tmp_cleanup_paths.append(s_tmp_path)
+                            thumb_w = ((A4[0] - 30*mm) / len(steps[:3])) - 8*mm
+                            cell_flowables.append(RLImage(s_tmp_path, width=thumb_w, height=thumb_w * 0.72))
+                            cell_flowables.append(Spacer(1, 2*mm))
+                    except Exception:
+                        pass
+
+                cell_flowables.extend([
+                    Paragraph(f"<b>{title}</b>", card_title_style),
+                    Spacer(1, 2*mm),
+                    Paragraph(desc, card_desc_style),
+                ])
+                table_cells.append(cell_flowables)
+
+            if table_cells:
+                col_width = (A4[0] - 30*mm) / len(table_cells)
+                step_table = Table([table_cells], colWidths=[col_width] * len(table_cells))
+                step_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
+                    ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#CBD5E1')),
+                    ('INNERGRID', (0, 0), (-1, -1), 1, colors.HexColor('#E2E8F0')),
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ('TOPPADDING', (0, 0), (-1, -1), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 10),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+                ]))
+                story.append(step_table)
+                story.append(Spacer(1, 5*mm))
+        else:
+            # Fallback for legacy visual aids without steps_data
+            tmp_path = None
+            try:
+                image_url = visual_aid_record.imageUrl or ""
+                if image_url.startswith("data:image/"):
+                    header, encoded = image_url.split(",", 1)
+                    img_data = base64.b64decode(encoded)
+                    suffix = ".png" if "png" in header else ".jpg"
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                        tmp.write(img_data)
+                        tmp_path = tmp.name
+                elif image_url.startswith("http://") or image_url.startswith("https://"):
+                    img_resp = http_client.get(image_url, timeout=30, allow_redirects=True)
+                    img_resp.raise_for_status()
+                    suffix = ".png" if "png" in img_resp.headers.get("Content-Type", "") else ".jpg"
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                        tmp.write(img_resp.content)
+                        tmp_path = tmp.name
+
+                if tmp_path:
+                    tmp_cleanup_paths.append(tmp_path)
+                    page_width = A4[0] - 30*mm
+                    rl_img = RLImage(tmp_path, width=page_width, height=page_width * 0.52)
+                    story.append(rl_img)
+                    story.append(Spacer(1, 6*mm))
+            except Exception as e:
+                story.append(Paragraph(f"Image could not be rendered: {e}", styles['Normal']))
+                story.append(Spacer(1, 4*mm))
+
+        # Footer notes
+        footer_parts = [
             f"Generated: {visual_aid_record.dateCreated.strftime('%B %d, %Y')}",
-            styles['Normal']
-        ))
+            "Classroom Task Analysis Visual Strip (Neurodivergent & ASD Instructional Aid)",
+        ]
+        story.append(Paragraph(" &bull; ".join(footer_parts), styles['Normal']))
 
         doc.build(story)
 
-        # Clean up temp file
-        if tmp_path and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+        # Clean up all temp files
+        for p in tmp_cleanup_paths:
+            if os.path.exists(p):
+                try:
+                    os.unlink(p)
+                except Exception:
+                    pass
 
         buffer.seek(0)
         return buffer
@@ -723,25 +954,137 @@ class PDFExportEngine:
 # =====================================================================
 # SDD COMPONENT: VisualAidGeneratorService
 # Description: Orchestrates the visual synthesis pipeline.
-#              Extracts IEP goal text and sensory data into a standard asset.
+#              Decomposes goals into 3 micro-steps via Gemini 1.5 Flash
+#              and generates composite 3-panel strips via Imagen 3.
 # =====================================================================
 class VisualAidGeneratorService:
     POLLINATIONS_BASE = "https://image.pollinations.ai/prompt"
+    IMAGEN_MODEL = "imagen-3.0-generate-002"
+    IMAGEN_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
     @staticmethod
-    def build_prompt(goal_text, extra_prompt, category, student_name):
+    def decompose_goal_into_steps(goal_text, extra_prompt="", category=""):
+        """
+        Decomposes the input learning goal or routine into 3 chronological,
+        numbered micro-steps using Gemini 1.5 Flash (with fallback heuristics).
+        Ensures strict RA 10173 compliance (no student PII in prompt).
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        from iep_management.ai_engine import AIEngineService
+
+        system_prompt = (
+            "You are an expert Special Education (SPED) instructional designer specialized in Autism Spectrum Disorder (ASD). "
+            "Your task is to break down a learning goal, daily living skill, or classroom routine into exactly 3 chronological, numbered micro-steps "
+            "(Step 1, Step 2, Step 3) for a Task Analysis visual aid strip. "
+            "Return strictly a JSON object with a single key 'steps' containing a list of 3 objects. "
+            "Each object must have the following keys:\n"
+            "- 'step': integer (1, 2, or 3)\n"
+            "- 'title': short action title (2 to 4 words, e.g. 'Hold Spoon', 'Scoop Food', 'Bring to Mouth')\n"
+            "- 'description': clear 1-sentence step instruction / caption for the learner\n"
+            "- 'visual_cue': concise visual description for an illustration panel, flat vector style, high-contrast, child-friendly\n"
+            "Do not include any student personal names or PII. Return valid JSON only."
+        )
+
+        user_prompt = f"Goal/Routine: {goal_text}"
+        if category:
+            user_prompt += f"\nSkill Category: {category}"
+        if extra_prompt:
+            user_prompt += f"\nAdditional Context / Teacher Notes: {extra_prompt}"
+
+        steps = None
+        try:
+            raw_response = AIEngineService._call_gemini(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                max_tokens=600,
+                json_mode=True
+            )
+            parsed = json.loads(raw_response)
+            if isinstance(parsed, dict) and "steps" in parsed and isinstance(parsed["steps"], list) and len(parsed["steps"]) == 3:
+                steps = parsed["steps"]
+            elif isinstance(parsed, list) and len(parsed) == 3:
+                steps = parsed
+        except Exception as gemini_err:
+            logger.warning("Gemini step decomposition failed: %s. Attempting Groq fallback.", gemini_err)
+            try:
+                raw_response = AIEngineService._call_groq(
+                    prompt=user_prompt,
+                    system_prompt=system_prompt,
+                    max_tokens=600,
+                    json_mode=True
+                )
+                parsed = json.loads(raw_response)
+                if isinstance(parsed, dict) and "steps" in parsed and isinstance(parsed["steps"], list) and len(parsed["steps"]) == 3:
+                    steps = parsed["steps"]
+                elif isinstance(parsed, list) and len(parsed) == 3:
+                    steps = parsed
+            except Exception as groq_err:
+                logger.warning("Groq step decomposition failed: %s. Using heuristic fallback.", groq_err)
+
+        if not steps:
+            goal_clean = (goal_text or "Task").strip()
+            steps = [
+                {
+                    "step": 1,
+                    "title": "Prepare & Start",
+                    "description": f"Get ready to begin {goal_clean.lower()}.",
+                    "visual_cue": f"Child preparing materials for {goal_clean.lower()}"
+                },
+                {
+                    "step": 2,
+                    "title": "Perform Action",
+                    "description": f"Carry out the main steps of {goal_clean.lower()} carefully.",
+                    "visual_cue": f"Child actively engaged in {goal_clean.lower()}"
+                },
+                {
+                    "step": 3,
+                    "title": "Complete & Finish",
+                    "description": f"Finish {goal_clean.lower()} successfully and check work.",
+                    "visual_cue": f"Child happily completing {goal_clean.lower()}"
+                }
+            ]
+
+        standardized_steps = []
+        for idx, s in enumerate(steps[:3], start=1):
+            title = str(s.get("title") or f"Step {idx}").strip()
+            desc = str(s.get("description") or s.get("caption") or f"Perform step {idx}.").strip()
+            visual_cue = str(s.get("visual_cue") or desc).strip()
+            standardized_steps.append({
+                "step": idx,
+                "title": title,
+                "description": desc,
+                "visual_cue": visual_cue
+            })
+
+        return standardized_steps
+
+    @staticmethod
+    def build_prompt(goal_text, extra_prompt, category, student_name=None, steps=None):
         parts = [
-            f"Educational visual aid for a student named {student_name}",
+            "Educational visual aid for an elementary learner",
             f"IEP Goal: {goal_text}",
         ]
-        if extra_prompt:
-            parts.append(f"Additional context: {extra_prompt}")
         if category:
             parts.append(f"Skill category: {category}")
-        parts.append(
-            "Style: clean, colorful, distraction-free, child-friendly flat illustration, "
-            "low visual clutter, bright white background, simple bold icons, no text"
-        )
+        if extra_prompt:
+            parts.append(f"Additional context: {extra_prompt}")
+
+        if steps and len(steps) >= 3:
+            parts.append(
+                "A 3-panel horizontal sequential comic strip task analysis visual aid strip for neurodivergent and autistic learners. "
+                "Three distinct rectangular panels side-by-side from left to right showing chronological steps: "
+                f"Panel 1 (Step 1 - {steps[0]['title']}): {steps[0].get('visual_cue', steps[0]['description'])}. "
+                f"Panel 2 (Step 2 - {steps[1]['title']}): {steps[1].get('visual_cue', steps[1]['description'])}. "
+                f"Panel 3 (Step 3 - {steps[2]['title']}): {steps[2].get('visual_cue', steps[2]['description'])}. "
+                "Style: clean, colorful, child-friendly flat vector illustration, thick distinct dividing borders separating each panel, "
+                "labeled with large '1', '2', '3' step indicators, high contrast, low visual clutter, bright white background, no complex textures"
+            )
+        else:
+            parts.append(
+                "Style: clean, colorful, distraction-free, child-friendly flat illustration, "
+                "low visual clutter, bright white background, simple bold icons, no text"
+            )
         return ". ".join(parts)
 
     @staticmethod
@@ -755,34 +1098,225 @@ class VisualAidGeneratorService:
         return resp.content, resp.headers.get("Content-Type", "image/jpeg"), url
 
     @staticmethod
-    def upload_to_supabase(image_bytes, filename, content_type):
-        """Upload image bytes to Supabase Storage. Returns public URL."""
+    def fetch_image_from_imagen(prompt):
+        """
+        Generate image using Google Gemini Imagen 3 model via Generative Language API.
+        Returns a base64 data URI string.
+        """
         from django.conf import settings
-        supabase_url = getattr(settings, "SUPABASE_URL", None)
-        supabase_key = getattr(settings, "SUPABASE_SERVICE_KEY", None)
-        bucket = getattr(settings, "SUPABASE_STORAGE_BUCKET", "visual-aids")
+        api_key = getattr(settings, 'GEMINI_API_KEY', '')
+        if not api_key or api_key in ('MISSING_KEY', ''):
+            raise ValueError("Valid GEMINI_API_KEY not configured for Imagen 3.")
 
-        if not supabase_url or not supabase_key:
-            return None  # Not configured — caller will use Pollinations URL directly
+        model = getattr(settings, 'IMAGEN_MODEL', VisualAidGeneratorService.IMAGEN_MODEL)
+        url = f"{VisualAidGeneratorService.IMAGEN_API_URL}/{model}:predict"
 
-        upload_url = f"{supabase_url}/storage/v1/object/{bucket}/{filename}"
         headers = {
-            "Authorization": f"Bearer {supabase_key}",
-            "Content-Type": content_type,
-            "x-upsert": "true",
+            "Content-Type": "application/json",
+            "x-goog-api-key": api_key,
         }
-        resp = http_client.post(upload_url, data=image_bytes, headers=headers, timeout=30)
+
+        payload = {
+            "instances": [
+                {"prompt": prompt}
+            ],
+            "parameters": {
+                "sampleCount": 1,
+                "aspectRatio": "16:9",
+                "outputMimeType": "image/jpeg"
+            }
+        }
+
+        resp = http_client.post(url, headers=headers, json=payload, timeout=30)
         resp.raise_for_status()
-        # Build the public URL
-        public_url = f"{supabase_url}/storage/v1/object/public/{bucket}/{filename}"
-        return public_url
+        data = resp.json()
+
+        predictions = data.get("predictions", [])
+        if not predictions or not isinstance(predictions, list):
+            raise ValueError("No predictions returned by Imagen.")
+
+        first_pred = predictions[0]
+        b64_bytes = first_pred.get("bytesBase64Encoded")
+        if not b64_bytes:
+            raise ValueError("Imagen prediction did not contain 'bytesBase64Encoded'.")
+
+        mime_type = first_pred.get("mimeType", "image/jpeg")
+        return f"data:{mime_type};base64,{b64_bytes}"
+
+    @staticmethod
+    def build_step_prompt(step, category="", extra_prompt=""):
+        step_num = step.get("step", 1)
+        title = step.get("title", f"Step {step_num}")
+        visual_cue = step.get("visual_cue") or step.get("description", "")
+        parts = [
+            "Educational task analysis visual aid for an elementary learner",
+            f"Step {step_num}: {title}",
+            f"Action: {visual_cue}",
+        ]
+        if category:
+            parts.append(f"Skill category: {category}")
+        if extra_prompt:
+            parts.append(f"Context: {extra_prompt}")
+        parts.append(
+            "Style: clean, colorful, child-friendly flat vector illustration, simple bold shapes, "
+            "high contrast, bright white background, clear visual action, low visual clutter, no text"
+        )
+        return ". ".join(parts)
+
+    @classmethod
+    def generate_step_images(cls, steps, category="", extra_prompt=""):
+        """
+        Generates individual pictures for each of the 3 micro-steps.
+        Stores the resulting image URL or data URI in step['imageUrl'].
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        for step in steps:
+            step_prompt = cls.build_step_prompt(step, category=category, extra_prompt=extra_prompt)
+            try:
+                step['imageUrl'] = cls.fetch_image(step_prompt)
+            except Exception as e:
+                logger.warning("Step %s image generation failed: %s", step.get('step'), e)
+                try:
+                    _, _, poll_url = cls.fetch_image_from_pollinations(step_prompt)
+                    step['imageUrl'] = poll_url
+                except Exception:
+                    step['imageUrl'] = ""
+        return steps
+
+    @staticmethod
+    def stitch_three_panels(steps):
+        """
+        Stitches the 3 step images side-by-side into a single 3-panel horizontal strip image.
+        Returns a data:image/jpeg;base64,... URI. Falls back to steps[0]['imageUrl'] on error.
+        """
+        import base64
+        import io
+        from PIL import Image, ImageOps
+
+        panel_images = []
+        for step in steps[:3]:
+            img_url = step.get('imageUrl') or ''
+            try:
+                if img_url.startswith('data:image/'):
+                    _, encoded = img_url.split(',', 1)
+                    raw_bytes = base64.b64decode(encoded)
+                elif img_url.startswith('http://') or img_url.startswith('https://'):
+                    resp = http_client.get(img_url, timeout=20, allow_redirects=True)
+                    raw_bytes = resp.content
+                else:
+                    continue
+                pil_img = Image.open(io.BytesIO(raw_bytes)).convert('RGB')
+                panel_images.append(pil_img)
+            except Exception:
+                continue
+
+        if len(panel_images) != 3:
+            for s in steps:
+                if s.get('imageUrl'):
+                    return s.get('imageUrl')
+            return ''
+
+        panel_w, panel_h = 400, 300
+        border = 10
+        total_w = (panel_w * 3) + (border * 4)
+        total_h = panel_h + (border * 2)
+
+        composite = Image.new('RGB', (total_w, total_h), color=(241, 245, 249))
+
+        for idx, p_img in enumerate(panel_images):
+            fitted = ImageOps.fit(p_img, (panel_w, panel_h), Image.Resampling.LANCZOS)
+            x_offset = border + idx * (panel_w + border)
+            composite.paste(fitted, (x_offset, border))
+
+        buf = io.BytesIO()
+        composite.save(buf, format='JPEG', quality=90)
+        b64 = base64.b64encode(buf.getvalue()).decode('ascii')
+        return f"data:image/jpeg;base64,{b64}"
+
+    @classmethod
+    def fetch_image_from_hf(cls, prompt):
+        """
+        Generate image using Hugging Face serverless InferenceClient (FLUX.1-schnell primary, SDXL fallback).
+        Returns a base64 data URI string: data:image/jpeg;base64,...
+        """
+        import io
+        import base64
+        import logging
+        from django.conf import settings
+        from huggingface_hub import InferenceClient
+
+        logger = logging.getLogger(__name__)
+
+        hf_token = getattr(settings, 'HF_TOKEN', '')
+        if not hf_token or hf_token in ('MISSING_TOKEN', ''):
+            raise ValueError("Valid HF_TOKEN not configured for Hugging Face inference.")
+
+        client = InferenceClient(token=hf_token)
+        primary_model = getattr(settings, 'HF_IMAGE_MODEL', 'black-forest-labs/FLUX.1-schnell')
+        candidate_models = [primary_model]
+        for fallback_m in ['black-forest-labs/FLUX.1-schnell', 'stabilityai/stable-diffusion-xl-base-1.0']:
+            if fallback_m not in candidate_models:
+                candidate_models.append(fallback_m)
+
+        last_err = None
+        for model_name in candidate_models:
+            try:
+                pil_image = client.text_to_image(prompt, model=model_name)
+                buf = io.BytesIO()
+                pil_image.convert("RGB").save(buf, format="JPEG", quality=88)
+                b64_str = base64.b64encode(buf.getvalue()).decode("ascii")
+                return f"data:image/jpeg;base64,{b64_str}"
+            except Exception as e:
+                logger.warning("HF text_to_image with %s failed: %s", model_name, e)
+                last_err = e
+
+        raise last_err or RuntimeError("Hugging Face image generation failed on all models.")
+
+    @classmethod
+    def fetch_image(cls, prompt):
+        """
+        Generates an image according to the configured engine priority:
+        1. Google Imagen 3 (if GEMINI_API_KEY configured)
+        2. Hugging Face FLUX.1-schnell / SDXL (if HF_TOKEN configured)
+        3. Pollinations AI (free fallback)
+        """
+        import logging
+        from django.conf import settings
+        logger = logging.getLogger(__name__)
+
+        # 1. Google Imagen 3
+        api_key = getattr(settings, 'GEMINI_API_KEY', '')
+        if api_key and api_key not in ('MISSING_KEY', ''):
+            try:
+                return cls.fetch_image_from_imagen(prompt)
+            except Exception as imagen_err:
+                logger.warning("Imagen 3 generation failed (%s). Attempting Hugging Face fallback.", imagen_err)
+
+        # 2. Hugging Face FLUX.1-schnell
+        hf_token = getattr(settings, 'HF_TOKEN', '')
+        if hf_token and hf_token not in ('MISSING_TOKEN', ''):
+            try:
+                return cls.fetch_image_from_hf(prompt)
+            except Exception as hf_err:
+                logger.warning("Hugging Face FLUX generation failed (%s). Attempting Pollinations fallback.", hf_err)
+
+        # 3. Pollinations AI fallback
+        _, _, pollinations_url = cls.fetch_image_from_pollinations(prompt)
+        return pollinations_url
 
 
 # =====================================================================
 # SDD CONTROLLER: GenerateVisualAidAPIView
 # =====================================================================
 class GenerateVisualAidAPIView(APIView):
+    permission_classes = [UserAuthPermissions]
+
     def post(self, request, *args, **kwargs):
+        import logging
+        logger = logging.getLogger(__name__)
+
         iep_goal_id = request.data.get("iep_goal_id")
         extra_prompt = request.data.get("prompt", "").strip()
         category = request.data.get("category", "").strip()
@@ -793,6 +1327,7 @@ class GenerateVisualAidAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        teacher = get_teacher_for_user(request.user)
         try:
             target_goal = IEPGoal.objects.select_related("iep__studentID").get(pk=iep_goal_id)
             student = target_goal.iep.studentID
@@ -801,45 +1336,106 @@ class GenerateVisualAidAPIView(APIView):
         except Exception as e:
             return Response({"error": f"Goal lookup failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # Build the image prompt
+        if not _goal_owned_by_teacher(target_goal, teacher):
+            return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Enforce RA 10173 Consent Check
+        try:
+            verify_ra10173_consent(student)
+        except ConsentRequiredException as e:
+            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
+
+        # 1. Sequential Prompt Decomposition (Gemini 1.5 Flash)
         try:
             goal_text = target_goal.annual_goal or "learning and development"
+            steps = VisualAidGeneratorService.decompose_goal_into_steps(
+                goal_text=goal_text,
+                extra_prompt=extra_prompt,
+                category=category
+            )
+        except Exception as e:
+            logger.warning("Decomposition error: %s. Using default steps.", e)
+            steps = VisualAidGeneratorService.decompose_goal_into_steps(
+                goal_text=goal_text,
+                extra_prompt="",
+                category=""
+            )
+
+        # 2. Build the descriptive overall prompt
+        try:
             full_prompt = VisualAidGeneratorService.build_prompt(
-                goal_text, extra_prompt, category, student.name
+                goal_text, extra_prompt, category, None, steps=steps
             )
         except Exception as e:
             return Response({"error": f"Prompt build failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # Fetch image from Pollinations (server-side — no CORS)
+        # 3. Generate 3 individual pictures (one for each micro-step)
         try:
-            image_bytes, content_type, pollinations_url = VisualAidGeneratorService.fetch_image_from_pollinations(full_prompt)
-        except Exception as e:
-            return Response(
-                {"error": f"Image generation failed: {str(e)}"},
-                status=status.HTTP_502_BAD_GATEWAY,
+            steps = VisualAidGeneratorService.generate_step_images(
+                steps, category=category, extra_prompt=extra_prompt
             )
+        except Exception as e:
+            logger.warning("Step images generation error: %s", e)
 
-        # Try to upload to Supabase Storage for a permanent URL
-        filename = f"visual-aid-{student.studentID}-{uuid.uuid4().hex[:8]}.jpg"
-        final_url = pollinations_url  # default fallback
+        # 4. Stitch panels into composite 3-panel storyboard strip
         try:
-            supabase_result = VisualAidGeneratorService.upload_to_supabase(image_bytes, filename, content_type)
-            if supabase_result:
-                final_url = supabase_result
+            final_url = VisualAidGeneratorService.stitch_three_panels(steps)
         except Exception:
-            pass  # Supabase not configured — use Pollinations URL directly
+            final_url = ""
+
+        if not final_url:
+            for s in steps:
+                if s.get("imageUrl"):
+                    final_url = s["imageUrl"]
+                    break
+
+        if not final_url:
+            try:
+                final_url = VisualAidGeneratorService.fetch_image(full_prompt)
+            except Exception as e:
+                return Response(
+                    {"error": f"Image generation failed: {str(e)}"},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
 
         # Build a descriptive title
         category_label = f"{category} — " if category else ""
         title = f"{category_label}{student.name} Visual Aid"
 
-        # Save the VisualAid record to the database
+        save_to_db = request.data.get("save_to_db", True)
+        if isinstance(save_to_db, str):
+            save_to_db = save_to_db.lower() not in ("false", "0", "no")
+
+        if not save_to_db:
+            import datetime
+            return Response(
+                {
+                    "message": "Visual Aid draft generated successfully.",
+                    "data": {
+                        "visualAidID": None,
+                        "isDraft": True,
+                        "iep_goal": target_goal.pk,
+                        "iep_goal_id": target_goal.pk,
+                        "title": title,
+                        "imageUrl": final_url,
+                        "studentName": student.name,
+                        "goalName": target_goal.annual_goal,
+                        "steps_data": steps,
+                        "prompt_used": full_prompt,
+                        "dateCreated": datetime.date.today().isoformat(),
+                    },
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        # Save the VisualAid record to the database with steps_data
         try:
             visual_aid = VisualAid.objects.create(
                 iep_goal=target_goal,
                 title=title,
                 imageUrl=final_url,
                 prompt_used=full_prompt,
+                steps_data=steps,
             )
         except Exception as e:
             return Response({"error": f"Database save failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -849,10 +1445,14 @@ class GenerateVisualAidAPIView(APIView):
                 "message": "Visual Aid generated and saved successfully.",
                 "data": {
                     "visualAidID": visual_aid.visualAidID,
+                    "isDraft": False,
                     "title": visual_aid.title,
                     "imageUrl": final_url,
                     "studentName": student.name,
+                    "steps_data": visual_aid.steps_data,
                     "dateCreated": str(visual_aid.dateCreated),
+                    "prompt_used": visual_aid.prompt_used,
+                    "iep_goal": target_goal.pk,
                 },
             },
             status=status.HTTP_201_CREATED,
@@ -864,9 +1464,12 @@ class GenerateVisualAidAPIView(APIView):
 #              PDF Export Engine to return a downloadable file response.
 # =====================================================================
 class ExportVisualAidAPIView(APIView):
+    permission_classes = [UserAuthPermissions]
+
     def get(self, request, pk, *args, **kwargs):
+        teacher = get_teacher_for_user(request.user)
         try:
-            visual_aid = VisualAid.objects.get(pk=pk)
+            visual_aid = VisualAid.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except VisualAid.DoesNotExist:
             return Response({"error": "Saved Visual Aid not found."}, status=status.HTTP_404_NOT_FOUND)
             
@@ -878,46 +1481,8 @@ class ExportVisualAidAPIView(APIView):
         response['Content-Disposition'] = f'attachment; filename="VisualAid_{visual_aid.visualAidID}.pdf"'
         
         return response
-    
-    
-# =====================================================================
-# SDD COMPONENT: MediaStreamingService
-# Description: Utility module handling cloud file retrieval workflows. 
-#              Resolves raw binary paths into secure URL streams.
-# =====================================================================
-class MediaStreamingService:
-    @staticmethod
-    def resolve_secure_stream_url(raw_storage_url):
-        if not raw_storage_url:
-            return None
-            
-        # In a fully integrated production environment, you would use the 
-        # supabase-py client here to request a signed, time-limited URL.
-        # For now, we simulate the security handshake by appending a mock stream token.
-        secure_stream_url = f"{raw_storage_url}?stream_auth=verified_token_123"
-        return secure_stream_url
-    
-    
-# =====================================================================
-# SDD COMPONENT: StorageCleanupWorker
-# Description: Post-delete handler that communicates with Supabase 
-#              storage buckets to permanently purge orphan binary files.
-# =====================================================================
-class StorageCleanupWorker:
-    @staticmethod
-    def purge_orphan_file(image_url):
-        if not image_url:
-            return False
-            
-        # In your production setup with the real supabase client, you'd extract 
-        # the file path from the URL and run:
-        # supabase.storage.from_('visual-aids').remove(['path/to/file.png'])
-        
-        # Simulating cloud storage file extraction and successful removal log
-        print(f"[StorageCleanupWorker] Successfully purged orphan asset from Supabase: {image_url}")
-        return True
-    
-    
+
+
 # =====================================================================
 # SDD COMPONENT: StrategyGenerationManagerService
 # Description: Orchestrates automated strategy generation sequences.
@@ -926,20 +1491,7 @@ class StorageCleanupWorker:
 class StrategyGenerationManagerService:
     @staticmethod
     def generate_strategy_content(title, student_profile):
-        # 1. Format the target prompt for the AI Core Engine
-        ai_prompt = (
-            f"☁️system☁️Act as a Special Education Behavioral Specialist.☁️/system☁️\n"
-            f"☁️user☁️\n"
-            f"Generate an actionable teaching strategy focusing on: {title}.\n"
-            f"Student Profile Context:\n"
-            f"- Diagnosis: {student_profile.diagnosis}\n"
-            f"- Support Needs: {student_profile.support_needs}\n"
-            f"- Sensory Profile: {student_profile.sensory_preferences}\n"
-            f"- Interests/Reinforcers: {student_profile.interests}\n"
-            f"☁️/user☁️"
-        )
-        
-        # 2. Simulate the AI processing the pedagogical criteria
+        # Simulate the AI processing the pedagogical criteria
         mock_generated_text = (
             f"Strategy Overview for {title}:\n"
             f"- Break down the target task into smaller, manageable micro-steps tailored to a {student_profile.learning_style} learner.\n"
@@ -954,20 +1506,33 @@ class StrategyGenerationManagerService:
 # Description: Centralized API controller handling inbound pathways.
 # =====================================================================
 class TeachingStrategyViewSet(viewsets.ModelViewSet):
-    queryset = TeachingStrategy.objects.all().order_by('-dateCreated')
     serializer_class = TeachingStrategySerializer
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
+
+    def get_queryset(self):
+        teacher = get_teacher_for_user(self.request.user)
+        if not teacher:
+            return TeachingStrategy.objects.none()
+        return TeachingStrategy.objects.filter(iep_goal__iep__studentID__teacher=teacher).order_by('-dateCreated')
 
     def create(self, request, *args, **kwargs):
         """Matches Sequence Diagram: [Strategy Route Option = "Generate Teaching Strategy" Tab]"""
-        serializer = self.get_serializer(data=request.data)
-        
+        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        if 'iep_goal' not in data and 'goalID' in data:
+            data['iep_goal'] = data['goalID']
+        serializer = self.get_serializer(data=data)
+
         if serializer.is_valid():
+            teacher = get_teacher_for_user(request.user)
+            if not _goal_owned_by_teacher(serializer.validated_data.get('iep_goal'), teacher):
+                return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
+
             if not serializer.validated_data.get('strategyContent'):
-                student_profile = serializer.validated_data['student']
+                iep_goal = serializer.validated_data.get('iep_goal')
+                student_profile = iep_goal.iep.studentID
                 title = serializer.validated_data['title']
                 
-                # NEW: Pass the entire student_profile object, not just the name string!
+                # Pass the student_profile object resolved from the IEP goal foreign key
                 generated_content = StrategyGenerationManagerService.generate_strategy_content(
                     title=title, 
                     student_profile=student_profile 
@@ -977,9 +1542,10 @@ class TeachingStrategyViewSet(viewsets.ModelViewSet):
             
             self.perform_create(serializer)
             
+            res_serializer = StrategyRetrievalSerializer(serializer.instance)
             return Response({
-                "message": "Teaching Strategy successfully generated and securely saved.",
-                "data": serializer.data
+                "message": "Teaching Strategy successfully saved.",
+                "data": res_serializer.data
             }, status=status.HTTP_201_CREATED)
             
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -990,23 +1556,13 @@ class TeachingStrategyViewSet(viewsets.ModelViewSet):
 #              directory requests and POST execution requests.
 # =====================================================================
 class TeachingStrategyGenerationController(APIView):
-    # 🎯 1. THE BOUNCER: This forces the user to be logged in. 
+    # 🎯 1. THE BOUNCER: This forces the user to be logged in.
     # If there is no valid session/token, it instantly blocks them with a 401 Unauthorized error.
-    # permission_classes = [IsAuthenticated] 
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        from django.contrib.auth.models import User as DjangoUser
-
-        teacher_id = request.query_params.get("teacher_id")
-        if teacher_id:
-            try:
-                django_user = DjangoUser.objects.get(pk=int(teacher_id))
-                teacher = Teacher.objects.get(email=django_user.email)
-                students = StudentProfile.objects.filter(teacher=teacher)
-            except (DjangoUser.DoesNotExist, Teacher.DoesNotExist, ValueError, TypeError):
-                students = StudentProfile.objects.none()
-        else:
-            students = StudentProfile.objects.none()
+        teacher = get_teacher_for_user(request.user)
+        students = StudentProfile.objects.filter(teacher=teacher) if teacher else StudentProfile.objects.none()
 
         if not students.exists():
             return Response(
@@ -1014,13 +1570,29 @@ class TeachingStrategyGenerationController(APIView):
                 status=status.HTTP_200_OK
             )
 
+        student_id = request.query_params.get('student_id') or request.query_params.get('studentID')
+        iep_id = request.query_params.get('iep_id') or request.query_params.get('iepID') or request.query_params.get('iep')
+
         directory_payload = []
         for student in students:
-            # Use the saved Section C goals from the student's latest IEP/version.
-            goal_list = _latest_goal_options_for_student(student)
+            ieps = _saved_ieps_for_student(student)
+            iep_list = [_iep_summary_payload(iep) for iep in ieps]
+
+            target_iep = None
+            if iep_id and student_id and str(student.pk) == str(student_id):
+                target_iep = ieps.filter(pk=iep_id).first()
+            elif iep_id and not student_id:
+                target_iep = ieps.filter(pk=iep_id).first()
+
+            if not target_iep:
+                target_iep = ieps.first()
+
+            goal_list = _goal_options_for_iep(target_iep) if target_iep else []
             directory_payload.append({
                 "studentID": student.pk,
                 "studentName": student.name,
+                "availableIEPs": iep_list,
+                "selectedIEPID": target_iep.pk if target_iep else None,
                 "availableGoals": goal_list
             })
 
@@ -1043,27 +1615,32 @@ class TeachingStrategyGenerationController(APIView):
                 
             except IEPGoal.DoesNotExist:
                 return Response(
-                    {"error": "Targeted IEP Goal could not be located."}, 
+                    {"error": "Targeted IEP Goal could not be located."},
                     status=status.HTTP_404_NOT_FOUND
                 )
-                
+
+            teacher = get_teacher_for_user(request.user)
+            if not _goal_owned_by_teacher(target_goal, teacher):
+                return Response(
+                    {"error": "Targeted IEP Goal could not be located."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
             try:
-                # 2. Trigger the AI Generation & Database Save via our new Service
+                # 2. Trigger the AI Generation without saving to the database
                 # request.user contains the teacher automatically due to your auth middleware
-                saved_strategy = TeachingStrategyGenerationService.generate_and_save_strategy(
+                draft_strategy = TeachingStrategyGenerationService.generate_strategy(
                     goal_instance=target_goal,
                     teacher_instance=request.user
                 )
                 
-                # 3. Route the new database record through your existing UI serializer
-                # This ensures the React frontend gets the exact schema it expects
-                res_serializer = StrategyRetrievalSerializer(saved_strategy)
-                
                 return Response({
-                    "message": "Teaching strategy successfully generated and saved.",
-                    "data": res_serializer.data
-                }, status=status.HTTP_201_CREATED)
+                    "message": "Teaching strategy successfully generated.",
+                    "data": draft_strategy
+                }, status=status.HTTP_200_OK)
                 
+            except ConsentRequiredException as e:
+                return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
             except Exception as e:
                 return Response(
                     {"error": f"AI Generation Pipeline Failed: {str(e)}"}, 
@@ -1281,36 +1858,42 @@ class StrategyBinaryExportEngine:
     
     
 class TeachingStrategyQueryController(viewsets.ViewSet):
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
 
     def getSavedStrategies(self, request):
         """Matches Class Diagram: getSavedStrategies(studentID)"""
-        student_id = request.query_params.get('studentID')
-        
-        # Pull base query and run it through the Filter Service
-        base_queryset = TeachingStrategy.objects.all()
+        student_id = request.query_params.get('studentID') or request.query_params.get('student_id')
+        teacher = get_teacher_for_user(request.user)
+
+        if not teacher:
+            return Response([], status=status.HTTP_200_OK)
+
+        # Pull base query (scoped to the requesting teacher) and run it through the Filter Service
+        base_queryset = TeachingStrategy.objects.filter(iep_goal__iep__studentID__teacher=teacher)
         filtered_queryset = StrategyQueryFilterService.get_filtered_strategies(base_queryset, student_id)
-        
+
         if not filtered_queryset.exists():
             return Response([], status=status.HTTP_200_OK)
-            
+
         serializer = StrategyRetrievalSerializer(filtered_queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def getStrategyDetails(self, request, pk=None):
         """Matches Class Diagram: getStrategyDetails(strategyID)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            strategy = TeachingStrategy.objects.get(pk=pk)
+            strategy = TeachingStrategy.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except TeachingStrategy.DoesNotExist:
             return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
-            
+
         serializer = StrategyRetrievalSerializer(strategy)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def exportStrategyGuide(self, request, pk=None):
         """Matches Class Diagram: exportStrategyGuide(strategyID)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            strategy = TeachingStrategy.objects.get(pk=pk)
+            strategy = TeachingStrategy.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except TeachingStrategy.DoesNotExist:
             return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
             
@@ -1351,23 +1934,25 @@ class StrategyModificationService:
 #              pathways. Handles GET for preloading and PUT/PATCH for mutations.
 # =====================================================================
 class TeachingStrategyUpdateController(APIView):
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
 
     def get(self, request, pk, *args, **kwargs):
         """Matches Sequence Diagram: Populating historical data arrays"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            strategy = TeachingStrategy.objects.get(pk=pk)
+            strategy = TeachingStrategy.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except TeachingStrategy.DoesNotExist:
             return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
-            
+
         # Use the read-only retrieval serializer to securely format the dates/names
         serializer = StrategyRetrievalSerializer(strategy)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, pk, *args, **kwargs):
         """Matches Sequence Diagram: saveStrategyEdits(strategyID, updatedContent)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            strategy = TeachingStrategy.objects.get(pk=pk)
+            strategy = TeachingStrategy.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except TeachingStrategy.DoesNotExist:
             return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -1396,11 +1981,10 @@ class TeachingStrategyUpdateController(APIView):
 class StrategyRemovalService:
     @staticmethod
     def execute_extraction(strategy_record):
-        # SDD Security Enforcement: Multi-tenant boundary safety
-        # In a fully authenticated production state, you would check:
-        # if strategy_record.student.teacher != request.user: 
-        #     raise PermissionDenied("You do not have authorization to delete this record.")
-        
+        # Multi-tenant boundary safety is enforced by the caller (see
+        # TeachingStrategyDeleteController.delete), which only looks up
+        # strategy_record scoped to the requesting teacher's own students.
+
         # Execute the raw physical row deletion to the Supabase Postgres cluster
         strategy_record.delete()
         
@@ -1414,29 +1998,31 @@ class StrategyRemovalService:
 #              hydration and DELETE operations for destructive pipeline actions.
 # =====================================================================
 class TeachingStrategyDeleteController(APIView):
-    # permission_classes = [UserAuthPermissions] <-- Uncomment when ready
+    permission_classes = [UserAuthPermissions]
 
     def get(self, request, pk=None, *args, **kwargs):
+        teacher = get_teacher_for_user(request.user)
         if pk:
             try:
-                strategy = TeachingStrategy.objects.get(pk=pk)
+                strategy = TeachingStrategy.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
                 serializer = StrategyRetrievalSerializer(strategy)
                 return Response(serializer.data, status=status.HTTP_200_OK)
             except TeachingStrategy.DoesNotExist:
                 return Response({"error": "Strategy not found."}, status=status.HTTP_404_NOT_FOUND)
         else:
             serializer = StrategyDeleteValidationSerializer(data=request.query_params)
-            
+
             if serializer.is_valid():
                 student_id = serializer.validated_data.get('studentID')
                 if not student_id:
                     return Response({"error": "studentID parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
-                    
-                # 🚀 REWIRED: Traverse the new architectural chain!
+
+                # 🚀 REWIRED: Traverse the new architectural chain! (scoped to this teacher)
                 strategies = TeachingStrategy.objects.filter(
-                    iep_goal__iep__studentID__pk=student_id
+                    iep_goal__iep__studentID__pk=student_id,
+                    iep_goal__iep__studentID__teacher=teacher,
                 ).order_by('-dateCreated')
-                
+
                 if not strategies.exists():
                     return Response([], status=status.HTTP_200_OK)
                     
@@ -1447,11 +2033,12 @@ class TeachingStrategyDeleteController(APIView):
 
     def delete(self, request, pk, *args, **kwargs):
         """Matches Sequence Diagram: executeStrategyDeletion(strategyID)"""
+        teacher = get_teacher_for_user(request.user)
         try:
-            strategy = TeachingStrategy.objects.get(pk=pk)
+            strategy = TeachingStrategy.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
         except TeachingStrategy.DoesNotExist:
             return Response(
-                {"error": "Strategy record does not exist or has already been removed."}, 
+                {"error": "Strategy record does not exist or has already been removed."},
                 status=status.HTTP_404_NOT_FOUND
             )
             

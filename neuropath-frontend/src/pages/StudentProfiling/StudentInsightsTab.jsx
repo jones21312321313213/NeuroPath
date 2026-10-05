@@ -1,71 +1,89 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "../../styles/StudentInsight.css";
-import { iepAPI } from "../../api/client";
+import {
+  useStudentInsights,
+  useGenerateStudentInsight,
+} from "../../hooks/queries";
+import { Callout, Button, EmptyState } from "../../components/ui";
+import { InfoIcon, WarningIcon } from "../../components/ui/icons";
 
-export default function StudentInsightsTab({ studentId }) {
-  // Use studentId === 4 for mock data fallback, otherwise start empty or fetch from DB
-  const [insights, setInsights] = useState(studentId === 4 ? mockInsights : []);
-  const [generating, setGenerating] = useState(false);
+const USE_MOCK_INSIGHTS = import.meta.env.VITE_USE_MOCK_INSIGHTS === "true";
+
+export default function StudentInsightsTab({ studentId, setActivePage, student }) {
+  const navigate = useNavigate();
+  const isDemo = Boolean(
+    import.meta.env.VITE_USE_MOCK_INSIGHTS === "true" || USE_MOCK_INSIGHTS
+  );
+
+  const hasConsent = student ? Boolean(student.parental_consent_obtained) : true;
+
+  const [demoInsights, setDemoInsights] = useState(mockInsights);
+  const [demoGenerating, setDemoGenerating] = useState(false);
   const [openIndex, setOpenIndex] = useState(null);
   const [error, setError] = useState(null);
 
-  // 1. Fetch real historical insights from the backend on tab mount
-  useEffect(() => {
-      if (!studentId || studentId === 4) return;
+  const {
+    data: queryInsights,
+    isLoading,
+    isError: isQueryError,
+    error: queryError,
+  } = useStudentInsights(studentId, {
+    enabled: !isDemo && Boolean(studentId),
+  });
 
-      // 🎯 Use your client API instead of raw fetch
-      iepAPI.getInsights(studentId)
-        .then((data) => {
-          const mappedData = data.map(item => ({
-            id: item.id,
-            timestamp: item.created_at, 
-            summary_text: item.summary_text
-          }));
-          setInsights(mappedData);
-        })
-        .catch((err) => setError(err.message));
-    }, [studentId]);
-  
+  const generateMutation = useGenerateStudentInsight(studentId, {
+    onSuccess: () => {
+      setOpenIndex(0);
+    },
+    onError: (err) => {
+      setError(err?.message || "Failed to generate summary.");
+    },
+  });
 
-     // 2. Trigger the local AI text generation pipeline via Django
-    const handleGenerate = async () => {
-    setGenerating(true);
+  const insights = isDemo ? demoInsights : queryInsights || [];
+  const isGenerating = isDemo ? demoGenerating : generateMutation.isPending;
+  const errorMessage =
+    error ||
+    (isQueryError ? queryError?.message || "Failed to load insights." : null) ||
+    (generateMutation.isError
+      ? generateMutation.error?.message || "Failed to generate summary."
+      : null);
+
+  const handleGenerate = async () => {
+    if (!hasConsent) {
+      setError(
+        "RA 10173 Consent Required: Parental/guardian consent has not been recorded for this student. Automated AI insight generation is disabled until consent is verified in the student profile."
+      );
+      return;
+    }
     setError(null);
+    if (generateMutation.reset) {
+      generateMutation.reset();
+    }
 
-    // Mock Behavior for testing without backend active
-    if (studentId === 4) {
-      setTimeout(() => {
-        const mockNew = {
-          id: Date.now(),
-          timestamp: new Date().toLocaleString(),
-          summary_text: "Ethan Carter demonstrates high affinity for tactile spatial modules and mathematical patterns. However, he encounters processing delays with multi-sentence contexts. It is highly recommended to present text blocks inside short, discrete structural segments while managing structural auditory breaks."
-        };
-        setInsights(prev => [mockNew, ...prev]); // Prepend to show the newest at the top
-        setGenerating(false);
-        setOpenIndex(0); // Auto-open the newest generation accordion
-      }, 1500);
+    if (isDemo) {
+      setDemoGenerating(true);
+      const mockNew = {
+        id: Date.now(),
+        timestamp: new Date().toLocaleString(),
+        summary_text:
+          "Ethan Carter demonstrates high affinity for tactile spatial modules and mathematical patterns. However, he encounters processing delays with multi-sentence contexts. It is highly recommended to present text blocks inside short, discrete structural segments while managing structural auditory breaks.",
+      };
+      setDemoInsights((prev) => [mockNew, ...prev]);
+      setDemoGenerating(false);
+      setOpenIndex(0);
       return;
     }
 
     try {
-      // 🎯 Use your client API instead of raw fetch
-      const newInsight = await iepAPI.generateInsight(studentId);
-      
-      const formattedNewInsight = {
-        id: newInsight.id,
-        timestamp: newInsight.created_at,
-        summary_text: newInsight.summary_text
-      };
-
-      setInsights(prev => [formattedNewInsight, ...prev]);
+      await generateMutation.mutateAsync();
       setOpenIndex(0);
     } catch (err) {
-      setError(err.message);
-    } finally {
-      setGenerating(false);
+      setError(err?.message || "Failed to generate summary.");
     }
   };
- 
+
   const toggleAccordion = (idx) => {
     setOpenIndex(openIndex === idx ? null : idx);
   };
@@ -73,29 +91,80 @@ export default function StudentInsightsTab({ studentId }) {
   return (
     <div className="tab-content">
       <section className="form-section">
-        <h2 className="form-section-title">Generated AI Insights</h2>
+        <h2 className="form-section-title">Quick Student Summary</h2>
 
-        {error && (
-          <div className="error-banner" style={{ color: "#721c24", backgroundColor: "#f8d7da", padding: "12px", borderRadius: "6px", marginBottom: "15px", border: "1px solid #f5c6cb" }}>
-            ⚠️ {error}
+        {/* --- DISTINCTION & NOTICE BANNER --- */}
+        <div className="summary-disclaimer-box">
+          <div className="summary-disclaimer-content">
+            <span className="summary-disclaimer-icon" aria-hidden="true">
+              <InfoIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="summary-disclaimer-text">
+                <strong>Quick Student Summary:</strong> Provides an immediate
+                AI-assisted profile overview of student strengths, needs, and
+                accommodations for quick reference.
+              </p>
+              <p className="summary-disclaimer-sub flex items-start gap-1.5">
+                <WarningIcon className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                <em>
+                  Note: This is not a full Individualized Education Program
+                  (IEP). To create comprehensive annual goals, accommodations,
+                  and service schedules, use the full IEP generator.
+                </em>
+              </p>
+            </div>
           </div>
+          <button
+            type="button"
+            className="btn-go-iep"
+            onClick={() => {
+              if (studentId) {
+                navigate(`/dashboard/students/${studentId}/iep`);
+              } else {
+                navigate("/dashboard/iep/generate");
+              }
+              if (setActivePage) setActivePage("iep-generation");
+            }}
+          >
+            Go to Generate IEP →
+          </button>
+        </div>
+
+        {!hasConsent && (
+          <Callout variant="warning" className="mb-4">
+            RA 10173 Consent Required: Parental/guardian consent has not been recorded for this student. Automated AI insight generation is disabled until consent is verified in the student profile.
+          </Callout>
+        )}
+
+        {errorMessage && (
+          <Callout variant="error" className="error-banner mb-4">
+            {errorMessage}
+          </Callout>
         )}
 
         {/* --- INSIGHT DISPLAY LIST --- */}
-        {insights.length === 0 ? (
-          <p className="placeholder-page">
-            No insights yet. Click the button below to generate a professional student summary.
-          </p>
+        {isLoading && !isDemo ? (
+          <p className="placeholder-page">Loading summary history...</p>
+        ) : insights.length === 0 ? (
+          <EmptyState
+            title="No AI insights yet"
+            description="No quick summary generated yet. Generate an AI-powered summary to analyze student learning patterns."
+          />
         ) : (
           <div className="insight-history">
             {insights.map((entry, idx) => (
-              <div key={entry.id || idx} className="accordion-block" style={{ marginBottom: "10px" }}>
+              <div
+                key={entry.id || idx}
+                className="accordion-block"
+                style={{ marginBottom: "10px" }}
+              >
                 <button
                   className="accordion-header"
                   onClick={() => toggleAccordion(idx)}
                   type="button"
                 >
-                  Generation {insights.length - idx} — {entry.timestamp}
+                  Summary {insights.length - idx} — {entry.timestamp}
                   <span className="accordion-icon">
                     {openIndex === idx ? "▲" : "▼"}
                   </span>
@@ -104,7 +173,7 @@ export default function StudentInsightsTab({ studentId }) {
                 {/* --- SINGLE UNIFIED BOX OUTPUT --- */}
                 {openIndex === idx && (
                   <div className="accordion-content" style={{ padding: "0" }}>
-                    <div 
+                    <div
                       className="insight-summary-box"
                       style={{
                         padding: "20px",
@@ -115,7 +184,7 @@ export default function StudentInsightsTab({ studentId }) {
                         fontSize: "15px",
                         lineHeight: "1.6",
                         color: "#212529",
-                        textAlign: "justify"
+                        textAlign: "justify",
                       }}
                     >
                       {entry.summary_text}
@@ -128,15 +197,18 @@ export default function StudentInsightsTab({ studentId }) {
         )}
 
         {/* --- FORM ACTION GENERATE BUTTON --- */}
-        <div className="form-actions" style={{ justifyContent: "flex-end", marginTop: "20px" }}>
-          <button
-            className="btn btn-submit"
+        <div
+          className="form-actions"
+          style={{ justifyContent: "flex-end", marginTop: "20px" }}
+        >
+          <Button
+            variant="primary"
             onClick={handleGenerate}
-            disabled={generating}
-            type="button"
+            disabled={isGenerating || !hasConsent}
+            className="btn-submit"
           >
-            {generating ? "Analyzing Profile..." : "Generate and Analyze"}
-          </button>
+            {isGenerating ? "Analyzing Profile..." : "Generate Quick Summary"}
+          </Button>
         </div>
       </section>
     </div>
@@ -148,11 +220,13 @@ const mockInsights = [
   {
     id: 101,
     timestamp: "2026-05-24 21:00",
-    summary_text: "John demonstrates a strong affinity for visual learning frameworks and responds exceptionally well to predictable, structured schedules. However, he encounters significant obstacles managing processing loops in high-stimulus, noisy settings, which can impair group integration. Providing consistent access to specialized quiet zones and small-group pairings optimizes his overall transition stamina and communication progress."
+    summary_text:
+      "John demonstrates a strong affinity for visual learning frameworks and responds exceptionally well to predictable, structured schedules. However, he encounters significant obstacles managing processing loops in high-stimulus, noisy settings, which can impair group integration. Providing consistent access to specialized quiet zones and small-group pairings optimizes his overall transition stamina and communication progress.",
   },
   {
     id: 102,
     timestamp: "2026-05-20 14:30",
-    summary_text: "John displays high task persistence when interacting with logical problem-solving components. His primary processing block occurs when shifting rapidly between disconnected academic tracks without explicit visual milestones. Integrating targeted visual timelines and deploying positive token validation effectively eases performance friction during scheduling shifts."
-  }
+    summary_text:
+      "John displays high task persistence when interacting with logical problem-solving components. His primary processing block occurs when shifting rapidly between disconnected academic tracks without explicit visual milestones. Integrating targeted visual timelines and deploying positive token validation effectively eases performance friction during scheduling shifts.",
+  },
 ];

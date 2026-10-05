@@ -1,0 +1,16 @@
+Version / Sprint,Release Date,Author / Team,Module / Area,Type,Summary of Changes,Linked Issue / PR
+v1.4.0,2026-09-11,Frontend,Module 2: IEP Generation,FEAT,"Enhanced Special Factor Notes with 6 SPED suggestion chips, 500-character counter, warning thresholds, duplicate protection, and contextual 'Clear notes' button.",Issue #128 / PR #133
+v1.3.0,2026-09-11,Frontend,Module 2: IEP Generation,FEAT,"Enforced 5-row maximum limit on Assistive Technologies with '(Maximum 5 reached)' badge and 6 one-click SPED preset suggestion chips.",Issue #127 / PR #132
+v1.2.9,2026-09-11,Frontend,Module 2: IEP Generation,REFACTOR,"Replaced editable text inputs for difficulty markers with profile-synced read-only pill badges in Step 1 and Section B table.",Issue #126 / PR #131
+v1.2.8,2026-09-10,Backend,Module 2: AI Goal Engine,FIX,"Implemented 3-Tier AI Fallback Cascade (Ollama -> Groq Cloud -> Deterministic Generator) to guarantee 100% goal generation uptime; rewired R-GORI evaluation engine.",Issue #129 / PR #130
+v1.2.5,2026-09-10,Frontend,Cross-Cutting: Accessibility,FEAT,"Enforced WCAG 2.1 AA accessibility standards, semantic landmarks (<main>, <aside>, <nav>), skip-to-content links, and full keyboard navigation.",Issue #113 / PR #123
+v1.2.4,2026-09-10,Frontend,Module 1: Student Profiling,REFACTOR,"Overhauled typography hierarchy, standardized form input heights (42px) and labels (14px), enhanced high-contrast borders and touch targets.",Issue #102 / PR #122
+v1.2.3,2026-09-10,Frontend,Design System,REFACTOR,"Built reusable design system primitives (<Button>, <Card>, <Badge>, <Callout>, <EmptyState>).",Issue #112 / PR #121
+v1.2.2,2026-09-10,DevOps,Infrastructure,FIX,Resolved PostgreSQL port conflicts in Docker Compose container configurations.,PR #120
+v1.2.0,2026-09-09,Frontend,Performance,PERF,Adopted TanStack Query with 5-minute stale-time client-side caching to eliminate redundant API refetches on tab switching.,Issue #111 / PR #118
+v1.1.9,2026-09-09,Frontend,Module 2: IEP Generation,FEAT,"Added post-IEP Next Steps action cards directing teachers to Lesson Plans, Teaching Strategies, and Progress Tracking.",Issue #94 / PR #117
+v1.1.8,2026-09-09,Frontend,Architecture,REFACTOR,Migrated dashboard activePage state-machine to React Router declarative nested routes.,Issue #110 / PR #115
+v1.1.7,2026-09-09,Frontend,Onboarding,FEAT,Implemented first-login SPED Teacher interactive modal walkthrough with step-by-step feature guidance.,Issue #108 / PR #114
+v1.1.5,2026-09-08,Frontend,Module 1: Student Profiling,FEAT,Clarified Quick Student Summary vs Full IEP Generation with distinction callout banners and direct generation links.,Issue #93 / PR #109
+v1.1.0,2026-09-06,Frontend,Overview Dashboard,FEAT,Built 3-step teacher workflow path on Overview Dashboard (Step 1: Profile -> Step 2: Generate -> Step 3: Track).,Issue #91 / PR #100
+v1.0.0,2026-08-27,Fullstack,Security & Core,SECURITY,"Eliminated hardcoded API URLs, removed secrets, implemented strict multi-tenant teacher data isolation and password validators.",Issues #65 & #67 / PR #81

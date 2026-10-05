@@ -1,0 +1,23 @@
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.bak
+
+# Environment variables & secrets
+.env
+.env.*
+!.env*.example
+
+# Build & runtime artifacts
+node_modules/
+dist/
+staticfiles/
+*.log
+
+# Binary documents & scratch files
+*.docx
+steps-torun.txt
+Github-templates.md

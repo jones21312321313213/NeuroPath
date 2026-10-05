@@ -1,0 +1,76 @@
+.notfound-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f4f7fb;
+  padding: 24px;
+}
+
+.notfound-card {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  max-width: 480px;
+  width: 100%;
+  padding: 40px 32px;
+  text-align: center;
+}
+
+.notfound-badge {
+  display: inline-block;
+  font-size: 64px;
+  font-weight: 800;
+  color: #378add;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.notfound-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 12px 0;
+}
+
+.notfound-message {
+  font-size: 14px;
+  color: #64748b;
+  line-height: 1.6;
+  margin: 0 0 28px 0;
+}
+
+.notfound-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.notfound-btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.notfound-btn-primary {
+  background-color: #378add;
+  color: #ffffff;
+}
+
+.notfound-btn-primary:hover {
+  background-color: #2b74be;
+}
+
+.notfound-btn-secondary {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.notfound-btn-secondary:hover {
+  background-color: #e2e8f0;
+}
