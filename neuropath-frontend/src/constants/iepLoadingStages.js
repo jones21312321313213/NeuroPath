@@ -14,7 +14,7 @@ export const IEP_STAGES = [
   {
     id: 3,
     title: "Evaluating Pedagogical Rigor",
-    description: "Validating alignment and quality against RGORI rubric standards",
+    description: "Validating alignment and quality of generated goals and objectives",
     threshold: 85,
   },
   {

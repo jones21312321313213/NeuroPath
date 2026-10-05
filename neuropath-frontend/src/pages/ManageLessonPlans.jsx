@@ -26,6 +26,7 @@ import {
   DiskIcon,
   TrashIcon,
   CloseIcon,
+  InfoIcon,
 } from "../components/ui/icons";
 
 const TABS = [
@@ -33,6 +34,11 @@ const TABS = [
     key: "generate",
     label: "Generate",
     icon: <SparklesIcon className="w-4 h-4" aria-hidden="true" />,
+  },
+  {
+    key: "info",
+    label: "Info",
+    icon: <InfoIcon className="w-4 h-4" aria-hidden="true" />,
   },
   {
     key: "manage",
@@ -1507,6 +1513,181 @@ function ManagePlansTab({ setActivePage, onGoToGenerate }) {
   );
 }
 
+// ── Info Tab ──────────────────────────────────────────────────────────────────
+function LessonPlansInfoTab({ onGoToGenerate, onGoToManage }) {
+  return (
+    <div className="ts-info-container">
+      <div className="ts-info-grid">
+        {/* Card 1: Tool Purpose */}
+        <div className="ts-card">
+          <div className="ts-card-header">
+            <div className="ts-card-icon">
+              <BookOpenIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="ts-card-title">About Lesson Plans</h2>
+              <p className="ts-card-subtitle">
+                AI-crafted, IEP-aligned instructional planning for inclusive classrooms
+              </p>
+            </div>
+          </div>
+          <div className="ts-info-section">
+            <p style={{ color: "#475569", fontSize: "14px", lineHeight: "1.6", margin: 0 }}>
+              The Lesson Plans generator transforms Individualized Education Program (IEP) goals into structured, classroom-ready teaching plans. It automatically aligns DepEd curriculum standards with student-specific accommodations and behavioral supports.
+            </p>
+            <div className="ts-info-feature-item">
+              <div className="ts-info-feature-icon">
+                <TargetIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="ts-info-feature-text">
+                <h4>Goal-Aligned Objectives</h4>
+                <p>Every lesson plan maps cognitive, psychomotor, and affective objectives directly to the learner's active IEP targets.</p>
+              </div>
+            </div>
+            <div className="ts-info-feature-item">
+              <div className="ts-info-feature-icon">
+                <AcademicCapIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="ts-info-feature-text">
+                <h4>Structured 4-Phase Delivery</h4>
+                <p>Step-by-step procedures covering Motivation, Direct Instruction, Guided Practice, and Independent Practice with assistive devices.</p>
+              </div>
+            </div>
+            <div className="ts-info-feature-item">
+              <div className="ts-info-feature-icon">
+                <CheckIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="ts-info-feature-text">
+                <h4>Differentiated Accommodations</h4>
+                <p>Built-in sensory, environmental, and pacing adaptations tailored to the student's learning profile.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: What is the Manage Tab */}
+        <div className="ts-card">
+          <div className="ts-card-header">
+            <div className="ts-card-icon">
+              <FolderIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="ts-card-title">What is the "Manage" Tab?</h2>
+              <p className="ts-card-subtitle">
+                Your centralized lesson plan repository and archive
+              </p>
+            </div>
+          </div>
+          <div className="ts-info-section">
+            <p style={{ color: "#475569", fontSize: "14px", lineHeight: "1.6", margin: 0 }}>
+              The <strong>Manage</strong> tab is where all your saved lesson plans are organized, stored, and updated. Use it to review lesson details, make live edits, and track instructional progress across your classroom.
+            </p>
+            <div className="ts-info-feature-item">
+              <div className="ts-info-feature-icon">
+                <UserIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="ts-info-feature-text">
+                <h4>Organized by Student Profile</h4>
+                <p>Browse plans created for specific students or filter by grade level, age, and keyword search.</p>
+              </div>
+            </div>
+            <div className="ts-info-feature-item">
+              <div className="ts-info-feature-icon">
+                <PencilIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="ts-info-feature-text">
+                <h4>Live Editing & Status Updates</h4>
+                <p>Modify titles, update statuses between Draft and Generated, or revise teaching notes directly in-place.</p>
+              </div>
+            </div>
+            <div className="ts-info-feature-item">
+              <div className="ts-info-feature-icon">
+                <ClipboardIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="ts-info-feature-text">
+                <h4>Classroom Delivery & Printing</h4>
+                <p>Open full plan previews formatted for printing or export to share with co-teachers and aides.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Card 3: Quick Workflow Guide */}
+      <div className="ts-card">
+        <div className="ts-card-header">
+          <div className="ts-card-icon">
+            <SparklesIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+          </div>
+          <div>
+            <h2 className="ts-card-title">Recommended Workflow</h2>
+            <p className="ts-card-subtitle">
+              How to create, verify, and manage your instructional plans
+            </p>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
+          <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+              <span style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#3b82f6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700" }}>1</span>
+              <strong style={{ fontSize: "14px", color: "#0f172a" }}>Select Student & IEP</strong>
+            </div>
+            <p style={{ margin: 0, fontSize: "13px", color: "#64748b", lineHeight: "1.5" }}>
+              Choose a student from your roster to automatically load their IEP goals and accommodations.
+            </p>
+          </div>
+          <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+              <span style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#3b82f6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700" }}>2</span>
+              <strong style={{ fontSize: "14px", color: "#0f172a" }}>Set Lesson Parameters</strong>
+            </div>
+            <p style={{ margin: 0, fontSize: "13px", color: "#64748b", lineHeight: "1.5" }}>
+              Enter the subject, topic, duration, and optional pedagogical notes or specific focus areas.
+            </p>
+          </div>
+          <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+              <span style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#3b82f6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700" }}>3</span>
+              <strong style={{ fontSize: "14px", color: "#0f172a" }}>Generate & Review</strong>
+            </div>
+            <p style={{ margin: 0, fontSize: "13px", color: "#64748b", lineHeight: "1.5" }}>
+              Review the AI-generated preview. Tweak any section or regenerate before saving.
+            </p>
+          </div>
+          <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+              <span style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#3b82f6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700" }}>4</span>
+              <strong style={{ fontSize: "14px", color: "#0f172a" }}>Save to Library</strong>
+            </div>
+            <p style={{ margin: 0, fontSize: "13px", color: "#64748b", lineHeight: "1.5" }}>
+              Click "Accept & Save" to store the plan in your Manage library with zero duplicate drafts.
+            </p>
+          </div>
+        </div>
+
+        <div className="ts-info-actions">
+          <button
+            type="button"
+            className="ts-btn ts-btn-primary flex items-center gap-1.5"
+            onClick={onGoToGenerate}
+          >
+            <SparklesIcon className="w-4 h-4" aria-hidden="true" />
+            Go to Generate
+          </button>
+          <button
+            type="button"
+            className="ts-btn ts-btn-secondary flex items-center gap-1.5"
+            onClick={onGoToManage}
+          >
+            <FolderIcon className="w-4 h-4" aria-hidden="true" />
+            Go to Manage Lesson Plans
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ManageLessonPlans({ setActivePage }) {
   const [activeTab, setActiveTab] = useState("generate");
@@ -1562,7 +1743,7 @@ export default function ManageLessonPlans({ setActivePage }) {
           {TABS.map((tab) => {
             const isActive =
               activeTab === tab.key ||
-              (tab.key === "manage" && isManageTab && activeTab !== "generate");
+              (tab.key === "manage" && isManageTab && activeTab !== "generate" && activeTab !== "info");
             return (
               <button
                 key={tab.key}
@@ -1586,6 +1767,12 @@ export default function ManageLessonPlans({ setActivePage }) {
             setActivePage={setActivePage}
             onDraftStatusChange={setHasDraft}
             promptNavigation={promptNavigation}
+          />
+        )}
+        {activeTab === "info" && (
+          <LessonPlansInfoTab
+            onGoToGenerate={() => handleTabClick("generate")}
+            onGoToManage={() => handleTabClick("manage")}
           />
         )}
         {isManageTab && (

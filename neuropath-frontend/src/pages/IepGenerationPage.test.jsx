@@ -1184,7 +1184,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       expect(
         screen.getByText("Learner will complete daily arithmetic tasks with 80% accuracy."),
       ).toBeInTheDocument();
-      expect(screen.getByText("R-GORI: 92/100 (Exemplary)")).toBeInTheDocument();
+      expect(screen.queryByText(/R-GORI/i)).not.toBeInTheDocument();
 
       // Goals should NOT be saved to backend yet
       expect(iepAPI.saveGoal).not.toHaveBeenCalled();

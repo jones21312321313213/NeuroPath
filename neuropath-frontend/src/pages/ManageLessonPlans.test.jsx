@@ -636,4 +636,29 @@ describe("ManageLessonPlans Unified Management View (Issue #161)", () => {
       expect(screen.queryByText("Self-Regulation Math Lesson")).not.toBeInTheDocument();
     });
   });
+
+  it("renders Info tab and displays guidance on what Manage tab is for", async () => {
+    render(
+      <MemoryRouter>
+        <ManageLessonPlans />
+      </MemoryRouter>
+    );
+
+    const infoTabBtn = screen.getByRole("tab", { name: /Info/i });
+    expect(infoTabBtn).toBeInTheDocument();
+
+    fireEvent.click(infoTabBtn);
+
+    expect(screen.getByText("About Lesson Plans")).toBeInTheDocument();
+    expect(screen.getByText('What is the "Manage" Tab?')).toBeInTheDocument();
+    expect(screen.getByText(/Your centralized lesson plan repository/i)).toBeInTheDocument();
+
+    const goToManageBtn = screen.getByRole("button", { name: /Go to Manage Lesson Plans/i });
+    expect(goToManageBtn).toBeInTheDocument();
+    fireEvent.click(goToManageBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: /Manage/i })).toHaveAttribute("aria-selected", "true");
+    });
+  });
 });

@@ -874,6 +874,27 @@ describe("ManageTeachingStrategies - Unified Manage Interface (Issue #161)", () 
         expect(screen.queryByText(/pipeline/i)).not.toBeInTheDocument();
       });
     });
+
+    it("renders Info tab and displays guidance on what Manage tab is for", async () => {
+      renderComponent();
+
+      const infoTabBtn = screen.getByRole("tab", { name: /Info/i });
+      expect(infoTabBtn).toBeInTheDocument();
+
+      fireEvent.click(infoTabBtn);
+
+      expect(screen.getByText("About Teaching Strategies")).toBeInTheDocument();
+      expect(screen.getByText('What is the "Manage" Tab?')).toBeInTheDocument();
+      expect(screen.getByText(/Your centralized intervention and accommodation library/i)).toBeInTheDocument();
+
+      const goToManageBtn = screen.getByRole("button", { name: /Go to Manage Teaching Strategies/i });
+      expect(goToManageBtn).toBeInTheDocument();
+      fireEvent.click(goToManageBtn);
+
+      await waitFor(() => {
+        expect(screen.getByRole("tab", { name: /Manage/i })).toHaveAttribute("aria-selected", "true");
+      });
+    });
   });
 });
 

@@ -122,8 +122,9 @@ else:
     }
 
 # Require SSL connection when connecting to Supabase / cloud DBs
+db_engine = str(DATABASES['default'].get('ENGINE', '')).lower()
 db_host = str(DATABASES['default'].get('HOST', '')).lower()
-if 'supabase' in db_host or 'pooler' in db_host or (not DEBUG and 'aws' in db_host):
+if 'sqlite' not in db_engine and ('supabase' in db_host or 'pooler' in db_host or (not DEBUG and 'aws' in db_host)):
     DATABASES['default'].setdefault('OPTIONS', {})['sslmode'] = 'require'
 
 

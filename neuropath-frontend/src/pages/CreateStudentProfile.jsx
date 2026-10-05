@@ -24,7 +24,6 @@ const difficultyOptions = [
   "Difficulty in Moving/Walking",
   "Difficulty in Concentrating/Paying Attention",
   "Difficulty in Remembering/Understanding",
-  "With Medical Assessment/Diagnosis",
 ];
 
 const diagnosisOptions = ["Autism Spectrum Disorder"];
