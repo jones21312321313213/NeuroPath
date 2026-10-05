@@ -1,7 +1,13 @@
 // Single source of truth for the backend host. Set VITE_API_URL (including the
 // /api prefix) to point the app at a non-localhost backend — see .env.example.
-export const BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+function resolveBaseUrl() {
+  const envUrl = (import.meta.env.VITE_API_URL || "http://localhost:8000/api").trim();
+  const firstLine = envUrl.split(/[\r\n]+/)[0].trim();
+  const cleaned = firstLine.replace(/\/+$/, "");
+  return cleaned.endsWith("/api") ? cleaned : `${cleaned}/api`;
+}
+
+export const BASE_URL = resolveBaseUrl();
 
 // Drop local auth state and route to the login screen. Used when the backend
 // rejects a token we believed was good, so the user gets a way back in instead
