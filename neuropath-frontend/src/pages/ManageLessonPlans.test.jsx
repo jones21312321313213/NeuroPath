@@ -581,12 +581,64 @@ describe("ManageLessonPlans Unified Management View (Issue #161)", () => {
     fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
 
     await waitFor(() => {
-      expect(lessonPlansAPI.update).toHaveBeenCalledWith(501, {
-        title: "Updated Math Protocol",
-        status: "Archived",
-      });
+      expect(lessonPlansAPI.update).toHaveBeenCalledWith(
+        501,
+        expect.objectContaining({
+          title: "Updated Math Protocol",
+          status: "Archived",
+        })
+      );
       expect(screen.getByText(/Lesson plan saved successfully/i)).toBeInTheDocument();
       expect(screen.getByText("Updated Math Protocol")).toBeInTheDocument();
+    });
+  });
+
+  it("edits the entire lesson plan including phases, core activities, and materials", async () => {
+    render(
+      <MemoryRouter>
+        <ManageLessonPlans />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: /Manage/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Lucas Vance"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Edit Self-Regulation Math Lesson/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Edit Self-Regulation Math Lesson/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Edit Lesson Plan")).toBeInTheDocument();
+      expect(screen.getByLabelText(/Objective Focus/i)).toBeInTheDocument();
+    });
+
+    const focusInput = screen.getByLabelText(/Objective Focus/i);
+    fireEvent.change(focusInput, { target: { value: "Advanced Counting" } });
+
+    const introInput = screen.getByLabelText(/Introduction/i);
+    fireEvent.change(introInput, { target: { value: "Warm up with visual blocks" } });
+
+    const coreInput = screen.getByLabelText(/Core Activity/i);
+    fireEvent.change(coreInput, { target: { value: "Guided counting exercise" } });
+
+    const assessInput = screen.getByLabelText(/Assessment/i);
+    fireEvent.change(assessInput, { target: { value: "Observe student accuracy" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    await waitFor(() => {
+      expect(lessonPlansAPI.update).toHaveBeenCalledWith(
+        501,
+        expect.objectContaining({
+          lessonContent: expect.stringContaining("Advanced Counting"),
+        })
+      );
     });
   });
 

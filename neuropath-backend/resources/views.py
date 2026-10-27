@@ -551,6 +551,8 @@ class LessonPlanUpdateService:
             lesson_plan.title = validated_data['title']
         if 'status' in validated_data:
             lesson_plan.status = validated_data['status']
+        if 'lessonContent' in validated_data:
+            lesson_plan.lessonContent = validated_data['lessonContent']
             
         lesson_plan.save()
         return lesson_plan

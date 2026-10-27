@@ -171,6 +171,20 @@ class ResourcesAuthAndTenantIsolationTests(TestCase):
         response = self.client.get(f'/api/resources/lesson-plans/{self.lesson_plan.pk}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
+    def test_owner_can_edit_own_lesson_plan_content_and_status(self):
+        self._auth(self.token1)
+        updated_content = json.dumps({"lesson_plans": [{"objective_focus": "New focus"}]})
+        response = self.client.put(
+            f'/api/resources/edit-lesson/{self.lesson_plan.pk}/',
+            {'title': 'Updated Title', 'status': 'Active', 'lessonContent': updated_content},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.lesson_plan.refresh_from_db()
+        self.assertEqual(self.lesson_plan.title, 'Updated Title')
+        self.assertEqual(self.lesson_plan.status, 'Active')
+        self.assertEqual(self.lesson_plan.lessonContent, updated_content)
+
     def test_owner_dashboard_uses_authenticated_identity_not_bypass_email(self):
         # Regression test for the removed "DEVELOPMENT BYPASS" fallback:
         # the dashboard must resolve the Teacher via the authenticated user's
