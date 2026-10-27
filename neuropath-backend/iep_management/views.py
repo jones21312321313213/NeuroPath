@@ -19,7 +19,6 @@ from .privacy_utils import (
     verify_ra10173_consent,
     ConsentRequiredException,
 )
-import time
 import json
 import re
 import logging

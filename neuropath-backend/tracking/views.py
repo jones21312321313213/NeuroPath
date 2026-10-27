@@ -78,7 +78,6 @@ class BinaryReportRenderEngine:
     @staticmethod
     def generate_report_stream(student_record, section_b_version=None, section_c_version=None, section_b_id=None, section_c_id=None, teacher_name=None, teacher_signature=None):
         import html
-        import io
         import base64
         from reportlab.platypus import (
             SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image as RLImage, HRFlowable
@@ -87,7 +86,7 @@ class BinaryReportRenderEngine:
         from reportlab.lib import colors
         from reportlab.lib.units import mm
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
+        from reportlab.lib.enums import TA_CENTER
         from PIL import Image as PILImage
 
         def esc(val):
@@ -110,7 +109,6 @@ class BinaryReportRenderEngine:
         styles = getSampleStyleSheet()
 
         NAVY = colors.HexColor('#1F4E79')
-        LIGHT_BG = colors.HexColor('#F8FAFC')
         ALT_BG = colors.HexColor('#F1F5F9')
         GRID_CLR = colors.HexColor('#94A3B8')
 
@@ -194,24 +192,6 @@ class BinaryReportRenderEngine:
             fontSize=6.8,
             leading=9.0,
             textColor=colors.HexColor('#334155'),
-        )
-        sig_line_style = ParagraphStyle(
-            'SigLineStyle',
-            parent=styles['Normal'],
-            fontName='Helvetica-Bold',
-            fontSize=11,
-            leading=14,
-            alignment=TA_CENTER,
-            textColor=colors.HexColor('#0F172A'),
-        )
-        sig_title_style = ParagraphStyle(
-            'SigTitleStyle',
-            parent=styles['Normal'],
-            fontName='Helvetica',
-            fontSize=9.5,
-            leading=13,
-            alignment=TA_CENTER,
-            textColor=colors.HexColor('#475569'),
         )
 
         pd = student_record.profileDetails if isinstance(student_record.profileDetails, dict) else {}
@@ -752,7 +732,7 @@ class BinaryReportRenderEngine:
                     raw_b64 = raw_b64.split(',', 1)[1]
                 img_bytes = base64.b64decode(raw_b64)
                 img_io = io.BytesIO(img_bytes)
-                pil_img = PILImage.open(img_io)
+                PILImage.open(img_io).verify()
                 img_io.seek(0)
                 t_sig_flowable = RLImage(img_io, width=50 * mm, height=22 * mm)
             except Exception:
@@ -904,6 +884,13 @@ class StudentRecordQueryController(viewsets.ViewSet):
         response['Content-Disposition'] = f'attachment; filename="StudentRecord_{student.pk}.pdf"'
         return response
     
+# =====================================================================
+# SDD COMPONENT: ProgressAnalyticsService
+# Description: Backend business logic responsible for calculating performance 
+#              data, aggregating entries, and computing historical trends.
+# =====================================================================
+class ProgressAnalyticsService:
+    @staticmethod
     def compute_historical_trends(student_id, teacher, subject_name=None):
         # 1. Fetch the raw chronological logs for the target student, scoped
         #    to records for students belonging to the requesting teacher

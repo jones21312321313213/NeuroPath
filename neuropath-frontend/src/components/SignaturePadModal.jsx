@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 
 export default function SignaturePadModal({
   isOpen,
@@ -13,19 +13,19 @@ export default function SignaturePadModal({
   const [hasSignature, setHasSignature] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return;
+    // Initialize canvas with clear background
+    const timer = setTimeout(() => {
       setHasSignature(false);
-      // Initialize canvas with clear background
-      setTimeout(() => {
-        const canvas = canvasRef.current;
-        if (canvas) {
-          const ctx = canvas.getContext ? canvas.getContext("2d") : null;
-          if (ctx) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-          }
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext ? canvas.getContext("2d") : null;
+        if (ctx) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
-      }, 50);
-    }
+      }
+    }, 50);
+    return () => clearTimeout(timer);
   }, [isOpen]);
 
   if (!isOpen) return null;
