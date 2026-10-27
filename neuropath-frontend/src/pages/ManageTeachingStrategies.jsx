@@ -213,6 +213,7 @@ function StrategyRowList({
   onView,
   onEdit,
   onDelete,
+  onExport,
   actionLabel,
   onAction,
   actionClass = "ts-btn ts-btn-primary",
@@ -239,6 +240,16 @@ function StrategyRowList({
                 >
                   View
                 </button>
+                {onExport && (
+                  <button
+                    type="button"
+                    className="ts-btn ts-btn-secondary"
+                    onClick={() => onExport(s)}
+                    aria-label={`Export PDF for ${s.title}`}
+                  >
+                    Export PDF
+                  </button>
+                )}
                 {onEdit && (
                   <button
                     type="button"
@@ -969,6 +980,26 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
     setSuccessMessage("");
   };
 
+  const handleExportStrategyPdf = async (strategy) => {
+    if (!strategy?.strategyID) return;
+    try {
+      const blob = await teachingStrategiesAPI.exportPDF(strategy.strategyID);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `StrategyGuide_${strategy.strategyID}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+      toast.success("Strategy guide exported successfully.");
+    } catch (err) {
+      toast.error(err.message || "Failed to export Strategy Guide PDF.");
+    }
+  };
+
   const handleOpenEdit = (strategy) => {
     setEditingStrategy(strategy);
     setFormValue({
@@ -1244,6 +1275,7 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
           <StrategyRowList
             strategies={strategies}
             onView={(s) => setViewingStrategy(s)}
+            onExport={(s) => handleExportStrategyPdf(s)}
             onEdit={(s) => handleOpenEdit(s)}
             onDelete={(s) => setToDeleteStrategy(s)}
           />

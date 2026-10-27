@@ -648,7 +648,343 @@ class LessonPlanDeleteAPIView(APIView):
         # 3. Matches Sequence Diagram: "Acknowledge execution pipeline success status"
         # Standard REST practice for a successful deletion is to return a 204 No Content.
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
+
+# =====================================================================
+# SDD COMPONENT: LessonPlanBinaryExportEngine
+# Description: Background processing engine that compiles structured lesson
+#              plan records into an official, DepEd-compliant printable PDF.
+# =====================================================================
+class LessonPlanBinaryExportEngine:
+    @staticmethod
+    def generate_pdf_stream(lesson_record):
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=15 * mm,
+            leftMargin=15 * mm,
+            topMargin=15 * mm,
+            bottomMargin=15 * mm,
+        )
+
+        styles = getSampleStyleSheet()
+
+        title_style = ParagraphStyle(
+            'LP_DocTitle',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=15,
+            leading=19,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#1F4E79'),
+        )
+        subtitle_style = ParagraphStyle(
+            'LP_DocSubtitle',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=8.5,
+            leading=11,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#64748B'),
+        )
+        meta_label = ParagraphStyle(
+            'LP_MetaLabel',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=8.5,
+            leading=11,
+            textColor=colors.HexColor('#1F4E79'),
+        )
+        meta_val = ParagraphStyle(
+            'LP_MetaVal',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=8.5,
+            leading=11,
+            textColor=colors.HexColor('#1E293B'),
+        )
+        phase_header_style = ParagraphStyle(
+            'LP_PhaseHeader',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=10.5,
+            leading=13,
+            textColor=colors.white,
+        )
+        section_heading = ParagraphStyle(
+            'LP_SectionHeading',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=9,
+            leading=12,
+            textColor=colors.HexColor('#1F4E79'),
+            spaceBefore=4,
+            spaceAfter=2,
+        )
+        body_style = ParagraphStyle(
+            'LP_BodyText',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=8.5,
+            leading=12,
+            textColor=colors.HexColor('#334155'),
+        )
+        bullet_style = ParagraphStyle(
+            'LP_BulletText',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=8.5,
+            leading=12,
+            textColor=colors.HexColor('#334155'),
+            leftIndent=8,
+        )
+        sign_label = ParagraphStyle(
+            'LP_SignLabel',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=9,
+            leading=12,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#1E293B'),
+        )
+        sign_role = ParagraphStyle(
+            'LP_SignRole',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=8,
+            leading=11,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#64748B'),
+        )
+
+        elements = []
+
+        # DepEd / NeuroPath Standard Document Header
+        elements.append(Paragraph("REPUBLIC OF THE PHILIPPINES &bull; DEPARTMENT OF EDUCATION", subtitle_style))
+        elements.append(Paragraph("REGION VII &bull; SPECIAL EDUCATION (SPED) INSTRUCTIONAL SUPPORT SYSTEM", subtitle_style))
+        elements.append(Spacer(1, 2 * mm))
+        elements.append(Paragraph(lesson_record.title or "STANDARDIZED LESSON PLAN / DAILY LESSON LOG", title_style))
+        elements.append(Paragraph("Adaptive Daily Lesson Log (DLL) aligned with Individualized Education Plan (IEP)", subtitle_style))
+        elements.append(Spacer(1, 3 * mm))
+
+        # Extract Contextual Metadata
+        student_name = "N/A"
+        grade_level = "Elementary"
+        age_val = "N/A"
+        teacher_name = "SPED Teacher"
+        iep_domain = "ASD Functional Learning"
+        annual_goal = "Target IEP Instructional Goal"
+
+        try:
+            if lesson_record.iep_goal:
+                g = lesson_record.iep_goal
+                iep_domain = g.subject_category or g.goalName or iep_domain
+                annual_goal = g.annual_goal or g.goalName or annual_goal
+                if g.iep and g.iep.studentID:
+                    st = g.iep.studentID
+                    student_name = st.name or student_name
+                    grade_level = f"Grade {st.grade}" if st.grade else grade_level
+                    age_val = f"{st.age} years old" if st.age else age_val
+                    if st.teacher:
+                        teacher_name = st.teacher.name or teacher_name
+        except Exception:
+            pass
+
+        date_str = lesson_record.dateCreated.strftime("%B %d, %Y") if lesson_record.dateCreated else "N/A"
+        status_str = lesson_record.status or "Final"
+
+        # Metadata Table
+        available_w = doc.width
+
+        meta_rows = [
+            [
+                Paragraph("<b>Learner Name:</b>", meta_label),
+                Paragraph(student_name, meta_val),
+                Paragraph("<b>SPED Teacher:</b>", meta_label),
+                Paragraph(teacher_name, meta_val),
+            ],
+            [
+                Paragraph("<b>Grade & Age:</b>", meta_label),
+                Paragraph(f"{grade_level} ({age_val})", meta_val),
+                Paragraph("<b>Date Generated:</b>", meta_label),
+                Paragraph(date_str, meta_val),
+            ],
+            [
+                Paragraph("<b>Target Domain:</b>", meta_label),
+                Paragraph(iep_domain, meta_val),
+                Paragraph("<b>Document Status:</b>", meta_label),
+                Paragraph(status_str, meta_val),
+            ],
+        ]
+
+        meta_table = Table(
+            meta_rows,
+            colWidths=[available_w * 0.18, available_w * 0.32, available_w * 0.20, available_w * 0.30]
+        )
+        meta_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#CBD5E1')),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(meta_table)
+
+        # Goal Banner
+        goal_table = Table(
+            [[
+                Paragraph("<b>Target Annual Goal:</b>", meta_label),
+                Paragraph(annual_goal, meta_val)
+            ]],
+            colWidths=[available_w * 0.20, available_w * 0.80]
+        )
+        goal_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#EFF6FF')),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#BFDBFE')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(Spacer(1, 2 * mm))
+        elements.append(goal_table)
+        elements.append(Spacer(1, 4 * mm))
+
+        # Parse Lesson Plan content
+        content_raw = lesson_record.lessonContent or ""
+        parsed_plans = []
+        if content_raw:
+            try:
+                data = json.loads(content_raw)
+                if isinstance(data, str):
+                    data = json.loads(data)
+                if isinstance(data, dict):
+                    parsed_plans = data.get("lesson_plans", [])
+                elif isinstance(data, list):
+                    parsed_plans = data
+            except Exception:
+                parsed_plans = []
+
+        if parsed_plans:
+            for idx, plan in enumerate(parsed_plans, 1):
+                focus = plan.get("objective_focus") or f"Instructional Target {idx}"
+                intro = plan.get("introduction") or "Introduce task and establish visual schedule."
+                activity = plan.get("core_activity") or "Conduct direct instruction and guided practice."
+                assessment = plan.get("assessment") or "Record student performance on target skill."
+                materials = plan.get("materials_needed") or []
+
+                # Phase Banner Table
+                header_tbl = Table(
+                    [[Paragraph(f"PHASE {idx}: {focus}", phase_header_style)]],
+                    colWidths=[available_w]
+                )
+                header_tbl.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#1F4E79')),
+                    ('TOPPADDING', (0, 0), (-1, -1), 5),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                ]))
+                elements.append(header_tbl)
+                elements.append(Spacer(1, 1.5 * mm))
+
+                # Section I: Objective & Materials
+                materials_text = ", ".join(materials) if isinstance(materials, list) else str(materials)
+                phase_details = [
+                    [Paragraph("<b>I. Targeted Objective:</b>", section_heading)],
+                    [Paragraph(focus, bullet_style)],
+                    [Spacer(1, 1 * mm)],
+                    [Paragraph("<b>II. Materials & Sensory Accommodations:</b>", section_heading)],
+                    [Paragraph(materials_text or "Standard classroom visuals and adaptive manipulatives.", bullet_style)],
+                    [Spacer(1, 1 * mm)],
+                    [Paragraph("<b>III. Instructional Procedures:</b>", section_heading)],
+                    [Paragraph("<b>A. Motivation & Visual Schedule Introduction:</b>", meta_label)],
+                    [Paragraph(intro, bullet_style)],
+                    [Spacer(1, 1 * mm)],
+                    [Paragraph("<b>B. Core Instructional Activity (Direct & Guided Practice):</b>", meta_label)],
+                    [Paragraph(activity, bullet_style)],
+                    [Spacer(1, 1 * mm)],
+                    [Paragraph("<b>IV. Assessment & Progress Evaluation:</b>", section_heading)],
+                    [Paragraph(assessment, bullet_style)],
+                ]
+
+                card_tbl = Table(phase_details, colWidths=[available_w])
+                card_tbl.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#FFFFFF')),
+                    ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#CBD5E1')),
+                    ('TOPPADDING', (0, 0), (-1, -1), 3),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                ]))
+                elements.append(card_tbl)
+                elements.append(Spacer(1, 4 * mm))
+        else:
+            # Fallback for plain text lesson plan content
+            elements.append(Paragraph("<b>Lesson Plan Content:</b>", section_heading))
+            elements.append(Spacer(1, 2 * mm))
+            for line in content_raw.splitlines():
+                if line.strip():
+                    elements.append(Paragraph(line.strip(), body_style))
+                    elements.append(Spacer(1, 1 * mm))
+            elements.append(Spacer(1, 4 * mm))
+
+        # Formal Signatures Section
+        elements.append(Spacer(1, 5 * mm))
+        sig_data = [
+            [
+                Paragraph("<b>______________________________________</b>", sign_label),
+                Paragraph("<b>______________________________________</b>", sign_label),
+            ],
+            [
+                Paragraph(f"<b>{teacher_name}</b>", sign_label),
+                Paragraph("<b>School Head / SPED Coordinator</b>", sign_label),
+            ],
+            [
+                Paragraph("Special Education (SPED) Teacher", sign_role),
+                Paragraph("Reviewing Official & DepEd Validator", sign_role),
+            ],
+        ]
+        sig_table = Table(sig_data, colWidths=[available_w * 0.50, available_w * 0.50])
+        sig_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('TOPPADDING', (0, 0), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+        ]))
+        elements.append(sig_table)
+
+        doc.build(elements)
+        buffer.seek(0)
+        return buffer
+
+
+# =====================================================================
+# SDD COMPONENT: ExportLessonPlanAPIView
+# Description: Handles HTTP GET requests to stream the compiled lesson
+#              plan PDF document to the teacher client.
+# =====================================================================
+class ExportLessonPlanAPIView(APIView):
+    permission_classes = [UserAuthPermissions]
+
+    def get(self, request, pk, *args, **kwargs):
+        teacher = get_teacher_for_user(request.user)
+        try:
+            lesson_plan = LessonPlan.objects.get(pk=pk, iep_goal__iep__studentID__teacher=teacher)
+        except LessonPlan.DoesNotExist:
+            return Response({"error": "Saved Lesson Plan not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        pdf_stream = LessonPlanBinaryExportEngine.generate_pdf_stream(lesson_plan)
+
+        response = HttpResponse(pdf_stream, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="LessonPlan_{lesson_plan.lessonID}.pdf"'
+        return response
+
+
 # =====================================================================
 # SDD COMPONENT: VisualAidViewSet (Upgraded for 3.2.2)
 # Description: Exposes secure HTTP GET endpoints, managing incoming parameters 
@@ -815,28 +1151,119 @@ class PDFExportEngine:
             textColor=colors.HexColor('#2563EB'),
         )
 
+        title_style = ParagraphStyle(
+            'VA_DocTitle',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=15,
+            leading=19,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#1F4E79'),
+        )
+        subtitle_style = ParagraphStyle(
+            'VA_DocSubtitle',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=8.5,
+            leading=11,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#64748B'),
+        )
+        meta_label = ParagraphStyle(
+            'VA_MetaLabel',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=8.5,
+            leading=11,
+            textColor=colors.HexColor('#1F4E79'),
+        )
+        meta_val = ParagraphStyle(
+            'VA_MetaVal',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=8.5,
+            leading=11,
+            textColor=colors.HexColor('#1E293B'),
+        )
+
         story = []
 
-        # Title
-        story.append(Paragraph(visual_aid_record.title, styles['Title']))
-        story.append(Spacer(1, 4*mm))
+        # DepEd / NeuroPath Standard Document Header
+        story.append(Paragraph("REPUBLIC OF THE PHILIPPINES &bull; DEPARTMENT OF EDUCATION", subtitle_style))
+        story.append(Paragraph("REGION VII &bull; SPECIAL EDUCATION (SPED) INSTRUCTIONAL SUPPORT SYSTEM", subtitle_style))
+        story.append(Spacer(1, 2 * mm))
+        story.append(Paragraph(visual_aid_record.title or "PRINTABLE VISUAL AID & FLASHCARD STRIP", title_style))
+        story.append(Paragraph("Printable Picture Cards & Sequential Task Analysis for ASD Learners", subtitle_style))
+        story.append(Spacer(1, 3 * mm))
 
-        # Student / Goal metadata
-        goal_text = ""
-        student_name = ""
+        # Contextual Metadata Extraction
+        student_name = "N/A"
+        grade_str = "Elementary"
+        age_str = "N/A"
+        teacher_name = "SPED Teacher"
+        goal_text = "Target Behavioral & Learning Goal"
+
         if visual_aid_record.iep_goal:
-            goal_text = visual_aid_record.iep_goal.annual_goal or ""
+            goal_text = visual_aid_record.iep_goal.annual_goal or visual_aid_record.iep_goal.goalName or goal_text
             if visual_aid_record.iep_goal.iep and visual_aid_record.iep_goal.iep.studentID:
-                student_name = visual_aid_record.iep_goal.iep.studentID.name
+                st = visual_aid_record.iep_goal.iep.studentID
+                student_name = st.name or student_name
+                grade_str = f"Grade {st.grade}" if st.grade else grade_str
+                age_str = f"{st.age} years old" if st.age else age_str
+                if st.teacher:
+                    teacher_name = st.teacher.name or teacher_name
 
-        meta_text = []
-        if student_name:
-            meta_text.append(f"<b>Student:</b> {student_name}")
-        if goal_text:
-            meta_text.append(f"<b>Target Goal:</b> {goal_text}")
-        if meta_text:
-            story.append(Paragraph(" &nbsp; | &nbsp; ".join(meta_text), styles['Normal']))
-            story.append(Spacer(1, 4*mm))
+        date_str = visual_aid_record.dateCreated.strftime("%B %d, %Y") if visual_aid_record.dateCreated else "N/A"
+
+        available_w = doc.width
+        meta_table = Table(
+            [
+                [
+                    Paragraph('<b>Learner Name:</b>', meta_label),
+                    Paragraph(student_name, meta_val),
+                    Paragraph('<b>SPED Teacher:</b>', meta_label),
+                    Paragraph(teacher_name, meta_val),
+                ],
+                [
+                    Paragraph('<b>Grade & Age:</b>', meta_label),
+                    Paragraph(f"{grade_str} ({age_str})", meta_val),
+                    Paragraph('<b>Date Generated:</b>', meta_label),
+                    Paragraph(date_str, meta_val),
+                ],
+            ],
+            colWidths=[available_w * 0.18, available_w * 0.32, available_w * 0.20, available_w * 0.30],
+        )
+        meta_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#CBD5E1')),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        story.append(meta_table)
+
+        goal_table = Table(
+            [[
+                Paragraph("<b>Target IEP Goal:</b>", meta_label),
+                Paragraph(goal_text, meta_val)
+            ]],
+            colWidths=[available_w * 0.20, available_w * 0.80]
+        )
+        goal_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#EFF6FF')),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#BFDBFE')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        story.append(Spacer(1, 2 * mm))
+        story.append(goal_table)
+        story.append(Spacer(1, 4 * mm))
 
         tmp_cleanup_paths = []
 
@@ -850,7 +1277,7 @@ class PDFExportEngine:
                 desc = step_item.get("description", "")
                 step_img_url = step_item.get("imageUrl") or visual_aid_record.imageUrl or ""
                 cell_flowables = [
-                    Paragraph(f"STEP {step_num}", step_badge_style),
+                    Paragraph(f"STEP {step_num} &bull; &#x2702; CUT & LAMINATE", step_badge_style),
                     Spacer(1, 2*mm),
                 ]
 
@@ -1682,94 +2109,117 @@ class StrategyBinaryExportEngine:
         doc = SimpleDocTemplate(
             buffer,
             pagesize=A4,
-            rightMargin=20 * mm,
-            leftMargin=20 * mm,
-            topMargin=20 * mm,
-            bottomMargin=20 * mm,
+            rightMargin=15 * mm,
+            leftMargin=15 * mm,
+            topMargin=15 * mm,
+            bottomMargin=15 * mm,
         )
 
         # ── Styles ──────────────────────────────────────────────────────
         base = getSampleStyleSheet()
 
-        style_title = ParagraphStyle(
+        title_style = ParagraphStyle(
             'DocTitle',
             parent=base['Title'],
-            fontSize=18,
-            leading=24,
+            fontSize=15,
+            leading=19,
             alignment=TA_CENTER,
             fontName='Helvetica-Bold',
-            spaceAfter=6,
+            textColor=colors.HexColor('#1F4E79'),
+            spaceAfter=3,
         )
-        style_label = ParagraphStyle(
+        subtitle_style = ParagraphStyle(
+            'DocSubtitle',
+            parent=base['Normal'],
+            fontSize=8.5,
+            leading=11,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#64748B'),
+        )
+        meta_label = ParagraphStyle(
             'MetaLabel',
             parent=base['Normal'],
-            fontSize=10,
+            fontSize=8.5,
             fontName='Helvetica-Bold',
-            leading=14,
+            leading=11,
+            textColor=colors.HexColor('#1F4E79'),
         )
-        style_value = ParagraphStyle(
+        meta_val = ParagraphStyle(
             'MetaValue',
             parent=base['Normal'],
-            fontSize=10,
+            fontSize=8.5,
             fontName='Helvetica',
-            leading=14,
+            leading=11,
+            textColor=colors.HexColor('#1E293B'),
         )
-        style_section_heading = ParagraphStyle(
+        section_heading = ParagraphStyle(
             'SectionHeading',
             parent=base['Normal'],
-            fontSize=11,
+            fontSize=10,
             fontName='Helvetica-Bold',
-            leading=16,
-            spaceBefore=10,
-            spaceAfter=4,
+            leading=14,
+            textColor=colors.HexColor('#1F4E79'),
+            spaceBefore=6,
+            spaceAfter=3,
         )
-        style_body = ParagraphStyle(
+        body_style = ParagraphStyle(
             'BodyText',
             parent=base['Normal'],
-            fontSize=10,
+            fontSize=8.5,
             fontName='Helvetica',
-            leading=15,
+            leading=12,
+            textColor=colors.HexColor('#334155'),
             leftIndent=0,
         )
-        style_content_box = ParagraphStyle(
-            'ContentBox',
+        content_box_body = ParagraphStyle(
+            'ContentBoxBody',
             parent=base['Normal'],
-            fontSize=10,
+            fontSize=8.5,
             fontName='Helvetica',
-            leading=15,
-            textColor=colors.white,
+            leading=12,
+            textColor=colors.HexColor('#334155'),
+        )
+        sign_label = ParagraphStyle(
+            'SignLabel',
+            parent=base['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=9,
+            leading=12,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#1E293B'),
+        )
+        sign_role = ParagraphStyle(
+            'SignRole',
+            parent=base['Normal'],
+            fontName='Helvetica',
+            fontSize=8,
+            leading=11,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#64748B'),
         )
 
-        # ── Helpers ─────────────────────────────────────────────────────
         def parse_content_to_flowables(raw_text):
-            """
-            Converts the AI markdown output into styled ReportLab flowables.
-            **Title:** → bold section heading (plain text, no black box)
-            * **Subtitle:** → bold sub-heading inside a black content box
-            + bullet line → plain line inside the same black content box
-            """
             flowables = []
             lines = raw_text.strip().splitlines()
-
-            current_box_lines = []  # buffer lines that go into a black box
+            current_box_lines = []
 
             def flush_box():
-                """Render buffered lines as a single black-background table cell."""
                 if not current_box_lines:
                     return
                 content_html = '<br/>'.join(current_box_lines)
-                p = Paragraph(content_html, style_content_box)
+                p = Paragraph(content_html, content_box_body)
                 tbl = Table([[p]], colWidths=[doc.width])
                 tbl.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, -1), colors.black),
-                    ('TOPPADDING',    (0, 0), (-1, -1), 10),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-                    ('LEFTPADDING',   (0, 0), (-1, -1), 12),
-                    ('RIGHTPADDING',  (0, 0), (-1, -1), 12),
+                    ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
+                    ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#CBD5E1')),
+                    ('TOPPADDING',    (0, 0), (-1, -1), 6),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                    ('LEFTPADDING',   (0, 0), (-1, -1), 8),
+                    ('RIGHTPADDING',  (0, 0), (-1, -1), 8),
                     ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                 ]))
                 flowables.append(tbl)
-                flowables.append(Spacer(1, 6))
+                flowables.append(Spacer(1, 3 * mm))
                 current_box_lines.clear()
 
             for line in lines:
@@ -1778,15 +2228,13 @@ class StrategyBinaryExportEngine:
                     flush_box()
                     continue
 
-                # Top-level section heading: **Some Title:**
                 top_heading_match = re.match(r'^\*\*(.+?)\*\*\s*$', stripped)
                 if top_heading_match:
                     flush_box()
                     heading_text = top_heading_match.group(1).rstrip(':')
-                    flowables.append(Paragraph(heading_text, style_section_heading))
+                    flowables.append(Paragraph(heading_text, section_heading))
                     continue
 
-                # Sub-heading inside box: * **Subtitle:**  or  * **Subtitle:** more text
                 sub_heading_match = re.match(r'^\*\s+\*\*(.+?)\*\*(.*)$', stripped)
                 if sub_heading_match:
                     flush_box()
@@ -1799,60 +2247,136 @@ class StrategyBinaryExportEngine:
                     current_box_lines.append(line_html)
                     continue
 
-                # Detail bullet: + some detail text
                 detail_match = re.match(r'^\+\s+(.+)$', stripped)
                 if detail_match:
-                    current_box_lines.append(detail_match.group(1))
+                    current_box_lines.append(f'&bull; {detail_match.group(1)}')
                     continue
 
-                # Fallback: plain paragraph (flush any open box first)
                 flush_box()
-                flowables.append(Paragraph(stripped, style_body))
+                flowables.append(Paragraph(stripped, body_style))
 
             flush_box()
             return flowables
 
-        # ── Build document elements ──────────────────────────────────────
         elements = []
 
-        # Title
-        elements.append(Paragraph(strategy_record.title, style_title))
-        elements.append(Spacer(1, 4 * mm))
+        # DepEd / NeuroPath Standard Document Header
+        elements.append(Paragraph("REPUBLIC OF THE PHILIPPINES &bull; DEPARTMENT OF EDUCATION", subtitle_style))
+        elements.append(Paragraph("REGION VII &bull; SPECIAL EDUCATION (SPED) INSTRUCTIONAL SUPPORT SYSTEM", subtitle_style))
+        elements.append(Spacer(1, 2 * mm))
+        elements.append(Paragraph(strategy_record.title or "TEACHING STRATEGY & BEHAVIORAL INTERVENTION GUIDE", title_style))
+        elements.append(Paragraph("Evidence-Based Instructional Strategy & Generalization Sheet for ASD Learners", subtitle_style))
+        elements.append(Spacer(1, 3 * mm))
 
-        # Student / Date meta row
         student_name = "N/A"
+        grade_val = "Elementary"
+        age_val = "N/A"
+        teacher_name = "SPED Teacher"
+        iep_goal_text = "Target Behavioral & Learning Goal"
+        domain_name = "ASD Functional Support"
+
         try:
-            student_name = strategy_record.iep_goal.iep.studentID.name
+            if strategy_record.iep_goal:
+                g = strategy_record.iep_goal
+                iep_goal_text = g.annual_goal or g.goalName or iep_goal_text
+                domain_name = g.subject_category or g.goalName or domain_name
+                if g.iep and g.iep.studentID:
+                    st = g.iep.studentID
+                    student_name = st.name or student_name
+                    grade_val = f"Grade {st.grade}" if st.grade else grade_val
+                    age_val = f"{st.age} years old" if st.age else age_val
+                    if st.teacher:
+                        teacher_name = st.teacher.name or teacher_name
         except Exception:
             pass
 
         date_str = strategy_record.dateCreated.strftime("%B %d, %Y") if strategy_record.dateCreated else "N/A"
 
+        available_w = doc.width
         meta_table = Table(
-            [[
-                Paragraph('<b>Student</b>', style_label),
-                Paragraph('<b>Date Created</b>', style_label),
-            ], [
-                Paragraph(student_name, style_value),
-                Paragraph(date_str, style_value),
-            ]],
-            colWidths=[doc.width / 2, doc.width / 2],
+            [
+                [
+                    Paragraph('<b>Learner Name:</b>', meta_label),
+                    Paragraph(student_name, meta_val),
+                    Paragraph('<b>SPED Teacher:</b>', meta_label),
+                    Paragraph(teacher_name, meta_val),
+                ],
+                [
+                    Paragraph('<b>Grade & Age:</b>', meta_label),
+                    Paragraph(f"{grade_val} ({age_val})", meta_val),
+                    Paragraph('<b>Date Generated:</b>', meta_label),
+                    Paragraph(date_str, meta_val),
+                ],
+                [
+                    Paragraph('<b>Target Domain:</b>', meta_label),
+                    Paragraph(domain_name, meta_val),
+                    Paragraph('<b>Document Type:</b>', meta_label),
+                    Paragraph('Strategy Implementation Guide', meta_val),
+                ],
+            ],
+            colWidths=[available_w * 0.18, available_w * 0.32, available_w * 0.20, available_w * 0.30],
         )
         meta_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#CBD5E1')),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
         ]))
         elements.append(meta_table)
-        elements.append(Spacer(1, 6 * mm))
 
-        # Section heading
-        elements.append(Paragraph('<b>Strategy Content</b>', style_section_heading))
+        goal_table = Table(
+            [[
+                Paragraph("<b>Target IEP Goal:</b>", meta_label),
+                Paragraph(iep_goal_text, meta_val)
+            ]],
+            colWidths=[available_w * 0.20, available_w * 0.80]
+        )
+        goal_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#EFF6FF')),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#BFDBFE')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ]))
         elements.append(Spacer(1, 2 * mm))
+        elements.append(goal_table)
+        elements.append(Spacer(1, 4 * mm))
 
-        # Parsed AI content
+        # Section heading & Content
+        elements.append(Paragraph('<b>Implementation Guidelines & Strategic Procedures</b>', section_heading))
+        elements.append(Spacer(1, 1 * mm))
         elements.extend(parse_content_to_flowables(strategy_record.strategyContent))
+
+        # Signatures
+        elements.append(Spacer(1, 5 * mm))
+        sig_data = [
+            [
+                Paragraph("<b>______________________________________</b>", sign_label),
+                Paragraph("<b>______________________________________</b>", sign_label),
+            ],
+            [
+                Paragraph(f"<b>{teacher_name}</b>", sign_label),
+                Paragraph("<b>School Head / SPED Coordinator</b>", sign_label),
+            ],
+            [
+                Paragraph("Special Education (SPED) Teacher", sign_role),
+                Paragraph("Reviewing Official & DepEd Validator", sign_role),
+            ],
+        ]
+        sig_table = Table(sig_data, colWidths=[available_w * 0.50, available_w * 0.50])
+        sig_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('TOPPADDING', (0, 0), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+        ]))
+        elements.append(sig_table)
 
         doc.build(elements)
         buffer.seek(0)
