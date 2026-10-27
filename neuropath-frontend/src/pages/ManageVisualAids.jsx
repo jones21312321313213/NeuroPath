@@ -22,6 +22,8 @@ import {
   ArrowPathIcon,
   PrinterIcon,
   SpeakerWaveIcon,
+  InfoIcon,
+  FolderIcon,
 } from "../components/ui/icons";
 
 const DAILY_LIVING_PRESETS = [
@@ -56,6 +58,11 @@ const TABS = [
     key: "generate",
     label: "Generate",
     icon: <PhotoIcon className="w-4 h-4" aria-hidden="true" />,
+  },
+  {
+    key: "info",
+    label: "Info",
+    icon: <InfoIcon className="w-4 h-4" aria-hidden="true" />,
   },
   {
     key: "view",
@@ -1293,6 +1300,181 @@ function DeleteTab({ setActivePage, onGoToGenerate }) {
   );
 }
 
+// ── Info Tab ──────────────────────────────────────────────────────────────────
+function VisualAidsInfoTab({ onGoToGenerate, onGoToView }) {
+  return (
+    <div className="va-info-container">
+      <div className="va-info-grid">
+        {/* Card 1: Tool Purpose */}
+        <div className="va-card">
+          <div className="va-card-header">
+            <div className="va-card-icon">
+              <PhotoIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="va-card-title">About Visual Aids</h2>
+              <p className="va-card-subtitle">
+                Sequential 3-step task analysis visual schedules for neurodivergent learners
+              </p>
+            </div>
+          </div>
+          <div className="va-info-section">
+            <p style={{ color: "#475569", fontSize: "14px", lineHeight: "1.6", margin: 0 }}>
+              The Visual Aids tool creates clear, structured 3-step pictorial schedules and PECS-style prompt cards. It simplifies complex daily routines into manageable visual milestones for children with Autism, ADHD, speech/language delays, and sensory processing needs.
+            </p>
+            <div className="va-info-feature-item">
+              <div className="va-info-feature-icon">
+                <AcademicCapIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="va-info-feature-text">
+                <h4>3-Step Task Analysis</h4>
+                <p>Breaks down self-care, hygiene, and classroom routines into clear, sequential Beginning, Middle, and End steps.</p>
+              </div>
+            </div>
+            <div className="va-info-feature-item">
+              <div className="va-info-feature-icon">
+                <SpeakerWaveIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="va-info-feature-text">
+                <h4>Text-to-Speech Audio Support</h4>
+                <p>Built-in voice narration reads step titles and descriptions aloud to support non-verbal and emerging readers.</p>
+              </div>
+            </div>
+            <div className="va-info-feature-item">
+              <div className="va-info-feature-icon">
+                <PrinterIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="va-info-feature-text">
+                <h4>Classroom-Ready Printables</h4>
+                <p>Instantly export printable visual schedules and flashcards designed for desk strips and schedule boards.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: What are View & Delete Tabs */}
+        <div className="va-card">
+          <div className="va-card-header">
+            <div className="va-card-icon">
+              <FolderIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="va-card-title">What is the "Manage" Section?</h2>
+              <p className="va-card-subtitle">
+                Your visual schedule repository across View and Delete tabs
+              </p>
+            </div>
+          </div>
+          <div className="va-info-section">
+            <p style={{ color: "#475569", fontSize: "14px", lineHeight: "1.6", margin: 0 }}>
+              The management tabs (<strong>View</strong> and <strong>Delete</strong>) provide complete control over all visual aids generated for your students:
+            </p>
+            <div className="va-info-feature-item">
+              <div className="va-info-feature-icon">
+                <EyeIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="va-info-feature-text">
+                <h4>View Tab: Library & Audio Player</h4>
+                <p>Browse saved aids by student, inspect multi-step sequences, listen to audio narration, and trigger classroom printing.</p>
+              </div>
+            </div>
+            <div className="va-info-feature-item">
+              <div className="va-info-feature-icon">
+                <UserIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="va-info-feature-text">
+                <h4>Student-Centered Organization</h4>
+                <p>All visual schedules remain linked to the student profile and their active IEP goals for easy referencing.</p>
+              </div>
+            </div>
+            <div className="va-info-feature-item">
+              <div className="va-info-feature-icon">
+                <TrashIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="va-info-feature-text">
+                <h4>Delete Tab: Clean Up Outdated Cards</h4>
+                <p>Safely archive or delete obsolete routines and duplicate visual aids to keep your workspace organized.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Card 3: Quick Workflow Guide */}
+      <div className="va-card">
+        <div className="va-card-header">
+          <div className="va-card-icon">
+            <SparklesIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+          </div>
+          <div>
+            <h2 className="va-card-title">Recommended Workflow</h2>
+            <p className="va-card-subtitle">
+              How to create, customize, and print visual routines
+            </p>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
+          <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+              <span style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#3b82f6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700" }}>1</span>
+              <strong style={{ fontSize: "14px", color: "#0f172a" }}>Select Student & Goal</strong>
+            </div>
+            <p style={{ margin: 0, fontSize: "13px", color: "#64748b", lineHeight: "1.5" }}>
+              Choose a student to display their learning profile and target daily living IEP goals.
+            </p>
+          </div>
+          <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+              <span style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#3b82f6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700" }}>2</span>
+              <strong style={{ fontSize: "14px", color: "#0f172a" }}>Pick Routine or Preset</strong>
+            </div>
+            <p style={{ margin: 0, fontSize: "13px", color: "#64748b", lineHeight: "1.5" }}>
+              Select a quick preset (Handwashing, Eating, Brushing, Transitions) or type a custom task prompt.
+            </p>
+          </div>
+          <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+              <span style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#3b82f6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700" }}>3</span>
+              <strong style={{ fontSize: "14px", color: "#0f172a" }}>Generate 3-Step Sequence</strong>
+            </div>
+            <p style={{ margin: 0, fontSize: "13px", color: "#64748b", lineHeight: "1.5" }}>
+              Generate custom illustrations, review each step's caption, and listen to the audio preview.
+            </p>
+          </div>
+          <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+              <span style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#3b82f6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700" }}>4</span>
+              <strong style={{ fontSize: "14px", color: "#0f172a" }}>Save & Print Strip</strong>
+            </div>
+            <p style={{ margin: 0, fontSize: "13px", color: "#64748b", lineHeight: "1.5" }}>
+              Save the visual aid to your library, then print high-resolution visual cards or desk strips anytime.
+            </p>
+          </div>
+        </div>
+
+        <div className="va-info-actions">
+          <button
+            type="button"
+            className="va-btn va-btn-primary flex items-center gap-1.5"
+            onClick={onGoToGenerate}
+          >
+            <SparklesIcon className="w-4 h-4" aria-hidden="true" />
+            Go to Generate
+          </button>
+          <button
+            type="button"
+            className="va-btn va-btn-secondary flex items-center gap-1.5"
+            onClick={onGoToView}
+          >
+            <EyeIcon className="w-4 h-4" aria-hidden="true" />
+            Go to View Visual Aids
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ManageVisualAids({ setActivePage }) {
   const [activeTab, setActiveTab] = useState("generate");
@@ -1352,6 +1534,12 @@ export default function ManageVisualAids({ setActivePage }) {
             setActivePage={setActivePage}
             onDraftStatusChange={setHasDraft}
             promptNavigation={promptNavigation}
+          />
+        )}
+        {activeTab === "info" && (
+          <VisualAidsInfoTab
+            onGoToGenerate={() => handleTabClick("generate")}
+            onGoToView={() => handleTabClick("view")}
           />
         )}
         {activeTab === "view" && (

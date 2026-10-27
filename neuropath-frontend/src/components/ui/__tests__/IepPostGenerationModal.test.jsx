@@ -68,7 +68,7 @@ describe("IepPostGenerationModal", () => {
     expect(screen.getByText("Visual schedule, AAC device")).toBeInTheDocument();
   });
 
-  it("displays SMART Aligned badge with appropriate styling", () => {
+  it("displays SMART Aligned badge and renders goals cleanly without R-GORI badge", () => {
     render(
       <IepPostGenerationModal
         isOpen={true}
@@ -80,6 +80,12 @@ describe("IepPostGenerationModal", () => {
     );
 
     expect(screen.getByText("SMART Aligned")).toBeInTheDocument();
+    expect(screen.queryByText(/R-GORI/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Student will independently use an AAC device to make 3-word requests.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("renders empty state placeholder when no goals are supplied", () => {

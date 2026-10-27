@@ -9,7 +9,6 @@ import {
   UserIcon,
   TargetIcon,
   LightBulbIcon,
-  DocumentIcon,
   WrenchIcon,
   ChevronDownIcon,
   ChevronRightIcon,
@@ -193,7 +192,6 @@ export function IepPostGenerationModal({
                         {goal.subject_category || goal.goalName || "Individualized Goal"}
                       </h4>
                     </div>
-
                     <div className="flex items-center gap-1.5">
                       <Badge variant="success" size="sm">
                         SMART Aligned

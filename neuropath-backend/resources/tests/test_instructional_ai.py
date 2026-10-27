@@ -2,6 +2,7 @@ from django.test import TestCase
 from unittest.mock import patch
 from users.models import Teacher, StudentProfile
 from iep_management.models import IEPModel, IEPGoal
+from resources.models import LessonPlan
 from resources.services import TeachingStrategyGenerationService, LessonPlanGenerationService
 
 class InstructionalAIServiceTestCase(TestCase):
@@ -56,9 +57,11 @@ class InstructionalAIServiceTestCase(TestCase):
     @patch('iep_management.ai_engine.AIEngineService.generate_text')
     def test_lesson_plan_generation_uses_ai_engine(self, mock_ai):
         mock_ai.return_value = ('{"lesson_plans": [{"objective_focus": "Task Completion", "introduction": "Intro", "core_activity": "Core", "assessment": "Check", "materials_needed": ["Timer"]}]}', 'template_fallback')
+        initial_count = LessonPlan.objects.count()
         data = LessonPlanGenerationService.execute_generation(self.goal.pk, self.teacher)
         self.assertIn('lesson_plans', data)
         self.assertEqual(len(data['lesson_plans']), 1)
+        self.assertEqual(LessonPlan.objects.count(), initial_count, "Generation must not persist lesson plans to DB prematurely.")
 
     @patch('iep_management.ai_engine.AIEngineService.generate_text')
     def test_lesson_plan_generation_handles_invalid_json_fallback(self, mock_ai):
