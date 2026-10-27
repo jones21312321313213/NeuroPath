@@ -68,7 +68,7 @@ describe("IepPostGenerationModal", () => {
     expect(screen.getByText("Visual schedule, AAC device")).toBeInTheDocument();
   });
 
-  it("displays R-GORI score badge with appropriate styling and feedback note", () => {
+  it("displays SMART Aligned badge with appropriate styling", () => {
     render(
       <IepPostGenerationModal
         isOpen={true}
@@ -79,10 +79,7 @@ describe("IepPostGenerationModal", () => {
       />,
     );
 
-    expect(screen.getByText("R-GORI: 88/100 (Exemplary)")).toBeInTheDocument();
-    expect(
-      screen.getByText("Well-defined criteria and specific contextual timeline."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("SMART Aligned")).toBeInTheDocument();
   });
 
   it("renders empty state placeholder when no goals are supplied", () => {

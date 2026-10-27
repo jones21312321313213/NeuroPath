@@ -13,8 +13,8 @@ export const IEP_STAGES = [
   },
   {
     id: 3,
-    title: "Evaluating Pedagogical Rigor",
-    description: "Validating alignment and quality against RGORI rubric standards",
+    title: "Structuring Quarterly Milestones",
+    description: "Formulating instructional interventions and 3-month timeline targets",
     threshold: 85,
   },
   {
