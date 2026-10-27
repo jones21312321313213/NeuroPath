@@ -21,3 +21,6 @@ staticfiles/
 *.docx
 steps-torun.txt
 Github-templates.md
+
+scratch/
+.tmp-issues/
