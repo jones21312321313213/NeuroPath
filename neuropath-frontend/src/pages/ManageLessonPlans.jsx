@@ -882,7 +882,11 @@ function ManagePlansTab({ setActivePage, onGoToGenerate }) {
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [viewingPlan, setViewingPlan] = useState(null);
   const [editingPlan, setEditingPlan] = useState(null);
-  const [formValue, setFormValue] = useState({ title: "", status: "Draft" });
+  const [formValue, setFormValue] = useState({
+    title: "",
+    status: "Draft",
+    phases: [],
+  });
   const [savingEdit, setSavingEdit] = useState(false);
   const [toDeletePlan, setToDeletePlan] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -893,10 +897,36 @@ function ManagePlansTab({ setActivePage, onGoToGenerate }) {
   const [successMessage, setSuccessMessage] = useState("");
   const { toast } = useToast();
 
+  const parseLessonPhases = (content) => {
+    try {
+      let rawText = content || "{}";
+      let parsed = typeof rawText === "string" ? JSON.parse(rawText) : rawText;
+      if (typeof parsed === "string") parsed = JSON.parse(parsed);
+      const arr = Array.isArray(parsed) ? parsed : parsed?.lesson_plans || [];
+      return arr.map((item) => ({
+        objective_focus: item.objective_focus || "",
+        introduction: item.introduction || "",
+        core_activity: item.core_activity || "",
+        assessment: item.assessment || "",
+        materials_needed: Array.isArray(item.materials_needed)
+          ? item.materials_needed.join("\n")
+          : item.materials_needed || "",
+      }));
+    } catch {
+      return [];
+    }
+  };
+
   const isFormDirty = Boolean(
     editingPlan &&
       (formValue.title !== (editingPlan.title || "") ||
-        formValue.status !== (editingPlan.status || "Draft")),
+        formValue.status !== (editingPlan.status || "Draft") ||
+        JSON.stringify(formValue.phases) !==
+          JSON.stringify(
+            parseLessonPhases(
+              editingPlan.lessonContent || editingPlan.content
+            )
+          )),
   );
 
   const { showPrompt, promptNavigation, confirmLeave, cancelLeave } =
@@ -973,12 +1003,61 @@ function ManagePlansTab({ setActivePage, onGoToGenerate }) {
 
   const handleOpenEdit = (plan) => {
     setEditingPlan(plan);
+    const parsedPhases = parseLessonPhases(
+      plan.lessonContent || plan.content
+    );
     setFormValue({
       title: plan.title || "",
       status: plan.status || "Draft",
+      phases:
+        parsedPhases.length > 0
+          ? parsedPhases
+          : [
+              {
+                objective_focus: "",
+                introduction: "",
+                core_activity: "",
+                assessment: "",
+                materials_needed: "",
+              },
+            ],
     });
     setError("");
     setSuccessMessage("");
+  };
+
+  const handlePhaseChange = (index, field, value) => {
+    setFormValue((prev) => {
+      const nextPhases = [...(prev.phases || [])];
+      nextPhases[index] = {
+        ...nextPhases[index],
+        [field]: value,
+      };
+      return { ...prev, phases: nextPhases };
+    });
+  };
+
+  const handleAddPhase = () => {
+    setFormValue((prev) => ({
+      ...prev,
+      phases: [
+        ...(prev.phases || []),
+        {
+          objective_focus: "",
+          introduction: "",
+          core_activity: "",
+          assessment: "",
+          materials_needed: "",
+        },
+      ],
+    }));
+  };
+
+  const handleRemovePhase = (index) => {
+    setFormValue((prev) => {
+      const nextPhases = (prev.phases || []).filter((_, i) => i !== index);
+      return { ...prev, phases: nextPhases };
+    });
   };
 
   const handleSaveEdit = async () => {
@@ -993,8 +1072,35 @@ function ManagePlansTab({ setActivePage, onGoToGenerate }) {
     setSuccessMessage("");
 
     try {
-      await lessonPlansAPI.update(editingPlan.lessonID, formValue);
-      const updatedPlan = { ...editingPlan, ...formValue };
+      const serializedPhases = {
+        lesson_plans: (formValue.phases || []).map((p) => ({
+          objective_focus: p.objective_focus?.trim() || "",
+          introduction: p.introduction?.trim() || "",
+          core_activity: p.core_activity?.trim() || "",
+          assessment: p.assessment?.trim() || "",
+          materials_needed:
+            typeof p.materials_needed === "string"
+              ? p.materials_needed
+                  .split("\n")
+                  .map((m) => m.trim())
+                  .filter(Boolean)
+              : Array.isArray(p.materials_needed)
+              ? p.materials_needed
+              : [],
+        })),
+      };
+
+      const payload = {
+        title: formValue.title.trim(),
+        status: formValue.status,
+        lessonContent: JSON.stringify(serializedPhases),
+      };
+
+      await lessonPlansAPI.update(editingPlan.lessonID, payload);
+      const updatedPlan = {
+        ...editingPlan,
+        ...payload,
+      };
 
       setPlans((prev) =>
         prev.map((p) =>
@@ -1123,6 +1229,144 @@ function ManagePlansTab({ setActivePage, onGoToGenerate }) {
             <option value="Active">Active</option>
             <option value="Archived">Archived</option>
           </select>
+        </div>
+
+        {/* Phase & Activity Editors */}
+        <div className="ts-output-box" style={{ marginTop: 24 }}>
+          <div className="ts-output-label">
+            <span>Lesson Plan Phases &amp; Instructional Activities</span>
+            <div className="ts-output-label-line" />
+          </div>
+
+          <div className="space-y-6" style={{ marginTop: 16 }}>
+            {formValue.phases?.map((phase, pIdx) => (
+              <div
+                key={pIdx}
+                className="p-4 sm:p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-4"
+              >
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <PhaseBadge index={pIdx} />
+                    <span className="font-bold text-slate-800 text-sm">
+                      Phase {pIdx + 1}
+                    </span>
+                  </div>
+                  {formValue.phases.length > 1 && (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-800 px-2 py-1 rounded hover:bg-rose-50 transition-colors"
+                      onClick={() => handleRemovePhase(pIdx)}
+                    >
+                      <TrashIcon className="w-3.5 h-3.5 text-rose-500" aria-hidden="true" />
+                      Remove Phase
+                    </button>
+                  )}
+                </div>
+
+                <div className="ts-form-group">
+                  <label
+                    htmlFor={`lp-phase-focus-${pIdx}`}
+                    className="ts-form-label"
+                  >
+                    Objective Focus
+                  </label>
+                  <input
+                    id={`lp-phase-focus-${pIdx}`}
+                    className="ts-form-input"
+                    placeholder="e.g. Master single-step request routines"
+                    value={phase.objective_focus}
+                    onChange={(e) =>
+                      handlePhaseChange(pIdx, "objective_focus", e.target.value)
+                    }
+                  />
+                </div>
+
+                <div className="ts-form-group">
+                  <label
+                    htmlFor={`lp-phase-intro-${pIdx}`}
+                    className="ts-form-label"
+                  >
+                    Introduction
+                  </label>
+                  <textarea
+                    id={`lp-phase-intro-${pIdx}`}
+                    className="ts-form-input"
+                    rows={2}
+                    placeholder="How to introduce the lesson..."
+                    value={phase.introduction}
+                    onChange={(e) =>
+                      handlePhaseChange(pIdx, "introduction", e.target.value)
+                    }
+                  />
+                </div>
+
+                <div className="ts-form-group">
+                  <label
+                    htmlFor={`lp-phase-core-${pIdx}`}
+                    className="ts-form-label"
+                  >
+                    Core Activity
+                  </label>
+                  <textarea
+                    id={`lp-phase-core-${pIdx}`}
+                    className="ts-form-input"
+                    rows={4}
+                    placeholder="Step-by-step activity instructions..."
+                    value={phase.core_activity}
+                    onChange={(e) =>
+                      handlePhaseChange(pIdx, "core_activity", e.target.value)
+                    }
+                  />
+                </div>
+
+                <div className="ts-form-group">
+                  <label
+                    htmlFor={`lp-phase-assess-${pIdx}`}
+                    className="ts-form-label"
+                  >
+                    Assessment
+                  </label>
+                  <textarea
+                    id={`lp-phase-assess-${pIdx}`}
+                    className="ts-form-input"
+                    rows={2}
+                    placeholder="How to measure student mastery..."
+                    value={phase.assessment}
+                    onChange={(e) =>
+                      handlePhaseChange(pIdx, "assessment", e.target.value)
+                    }
+                  />
+                </div>
+
+                <div className="ts-form-group">
+                  <label
+                    htmlFor={`lp-phase-mat-${pIdx}`}
+                    className="ts-form-label"
+                  >
+                    Materials Needed (One item per line)
+                  </label>
+                  <textarea
+                    id={`lp-phase-mat-${pIdx}`}
+                    className="ts-form-input"
+                    rows={2}
+                    placeholder="Visual cards&#10;Timer&#10;Token board"
+                    value={phase.materials_needed}
+                    onChange={(e) =>
+                      handlePhaseChange(pIdx, "materials_needed", e.target.value)
+                    }
+                  />
+                </div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              className="w-full py-2.5 flex items-center justify-center gap-2 border-2 border-dashed border-blue-300 rounded-xl text-blue-700 font-semibold text-sm hover:bg-blue-50/70 transition-colors"
+              onClick={handleAddPhase}
+            >
+              + Add Another Phase
+            </button>
+          </div>
         </div>
         <div className="ts-actions space-between" style={{ marginTop: 24 }}>
           <button

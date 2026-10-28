@@ -103,8 +103,12 @@ class LessonPlanDetailSerializer(serializers.ModelSerializer):
 class LessonPlanUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = LessonPlan
-        # Only include fields that physically exist in your original model
-        fields = ['title', 'status']
+        fields = ['title', 'status', 'lessonContent']
+        extra_kwargs = {
+            'title': {'required': False},
+            'status': {'required': False},
+            'lessonContent': {'required': False, 'allow_blank': True, 'allow_null': True},
+        }
         
 # =====================================================================
 # SDD COMPONENT: VisualAidSerializer

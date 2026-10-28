@@ -701,4 +701,47 @@ describe("ViewStudentRecords Component", () => {
     expect(screen.getByText("No learner goals available for this student.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /generate iep goals/i })).toBeInTheDocument();
   });
+
+  it("opens e-signature modal and exports PDF with teacher signature when confirmed", async () => {
+    const user = userEvent.setup();
+    trackingAPI.exportStudentRecordPDF.mockResolvedValueOnce(new Blob(["mock-pdf-content"]));
+
+    render(
+      <MemoryRouter>
+        <ViewStudentRecords />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("Alice Johnson");
+    const selectButtons = screen.getAllByRole("button", { name: /select/i });
+    await user.click(selectButtons[0]);
+
+    // Go to Step 3
+    const nextBtn1 = await screen.findByRole("button", { name: /next →/i });
+    await user.click(nextBtn1);
+    const nextBtn2 = await screen.findByRole("button", { name: /next →/i });
+    await user.click(nextBtn2);
+
+    // Click E-SIGN & EXPORT
+    const eSignBtn = screen.getByRole("button", { name: /e-sign & export/i });
+    await user.click(eSignBtn);
+
+    // Modal should be open
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Official Document Signature")).toBeInTheDocument();
+
+    // Click Skip (Sign with Pen)
+    const skipBtn = screen.getByRole("button", { name: /skip \(sign with pen\)/i });
+    await user.click(skipBtn);
+
+    // exportStudentRecordPDF should be called without teacher signature
+    expect(trackingAPI.exportStudentRecordPDF).toHaveBeenCalledWith(
+      101,
+      expect.objectContaining({
+        section_b_version: 1,
+        section_c_version: 1,
+      }),
+    );
+    expect(trackingAPI.exportStudentRecordPDF.mock.calls[0][1].teacher_signature).toBeUndefined();
+  });
 });

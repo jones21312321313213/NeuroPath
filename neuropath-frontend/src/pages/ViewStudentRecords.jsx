@@ -8,6 +8,7 @@ import StudentShimmer from "../components/StudentShimmer";
 import ErrorState from "../components/ui/ErrorState";
 import Pagination from "../components/ui/Pagination";
 import { InboxIcon, CheckIcon, WarningIcon } from "../components/ui/icons";
+import SignaturePadModal from "../components/SignaturePadModal";
 
 // ── Placeholder data shown when backend fields are missing ─────────────────
 const PLACEHOLDER = {
@@ -332,10 +333,18 @@ function PageSectionBC({
   setActivePage,
 }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState("");
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
 
-  const handleExport = async () => {
+  const teacherNameToExport =
+    user?.name ||
+    user?.username ||
+    (user?.first_name ? `${user.first_name} ${user.last_name || ""}`.trim() : "") ||
+    "Special Education Teacher";
+
+  const handleExport = async (signatureData = null) => {
     if (isExporting) return;
     setIsExporting(true);
     setExportError("");
@@ -349,11 +358,18 @@ function PageSectionBC({
       if (selectedSectionCVersion !== undefined && selectedSectionCVersion !== null) {
         exportParams.section_c_version = selectedSectionCVersion;
       }
+      if (signatureData) {
+        exportParams.teacher_signature = signatureData;
+        if (teacherNameToExport) {
+          exportParams.teacher_name = teacherNameToExport;
+        }
+      }
       const blob = await trackingAPI.exportStudentRecordPDF(targetId, exportParams);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      const cleanName = (studentName || d?.name || "Student").replace(/\s+/g, "_");
+      const rawDisplay = studentName || d?.name || "Student";
+      const cleanName = (rawDisplay.startsWith("gAAAAA") ? (d?.profileDetails?.studentName || "Student") : rawDisplay).replace(/\s+/g, "_");
       link.download = `StudentRecord_${cleanName}.pdf`;
       document.body.appendChild(link);
       link.click();
@@ -361,6 +377,7 @@ function PageSectionBC({
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
       }, 1000);
+      setIsSignatureModalOpen(false);
     } catch (err) {
       setExportError(err.message || "Failed to export PDF. Please try again.");
     } finally {
@@ -537,8 +554,17 @@ function PageSectionBC({
           </button>
           <button
             type="button"
+            className="btn btn-secondary vsr-esign-btn flex items-center gap-1.5"
+            onClick={() => setIsSignatureModalOpen(true)}
+            disabled={isExporting}
+            title="Open digital signature drawer to e-sign this record before export"
+          >
+             E-SIGN &amp; EXPORT
+          </button>
+          <button
+            type="button"
             className="btn om-export-btn vsr-export-pdf-btn"
-            onClick={handleExport}
+            onClick={() => handleExport(null)}
             disabled={isExporting}
           >
             {isExporting ? "Exporting PDF..." : "EXPORT PDF"}
@@ -551,6 +577,19 @@ function PageSectionBC({
           <span>{exportError}</span>
         </div>
       )}
+      <SignaturePadModal
+        isOpen={isSignatureModalOpen}
+        onClose={() => setIsSignatureModalOpen(false)}
+        onConfirmExport={(sig) => handleExport(sig)}
+        studentName={
+          (studentName && !studentName.startsWith("gAAAAA") ? studentName : "") ||
+          (d?.name && !d.name.startsWith("gAAAAA") ? d.name : "") ||
+          d?.profileDetails?.studentName ||
+          "Learner"
+        }
+        teacherName={teacherNameToExport}
+        isExporting={isExporting}
+      />
     </div>
   );
 }
@@ -787,25 +826,36 @@ export default function ViewStudentRecords({ setActivePage }) {
         const targetBIep = sortedIeps.find((i) => i.version === defaultBVer) || sortedIeps[0] || null;
         const bDetails = normalizeGeneratedDetails(targetBIep);
 
+        const rawName = raw.name || "";
+        const resolvedName = (rawName && !rawName.startsWith("gAAAAA"))
+          ? rawName
+          : pd.studentName || pd.learnerName || (s.name && !s.name.startsWith("gAAAAA") ? s.name : PLACEHOLDER.name);
+
+        const rawDiag = raw.diagnosis || "";
+        const rawAsd = raw.asdBackground || "";
+        const resolvedDiag = pd.disabilityCategory || (rawDiag && !rawDiag.startsWith("gAAAAA") ? rawDiag : "") || PLACEHOLDER.disabilityCategory;
+        const resolvedAsd = pd.diagnosisDetails || (rawAsd && !rawAsd.startsWith("gAAAAA") ? rawAsd : "") || PLACEHOLDER.diagnosisDetails;
+        const rawAssess = raw.assessmentResult || "";
+        const resolvedAssess = pd.presentEvaluation || (rawAssess && !rawAssess.startsWith("gAAAAA") ? rawAssess : "") || PLACEHOLDER.presentEvaluation;
+        const rawNeeds = raw.support_needs || "";
+        const resolvedNeeds = pd.academicNeeds || (rawNeeds && !rawNeeds.startsWith("gAAAAA") ? rawNeeds : "") || PLACEHOLDER.academicNeeds;
+
         setRecordData({
           ...PLACEHOLDER,
           studentID: s.studentID,
-          name: raw.name || pd.studentName || s.name || PLACEHOLDER.name,
+          name: resolvedName,
           age: String(raw.age || s.age || PLACEHOLDER.age),
           grade: String(raw.grade || s.grade || PLACEHOLDER.grade),
           gender: raw.gender || PLACEHOLDER.gender,
           school: pd.school || PLACEHOLDER.school,
           schoolYear: pd.schoolYear || PLACEHOLDER.schoolYear,
           birthdate: pd.birthdate || PLACEHOLDER.birthdate,
-          disabilityCategory:
-            pd.disabilityCategory || raw.diagnosis || PLACEHOLDER.disabilityCategory,
-          diagnosisDetails:
-            pd.diagnosisDetails || raw.asdBackground || PLACEHOLDER.diagnosisDetails,
+          disabilityCategory: resolvedDiag,
+          diagnosisDetails: resolvedAsd,
           difficultyMarkers: pd.difficultyMarkers || PLACEHOLDER.difficultyMarkers,
-          presentEvaluation:
-            pd.presentEvaluation || raw.assessmentResult || PLACEHOLDER.presentEvaluation,
+          presentEvaluation: resolvedAssess,
           academicStrengths: pd.academicStrengths || PLACEHOLDER.academicStrengths,
-          academicNeeds: pd.academicNeeds || raw.support_needs || PLACEHOLDER.academicNeeds,
+          academicNeeds: resolvedNeeds,
           parentalConcerns: pd.parentalConcerns || PLACEHOLDER.parentalConcerns,
           curriculumImpact: pd.curriculumImpact || PLACEHOLDER.curriculumImpact,
           aiAccommodations: bDetails.generatedAccommodations || targetBIep?.accommodations || "",
@@ -838,9 +888,18 @@ export default function ViewStudentRecords({ setActivePage }) {
     setGoalsError("");
   };
 
+  const getStudentDisplayName = (st) => {
+    if (!st) return "Student";
+    const raw = st.name || "";
+    if (raw && !raw.startsWith("gAAAAA")) return raw;
+    const pd = st.profileDetails || {};
+    return pd.studentName || pd.learnerName || (raw && !raw.startsWith("gAAAAA") ? raw : "Student");
+  };
+
   const filtered = useMemo(() => {
     return students.filter((s) => {
-      const matchName = (s.name || "").toLowerCase().includes(search.toLowerCase());
+      const displayName = getStudentDisplayName(s);
+      const matchName = displayName.toLowerCase().includes(search.toLowerCase());
       const matchGrade = filterGrade ? s.grade === parseInt(filterGrade) : true;
       const matchAge = filterAge ? s.age === parseInt(filterAge) : true;
       return matchName && matchGrade && matchAge;
@@ -1011,7 +1070,7 @@ export default function ViewStudentRecords({ setActivePage }) {
                       <div key={s.studentID} className="om-student-row">
                         <div className="va-student-avatar" />
                         <div className="va-student-info">
-                          <span className="va-student-name">{s.name}</span>
+                          <span className="va-student-name">{getStudentDisplayName(s)}</span>
                           <span className="va-student-grade">Grade – {s.grade}</span>
                         </div>
                         <button

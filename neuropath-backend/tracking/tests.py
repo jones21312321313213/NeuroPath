@@ -282,6 +282,28 @@ class BinaryReportRenderEngineTestCase(TestCase):
         self.assertIn('No Section B factors recorded for version 999.', full_text)
         self.assertIn('No learner goals recorded for version 999.', full_text)
 
+    def test_export_record_pdf_with_signature_and_six_pages_landscape(self):
+        import base64
+        from PIL import Image
+        img = Image.new('RGBA', (100, 40), (255, 255, 255, 0))
+        buf = io.BytesIO()
+        img.save(buf, format='PNG')
+        mock_sig = 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode()
+
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        response = self.client.post(
+            f'/api/tracking/student-records/{self.student.pk}/export/',
+            {'teacher_signature': mock_sig},
+            format='json'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+
+        reader = PdfReader(io.BytesIO(response.content))
+        self.assertEqual(len(reader.pages), 6)
+        p1 = reader.pages[0]
+        self.assertGreater(p1.mediabox.width, p1.mediabox.height)
+
 
 class TrackingAuthAndTenantIsolationTests(TestCase):
     """Student tracking/progress data must require authentication and must

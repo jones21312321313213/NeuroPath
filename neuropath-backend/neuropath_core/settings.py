@@ -105,7 +105,15 @@ WSGI_APPLICATION = 'neuropath_core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 db_url = env('DATABASE_URL', default=None)
-if db_url:
+if env.bool('USE_SQLITE', default=False):
+    # Local fallback (e.g. when the Supabase project is paused/unreachable).
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+elif db_url:
     DATABASES = {
         'default': env.db('DATABASE_URL')
     }
