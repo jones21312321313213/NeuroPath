@@ -491,6 +491,8 @@ export const trackingAPI = {
   },
   getProgressDashboard: (studentId) =>
     request(`/tracking/progress-dashboard/?studentID=${studentId}`),
+  getClassroomProgressSummary: () =>
+    request('/tracking/progress-dashboard/?classroom=true'),
   getAnalytics: (studentId, subject) => {
     const params = new URLSearchParams({ studentID: studentId });
     if (subject) params.append("subject", subject);
