@@ -1,6 +1,7 @@
 from .models import GeneratedAIInsight
 from .ai_engine import AIEngineService
 from .privacy_utils import anonymize_student_context, scrub_pii_from_text, verify_ra10173_consent
+from .alignment import aligned_system_prompt, build_alignment_prompt
 
 
 class AIGenerationService:
@@ -44,17 +45,20 @@ class AIGenerationService:
                 teacher_instance = user
 
             generated_summary, _ = AIEngineService.generate_text(
-                prompt=prompt,
-                system_prompt='You output only the requested summary paragraph. No conversational filler.',
+                prompt=build_alignment_prompt(
+                    prompt, getattr(teacher_instance, 'alignment_profile', {})
+                ),
+                system_prompt=aligned_system_prompt(
+                    'You output only the requested summary paragraph. No conversational filler.'
+                ),
                 max_tokens=600
             )
 
             new_insight = GeneratedAIInsight.objects.create(
                 student=student_instance,
-                teacher=teacher_instance, 
+                teacher=teacher_instance,
                 summary_text=generated_summary
             )
             return new_insight
         except Exception as e:
             raise RuntimeError(f"AI Generation failed: {str(e)}")
-
