@@ -16,6 +16,22 @@ class Teacher(models.Model):
         return self.name
 
 
+class TeacherAlignmentEvent(models.Model):
+    """Queued, privacy-safe preference labels awaiting profile aggregation."""
+    teacher = models.ForeignKey(
+        Teacher,
+        on_delete=models.CASCADE,
+        related_name='alignment_events',
+    )
+    signals = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [models.Index(fields=['processed_at', 'created_at'], name='users_alignproc_created_idx')]
+
+
 class StudentProfile(models.Model):
     studentID = models.AutoField(primary_key=True)
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, db_column='teacherID')

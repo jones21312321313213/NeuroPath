@@ -19,7 +19,7 @@ from .privacy_utils import (
     verify_ra10173_consent,
     ConsentRequiredException,
 )
-from .alignment import record_generation_preferences, refresh_teacher_profile
+from .alignment import record_generation_preferences
 import time
 from .rgori_service import RGORICheckerService
 import json
@@ -84,7 +84,6 @@ class IEPGeneratorService:
                         'draft_accommodations': draft_accommodations,
                     }),
                 )
-                refresh_teacher_profile(resolved_teacher)
             except Exception as e:
                 logger.error("Failed to persist AIGenerationLog: %s", e)
 
@@ -665,6 +664,8 @@ class GenerateIEPGoalsFromIEPView(APIView):
             record_generation_preferences(
                 teacher,
                 teacher_prompt,
+                goal_area=goal_area,
+                task_type='iep_goal_generation',
             )
         except Exception as e:
             logger.warning('Failed to update teacher alignment history: %s', e)

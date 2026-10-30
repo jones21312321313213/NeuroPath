@@ -14,9 +14,16 @@ import { usersAPI } from "../api/client";
 
 const PREFERENCE_LABELS = {
   bullets: "Bullet points", sections: "Headings and sections", paragraph: "Paragraphs",
-  numbered_steps: "Numbered steps", tables: "Tables", concise: "Concise responses",
+  numbered_steps: "Numbered steps", tables: "Tables", markdown: "Markdown", code_examples: "Code examples", concise: "Concise responses",
   detailed: "Detailed responses", examples: "Examples", step_by_step: "Step by step",
   formal: "Formal tone", plain_language: "Plain language", encouraging: "Encouraging tone",
+  classroom_ready: "Classroom ready", scaffolded_steps: "Scaffolded steps",
+  progress_monitoring: "Progress monitoring", family_communication: "Family communication",
+  accessible_materials: "Accessible materials", communication: "Communication",
+  social_emotional: "Social-emotional learning", academics: "Academics",
+  adaptive_living: "Adaptive living", behavior: "Behavior", motor: "Motor skills",
+  executive_function: "Executive function", iep_goal_generation: "IEP goal generation",
+  iep_draft_generation: "IEP draft generation", lesson_planning: "Lesson planning",
 };
 
 export default function MyProfile() {
@@ -149,6 +156,11 @@ export default function MyProfile() {
 
   const initials =
     `${user?.first_name?.[0] || ""}${user?.last_name?.[0] || ""}` || "TN";
+  const hasLearnedAlignment = Boolean(
+    Object.keys(alignmentProfile?.preferences || {}).length
+      || alignmentProfile?.response_needs?.length
+      || alignmentProfile?.recurring_topics?.length,
+  );
 
   return (
     <div className="up-page page-content">
@@ -433,7 +445,7 @@ export default function MyProfile() {
               <span className="up-card-title">Response preferences learned</span>
             </CardHeader>
             <CardBody>
-              <p>Based on {alignmentProfile?.interactions || 0} analyzed AI requests.</p>
+              <p>Based on {alignmentProfile?.interactions || 0} successful IEP goal requests.</p>
               {Object.keys(alignmentProfile?.preferences || {}).length ? (
                 <div className="up-fields">
                   {Object.entries(alignmentProfile.preferences).map(([group, value]) => (
@@ -445,10 +457,22 @@ export default function MyProfile() {
                     </div>
                   ))}
                 </div>
-              ) : (
+              ) : !hasLearnedAlignment ? (
                 <p>No response preferences learned yet. Give explicit style instructions in a successful IEP goal generation request; they will be used in later generations.</p>
+              ) : null}
+              {alignmentProfile?.response_needs?.length > 0 && (
+                <div className="up-field-row">
+                  <span className="up-field-label">Recurring response needs</span>
+                  <span className="up-field-value">{alignmentProfile.response_needs.map((item) => PREFERENCE_LABELS[item] || item).join(", ")}</span>
+                </div>
               )}
-              <p>Only response style is retained. Student details and raw prompts are not included in this profile.</p>
+              {alignmentProfile?.recurring_topics?.length > 0 && (
+                <div className="up-field-row">
+                  <span className="up-field-label">Recurring topics</span>
+                  <span className="up-field-value">{alignmentProfile.recurring_topics.map((item) => PREFERENCE_LABELS[item] || item).join(", ")}</span>
+                </div>
+              )}
+              <p>Only allow-listed response preferences and broad work patterns are retained. Student details and raw prompts are not included in this profile.</p>
             </CardBody>
           </Card>
         </div>
