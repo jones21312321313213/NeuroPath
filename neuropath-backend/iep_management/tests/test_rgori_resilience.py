@@ -241,7 +241,18 @@ class RGORIResilienceTestCase(TestCase):
 
     @patch('iep_management.ai_engine.AIEngineService._call_gemini', side_effect=Exception('Gemini offline'))
     @patch('iep_management.ai_engine.AIEngineService._call_groq')
-    def test_generate_goals_from_iep_view_online_groq(self, mock_groq, mock_gemini):
+    @patch('iep_management.views.RGORICheckerService.evaluate_goal', return_value={
+        'total_score': 80,
+        'breakdown': {
+            'measurability': 20,
+            'functionality': 20,
+            'generality': 20,
+            'instructional_context': 20,
+        },
+        'feedback': 'The goal is measurable and functional.',
+        'compliant': True,
+    })
+    def test_generate_goals_from_iep_view_online_groq(self, mock_evaluate, mock_groq, mock_gemini):
         """
         When Groq is online, POST /api/iep/generate-goals-from-iep/ succeeds with LLM output.
         """
@@ -302,7 +313,18 @@ class RGORIResilienceTestCase(TestCase):
 
     @patch.object(GenerateIEPGoalsFromIEPView, '_generate_objective_rows', side_effect=RuntimeError("Objective rows generation failed"))
     @patch.object(GenerateIEPGoalsFromIEPView, '_generate_annual_goal', return_value="Marcus will initiate greetings.")
-    def test_generate_goals_from_iep_view_fails_when_objective_rows_fail(self, mock_goal, mock_rows):
+    @patch('iep_management.views.RGORICheckerService.evaluate_goal', return_value={
+        'total_score': 80,
+        'breakdown': {
+            'measurability': 20,
+            'functionality': 20,
+            'generality': 20,
+            'instructional_context': 20,
+        },
+        'feedback': 'The goal is measurable and functional.',
+        'compliant': True,
+    })
+    def test_generate_goals_from_iep_view_fails_when_objective_rows_fail(self, mock_evaluate, mock_goal, mock_rows):
         """
         When objective rows fail to generate, ensure no canned rows are returned and
         POST /api/iep/generate-goals-from-iep/ returns HTTP 503 honestly.

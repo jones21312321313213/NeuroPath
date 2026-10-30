@@ -14,6 +14,9 @@ vi.mock("./context/AuthContext", () => ({
 }));
 
 vi.mock("./api/client", () => ({
+  usersAPI: {
+    getAlignmentProfile: vi.fn().mockResolvedValue({ preferences: {}, interactions: 0 }),
+  },
   studentsAPI: {
     list: vi.fn().mockResolvedValue([]),
     get: vi.fn().mockResolvedValue({ id: 4, name: "Alex Johnson" }),
