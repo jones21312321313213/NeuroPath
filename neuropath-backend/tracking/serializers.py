@@ -16,6 +16,17 @@ class HistoricalRecordDataSerializer(serializers.ModelSerializer):
         model = StudentProfile
         # Now we can safely use the UML fields because we explicitly mapped them above
         fields = ['studentID', 'name', 'age', 'gradeLevel', 'primaryDisability']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        raw_name = data.get('name') or ''
+        pd = instance.profileDetails if isinstance(instance.profileDetails, dict) else {}
+        if not raw_name or raw_name.startswith('gAAAAA'):
+            data['name'] = pd.get('studentName') or pd.get('learnerName') or raw_name
+        raw_dis = data.get('primaryDisability') or ''
+        if not raw_dis or raw_dis.startswith('gAAAAA'):
+            data['primaryDisability'] = pd.get('disabilityCategory') or pd.get('diagnosisDetails') or raw_dis
+        return data
    
 # =====================================================================
 # SDD COMPONENT: ProgressAnalyticsSerializer
@@ -29,4 +40,4 @@ class ProgressAnalyticsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StudentProgress
-        fields = ['progressID', 'subjectName', 'performanceScore', 'trackingInterval']
+        fields = ['progressID', 'subjectName', 'performanceScore', 'trackingInterval', 'behavioralObservations', 'dateLogged']

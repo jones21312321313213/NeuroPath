@@ -492,6 +492,8 @@ export const trackingAPI = {
   },
   getProgressDashboard: (studentId) =>
     request(`/tracking/progress-dashboard/?studentID=${studentId}`),
+  getClassroomProgressSummary: () =>
+    request('/tracking/progress-dashboard/?classroom=true'),
   getAnalytics: (studentId, subject) => {
     const params = new URLSearchParams({ studentID: studentId });
     if (subject) params.append("subject", subject);
@@ -522,10 +524,28 @@ export const trackingAPI = {
       searchParams.append("section_c_id", params.section_c_id);
     }
     const qs = searchParams.toString();
+    const hasSignature = Boolean(params?.teacher_signature);
 
     const response = await fetch(
       `${BASE_URL}/tracking/student-records/${studentId}/export/${qs ? `?${qs}` : ""}`,
-      { headers },
+      {
+        method: hasSignature ? "POST" : "GET",
+        headers: {
+          ...headers,
+          ...(hasSignature ? { "Content-Type": "application/json" } : {}),
+        },
+        ...(hasSignature
+          ? {
+              body: JSON.stringify({
+                section_b_version: params?.section_b_version,
+                section_c_version: params?.section_c_version,
+                section_b_id: params?.section_b_id,
+                section_c_id: params?.section_c_id,
+                teacher_signature: params.teacher_signature,
+              }),
+            }
+          : {}),
+      },
     );
 
     if (!response.ok) {

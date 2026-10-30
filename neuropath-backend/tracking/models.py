@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from users.models import Teacher, StudentProfile
 from iep_management.models import IEPModel
 
@@ -41,7 +42,8 @@ class StudentProgress(models.Model):
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, db_column='studentID')
     subjectName = models.CharField(max_length=255)
     performanceScore = models.IntegerField()
-    dateLogged = models.DateTimeField(auto_now_add=True)
+    behavioralObservations = models.TextField(blank=True, default='')
+    dateLogged = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return f"{self.student.name} - {self.subjectName}: {self.performanceScore}%"

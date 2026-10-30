@@ -282,6 +282,28 @@ class BinaryReportRenderEngineTestCase(TestCase):
         self.assertIn('No Section B factors recorded for version 999.', full_text)
         self.assertIn('No learner goals recorded for version 999.', full_text)
 
+    def test_export_record_pdf_with_signature_and_six_pages_landscape(self):
+        import base64
+        from PIL import Image
+        img = Image.new('RGBA', (100, 40), (255, 255, 255, 0))
+        buf = io.BytesIO()
+        img.save(buf, format='PNG')
+        mock_sig = 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode()
+
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        response = self.client.post(
+            f'/api/tracking/student-records/{self.student.pk}/export/',
+            {'teacher_signature': mock_sig},
+            format='json'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+
+        reader = PdfReader(io.BytesIO(response.content))
+        self.assertEqual(len(reader.pages), 6)
+        p1 = reader.pages[0]
+        self.assertGreater(p1.mediabox.width, p1.mediabox.height)
+
 
 class TrackingAuthAndTenantIsolationTests(TestCase):
     """Student tracking/progress data must require authentication and must
@@ -483,6 +505,35 @@ class TrackingAuthAndTenantIsolationTests(TestCase):
         self.assertEqual(math_data['progress'], 95)
         self.assertEqual(math_data['chartData'], [80, 95])
         self.assertEqual(math_data['status'], 'On Track')
+
+    def test_record_progress_with_behavioral_observations_and_custom_date(self):
+        self._auth(self.token1)
+        payload = {
+            'studentID': self.student1.pk,
+            'subjectName': 'Reading',
+            'performanceScore': 85,
+            'behavioralObservations': 'Student engaged well with visual cues and finished 85% of reading cards.',
+            'evaluationDate': '2026-10-25',
+        }
+        response = self.client.post('/api/tracking/analytics/', payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data.get('behavioralObservations'), payload['behavioralObservations'])
+
+        dash_response = self.client.get('/api/tracking/progress-dashboard/', {'studentID': self.student1.pk})
+        self.assertEqual(dash_response.status_code, status.HTTP_200_OK)
+        reading_data = next((s for s in dash_response.data if s['name'] == 'Reading'), None)
+        self.assertIsNotNone(reading_data)
+        self.assertEqual(reading_data['behavioralObservations'], payload['behavioralObservations'])
+
+    def test_classroom_progress_summary_for_teacher(self):
+        self._auth(self.token1)
+        response = self.client.get('/api/tracking/progress-dashboard/?classroom=true')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('overallMasteryRate', response.data)
+        self.assertIn('goalsOnTrackCount', response.data)
+        self.assertIn('needsSupportCount', response.data)
+        self.assertIn('totalStudents', response.data)
+        self.assertGreaterEqual(response.data['totalStudents'], 1)
 
 
 class RecentActivityAPITestCase(TestCase):

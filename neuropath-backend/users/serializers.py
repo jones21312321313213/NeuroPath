@@ -95,6 +95,27 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        pd = instance.profileDetails if isinstance(instance.profileDetails, dict) else {}
+        raw_name = data.get('name') or ''
+        if not raw_name or raw_name.startswith('gAAAAA'):
+            data['name'] = pd.get('studentName') or pd.get('learnerName') or raw_name
+        raw_diag = data.get('diagnosis') or ''
+        if not raw_diag or raw_diag.startswith('gAAAAA'):
+            data['diagnosis'] = pd.get('disabilityCategory') or raw_diag
+        raw_asd = data.get('asdBackground') or ''
+        if not raw_asd or raw_asd.startswith('gAAAAA'):
+            data['asdBackground'] = pd.get('diagnosisDetails') or raw_asd
+        raw_guard = data.get('guardian_name') or ''
+        if not raw_guard or raw_guard.startswith('gAAAAA'):
+            data['guardian_name'] = pd.get('guardianName') or raw_guard
+        raw_assess = data.get('assessmentResult') or ''
+        if not raw_assess or raw_assess.startswith('gAAAAA'):
+            data['assessmentResult'] = pd.get('presentEvaluation') or raw_assess
+        return data
+
+
 class ValidationService(serializers.ModelSerializer):
     class Meta:
         model = StudentProfile
@@ -112,6 +133,26 @@ class ValidationService(serializers.ModelSerializer):
             'sensory_preferences': {'required': False, 'allow_blank': True},
             'profileDetails': {'required': False},
         }
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        pd = instance.profileDetails if isinstance(instance.profileDetails, dict) else {}
+        raw_name = data.get('name') or ''
+        if not raw_name or raw_name.startswith('gAAAAA'):
+            data['name'] = pd.get('studentName') or pd.get('learnerName') or raw_name
+        raw_diag = data.get('diagnosis') or ''
+        if not raw_diag or raw_diag.startswith('gAAAAA'):
+            data['diagnosis'] = pd.get('disabilityCategory') or raw_diag
+        raw_asd = data.get('asdBackground') or ''
+        if not raw_asd or raw_asd.startswith('gAAAAA'):
+            data['asdBackground'] = pd.get('diagnosisDetails') or raw_asd
+        raw_guard = data.get('guardian_name') or ''
+        if not raw_guard or raw_guard.startswith('gAAAAA'):
+            data['guardian_name'] = pd.get('guardianName') or raw_guard
+        raw_assess = data.get('assessmentResult') or ''
+        if not raw_assess or raw_assess.startswith('gAAAAA'):
+            data['assessmentResult'] = pd.get('presentEvaluation') or raw_assess
+        return data
 
     def validate(self, data):
         if 'age' in data and 'grade' in data:

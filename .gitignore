@@ -19,5 +19,9 @@ staticfiles/
 
 # Binary documents & scratch files
 *.docx
+*.doc
 steps-torun.txt
 Github-templates.md
+
+scratch/
+.tmp-issues/

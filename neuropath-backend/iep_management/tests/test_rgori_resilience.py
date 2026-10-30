@@ -247,12 +247,6 @@ class RGORIResilienceTestCase(TestCase):
         """
         mock_groq.side_effect = [
             "Marcus will initiate a greeting with peers in 4 out of 5 opportunities.", # annual goal
-            json.dumps({
-                "total_score": 88,
-                "breakdown": {"measurability": 22, "functionality": 22, "generality": 22, "instructional_context": 22},
-                "feedback": "Excellent observable verb and clear frequency metric.",
-                "compliant": True
-            }), # R-GORI evaluation
             json.dumps([{
                 "enroute_objectives": "Marcus will wave hello when greeted.",
                 "interventions_procedures": "Teacher modeling and gesture prompts.",
@@ -284,7 +278,6 @@ class RGORIResilienceTestCase(TestCase):
         data = response.json()
         goal = data["goals"][0]
         self.assertIn("initiate a greeting", goal["annual_goal"])
-        self.assertEqual(goal["_rgori_score"], 88)
         self.assertEqual(len(goal["objective_rows"]), 1)
 
     @patch('iep_management.ai_engine.AIEngineService._call_gemini', side_effect=Exception('Gemini offline'))
@@ -309,8 +302,7 @@ class RGORIResilienceTestCase(TestCase):
 
     @patch.object(GenerateIEPGoalsFromIEPView, '_generate_objective_rows', side_effect=RuntimeError("Objective rows generation failed"))
     @patch.object(GenerateIEPGoalsFromIEPView, '_generate_annual_goal', return_value="Marcus will initiate greetings.")
-    @patch('iep_management.rgori_service.RGORICheckerService.evaluate_goal', return_value={"total_score": 85, "compliant": True, "feedback": "Good"})
-    def test_generate_goals_from_iep_view_fails_when_objective_rows_fail(self, mock_rgori, mock_goal, mock_rows):
+    def test_generate_goals_from_iep_view_fails_when_objective_rows_fail(self, mock_goal, mock_rows):
         """
         When objective rows fail to generate, ensure no canned rows are returned and
         POST /api/iep/generate-goals-from-iep/ returns HTTP 503 honestly.
@@ -337,15 +329,13 @@ class RGORIResilienceTestCase(TestCase):
         self.assertIn("temporarily unavailable", data["error"])
         self.assertIn("Objective rows generation failed", data["details"])
 
-    @patch('iep_management.rgori_service.RGORICheckerService.evaluate_goal')
     @patch('iep_management.ai_engine.AIEngineService.generate_text')
-    def test_generate_iep_goal_api_view_last_error_initialized_without_exception(self, mock_ai, mock_eval):
+    def test_generate_iep_goal_api_view_last_error_initialized_without_exception(self, mock_ai):
         """
         Ensures that if best_goal is empty without an exception occurring,
         the 503 response does not trigger UnboundLocalError.
         """
         mock_ai.return_value = ("", 'gemini')
-        mock_eval.return_value = {"total_score": 0, "compliant": False, "feedback": ""}
 
         url = '/api/iep/generate-goal/'
         payload = {

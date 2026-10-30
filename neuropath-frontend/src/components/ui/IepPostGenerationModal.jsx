@@ -161,8 +161,8 @@ export function IepPostGenerationModal({
         <div className="p-3 bg-blue-50/60 border border-blue-200/80 rounded-xl flex items-start gap-2.5 text-xs text-blue-900 leading-relaxed">
           <LightBulbIcon className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" aria-hidden="true" />
           <div>
-            <strong>Pedagogical Review Check:</strong> Inspect the proposed annual goal and
-            enroute objectives. Click <strong>Accept &amp; Save</strong> to
+            <strong>Pedagogical Review Check:</strong> Inspect the proposed annual goal
+            and quarterly enroute objectives. Click <strong>Accept &amp; Save</strong> to
             commit to the IEP record, or <strong>Regenerate</strong> to formulate an alternate draft.
           </div>
         </div>
@@ -191,6 +191,11 @@ export function IepPostGenerationModal({
                       <h4 className="text-sm font-semibold text-slate-900 m-0">
                         {goal.subject_category || goal.goalName || "Individualized Goal"}
                       </h4>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="success" size="sm">
+                        SMART Aligned
+                      </Badge>
                     </div>
                   </div>
 

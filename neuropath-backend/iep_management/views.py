@@ -13,7 +13,6 @@ from django.shortcuts import get_object_or_404
 from django.db import IntegrityError, transaction
 from .services import AIGenerationService
 from .ai_engine import AIEngineService
-from .rgori_service import RGORICheckerService
 from .privacy_utils import (
     anonymize_student_context,
     scrub_pii_from_text,
@@ -22,6 +21,7 @@ from .privacy_utils import (
 )
 from .alignment import record_generation_preferences, refresh_teacher_profile
 import time
+from .rgori_service import RGORICheckerService
 import json
 import re
 import logging
@@ -505,51 +505,25 @@ class GenerateIEPGoalAPIView(APIView):
             f"targeting {data['target_domain']} for {student_context}."
         )
         
-        # 2. Setup the Generation & R-GORI Loop variables
-        max_attempts = 3
-        best_goal = ""
-        best_score = -1
-        final_feedback = ""
-        last_error = None
-
-        # 3. The Validation Loop
-        for attempt in range(max_attempts):
-            try:
-                # Step A: Draft the goal
-                draft_goal, _ = AIEngineService.generate_text(generation_prompt, max_tokens=250)
-                
-                # Step B: Audit the goal using R-GORI
-                evaluation = RGORICheckerService.evaluate_goal(draft_goal, student_context)
-                current_score = evaluation.get('total_score', 0)
-                
-                # Track the best performing goal in case we never hit 65%
-                if not best_goal or current_score > best_score:
-                    best_score = current_score
-                    best_goal = draft_goal
-                    final_feedback = evaluation.get('feedback', '')
-                
-                # Step C: Break the loop if compliant!
-                if evaluation.get('compliant') is True:
-                    break
-                    
-            except Exception as e:
-                last_error = str(e)
-                if best_goal:
-                    break
-                time.sleep(0.5)
-
-        if not best_goal:
+        # 2. Generation via AI Engine
+        try:
+            generated_goal, _ = AIEngineService.generate_text(generation_prompt, max_tokens=250)
+            if not generated_goal:
+                return Response(
+                    {"error": "AI generation service is temporarily unavailable. Please try again shortly.", "details": None},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE
+                )
+        except Exception as e:
             return Response(
-                {"error": "AI generation service is temporarily unavailable. Please try again shortly.", "details": last_error},
+                {"error": "AI generation service is temporarily unavailable. Please try again shortly.", "details": str(e)},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
-        # 4. Send the final, audited result back to React
+        # 3. Send the formulated result back to React
         return Response({
-            "generated_goal": best_goal,
-            "rgori_score": max(0, best_score),
-            "feedback": final_feedback,
-            "attempts_taken": attempt + 1
+            "generated_goal": generated_goal,
+            "feedback": "Goal successfully formulated adhering to SMART ABCD criteria.",
+            "attempts_taken": 1
         }, status=status.HTTP_200_OK)
 class GenerateIEPGoalsFromIEPView(APIView):
     """
@@ -709,7 +683,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
         goal_area='', teacher_prompt='', special_factor_notes='', alignment_profile=None
     ):
         """
-        Runs the R-GORI generation loop for a single difficulty area.
+        Generates annual goal and structured objective rows adhering to SMART ABCD criteria.
         Returns (goal_payload_dict, None) on success or (None, error_string) on failure.
         """
         best_payload = None

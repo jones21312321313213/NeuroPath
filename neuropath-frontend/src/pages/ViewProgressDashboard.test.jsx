@@ -17,6 +17,15 @@ vi.mock("../api/client", () => ({
   trackingAPI: {
     getProgressDashboard: vi.fn(),
     recordProgress: vi.fn(),
+    getClassroomProgressSummary: vi.fn().mockResolvedValue({
+      totalStudents: 2,
+      evaluatedStudents: 1,
+      overallMasteryRate: 78,
+      goalsOnTrackCount: 3,
+      needsSupportCount: 1,
+      totalLogs: 4,
+      lastEvaluated: 'October 25, 2026',
+    }),
   },
 }));
 
@@ -350,6 +359,59 @@ describe("ViewProgressDashboard", () => {
     expect(await screen.findByText("Dashboard Student 7")).toBeInTheDocument();
     expect(screen.getByText("Dashboard Student 9")).toBeInTheDocument();
     expect(screen.queryByText("Dashboard Student 1")).not.toBeInTheDocument();
+  });
+
+  it("renders classroom executive KPI summary cards on the initial landing view", async () => {
+    studentsAPI.list.mockResolvedValueOnce(mockStudents);
+    render(
+      <MemoryRouter>
+        <ViewProgressDashboard />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Overall Class Average")).toBeInTheDocument();
+    expect(screen.getByText("Goals on Track (≥ 70%)")).toBeInTheDocument();
+    expect(screen.getByText("Needs Intervention")).toBeInTheDocument();
+    expect(screen.getByText("Active Roster Evaluated")).toBeInTheDocument();
+  });
+
+  it("renders target milestone benchmark line and forecast projection in line chart", async () => {
+    studentsAPI.list.mockResolvedValueOnce(mockStudents);
+    const mockSubjectsWithHistory = [
+      {
+        id: 1,
+        name: "Mathematics",
+        progress: 85,
+        status: "On Track",
+        lastUpdated: "October 20, 2026",
+        currentLevel: "Proficient",
+        behavioralObservations: "Demonstrated strong focus during fraction tasks.",
+        chartData: [60, 75, 85],
+        months: ["Aug", "Sep", "Oct"],
+      },
+    ];
+    trackingAPI.getProgressDashboard.mockResolvedValueOnce(mockSubjectsWithHistory);
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter>
+        <ViewProgressDashboard />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Alice Wonderland")).toBeInTheDocument();
+    const selectBtn = screen.getAllByRole("button", { name: "Select" })[0];
+    await user.click(selectBtn);
+
+    expect(await screen.findByText("Mathematics")).toBeInTheDocument();
+    const viewProgressBtn = screen.getByRole("button", { name: /View Progress/i });
+    await user.click(viewProgressBtn);
+
+    // Verify benchmark and forecast elements render
+    expect(await screen.findByText("Target (70%)")).toBeInTheDocument();
+    expect(screen.getAllByText("Forecast")[0]).toBeInTheDocument();
+    expect(screen.getByText("Behavioral Observations")).toBeInTheDocument();
+    expect(screen.getByText("Demonstrated strong focus during fraction tasks.")).toBeInTheDocument();
   });
 });
 
