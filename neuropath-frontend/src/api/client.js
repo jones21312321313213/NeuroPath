@@ -218,6 +218,36 @@ export const lessonPlansAPI = {
     }),
   delete: (id) =>
     request(`/resources/delete-lesson/${id}/`, { method: "DELETE" }),
+  exportUrl: (id) => `${BASE_URL}/resources/export-lesson-plan/${id}/`,
+  exportPDF: async (id) => {
+    const token = localStorage.getItem("neuropath_access_token");
+    const headers = {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+    };
+
+    const response = await fetch(
+      `${BASE_URL}/resources/export-lesson-plan/${id}/`,
+      { headers },
+    );
+
+    if (!response.ok) {
+      if (response.status === 401 && token) {
+        forceReauth();
+      }
+      let message = "Failed to export lesson plan PDF.";
+      try {
+        const data = await response.json();
+        message = data.errors || data.detail || data.error || message;
+      } catch {
+        // Fallback to default message
+      }
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.blob();
+  },
 };
 
 // ── Visual Aids ────────────────────────────────────────────────────────────────
