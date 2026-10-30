@@ -84,6 +84,55 @@ class RGORIResilienceTestCase(TestCase):
         self.assertEqual(result["breakdown"]["functionality"], 20)
 
     @patch('iep_management.ai_engine.AIEngineService.generate_text')
+    def test_rgori_checker_retries_malformed_json_from_original_inputs(self, mock_ai):
+        valid_payload = {
+            "total_score": 80,
+            "breakdown": {
+                "measurability": 20,
+                "functionality": 20,
+                "generality": 20,
+                "instructional_context": 20,
+            },
+            "feedback": "The goal is measurable and functional.",
+            "compliant": True,
+        }
+        mock_ai.side_effect = [
+            ('{"total_score": 80, bad json', 'gemini'),
+            (json.dumps(valid_payload), 'gemini'),
+        ]
+
+        result = RGORICheckerService.evaluate_goal(
+            'Learner will request materials in 4 of 5 trials.', 'Grade 2 learner context'
+        )
+
+        self.assertEqual(result['total_score'], 80)
+        self.assertTrue(result['compliant'])
+        self.assertEqual(mock_ai.call_count, 2)
+        retry_prompt = mock_ai.call_args.kwargs['prompt']
+        self.assertIn('request materials', retry_prompt)
+        self.assertIn('Grade 2 learner context', retry_prompt)
+        self.assertNotIn('bad json', retry_prompt)
+
+    @patch.object(GenerateIEPGoalsFromIEPView, '_generate_annual_goal', return_value='The learner will request materials.')
+    @patch('iep_management.rgori_service.RGORICheckerService.evaluate_goal', side_effect=RuntimeError('Gemini 429 Too Many Requests'))
+    def test_goal_generation_stops_retrying_after_provider_rate_limit(self, mock_eval, mock_goal):
+        view = GenerateIEPGoalsFromIEPView()
+        payload, error = view._generate_validated_goal(
+            iep_id=self.iep.pk,
+            student_name='Learner',
+            difficulty='Communication',
+            assistive_tech='Picture cards',
+            accommodations='Visual prompts',
+            facilitators='Teacher',
+            student_context='Grade 2 learner',
+        )
+
+        self.assertIsNone(payload)
+        self.assertIn('429', error)
+        self.assertEqual(mock_goal.call_count, 1)
+        self.assertEqual(mock_eval.call_count, 1)
+
+    @patch('iep_management.ai_engine.AIEngineService.generate_text')
     def test_rgori_checker_unparsable_response_raises_error(self, mock_ai):
         # AI returns non-JSON or corrupted output
         mock_ai.return_value = ("Corrupted non-json text from provider", 'groq')

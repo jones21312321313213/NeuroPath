@@ -20,6 +20,7 @@ from .privacy_utils import (
     verify_ra10173_consent,
     ConsentRequiredException,
 )
+from .alignment import record_generation_preferences, refresh_teacher_profile
 import time
 import json
 import re
@@ -83,6 +84,7 @@ class IEPGeneratorService:
                         'draft_accommodations': draft_accommodations,
                     }),
                 )
+                refresh_teacher_profile(resolved_teacher)
             except Exception as e:
                 logger.error("Failed to persist AIGenerationLog: %s", e)
 
@@ -676,6 +678,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
             goal_area=goal_area,
             teacher_prompt=teacher_prompt,
             special_factor_notes=special_factor_notes,
+            alignment_profile=teacher.alignment_profile,
         )
 
         if error:
@@ -683,6 +686,14 @@ class GenerateIEPGoalsFromIEPView(APIView):
                 {"error": "AI generation service is temporarily unavailable. Please try again shortly.", "details": error},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
+
+        try:
+            record_generation_preferences(
+                teacher,
+                teacher_prompt,
+            )
+        except Exception as e:
+            logger.warning('Failed to update teacher alignment history: %s', e)
 
         return Response({
             "iep_id": iep_id,
@@ -695,7 +706,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
     def _generate_validated_goal(
         self, iep_id, student_name, difficulty, assistive_tech,
         accommodations, facilitators, student_context,
-        goal_area='', teacher_prompt='', special_factor_notes=''
+        goal_area='', teacher_prompt='', special_factor_notes='', alignment_profile=None
     ):
         """
         Runs the R-GORI generation loop for a single difficulty area.
@@ -711,7 +722,8 @@ class GenerateIEPGoalsFromIEPView(APIView):
                 annual_goal = self._generate_annual_goal(
                     student_name, difficulty, assistive_tech, accommodations,
                     facilitators, goal_area, teacher_prompt,
-                    special_factor_notes=special_factor_notes
+                    special_factor_notes=special_factor_notes,
+                    alignment_profile=alignment_profile,
                 )
  
                 # --- Step B: Validate with R-GORI ---
@@ -724,7 +736,8 @@ class GenerateIEPGoalsFromIEPView(APIView):
                 objective_rows = self._generate_objective_rows(
                     student_name, difficulty, assistive_tech,
                     annual_goal, facilitators, goal_area,
-                    special_factor_notes=special_factor_notes
+                    special_factor_notes=special_factor_notes,
+                    alignment_profile=alignment_profile,
                 )
  
                 # Use the teacher-selected goal_area as the authoritative subject category;
@@ -760,6 +773,10 @@ class GenerateIEPGoalsFromIEPView(APIView):
  
             except Exception as e:
                 last_error = str(e)
+                if best_payload or '429' in last_error or 'too many requests' in last_error.lower():
+                    # A provider rate limit cannot be solved by regenerating the same
+                    # goal immediately; stop here instead of compounding the quota hit.
+                    break
                 time.sleep(1)
  
         # Return best attempt even if never hit 65%
@@ -776,7 +793,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
  
     def _generate_annual_goal(
         self, student_name, difficulty, assistive_tech, accommodations,
-        facilitators, goal_area='', teacher_prompt='', special_factor_notes=''
+        facilitators, goal_area='', teacher_prompt='', special_factor_notes='', alignment_profile=None
     ):
         teacher_instructions = (
             f"Additional teacher instructions: {teacher_prompt}\n"
@@ -815,12 +832,20 @@ class GenerateIEPGoalsFromIEPView(APIView):
             f"Write the annual IEP goal for this student following the ABCD criteria with targeted skill brackets and targeting the PRIMARY Goal Area above."
             f"☁️/user☁️"
         )
-        goal_text, _ = AIEngineService.generate_text(prompt, max_tokens=200)
+        from .alignment import aligned_system_prompt, build_alignment_prompt
+        goal_text, _ = AIEngineService.generate_text(
+            build_alignment_prompt(prompt, alignment_profile),
+            system_prompt=aligned_system_prompt(
+                'Write one specific, measurable, achievable, relevant, and time-bound annual IEP goal. '
+                'Output only the goal sentence.'
+            ),
+            max_tokens=200,
+        )
         return goal_text.strip()
  
  
     def _generate_objective_rows(
-        self, student_name, difficulty, assistive_tech, annual_goal, facilitators, goal_area='', special_factor_notes=''
+        self, student_name, difficulty, assistive_tech, annual_goal, facilitators, goal_area='', special_factor_notes='', alignment_profile=None
     ):
         special_factors_line = (
             f"Special Factors / Behavioral and Sensory Notes: {special_factor_notes}\n"
@@ -857,9 +882,10 @@ class GenerateIEPGoalsFromIEPView(APIView):
             f"Generate 2-3 enroute objective rows as a JSON array following ABCD criteria and 3-month quarterly progression. "
             f"Each row must specify targeted skill brackets in enroute_objectives and progression across month_1_target, month_2_target, and month_3_target."
         )
+        from .alignment import aligned_system_prompt, build_alignment_prompt
         raw, _ = AIEngineService.generate_text(
-            prompt=user_prompt,
-            system_prompt=system_prompt,
+            prompt=build_alignment_prompt(user_prompt, alignment_profile),
+            system_prompt=aligned_system_prompt(system_prompt),
             max_tokens=1000,
             json_mode=True,
         )

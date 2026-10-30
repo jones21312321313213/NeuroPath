@@ -9,6 +9,8 @@ class Teacher(models.Model):
     passwordHash = models.CharField(max_length=255)
     createdDate = models.DateTimeField(auto_now_add=True)
     has_completed_tutorial = models.BooleanField(default=False)
+    alignment_profile = models.JSONField(default=dict, blank=True)
+    alignment_profile_updated_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.name
