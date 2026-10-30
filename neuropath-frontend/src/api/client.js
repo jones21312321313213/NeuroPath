@@ -464,6 +464,7 @@ export const iepAPI = {
 
 // ── Users / Teacher Profile ────────────────────────────────────────────────────
 export const usersAPI = {
+  getAlignmentProfile: () => request("/users/alignment-profile/"),
   // PATCH /api/users/profile/update/
   // Accepts FormData or { first_name, last_name, email, password? } as JSON. The
   // account is resolved from the Token header.
@@ -491,6 +492,8 @@ export const trackingAPI = {
   },
   getProgressDashboard: (studentId) =>
     request(`/tracking/progress-dashboard/?studentID=${studentId}`),
+  getClassroomProgressSummary: () =>
+    request('/tracking/progress-dashboard/?classroom=true'),
   getAnalytics: (studentId, subject) => {
     const params = new URLSearchParams({ studentID: studentId });
     if (subject) params.append("subject", subject);
