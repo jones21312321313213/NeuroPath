@@ -464,7 +464,6 @@ export const iepAPI = {
 
 // ── Users / Teacher Profile ────────────────────────────────────────────────────
 export const usersAPI = {
-  getAlignmentProfile: () => request("/users/alignment-profile/"),
   // PATCH /api/users/profile/update/
   // Accepts FormData or { first_name, last_name, email, password? } as JSON. The
   // account is resolved from the Token header.
