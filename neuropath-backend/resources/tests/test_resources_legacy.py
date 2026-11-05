@@ -8,6 +8,7 @@ from common_test_utils import create_teacher_with_login, create_student
 from iep_management.models import IEPModel, IEPGoal
 from resources.urls import urlpatterns
 from resources.models import LessonPlan, VisualAid, TeachingStrategy
+from resources.views import LessonPlanBinaryExportEngine, StrategyBinaryExportEngine
 
 
 class ResourceUrlRoutingTestCase(TestCase):
@@ -213,6 +214,54 @@ class ResourcesAuthAndTenantIsolationTests(TestCase):
         response = self.client.delete(f'/api/resources/visual-aids/{self.visual_aid.pk}/')
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(VisualAid.objects.filter(pk=self.visual_aid.pk).exists())
+
+
+    def test_cross_teacher_cannot_export_lesson_plan(self):
+        self._auth(self.token2)
+        response = self.client.get(f'/api/resources/export-lesson-plan/{self.lesson_plan.pk}/')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_owner_can_export_lesson_plan_pdf(self):
+        self._auth(self.token1)
+        response = self.client.get(f'/api/resources/export-lesson-plan/{self.lesson_plan.pk}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertIn(f'LessonPlan_{self.lesson_plan.pk}.pdf', response['Content-Disposition'])
+        self.assertTrue(response.content.startswith(b'%PDF-'))
+
+    def test_lesson_plan_binary_export_engine_compilation(self):
+        sample_json = json.dumps({
+            "lesson_plans": [
+                {
+                    "objective_focus": "Letter-sound recognition for 'B' and 'M'",
+                    "introduction": "Display visual phonics card with picture cue.",
+                    "core_activity": "Teacher models sound, student points to matching sandpaper letter.",
+                    "assessment": "Student independently matches 4 out of 5 picture cards.",
+                    "materials_needed": ["Sandpaper letters", "Phonics cards", "Token board"]
+                }
+            ]
+        })
+        self.lesson_plan.lessonContent = sample_json
+        self.lesson_plan.save()
+
+        pdf_stream = LessonPlanBinaryExportEngine.generate_pdf_stream(self.lesson_plan)
+        pdf_bytes = pdf_stream.read()
+        self.assertTrue(pdf_bytes.startswith(b'%PDF-'))
+        self.assertGreater(len(pdf_bytes), 1000)
+
+    def test_strategy_binary_export_engine_compilation(self):
+        pdf_stream = StrategyBinaryExportEngine.generate_pdf_stream(self.teaching_strategy)
+        pdf_bytes = pdf_stream.read()
+        self.assertTrue(pdf_bytes.startswith(b'%PDF-'))
+        self.assertGreater(len(pdf_bytes), 1000)
+
+    def test_owner_can_export_teaching_strategy_pdf(self):
+        self._auth(self.token1)
+        response = self.client.get(f'/api/resources/query-strategies/{self.teaching_strategy.pk}/export/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertIn(f'StrategyGuide_{self.teaching_strategy.pk}.pdf', response['Content-Disposition'])
+        self.assertTrue(response.content.startswith(b'%PDF-'))
 
 
 class TeachingStrategyCreateTests(TestCase):

@@ -23,6 +23,8 @@ vi.mock("../api/client", () => ({
     get: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    exportPDF: vi.fn(),
+    exportUrl: vi.fn((id) => `/api/resources/export-lesson-plan/${id}/`),
   },
   iepAPI: {
     listByStudent: vi.fn(),
@@ -711,6 +713,42 @@ describe("ManageLessonPlans Unified Management View (Issue #161)", () => {
 
     await waitFor(() => {
       expect(screen.getByRole("tab", { name: /Manage/i })).toHaveAttribute("aria-selected", "true");
+    });
+  });
+
+  it("exports lesson plan PDF from the manage list and detail view", async () => {
+    window.URL.createObjectURL = vi.fn(() => "blob:mock-url");
+    window.URL.revokeObjectURL = vi.fn();
+    const mockBlob = new Blob(["%PDF-1.4 mock content"], { type: "application/pdf" });
+    lessonPlansAPI.exportPDF.mockResolvedValueOnce(mockBlob);
+
+    render(
+      <MemoryRouter>
+        <ManageLessonPlans />
+      </MemoryRouter>
+    );
+
+    // Switch to Manage tab
+    fireEvent.click(screen.getByRole("tab", { name: /Manage/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Lucas Vance")).toBeInTheDocument();
+    });
+
+    // Click student Lucas Vance
+    fireEvent.click(screen.getByText("Lucas Vance"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Self-Regulation Math Lesson")).toBeInTheDocument();
+    });
+
+    // Check export button on row
+    const exportBtn = screen.getByRole("button", { name: /Export PDF for Self-Regulation Math Lesson/i });
+    expect(exportBtn).toBeInTheDocument();
+    fireEvent.click(exportBtn);
+
+    await waitFor(() => {
+      expect(lessonPlansAPI.exportPDF).toHaveBeenCalledWith(501);
     });
   });
 });
