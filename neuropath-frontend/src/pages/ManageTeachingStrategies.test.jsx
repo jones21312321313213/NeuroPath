@@ -875,13 +875,18 @@ describe("ManageTeachingStrategies - Unified Manage Interface (Issue #161)", () 
       });
     });
 
-    it("renders Info tab and displays guidance on what Manage tab is for", async () => {
+    it("displays inline guidance below title and minimizes tabs to Generate and Manage", async () => {
       renderComponent();
 
-      const infoTabBtn = screen.getByRole("tab", { name: /Info/i });
-      expect(infoTabBtn).toBeInTheDocument();
+      expect(screen.queryByRole("tab", { name: /^Info$/i })).not.toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: /Generate/i })).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: /Manage/i })).toBeInTheDocument();
 
-      fireEvent.click(infoTabBtn);
+      expect(screen.getByText("About Teaching Strategies & Quick Guide")).toBeInTheDocument();
+
+      const learnMoreBtn = screen.getByRole("button", { name: /Learn More & Guide/i });
+      expect(learnMoreBtn).toBeInTheDocument();
+      fireEvent.click(learnMoreBtn);
 
       expect(screen.getByText("About Teaching Strategies")).toBeInTheDocument();
       expect(screen.getByText('What is the "Manage" Tab?')).toBeInTheDocument();

@@ -136,17 +136,19 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
 
     expect(screen.getByRole("heading", { name: /manage visual aids/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /generate/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /info/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^info$/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /view/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /delete/i })).toBeInTheDocument();
   });
 
-  it("renders Info tab and displays guidance on what Manage/View tabs are for", async () => {
+  it("displays inline guidance below title and provides navigation to View tab", async () => {
     renderComponent();
 
-    const infoBtn = screen.getByRole("button", { name: /info/i });
-    expect(infoBtn).toBeInTheDocument();
-    fireEvent.click(infoBtn);
+    expect(screen.getByText("About Visual Aids & Quick Guide")).toBeInTheDocument();
+
+    const learnMoreBtn = screen.getByRole("button", { name: /Learn More & Guide/i });
+    expect(learnMoreBtn).toBeInTheDocument();
+    fireEvent.click(learnMoreBtn);
 
     expect(screen.getByText("About Visual Aids")).toBeInTheDocument();
     expect(screen.getByText('What is the "Manage" Section?')).toBeInTheDocument();
@@ -155,7 +157,7 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
     expect(goToViewBtn).toBeInTheDocument();
     fireEvent.click(goToViewBtn);
 
-    expect(screen.getByRole("button", { name: /view/i })).toHaveClass("active");
+    expect(screen.getByRole("button", { name: /^view$/i })).toHaveClass("active");
   });
 
   it("renders students in Step 1 and shows IEP goals and preset chips when student is selected", async () => {

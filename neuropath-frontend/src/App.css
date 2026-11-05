@@ -683,6 +683,19 @@ button.sidebar-header {
   background-repeat: no-repeat;
   background-position: right 12px center;
   padding-right: 34px;
+  color-scheme: light;
+}
+
+/* Ensure native dropdown popups always render dark text on an opaque light background */
+select,
+.form-select {
+  color-scheme: light;
+}
+
+select option,
+.form-select option {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
 }
 
 .form-textarea {
