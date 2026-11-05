@@ -9,6 +9,9 @@ import {
   BookOpenIcon,
   PhotoIcon,
   ChartBarIcon,
+  CheckIcon,
+  WarningIcon,
+  CalendarIcon,
 } from "../components/ui/icons";
 
 const features = [
@@ -262,143 +265,220 @@ export default function LandingPage({ onGetStarted }) {
           </div>
         </div>
 
-        {/* Hero right — Dashboard mockup */}
+        {/* Hero right — Real Progress Dashboard Mockup */}
         <div className="lg:col-span-5 w-full flex justify-center lg:justify-end fade-in-init opacity-0 translate-y-4 transition-all duration-1000 ease-out delay-200">
           <div
-            className="w-full max-w-[420px] rounded-2xl overflow-hidden"
+            className="w-full max-w-[440px] rounded-2xl overflow-hidden shadow-2xl transition-all"
             style={{
-              background: "#fff",
-              border: "1px solid rgba(130,199,255,0.3)",
-              boxShadow: "0 20px 60px rgba(37,137,199,0.15)",
+              background: "#ffffff",
+              border: "1px solid rgba(130,199,255,0.35)",
+              boxShadow: "0 20px 50px rgba(37,137,199,0.18)",
             }}
           >
             {/* Topbar */}
             <div
               className="px-4 py-3 flex items-center justify-between"
               style={{
-                background: "linear-gradient(135deg, #2589c7 0%, #82C7FF 100%)",
-                borderBottom: "1px solid #B5D4F4",
+                background: "linear-gradient(135deg, #1e6fbf 0%, #2589c7 50%, #5aabf0 100%)",
+                borderBottom: "1px solid #93c5fd",
               }}
             >
+              <div className="flex items-center gap-2">
+                <ChartBarIcon className="w-4 h-4 text-white" aria-hidden="true" />
+                <span className="text-xs font-bold text-white tracking-wide">
+                  Progress Dashboard
+                </span>
+              </div>
               <span
-                className="text-xs font-semibold"
-                style={{ color: "white" }}
-              >
-                Progress dashboard
-              </span>
-              <span
-                className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                className="text-[10px] font-bold px-2.5 py-0.5 rounded-full tracking-wide uppercase shadow-sm"
                 style={{
-                  background: "#E1F5EE",
-                  border: "1px solid #9FE1CB",
-                  color: "#085041",
+                  background: "#dcfce7",
+                  border: "1px solid #86efac",
+                  color: "#166534",
                 }}
               >
-                IEP active
+                ● Active IEP
               </span>
             </div>
 
-            <div className="p-5 space-y-4">
-              {/* Profile row */}
+            <div className="p-4 sm:p-5 space-y-4">
+              {/* Student Header */}
               <div
-                className="flex items-center gap-3 p-3 rounded-xl"
-                style={{ background: "#E6F1FB", border: "0.5px solid #B5D4F4" }}
+                className="flex items-center gap-3 p-3 rounded-xl transition-colors"
+                style={{ background: "#f0f7ff", border: "1px solid #bfdbfe" }}
               >
                 <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center font-semibold text-sm flex-shrink-0"
-                  style={{ background: "#378ADD", color: "#E6F1FB" }}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm text-white shadow-sm flex-shrink-0"
+                  style={{ background: "linear-gradient(135deg, #1e6fbf, #3b82f6)" }}
                 >
                   AS
                 </div>
                 <div className="flex-1 min-w-0 text-left">
-                  <p
-                    className="text-sm font-bold truncate"
-                    style={{ color: "#1a3a4a" }}
-                  >
+                  <p className="text-sm font-bold truncate text-slate-800">
                     Angelo Singson
                   </p>
-                  <p className="text-xs" style={{ color: "#185FA5" }}>
-                    Grade 1 · ASD
+                  <p className="text-xs font-medium text-sky-700">
+                    Grade 1 · SPED Learner
                   </p>
                 </div>
                 <span
-                  className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                  className="text-[10px] font-bold px-2.5 py-1 rounded-full flex-shrink-0 inline-flex items-center gap-1"
                   style={{
-                    background: "#E1F5EE",
-                    border: "1px solid #9FE1CB",
-                    color: "#085041",
+                    background: "#ecfdf5",
+                    border: "1px solid #a7f3d0",
+                    color: "#059669",
                   }}
                 >
-                  On track
+                  <CheckIcon className="w-3 h-3 text-emerald-600" aria-hidden="true" />
+                  On Track
                 </span>
               </div>
 
-              {/* Stat grid */}
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { label: "Assessments completed", val: "10/10", pct: "100%" },
-                  { label: "Skills mastered", val: "6/10", pct: "60%" },
-                  { label: "Goals achieved", val: "4/6", pct: "67%" },
-                  { label: "Attendance rate", val: "92%", pct: "↑ 4%" },
-                ].map((s) => (
+              {/* Classroom Executive KPIs */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    Executive Performance KPIs
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    Updated Oct 24, 2026
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
                   <div
-                    key={s.label}
-                    className="rounded-lg p-2.5"
-                    style={{ background: "#f0f8ff" }}
+                    className="rounded-xl p-2.5 text-left border"
+                    style={{ background: "#f8fafc", borderColor: "#e2e8f0" }}
                   >
-                    <p
-                      className="text-[10px] mb-1"
-                      style={{ color: "#4a7a94" }}
-                    >
-                      {s.label}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <span
-                        className="text-sm font-semibold"
-                        style={{ color: "#1a3a4a" }}
-                      >
-                        {s.val}
-                      </span>
-                      <span
-                        className="text-[10px]"
-                        style={{ color: "#82C7FF" }}
-                      >
-                        {s.pct}
-                      </span>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-semibold text-slate-600">Mastery Rate</span>
+                      <ChartBarIcon className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
                     </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-lg font-bold text-slate-800">78%</span>
+                      <span className="text-[10px] text-emerald-600 font-semibold">↑ 4% gain</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 block">Avg across 5 domains</span>
                   </div>
-                ))}
+
+                  <div
+                    className="rounded-xl p-2.5 text-left border"
+                    style={{ background: "#f8fafc", borderColor: "#e2e8f0" }}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-semibold text-slate-600">Goals on Track</span>
+                      <TargetIcon className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-lg font-bold text-emerald-600">4</span>
+                      <span className="text-[10px] text-slate-400 font-normal">/ 5 domains</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 block">≥ 70% benchmark</span>
+                  </div>
+
+                  <div
+                    className="rounded-xl p-2.5 text-left border"
+                    style={{ background: "#f8fafc", borderColor: "#e2e8f0" }}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-semibold text-slate-600">Needs Support</span>
+                      <WarningIcon className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-lg font-bold text-amber-600">1</span>
+                      <span className="text-[10px] text-amber-600 font-medium">Domain</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 block">&lt; 70% threshold</span>
+                  </div>
+
+                  <div
+                    className="rounded-xl p-2.5 text-left border"
+                    style={{ background: "#f8fafc", borderColor: "#e2e8f0" }}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-semibold text-slate-600">Target Benchmark</span>
+                      <CalendarIcon className="w-3.5 h-3.5 text-sky-600" aria-hidden="true" />
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-lg font-bold text-sky-700">70%</span>
+                      <span className="text-[10px] text-sky-600 font-semibold">Standard</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 block">DepEd mastery criteria</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Progress bars */}
-              <div className="space-y-3">
-                {[
-                  { label: "Reading fluency", value: 72, color: "#378ADD" },
-                  { label: "Math comprehension", value: 58, color: "#7F77DD" },
-                  { label: "Social skills", value: 89, color: "#1D9E75" },
-                ].map((item) => (
-                  <div key={item.label}>
-                    <div
-                      className="flex justify-between text-[11px] mb-1"
-                      style={{ color: "#4a7a94" }}
-                    >
-                      <span>{item.label}</span>
-                      <span style={{ color: "#1a3a4a" }}>{item.value}%</span>
-                    </div>
-                    <div
-                      className="h-1.5 rounded-full overflow-hidden"
-                      style={{ background: "#E6F1FB" }}
-                    >
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${item.value}%`,
-                          background: item.color,
-                        }}
-                      />
-                    </div>
+              {/* DepEd Domain Mastery with 70% Benchmark Reference Line */}
+              <div className="pt-1">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 mb-2">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+                    DepEd Learning Domains
+                  </span>
+                  <div className="flex items-center gap-1 text-[10px] text-sky-700 font-bold bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-sky-500" />
+                    70% Target Benchmark
                   </div>
-                ))}
+                </div>
+
+                <div className="space-y-2.5">
+                  {[
+                    { label: "Communication", value: 88, status: "On Track", color: "#16a34a", bg: "linear-gradient(90deg, #3b82f6, #16a34a)" },
+                    { label: "Reading", value: 82, status: "On Track", color: "#16a34a", bg: "linear-gradient(90deg, #38bdf8, #2563eb)" },
+                    { label: "Mathematics", value: 74, status: "On Track", color: "#16a34a", bg: "linear-gradient(90deg, #60a5fa, #3b82f6)" },
+                    { label: "Social Skills", value: 64, status: "Needs Support", color: "#d97706", bg: "linear-gradient(90deg, #f59e0b, #d97706)" },
+                  ].map((item) => (
+                    <div key={item.label} className="group">
+                      <div className="flex justify-between items-center text-[11px] mb-1">
+                        <span className="font-semibold text-slate-700">{item.label}</span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="text-[9px] font-bold px-1.5 py-0.2 rounded"
+                            style={{
+                              background: item.value >= 70 ? "#ecfdf5" : "#fffbeb",
+                              color: item.value >= 70 ? "#059669" : "#b45309",
+                              border: `1px solid ${item.value >= 70 ? "#a7f3d0" : "#fde68a"}`,
+                            }}
+                          >
+                            {item.status}
+                          </span>
+                          <span className="font-bold text-slate-800 min-w-[28px] text-right">
+                            {item.value}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="relative h-2 rounded-full overflow-hidden bg-slate-100 border border-slate-200">
+                        {/* 70% Target Benchmark indicator line */}
+                        <div
+                          className="absolute top-0 bottom-0 z-10 w-0.5 bg-sky-600 opacity-60"
+                          style={{ left: "70%" }}
+                          title="70% Target Benchmark"
+                        />
+                        <div
+                          className="h-full rounded-full transition-all duration-700 ease-out"
+                          style={{
+                            width: `${item.value}%`,
+                            background: item.bg,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Progress Log Strip Footer */}
+              <div
+                className="flex items-center justify-between px-3 py-2 rounded-lg text-[10px] text-slate-600"
+                style={{ background: "#f8fafc", border: "1px solid #e2e8f0" }}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="font-medium">Classroom Trend:</span>
+                  <span className="font-semibold text-slate-700">Sep 62% → Oct 78%</span>
+                </div>
+                <span className="font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                  +16% Attainment
+                </span>
               </div>
             </div>
           </div>
