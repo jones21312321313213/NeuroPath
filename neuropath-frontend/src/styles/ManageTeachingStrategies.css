@@ -1239,6 +1239,51 @@
 }
 
 
+
+/* ── Hero Guide Trigger & Wrapper ──────────────────── */
+.ts-hero-guide-wrapper {
+  margin-top: 10px;
+  width: 100%;
+}
+
+.ts-hero-guide-trigger-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ts-hero-guide-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 9999px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.ts-hero-guide-trigger-btn:hover {
+  background: rgba(255, 255, 255, 0.26);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+
+.ts-hero-guide-trigger-btn.active {
+  background: #ffffff;
+  color: #1e6fbf;
+  border-color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
 /* ── Hero Inline Guide Banner ───────────────────────── */
 .ts-hero-guide-banner {
   margin-top: 16px;

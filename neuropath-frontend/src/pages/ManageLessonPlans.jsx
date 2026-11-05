@@ -27,6 +27,8 @@ import {
   TrashIcon,
   CloseIcon,
   InfoIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
 } from "../components/ui/icons";
 
 const TABS = [
@@ -1506,85 +1508,96 @@ function ManagePlansTab({ setActivePage, onGoToGenerate }) {
 
 // ── Inline Header Guidance ────────────────────────────────────────────────────
 function LessonPlansHeaderInfo({ onGoToManage }) {
-  const [expanded, setExpanded] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="ts-hero-guide-banner" role="region" aria-label="Lesson Plans Guide">
-      <div className="ts-hero-guide-top">
-        <div className="ts-hero-guide-header">
-          <div className="ts-hero-guide-icon-badge">
-            <InfoIcon className="w-4 h-4" aria-hidden="true" />
-          </div>
-          <div>
-            <div className="ts-hero-guide-title">About Lesson Plans & Quick Guide</div>
-            <p className="ts-hero-guide-desc">
-              Transform active IEP goals into structured 4-phase classroom plans (Motivation, Direct Instruction, Guided Practice, Independent Practice) with individualized accommodations. Use <strong>Generate</strong> to draft new plans and <strong>Manage</strong> to review, edit, or print.
-            </p>
-          </div>
-        </div>
+    <div className="ts-hero-guide-wrapper">
+      <div className="ts-hero-guide-trigger-wrap">
         <button
           type="button"
-          className="ts-hero-guide-toggle-btn"
-          onClick={() => setExpanded((prev) => !prev)}
-          aria-expanded={expanded}
+          className={`ts-hero-guide-trigger-btn ${isOpen ? "active" : ""}`}
+          onClick={() => setIsOpen((prev) => !prev)}
+          aria-expanded={isOpen}
         >
-          {expanded ? "Hide Details" : "Learn More & Guide"}
+          <InfoIcon className="w-4 h-4" aria-hidden="true" />
+          <span>{isOpen ? "Hide Tool Guide & Info" : "View Tool Guide & Info"}</span>
+          {isOpen ? (
+            <ChevronUpIcon className="w-3.5 h-3.5" aria-hidden="true" />
+          ) : (
+            <ChevronDownIcon className="w-3.5 h-3.5" aria-hidden="true" />
+          )}
         </button>
       </div>
 
-      <div className="ts-hero-guide-steps">
-        <div className="ts-hero-guide-step">
-          <span className="ts-step-num">1</span>
-          <span><strong>Select Student:</strong> Load IEP targets</span>
-        </div>
-        <div className="ts-hero-guide-step">
-          <span className="ts-step-num">2</span>
-          <span><strong>Set Parameters:</strong> Subject & topic</span>
-        </div>
-        <div className="ts-hero-guide-step">
-          <span className="ts-step-num">3</span>
-          <span><strong>Generate & Review:</strong> AI draft preview</span>
-        </div>
-        <div className="ts-hero-guide-step">
-          <span className="ts-step-num">4</span>
-          <span><strong>Manage Library:</strong> Save, edit & print</span>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className="ts-hero-guide-expanded">
-          <div className="ts-hero-guide-grid">
-            <div className="ts-hero-guide-card">
-              <h4>About Lesson Plans</h4>
-              <p>
-                The Lesson Plans generator transforms Individualized Education Program (IEP) goals into structured, classroom-ready teaching plans. It automatically aligns DepEd curriculum standards with student-specific accommodations and behavioral supports.
-              </p>
-              <ul>
-                <li><strong>Goal-Aligned Objectives:</strong> Cognitive, psychomotor, and affective objectives tied to active IEP targets.</li>
-                <li><strong>Structured 4-Phase Delivery:</strong> Motivation, Direct Instruction, Guided Practice, and Independent Practice with assistive devices.</li>
-                <li><strong>Differentiated Accommodations:</strong> Built-in sensory, environmental, and pacing adaptations tailored to the student.</li>
-              </ul>
+      {isOpen && (
+        <div className="ts-hero-guide-banner" role="region" aria-label="Lesson Plans Guide">
+          <div className="ts-hero-guide-top">
+            <div className="ts-hero-guide-header">
+              <div className="ts-hero-guide-icon-badge">
+                <InfoIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div>
+                <div className="ts-hero-guide-title">About Lesson Plans & Quick Guide</div>
+                <p className="ts-hero-guide-desc">
+                  Transform active IEP goals into structured 4-phase classroom plans (Motivation, Direct Instruction, Guided Practice, Independent Practice) with individualized accommodations. Use <strong>Generate</strong> to draft new plans and <strong>Manage</strong> to review, edit, or print.
+                </p>
+              </div>
             </div>
-            <div className="ts-hero-guide-card">
-              <h4>What is the "Manage" Tab?</h4>
-              <p>
-                Your centralized lesson plan repository and archive. Use it to review lesson details, make live edits, and track instructional progress across your classroom.
-              </p>
-              <ul>
-                <li><strong>Organized by Student Profile:</strong> Browse plans created for specific students or filter by grade.</li>
-                <li><strong>Live Editing & Status Updates:</strong> Modify titles, update statuses between Draft and Generated.</li>
-                <li><strong>Classroom Delivery & Printing:</strong> Open full plan previews formatted for printing.</li>
-              </ul>
-              {onGoToManage && (
-                <button
-                  type="button"
-                  className="ts-hero-guide-link-btn"
-                  onClick={onGoToManage}
-                >
-                  <FolderIcon className="w-3.5 h-3.5" aria-hidden="true" />
-                  Go to Manage Lesson Plans
-                </button>
-              )}
+          </div>
+
+          <div className="ts-hero-guide-steps">
+            <div className="ts-hero-guide-step">
+              <span className="ts-step-num">1</span>
+              <span><strong>Select Student:</strong> Load IEP targets</span>
+            </div>
+            <div className="ts-hero-guide-step">
+              <span className="ts-step-num">2</span>
+              <span><strong>Set Parameters:</strong> Subject & topic</span>
+            </div>
+            <div className="ts-hero-guide-step">
+              <span className="ts-step-num">3</span>
+              <span><strong>Generate & Review:</strong> AI draft preview</span>
+            </div>
+            <div className="ts-hero-guide-step">
+              <span className="ts-step-num">4</span>
+              <span><strong>Manage Library:</strong> Save, edit & print</span>
+            </div>
+          </div>
+
+          <div className="ts-hero-guide-expanded">
+            <div className="ts-hero-guide-grid">
+              <div className="ts-hero-guide-card">
+                <h4>About Lesson Plans</h4>
+                <p>
+                  The Lesson Plans generator transforms Individualized Education Program (IEP) goals into structured, classroom-ready teaching plans. It automatically aligns DepEd curriculum standards with student-specific accommodations and behavioral supports.
+                </p>
+                <ul>
+                  <li><strong>Goal-Aligned Objectives:</strong> Cognitive, psychomotor, and affective objectives tied to active IEP targets.</li>
+                  <li><strong>Structured 4-Phase Delivery:</strong> Motivation, Direct Instruction, Guided Practice, and Independent Practice with assistive devices.</li>
+                  <li><strong>Differentiated Accommodations:</strong> Built-in sensory, environmental, and pacing adaptations tailored to the student.</li>
+                </ul>
+              </div>
+              <div className="ts-hero-guide-card">
+                <h4>What is the "Manage" Tab?</h4>
+                <p>
+                  Your centralized lesson plan repository and archive. Use it to review lesson details, make live edits, and track instructional progress across your classroom.
+                </p>
+                <ul>
+                  <li><strong>Organized by Student Profile:</strong> Browse plans created for specific students or filter by grade.</li>
+                  <li><strong>Live Editing & Status Updates:</strong> Modify titles, update statuses between Draft and Generated.</li>
+                  <li><strong>Classroom Delivery & Printing:</strong> Open full plan previews formatted for printing.</li>
+                </ul>
+                {onGoToManage && (
+                  <button
+                    type="button"
+                    className="ts-hero-guide-link-btn"
+                    onClick={onGoToManage}
+                  >
+                    <FolderIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                    Go to Manage Lesson Plans
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

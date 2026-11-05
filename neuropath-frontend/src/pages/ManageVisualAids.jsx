@@ -23,6 +23,8 @@ import {
   PrinterIcon,
   SpeakerWaveIcon,
   InfoIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
 } from "../components/ui/icons";
 
 const DAILY_LIVING_PRESETS = [
@@ -1296,84 +1298,95 @@ function DeleteTab({ setActivePage, onGoToGenerate }) {
 
 // ── Inline Header Guidance ────────────────────────────────────────────────────
 function VisualAidsHeaderInfo({ onGoToView }) {
-  const [expanded, setExpanded] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="va-hero-guide-banner" role="region" aria-label="Visual Aids Guide">
-      <div className="va-hero-guide-top">
-        <div className="va-hero-guide-header">
-          <div className="va-hero-guide-icon-badge">
-            <InfoIcon className="w-4 h-4" aria-hidden="true" />
-          </div>
-          <div>
-            <div className="va-hero-guide-title">About Visual Aids & Quick Guide</div>
-            <p className="va-hero-guide-desc">
-              Create clear, structured 3-step pictorial task analysis schedules and prompt cards with voice narration. Use <strong>Generate</strong> to build routine strips and <strong>View / Delete</strong> to manage student libraries.
-            </p>
-          </div>
-        </div>
+    <div className="va-hero-guide-wrapper">
+      <div className="va-hero-guide-trigger-wrap">
         <button
           type="button"
-          className="va-hero-guide-toggle-btn"
-          onClick={() => setExpanded((prev) => !prev)}
-          aria-expanded={expanded}
+          className={`va-hero-guide-trigger-btn ${isOpen ? "active" : ""}`}
+          onClick={() => setIsOpen((prev) => !prev)}
+          aria-expanded={isOpen}
         >
-          {expanded ? "Hide Details" : "Learn More & Guide"}
+          <InfoIcon className="w-4 h-4" aria-hidden="true" />
+          <span>{isOpen ? "Hide Tool Guide & Info" : "View Tool Guide & Info"}</span>
+          {isOpen ? (
+            <ChevronUpIcon className="w-3.5 h-3.5" aria-hidden="true" />
+          ) : (
+            <ChevronDownIcon className="w-3.5 h-3.5" aria-hidden="true" />
+          )}
         </button>
       </div>
 
-      <div className="va-hero-guide-steps">
-        <div className="va-hero-guide-step">
-          <span className="va-step-num">1</span>
-          <span><strong>Select Student:</strong> Load routine needs</span>
-        </div>
-        <div className="va-hero-guide-step">
-          <span className="va-step-num">2</span>
-          <span><strong>Choose Routine:</strong> Templates or prompt</span>
-        </div>
-        <div className="va-hero-guide-step">
-          <span className="va-step-num">3</span>
-          <span><strong>Generate Strip:</strong> 3 sequential steps</span>
-        </div>
-        <div className="va-hero-guide-step">
-          <span className="va-step-num">4</span>
-          <span><strong>View & Print:</strong> Audio playback & cards</span>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className="va-hero-guide-expanded">
-          <div className="va-hero-guide-grid">
-            <div className="va-hero-guide-card">
-              <h4>About Visual Aids</h4>
-              <p>
-                The Visual Aids tool creates clear, structured 3-step pictorial schedules and PECS-style prompt cards. It simplifies complex daily routines into manageable visual milestones for children with Autism, ADHD, speech/language delays, and sensory processing needs.
-              </p>
-              <ul>
-                <li><strong>3-Step Task Analysis:</strong> Breaks down routines into Beginning, Middle, and End steps.</li>
-                <li><strong>Text-to-Speech Audio Support:</strong> Voice narration reads steps aloud for non-verbal and emerging readers.</li>
-                <li><strong>Classroom-Ready Printables:</strong> Export printable schedules designed for desk strips and schedule boards.</li>
-              </ul>
+      {isOpen && (
+        <div className="va-hero-guide-banner" role="region" aria-label="Visual Aids Guide">
+          <div className="va-hero-guide-top">
+            <div className="va-hero-guide-header">
+              <div className="va-hero-guide-icon-badge">
+                <InfoIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div>
+                <div className="va-hero-guide-title">About Visual Aids & Quick Guide</div>
+                <p className="va-hero-guide-desc">
+                  Create clear, structured 3-step pictorial task analysis schedules and prompt cards with voice narration. Use <strong>Generate</strong> to build routine strips and <strong>View / Delete</strong> to manage student libraries.
+                </p>
+              </div>
             </div>
-            <div className="va-hero-guide-card">
-              <h4>What is the "Manage" Section?</h4>
-              <p>
-                Your visual schedule repository across View and Delete tabs. Complete control over all visual aids generated for your students.
-              </p>
-              <ul>
-                <li><strong>View Tab: Library & Audio Player:</strong> Browse saved aids by student, listen to audio narration, and trigger classroom printing.</li>
-                <li><strong>Delete Tab: Clean & Archive:</strong> Remove outdated visual aids to keep your student galleries organized.</li>
-              </ul>
-              {onGoToView && (
-                <button
-                  type="button"
-                  className="va-hero-guide-link-btn"
-                  onClick={onGoToView}
-                >
-                  <EyeIcon className="w-3.5 h-3.5" aria-hidden="true" />
-                  Go to View Visual Aids
-                </button>
-              )}
+          </div>
+
+          <div className="va-hero-guide-steps">
+            <div className="va-hero-guide-step">
+              <span className="va-step-num">1</span>
+              <span><strong>Select Student:</strong> Load routine needs</span>
+            </div>
+            <div className="va-hero-guide-step">
+              <span className="va-step-num">2</span>
+              <span><strong>Choose Routine:</strong> Templates or prompt</span>
+            </div>
+            <div className="va-hero-guide-step">
+              <span className="va-step-num">3</span>
+              <span><strong>Generate Strip:</strong> 3 sequential steps</span>
+            </div>
+            <div className="va-hero-guide-step">
+              <span className="va-step-num">4</span>
+              <span><strong>View & Print:</strong> Audio playback & cards</span>
+            </div>
+          </div>
+
+          <div className="va-hero-guide-expanded">
+            <div className="va-hero-guide-grid">
+              <div className="va-hero-guide-card">
+                <h4>About Visual Aids</h4>
+                <p>
+                  The Visual Aids tool creates clear, structured 3-step pictorial schedules and PECS-style prompt cards. It simplifies complex daily routines into manageable visual milestones for children with Autism, ADHD, speech/language delays, and sensory processing needs.
+                </p>
+                <ul>
+                  <li><strong>3-Step Task Analysis:</strong> Breaks down routines into Beginning, Middle, and End steps.</li>
+                  <li><strong>Text-to-Speech Audio Support:</strong> Voice narration reads steps aloud for non-verbal and emerging readers.</li>
+                  <li><strong>Classroom-Ready Printables:</strong> Export printable schedules designed for desk strips and schedule boards.</li>
+                </ul>
+              </div>
+              <div className="va-hero-guide-card">
+                <h4>What is the "Manage" Section?</h4>
+                <p>
+                  Your visual schedule repository across View and Delete tabs. Complete control over all visual aids generated for your students.
+                </p>
+                <ul>
+                  <li><strong>View Tab: Library & Audio Player:</strong> Browse saved aids by student, listen to audio narration, and trigger classroom printing.</li>
+                  <li><strong>Delete Tab: Clean & Archive:</strong> Remove outdated visual aids to keep your student galleries organized.</li>
+                </ul>
+                {onGoToView && (
+                  <button
+                    type="button"
+                    className="va-hero-guide-link-btn"
+                    onClick={onGoToView}
+                  >
+                    <EyeIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                    Go to View Visual Aids
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

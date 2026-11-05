@@ -648,12 +648,13 @@ describe("ManageLessonPlans Unified Management View (Issue #161)", () => {
     expect(screen.getByRole("tab", { name: /Generate/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Manage/i })).toBeInTheDocument();
 
+    expect(screen.queryByText("About Lesson Plans & Quick Guide")).not.toBeInTheDocument();
+
+    const guideBtn = screen.getByRole("button", { name: /View Tool Guide & Info/i });
+    expect(guideBtn).toBeInTheDocument();
+    fireEvent.click(guideBtn);
+
     expect(screen.getByText("About Lesson Plans & Quick Guide")).toBeInTheDocument();
-
-    const learnMoreBtn = screen.getByRole("button", { name: /Learn More & Guide/i });
-    expect(learnMoreBtn).toBeInTheDocument();
-    fireEvent.click(learnMoreBtn);
-
     expect(screen.getByText("About Lesson Plans")).toBeInTheDocument();
     expect(screen.getByText('What is the "Manage" Tab?')).toBeInTheDocument();
     expect(screen.getByText(/Your centralized lesson plan repository/i)).toBeInTheDocument();

@@ -26,6 +26,8 @@ import {
   TrashIcon,
   CloseIcon,
   InfoIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
 } from "../components/ui/icons";
 
 const TABS = [
@@ -1365,85 +1367,96 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
 
 // ── Inline Header Guidance ────────────────────────────────────────────────────
 function TeachingStrategiesHeaderInfo({ onGoToManage }) {
-  const [expanded, setExpanded] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="ts-hero-guide-banner" role="region" aria-label="Teaching Strategies Guide">
-      <div className="ts-hero-guide-top">
-        <div className="ts-hero-guide-header">
-          <div className="ts-hero-guide-icon-badge">
-            <InfoIcon className="w-4 h-4" aria-hidden="true" />
-          </div>
-          <div>
-            <div className="ts-hero-guide-title">About Teaching Strategies & Quick Guide</div>
-            <p className="ts-hero-guide-desc">
-              Synthesize student functional difficulties, strengths, and active IEP goals into targeted classroom accommodations and intervention techniques. Use <strong>Generate</strong> to craft evidence-based strategies and <strong>Manage</strong> to review, edit, or print.
-            </p>
-          </div>
-        </div>
+    <div className="ts-hero-guide-wrapper">
+      <div className="ts-hero-guide-trigger-wrap">
         <button
           type="button"
-          className="ts-hero-guide-toggle-btn"
-          onClick={() => setExpanded((prev) => !prev)}
-          aria-expanded={expanded}
+          className={`ts-hero-guide-trigger-btn ${isOpen ? "active" : ""}`}
+          onClick={() => setIsOpen((prev) => !prev)}
+          aria-expanded={isOpen}
         >
-          {expanded ? "Hide Details" : "Learn More & Guide"}
+          <InfoIcon className="w-4 h-4" aria-hidden="true" />
+          <span>{isOpen ? "Hide Tool Guide & Info" : "View Tool Guide & Info"}</span>
+          {isOpen ? (
+            <ChevronUpIcon className="w-3.5 h-3.5" aria-hidden="true" />
+          ) : (
+            <ChevronDownIcon className="w-3.5 h-3.5" aria-hidden="true" />
+          )}
         </button>
       </div>
 
-      <div className="ts-hero-guide-steps">
-        <div className="ts-hero-guide-step">
-          <span className="ts-step-num">1</span>
-          <span><strong>Select Student:</strong> Load functional profile</span>
-        </div>
-        <div className="ts-hero-guide-step">
-          <span className="ts-step-num">2</span>
-          <span><strong>Target Domain:</strong> Pick difficulties</span>
-        </div>
-        <div className="ts-hero-guide-step">
-          <span className="ts-step-num">3</span>
-          <span><strong>Generate & Review:</strong> AI interventions</span>
-        </div>
-        <div className="ts-hero-guide-step">
-          <span className="ts-step-num">4</span>
-          <span><strong>Manage Library:</strong> Save, track & print</span>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className="ts-hero-guide-expanded">
-          <div className="ts-hero-guide-grid">
-            <div className="ts-hero-guide-card">
-              <h4>About Teaching Strategies</h4>
-              <p>
-                The Teaching Strategies generator synthesizes student functional difficulties, strengths, and active IEP goals to create targeted classroom accommodations and intervention techniques.
-              </p>
-              <ul>
-                <li><strong>Domain-Specific Support:</strong> Targets Behavioral, Academic, Cognitive, Sensory, and Social-Emotional challenges.</li>
-                <li><strong>Concrete Implementation Steps:</strong> Exact instructions, environmental adaptations, and positive reinforcement.</li>
-                <li><strong>Measurable Success Criteria:</strong> Progress indicators and observable milestones.</li>
-              </ul>
+      {isOpen && (
+        <div className="ts-hero-guide-banner" role="region" aria-label="Teaching Strategies Guide">
+          <div className="ts-hero-guide-top">
+            <div className="ts-hero-guide-header">
+              <div className="ts-hero-guide-icon-badge">
+                <InfoIcon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div>
+                <div className="ts-hero-guide-title">About Teaching Strategies & Quick Guide</div>
+                <p className="ts-hero-guide-desc">
+                  Synthesize student functional difficulties, strengths, and active IEP goals into targeted classroom accommodations and intervention techniques. Use <strong>Generate</strong> to craft evidence-based strategies and <strong>Manage</strong> to review, edit, or print.
+                </p>
+              </div>
             </div>
-            <div className="ts-hero-guide-card">
-              <h4>What is the "Manage" Tab?</h4>
-              <p>
-                Your centralized intervention and accommodation library. Use it to track which interventions are active, modify details, and print cards for your teaching team.
-              </p>
-              <ul>
-                <li><strong>Organized by Student Profile:</strong> Quickly access all strategies created for a specific learner.</li>
-                <li><strong>In-Place Editing & Status Control:</strong> Transition statuses between Draft, Active, and Archived.</li>
-                <li><strong>Classroom-Ready Printables:</strong> Formatted cards designed for desk-side reference and aides.</li>
-              </ul>
-              {onGoToManage && (
-                <button
-                  type="button"
-                  className="ts-hero-guide-link-btn"
-                  onClick={onGoToManage}
-                >
-                  <FolderIcon className="w-3.5 h-3.5" aria-hidden="true" />
-                  Go to Manage Teaching Strategies
-                </button>
-              )}
+          </div>
+
+          <div className="ts-hero-guide-steps">
+            <div className="ts-hero-guide-step">
+              <span className="ts-step-num">1</span>
+              <span><strong>Select Student:</strong> Load functional profile</span>
+            </div>
+            <div className="ts-hero-guide-step">
+              <span className="ts-step-num">2</span>
+              <span><strong>Target Domain:</strong> Pick difficulties</span>
+            </div>
+            <div className="ts-hero-guide-step">
+              <span className="ts-step-num">3</span>
+              <span><strong>Generate & Review:</strong> AI interventions</span>
+            </div>
+            <div className="ts-hero-guide-step">
+              <span className="ts-step-num">4</span>
+              <span><strong>Manage Library:</strong> Save, track & print</span>
+            </div>
+          </div>
+
+          <div className="ts-hero-guide-expanded">
+            <div className="ts-hero-guide-grid">
+              <div className="ts-hero-guide-card">
+                <h4>About Teaching Strategies</h4>
+                <p>
+                  The Teaching Strategies generator synthesizes student functional difficulties, strengths, and active IEP goals to create targeted classroom accommodations and intervention techniques.
+                </p>
+                <ul>
+                  <li><strong>Domain-Specific Support:</strong> Targets Behavioral, Academic, Cognitive, Sensory, and Social-Emotional challenges.</li>
+                  <li><strong>Concrete Implementation Steps:</strong> Exact instructions, environmental adaptations, and positive reinforcement.</li>
+                  <li><strong>Measurable Success Criteria:</strong> Progress indicators and observable milestones.</li>
+                </ul>
+              </div>
+              <div className="ts-hero-guide-card">
+                <h4>What is the "Manage" Tab?</h4>
+                <p>
+                  Your centralized intervention and accommodation library. Use it to track which interventions are active, modify details, and print cards for your teaching team.
+                </p>
+                <ul>
+                  <li><strong>Organized by Student Profile:</strong> Quickly access all strategies created for a specific learner.</li>
+                  <li><strong>In-Place Editing & Status Control:</strong> Transition statuses between Draft, Active, and Archived.</li>
+                  <li><strong>Classroom-Ready Printables:</strong> Formatted cards designed for desk-side reference and aides.</li>
+                </ul>
+                {onGoToManage && (
+                  <button
+                    type="button"
+                    className="ts-hero-guide-link-btn"
+                    onClick={onGoToManage}
+                  >
+                    <FolderIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                    Go to Manage Teaching Strategies
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
