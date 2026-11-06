@@ -47,7 +47,7 @@ class AIEngineService:
 
         primary_model = getattr(settings, 'GEMINI_MODEL', cls.GEMINI_MODEL)
         models_to_try = [primary_model]
-        for fb in ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-1.5-flash']:
+        for fb in ['gemini-3.8-flash', 'gemini-flash-latest', 'gemma-4-26b-a4b-it', 'gemini-2.5-flash', 'gemini-1.5-flash']:
             if fb not in models_to_try:
                 models_to_try.append(fb)
 
@@ -89,7 +89,7 @@ class AIEngineService:
 
             url = f"{cls.GEMINI_API_URL}/{model}:generateContent"
             res = cls._post_with_retry(url, headers=headers, json=current_payload, timeout=timeout)
-            if res.status_code == 404 and len(models_to_try) > 1:
+            if res.status_code in (404, 429) and len(models_to_try) > 1:
                 last_res = res
                 continue
             res.raise_for_status()
@@ -124,7 +124,7 @@ class AIEngineService:
 
         primary_model = getattr(settings, 'GROQ_MODEL', cls.GROQ_MODEL)
         models_to_try = [primary_model]
-        for fb in ['qwen/qwen3.8-27b', 'openai/gpt-oss-120b', 'llama-3.3-70b-versatile']:
+        for fb in ['qwen/qwen3.8-27b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'llama-3.3-70b-versatile']:
             if fb not in models_to_try:
                 models_to_try.append(fb)
 
@@ -151,7 +151,7 @@ class AIEngineService:
         for model in models_to_try:
             payload['model'] = model
             res = cls._post_with_retry(cls.GROQ_API_URL, headers=headers, json=payload, timeout=timeout)
-            if res.status_code == 404 and len(models_to_try) > 1:
+            if res.status_code in (404, 429) and len(models_to_try) > 1:
                 last_res = res
                 continue
             res.raise_for_status()
@@ -202,7 +202,7 @@ class AIEngineService:
         for model in models_to_try:
             payload['model'] = model
             res = cls._post_with_retry(cls.OPENROUTER_API_URL, headers=headers, json=payload, timeout=timeout)
-            if res.status_code == 404 and len(models_to_try) > 1:
+            if res.status_code in (404, 429) and len(models_to_try) > 1:
                 last_res = res
                 continue
             res.raise_for_status()

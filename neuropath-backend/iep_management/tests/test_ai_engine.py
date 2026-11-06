@@ -329,6 +329,45 @@ class AIEngineServiceTestCase(TestCase):
         self.assertEqual(mock_post.call_count, 2)
         mock_sleep.assert_called_once()
 
+    @override_settings(GEMINI_API_KEY='test-gemini-key', GEMINI_MODEL='gemini-3.8-flash')
+    @patch('time.sleep', return_value=None)
+    @patch('requests.post')
+    def test_call_gemini_falls_back_to_next_model_on_429(self, mock_post, mock_sleep):
+        resp_429 = MagicMock(status_code=429)
+        resp_200 = MagicMock(status_code=200)
+        resp_200.json.return_value = {
+            'candidates': [
+                {
+                    'content': {'parts': [{'text': 'Fallback model response'}]},
+                    'finishReason': 'STOP'
+                }
+            ]
+        }
+        resp_200.raise_for_status.return_value = None
+        # First model returns 429 both on initial and backoff retry (2 calls)
+        # Second model returns 200 on initial (1 call)
+        mock_post.side_effect = [resp_429, resp_429, resp_200]
+
+        res = AIEngineService._call_gemini('Test multi-model fallback')
+        self.assertEqual(res, 'Fallback model response')
+        self.assertEqual(mock_post.call_count, 3)
+
+    @override_settings(GROQ_API_KEY='test-groq-key', GROQ_MODEL='qwen/qwen3.8-27b')
+    @patch('time.sleep', return_value=None)
+    @patch('requests.post')
+    def test_call_groq_falls_back_to_next_model_on_429(self, mock_post, mock_sleep):
+        resp_429 = MagicMock(status_code=429)
+        resp_200 = MagicMock(status_code=200)
+        resp_200.json.return_value = {
+            'choices': [{'message': {'content': 'Groq fallback model response'}}]
+        }
+        resp_200.raise_for_status.return_value = None
+        mock_post.side_effect = [resp_429, resp_429, resp_200]
+
+        res = AIEngineService._call_groq('Test Groq multi-model fallback')
+        self.assertEqual(res, 'Groq fallback model response')
+        self.assertEqual(mock_post.call_count, 3)
+
     def test_deterministic_fallback_is_completely_removed(self):
         self.assertFalse(hasattr(AIEngineService, '_deterministic_fallback'))
 
