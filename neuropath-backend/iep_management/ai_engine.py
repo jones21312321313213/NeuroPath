@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 import requests
 from django.conf import settings
 
@@ -18,6 +19,26 @@ class AIEngineService:
 
     OLLAMA_MODEL = 'llama3.2:3b'
 
+    DEFAULT_TIMEOUT = 35
+
+    @classmethod
+    def _post_with_retry(cls, url, headers=None, json=None, timeout=None, retry_delay=1.0):
+        if timeout is None:
+            timeout = getattr(settings, 'AI_REQUEST_TIMEOUT', cls.DEFAULT_TIMEOUT)
+        res = requests.post(url, headers=headers, json=json, timeout=timeout)
+        if res.status_code == 429:
+            delay = retry_delay
+            retry_after = getattr(res, "headers", {}).get("Retry-After") if hasattr(res, "headers") and res.headers else None
+            if retry_after:
+                try:
+                    delay = max(0.5, min(float(retry_after), 10.0))
+                except (ValueError, TypeError):
+                    pass
+            logger.warning("HTTP 429 encountered for %s. Retrying once after short backoff (%ss)...", url, delay)
+            time.sleep(delay)
+            res = requests.post(url, headers=headers, json=json, timeout=timeout)
+        return res
+
     @classmethod
     def _call_gemini(cls, prompt, system_prompt='', max_tokens=500, json_mode=False):
         api_key = getattr(settings, 'GEMINI_API_KEY', '')
@@ -26,7 +47,7 @@ class AIEngineService:
 
         primary_model = getattr(settings, 'GEMINI_MODEL', cls.GEMINI_MODEL)
         models_to_try = [primary_model]
-        for fb in ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-1.5-flash']:
+        for fb in ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-1.5-flash']:
             if fb not in models_to_try:
                 models_to_try.append(fb)
 
@@ -57,6 +78,7 @@ class AIEngineService:
                 "parts": [{"text": system_prompt}]
             }
 
+        timeout = getattr(settings, 'AI_REQUEST_TIMEOUT', cls.DEFAULT_TIMEOUT)
         last_res = None
         for model in models_to_try:
             current_payload = json.loads(json.dumps(payload))
@@ -66,8 +88,8 @@ class AIEngineService:
                 current_payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}
 
             url = f"{cls.GEMINI_API_URL}/{model}:generateContent"
-            res = requests.post(url, headers=headers, json=current_payload, timeout=20)
-            if res.status_code == 404 and len(models_to_try) > 1:
+            res = cls._post_with_retry(url, headers=headers, json=current_payload, timeout=timeout)
+            if res.status_code in (404, 429) and len(models_to_try) > 1:
                 last_res = res
                 continue
             res.raise_for_status()
@@ -102,7 +124,7 @@ class AIEngineService:
 
         primary_model = getattr(settings, 'GROQ_MODEL', cls.GROQ_MODEL)
         models_to_try = [primary_model]
-        for fb in ['qwen/qwen3.8-27b', 'openai/gpt-oss-120b', 'llama-3.3-70b-versatile']:
+        for fb in ['qwen/qwen3.8-27b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'llama-3.3-70b-versatile']:
             if fb not in models_to_try:
                 models_to_try.append(fb)
 
@@ -124,11 +146,12 @@ class AIEngineService:
         if json_mode:
             payload['response_format'] = {'type': 'json_object'}
 
+        timeout = getattr(settings, 'AI_REQUEST_TIMEOUT', cls.DEFAULT_TIMEOUT)
         last_res = None
         for model in models_to_try:
             payload['model'] = model
-            res = requests.post(cls.GROQ_API_URL, headers=headers, json=payload, timeout=20)
-            if res.status_code == 404 and len(models_to_try) > 1:
+            res = cls._post_with_retry(cls.GROQ_API_URL, headers=headers, json=payload, timeout=timeout)
+            if res.status_code in (404, 429) and len(models_to_try) > 1:
                 last_res = res
                 continue
             res.raise_for_status()
@@ -174,11 +197,12 @@ class AIEngineService:
         if json_mode:
             payload['response_format'] = {'type': 'json_object'}
 
+        timeout = getattr(settings, 'AI_REQUEST_TIMEOUT', cls.DEFAULT_TIMEOUT)
         last_res = None
         for model in models_to_try:
             payload['model'] = model
-            res = requests.post(cls.OPENROUTER_API_URL, headers=headers, json=payload, timeout=20)
-            if res.status_code == 404 and len(models_to_try) > 1:
+            res = cls._post_with_retry(cls.OPENROUTER_API_URL, headers=headers, json=payload, timeout=timeout)
+            if res.status_code in (404, 429) and len(models_to_try) > 1:
                 last_res = res
                 continue
             res.raise_for_status()

@@ -219,6 +219,155 @@ class AIEngineServiceTestCase(TestCase):
 
     # ── Helper & Compatibility Tests ────────────────────────────────────
 
+    @patch('time.sleep', return_value=None)
+    @patch('requests.post')
+    def test_post_with_retry_retries_once_on_429(self, mock_post, mock_sleep):
+        resp_429 = MagicMock(status_code=429)
+        resp_429.headers = {}
+        resp_200 = MagicMock(status_code=200)
+        mock_post.side_effect = [resp_429, resp_200]
+
+        res = AIEngineService._post_with_retry("https://api.test/generate", headers={}, json={})
+        self.assertEqual(res, resp_200)
+        self.assertEqual(mock_post.call_count, 2)
+        mock_sleep.assert_called_once()
+
+    @patch('time.sleep', return_value=None)
+    @patch('requests.post')
+    def test_post_with_retry_respects_retry_after_header(self, mock_post, mock_sleep):
+        resp_429 = MagicMock(status_code=429)
+        resp_429.headers = {"Retry-After": "4.5"}
+        resp_200 = MagicMock(status_code=200)
+        mock_post.side_effect = [resp_429, resp_200]
+
+        res = AIEngineService._post_with_retry("https://api.test/generate", headers={}, json={}, retry_delay=1.0)
+        self.assertEqual(res, resp_200)
+        self.assertEqual(mock_post.call_count, 2)
+        mock_sleep.assert_called_once_with(4.5)
+
+    @patch('time.sleep', return_value=None)
+    @patch('requests.post')
+    def test_post_with_retry_handles_malformed_retry_after_header(self, mock_post, mock_sleep):
+        resp_429 = MagicMock(status_code=429)
+        resp_429.headers = {"Retry-After": "invalid_seconds"}
+        resp_200 = MagicMock(status_code=200)
+        mock_post.side_effect = [resp_429, resp_200]
+
+        res = AIEngineService._post_with_retry("https://api.test/generate", headers={}, json={}, retry_delay=2.0)
+        self.assertEqual(res, resp_200)
+        self.assertEqual(mock_post.call_count, 2)
+        mock_sleep.assert_called_once_with(2.0)
+
+    @patch('time.sleep', return_value=None)
+    @patch('requests.post')
+    def test_post_with_retry_single_backoff_persisting_429(self, mock_post, mock_sleep):
+        resp_429 = MagicMock(status_code=429)
+        mock_post.side_effect = [resp_429, resp_429]
+
+        res = AIEngineService._post_with_retry("https://api.test/generate", headers={}, json={})
+        self.assertEqual(res.status_code, 429)
+        self.assertEqual(mock_post.call_count, 2)
+        mock_sleep.assert_called_once()
+
+    @patch('requests.post')
+    def test_post_with_retry_defaults_to_35s_timeout(self, mock_post):
+        mock_resp = MagicMock(status_code=200)
+        mock_post.return_value = mock_resp
+
+        res = AIEngineService._post_with_retry("https://api.test/generate", headers={}, json={})
+        self.assertEqual(res, mock_resp)
+        mock_post.assert_called_once()
+        self.assertEqual(mock_post.call_args[1]['timeout'], 35)
+
+    @override_settings(AI_REQUEST_TIMEOUT=45)
+    @patch('requests.post')
+    def test_post_with_retry_respects_settings_timeout(self, mock_post):
+        mock_resp = MagicMock(status_code=200)
+        mock_post.return_value = mock_resp
+
+        res = AIEngineService._post_with_retry("https://api.test/generate", headers={}, json={})
+        self.assertEqual(res, mock_resp)
+        mock_post.assert_called_once()
+        self.assertEqual(mock_post.call_args[1]['timeout'], 45)
+
+    @override_settings(GEMINI_API_KEY='test-gemini-key', GEMINI_MODEL='gemini-1.5-flash')
+    @patch('time.sleep', return_value=None)
+    @patch('requests.post')
+    def test_call_gemini_recovers_after_single_429_retry(self, mock_post, mock_sleep):
+        resp_429 = MagicMock(status_code=429)
+        resp_200 = MagicMock(status_code=200)
+        resp_200.json.return_value = {
+            'candidates': [
+                {
+                    'content': {'parts': [{'text': 'Gemini recovered response'}]},
+                    'finishReason': 'STOP'
+                }
+            ]
+        }
+        resp_200.raise_for_status.return_value = None
+        mock_post.side_effect = [resp_429, resp_200]
+
+        res = AIEngineService._call_gemini('Test 429 retry')
+        self.assertEqual(res, 'Gemini recovered response')
+        self.assertEqual(mock_post.call_count, 2)
+        mock_sleep.assert_called_once()
+
+    @override_settings(GROQ_API_KEY='test-groq-key', GROQ_MODEL='llama-3.3-70b-versatile')
+    @patch('time.sleep', return_value=None)
+    @patch('requests.post')
+    def test_call_groq_recovers_after_single_429_retry(self, mock_post, mock_sleep):
+        resp_429 = MagicMock(status_code=429)
+        resp_200 = MagicMock(status_code=200)
+        resp_200.json.return_value = {
+            'choices': [{'message': {'content': 'Groq recovered response'}}]
+        }
+        resp_200.raise_for_status.return_value = None
+        mock_post.side_effect = [resp_429, resp_200]
+
+        res = AIEngineService._call_groq('Test Groq 429 retry')
+        self.assertEqual(res, 'Groq recovered response')
+        self.assertEqual(mock_post.call_count, 2)
+        mock_sleep.assert_called_once()
+
+    @override_settings(GEMINI_API_KEY='test-gemini-key', GEMINI_MODEL='gemini-3.8-flash')
+    @patch('time.sleep', return_value=None)
+    @patch('requests.post')
+    def test_call_gemini_falls_back_to_next_model_on_429(self, mock_post, mock_sleep):
+        resp_429 = MagicMock(status_code=429)
+        resp_200 = MagicMock(status_code=200)
+        resp_200.json.return_value = {
+            'candidates': [
+                {
+                    'content': {'parts': [{'text': 'Fallback model response'}]},
+                    'finishReason': 'STOP'
+                }
+            ]
+        }
+        resp_200.raise_for_status.return_value = None
+        # First model returns 429 both on initial and backoff retry (2 calls)
+        # Second model returns 200 on initial (1 call)
+        mock_post.side_effect = [resp_429, resp_429, resp_200]
+
+        res = AIEngineService._call_gemini('Test multi-model fallback')
+        self.assertEqual(res, 'Fallback model response')
+        self.assertEqual(mock_post.call_count, 3)
+
+    @override_settings(GROQ_API_KEY='test-groq-key', GROQ_MODEL='qwen/qwen3.8-27b')
+    @patch('time.sleep', return_value=None)
+    @patch('requests.post')
+    def test_call_groq_falls_back_to_next_model_on_429(self, mock_post, mock_sleep):
+        resp_429 = MagicMock(status_code=429)
+        resp_200 = MagicMock(status_code=200)
+        resp_200.json.return_value = {
+            'choices': [{'message': {'content': 'Groq fallback model response'}}]
+        }
+        resp_200.raise_for_status.return_value = None
+        mock_post.side_effect = [resp_429, resp_429, resp_200]
+
+        res = AIEngineService._call_groq('Test Groq multi-model fallback')
+        self.assertEqual(res, 'Groq fallback model response')
+        self.assertEqual(mock_post.call_count, 3)
+
     def test_deterministic_fallback_is_completely_removed(self):
         self.assertFalse(hasattr(AIEngineService, '_deterministic_fallback'))
 

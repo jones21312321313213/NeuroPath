@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Modal } from "./Modal";
 import { Button } from "./Button";
 import { Badge } from "./Badge";
@@ -32,6 +32,7 @@ import {
  * @param {(notes?: string) => Promise<void>|void} props.onRegenerate - Callback to trigger draft regeneration
  * @param {boolean} [props.isSaving=false] - Whether the goals are currently saving
  * @param {boolean} [props.isRegenerating=false] - Whether regeneration is in progress
+ * @param {number} [props.cooldownSeconds=10] - Cooldown duration in seconds before regeneration can be triggered again
  */
 export function IepPostGenerationModal({
   isOpen = false,
@@ -44,9 +45,45 @@ export function IepPostGenerationModal({
   onRegenerate,
   isSaving = false,
   isRegenerating = false,
+  cooldownSeconds = 10,
 }) {
   const [showRegenPrompt, setShowRegenPrompt] = useState(false);
   const [regenerationNotes, setRegenerationNotes] = useState("");
+  const [remainingCooldown, setRemainingCooldown] = useState(
+    isOpen ? cooldownSeconds : 0,
+  );
+  const wasRegeneratingRef = useRef(isRegenerating);
+  const prevIsOpenRef = useRef(isOpen);
+
+  useEffect(() => {
+    if (isOpen && !prevIsOpenRef.current) {
+      setRemainingCooldown(cooldownSeconds);
+    }
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, cooldownSeconds]);
+
+  useEffect(() => {
+    if (wasRegeneratingRef.current && !isRegenerating && isOpen) {
+      setRemainingCooldown(cooldownSeconds);
+    }
+    wasRegeneratingRef.current = isRegenerating;
+  }, [isRegenerating, isOpen, cooldownSeconds]);
+
+  useEffect(() => {
+    if (!isOpen || remainingCooldown <= 0) return;
+
+    const intervalId = setInterval(() => {
+      setRemainingCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(intervalId);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [isOpen, remainingCooldown]);
 
   if (!isOpen) return null;
 
@@ -92,13 +129,20 @@ export function IepPostGenerationModal({
               variant="secondary"
               size="sm"
               onClick={handleRegenerateClick}
-              disabled={isSaving || isRegenerating}
-              className="w-full sm:w-auto border-slate-300 text-slate-700 hover:bg-slate-100"
+              disabled={isSaving || isRegenerating || remainingCooldown > 0}
+              className={`w-full sm:w-auto border-slate-300 text-slate-700 hover:bg-slate-100 ${
+                remainingCooldown > 0 ? "opacity-50 cursor-not-allowed text-slate-400 bg-slate-100" : ""
+              }`}
             >
               {isRegenerating ? (
                 <span className="flex items-center gap-1.5">
                   <ArrowPathIcon className="w-4 h-4 animate-spin text-slate-500" aria-hidden="true" />
                   Regenerating...
+                </span>
+              ) : remainingCooldown > 0 ? (
+                <span className="flex items-center gap-1.5">
+                  <ArrowPathIcon className="w-4 h-4 text-slate-400" aria-hidden="true" />
+                  Regenerate ({remainingCooldown}s)
                 </span>
               ) : (
                 <span className="flex items-center gap-1.5">

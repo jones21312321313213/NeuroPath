@@ -2180,6 +2180,7 @@ export default function IEPGenerationPage({
   initialStudentId = null,
   setActivePage,
   setSelectedStudentId,
+  cooldownSeconds = 10,
 }) {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -2258,6 +2259,17 @@ export default function IEPGenerationPage({
     prompt: "",
     isRegenerating: false,
   });
+
+  // Issue #259 10-Second Cooldown Timer
+  const [regenCooldown, setRegenCooldown] = useState(0);
+
+  useEffect(() => {
+    if (regenCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setRegenCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [regenCooldown]);
 
   // Manual goal state in Section C
   const [showManualGoal, setShowManualGoal] = useState(false);
@@ -3003,6 +3015,18 @@ export default function IEPGenerationPage({
       setPendingGeneratedGoals(goals);
       setPendingIepId(activeGeneratedIepId || null);
       setShowPostGenModal(true);
+      if (cooldownSeconds > 0) {
+        setRegenCooldown(cooldownSeconds);
+      }
+      if (activeGeneratedIepId || pendingIepId) {
+        toast.success(
+          "IEP goals regenerated successfully! Review the draft below and click 'Accept & Save IEP' to apply.",
+        );
+      } else {
+        toast.success(
+          "IEP goals generated successfully! Review the draft below and click 'Accept & Save IEP' to apply.",
+        );
+      }
     } catch (err) {
       showError(err.message || "Unknown error", "Failed to Generate AI Goals");
       setGenerationDone(false);
@@ -3233,6 +3257,9 @@ export default function IEPGenerationPage({
         prompt: "",
         isRegenerating: false,
       });
+      if (cooldownSeconds > 0) {
+        setRegenCooldown(cooldownSeconds);
+      }
     } catch (err) {
       toast.error(err.message || "Failed to regenerate goal.");
       setSingleGoalRegenModal((prev) => ({ ...prev, isRegenerating: false }));
@@ -3769,10 +3796,18 @@ export default function IEPGenerationPage({
                         <button
                           type="button"
                           className="btn btn-back"
-                          style={{ fontSize: "0.8rem", padding: "4px 10px" }}
+                          style={{
+                            fontSize: "0.8rem",
+                            padding: "4px 10px",
+                            opacity: regenCooldown > 0 ? 0.6 : 1,
+                            cursor: regenCooldown > 0 ? "not-allowed" : "pointer",
+                          }}
                           onClick={() => setShowRegenConfirmModal(true)}
+                          disabled={regenCooldown > 0}
                         >
-                          Regenerate Goals
+                          {regenCooldown > 0
+                            ? `Regenerate Goals (${regenCooldown}s)`
+                            : "Regenerate Goals"}
                         </button>
                       </div>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
@@ -3879,12 +3914,19 @@ export default function IEPGenerationPage({
                         disabled={
                           generatingFinalIep ||
                           savingGoals ||
+                          regenCooldown > 0 ||
                           (selectedStudent &&
                             selectedStudent.parental_consent_obtained === false)
                         }
-                        style={{ marginRight: 8 }}
+                        style={{
+                          marginRight: 8,
+                          opacity: regenCooldown > 0 ? 0.6 : 1,
+                          cursor: regenCooldown > 0 ? "not-allowed" : "pointer",
+                        }}
                       >
-                        Regenerate Goals
+                        {regenCooldown > 0
+                          ? `Regenerate Goals (${regenCooldown}s)`
+                          : "Regenerate Goals"}
                       </button>
                     )}
                     <button
@@ -4240,7 +4282,13 @@ export default function IEPGenerationPage({
                                   <button
                                     type="button"
                                     className="btn btn-back"
-                                    style={{ fontSize: "0.78rem", padding: "4px 10px", whiteSpace: "nowrap" }}
+                                    style={{
+                                      fontSize: "0.78rem",
+                                      padding: "4px 10px",
+                                      whiteSpace: "nowrap",
+                                      opacity: regenCooldown > 0 ? 0.6 : 1,
+                                      cursor: regenCooldown > 0 ? "not-allowed" : "pointer",
+                                    }}
                                     onClick={() =>
                                       setSingleGoalRegenModal({
                                         isOpen: true,
@@ -4250,8 +4298,11 @@ export default function IEPGenerationPage({
                                         isRegenerating: false,
                                       })
                                     }
+                                    disabled={regenCooldown > 0}
                                   >
-                                    Regenerate Goal
+                                    {regenCooldown > 0
+                                      ? `Regenerate Goal (${regenCooldown}s)`
+                                      : "Regenerate Goal"}
                                   </button>
                                 </div>
                               </div>
@@ -4359,6 +4410,7 @@ export default function IEPGenerationPage({
         onRegenerate={handleRegenerateFromModal}
         isSaving={isSavingPendingGoals}
         isRegenerating={generatingFinalIep}
+        cooldownSeconds={cooldownSeconds}
       />
 
       {/* Regeneration Confirmation Modal (ENH25) */}
@@ -4383,9 +4435,12 @@ export default function IEPGenerationPage({
                 setShowRegenConfirmModal(false);
                 handleGenerateFinalIep();
               }}
+              disabled={regenCooldown > 0}
               className="bg-amber-600 hover:bg-amber-700 text-white"
             >
-              Regenerate Goals
+              {regenCooldown > 0
+                ? `Regenerate Goals (${regenCooldown}s)`
+                : "Regenerate Goals"}
             </Button>
           </div>
         }
@@ -4422,12 +4477,14 @@ export default function IEPGenerationPage({
               variant="primary"
               size="sm"
               onClick={handleConfirmSingleGoalRegen}
-              disabled={singleGoalRegenModal.isRegenerating}
+              disabled={singleGoalRegenModal.isRegenerating || regenCooldown > 0}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {singleGoalRegenModal.isRegenerating
                 ? "Regenerating..."
-                : "Regenerate Goal"}
+                : regenCooldown > 0
+                  ? `Regenerate Goal (${regenCooldown}s)`
+                  : "Regenerate Goal"}
             </Button>
           </div>
         }

@@ -1244,7 +1244,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
 
       render(
         <MemoryRouter>
-          <IEPGenerationPage mode="generate" initialStudentId={1} />
+          <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={0} />
         </MemoryRouter>,
       );
 
@@ -1297,7 +1297,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
 
       render(
         <MemoryRouter>
-          <IEPGenerationPage mode="generate" initialStudentId={1} />
+          <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={0} />
         </MemoryRouter>,
       );
 
@@ -1538,7 +1538,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       it("renders Section A, B, and C stepper items with active and completion states", async () => {
         render(
           <MemoryRouter>
-            <IEPGenerationPage mode="generate" initialStudentId={1} />
+            <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={0} />
           </MemoryRouter>,
         );
 
@@ -1562,7 +1562,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         const user = userEvent.setup();
         render(
           <MemoryRouter>
-            <IEPGenerationPage mode="generate" initialStudentId={1} />
+            <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={0} />
           </MemoryRouter>,
         );
 
@@ -1618,7 +1618,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
 
         render(
           <MemoryRouter>
-            <IEPGenerationPage mode="generate" initialStudentId={1} />
+            <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={0} />
           </MemoryRouter>,
         );
 
@@ -1681,7 +1681,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
 
         render(
           <MemoryRouter>
-            <IEPGenerationPage mode="generate" initialStudentId={1} />
+            <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={0} />
           </MemoryRouter>,
         );
 
@@ -1752,7 +1752,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
 
         render(
           <MemoryRouter>
-            <IEPGenerationPage mode="generate" initialStudentId={1} />
+            <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={0} />
           </MemoryRouter>,
         );
 
@@ -2500,6 +2500,96 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       const summary = document.querySelector(".iep-selected-goal-summary");
       expect(summary).toBeInTheDocument();
       expect(within(summary).getByText("Social / Interpersonal Skills")).toBeInTheDocument();
+    });
+  });
+
+  describe("10-Second Cooldown on Regeneration Triggers (Issue #259)", () => {
+    it("disables modal regenerate button with default 10-second cooldown immediately after generation completes while keeping Accept & Save immediately clickable", async () => {
+      const user = userEvent.setup();
+      iepAPI.save.mockResolvedValue({ iepID: 999, studentID: 1 });
+      iepAPI.generateGoalsFromIep.mockResolvedValue({
+        goals: [
+          {
+            subject_category: "Communication Skills",
+            annual_goal: "Marcus will use visual communication book.",
+            target_metric: "80% accuracy",
+            objective_rows: [],
+          },
+        ],
+      });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("NEXT"));
+      await user.selectOptions(screen.getByRole("combobox"), "Communication Skills");
+      await user.click(screen.getByRole("button", { name: /generate final iep/i }));
+
+      // Review Generated IEP Draft modal should be displayed with 10s cooldown
+      await screen.findByText("Review Generated IEP Draft");
+      const modalRegenBtn = screen.getByRole("button", { name: /regenerate \(10s\)/i });
+      expect(modalRegenBtn).toBeDisabled();
+
+      // Accept & Save must be immediately enabled and clickable
+      const saveBtn = screen.getByRole("button", { name: /accept & save iep/i });
+      expect(saveBtn).toBeEnabled();
+    });
+
+    it("disables inline goal regeneration triggers with countdown and re-enables them after cooldown expires", async () => {
+      const user = userEvent.setup();
+      iepAPI.save.mockResolvedValue({ iepID: 999, studentID: 1 });
+      iepAPI.generateGoalsFromIep.mockResolvedValue({
+        goals: [
+          {
+            subject_category: "Communication Skills",
+            annual_goal: "Marcus will use visual communication book.",
+            target_metric: "80% accuracy",
+            objective_rows: [],
+          },
+        ],
+      });
+      iepAPI.saveGoal.mockResolvedValue({ goalID: 101 });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("NEXT"));
+      await user.selectOptions(screen.getByRole("combobox"), "Communication Skills");
+      await user.click(screen.getByRole("button", { name: /generate final iep/i }));
+
+      await screen.findByText("Review Generated IEP Draft");
+      const saveBtn = screen.getByRole("button", { name: /accept & save iep/i });
+      await user.click(saveBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText("IEP Generated Successfully!")).toBeInTheDocument();
+      });
+
+      // Inline card button should be disabled with (1s) cooldown
+      const cardRegenBtn = screen.getByRole("button", { name: /regenerate goal \(1s\)/i });
+      expect(cardRegenBtn).toBeDisabled();
+
+      // After 1 second, card button re-enables cleanly without timer suffix
+      await waitFor(
+        () => {
+          expect(screen.getByRole("button", { name: /^regenerate goal$/i })).toBeEnabled();
+        },
+        { timeout: 3000 },
+      );
     });
   });
 });
