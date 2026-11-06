@@ -2361,6 +2361,101 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       });
     });
   });
+
+  describe("Issue #257 - Goal Area Dropdown Layout & Selected Student Card Restyling", () => {
+    const longNamedStudent = {
+      id: 99,
+      studentID: 99,
+      name: "Alexander Bartholomew-Montgomery III",
+      grade: "3",
+      age: "9",
+      gender: "Male",
+      diagnosis: "Autism Spectrum Disorder with Associated Receptive Language Delays",
+      difficulty: "Communication",
+      parental_consent_obtained: true,
+    };
+
+    it("renders restyled selected student card matching .vsp-card hierarchy with avatar initials and pills", async () => {
+      studentsAPI.list.mockResolvedValue([longNamedStudent]);
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={99} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Alexander Bartholomew-Montgomery III")).toBeInTheDocument();
+      });
+
+      const card = document.querySelector(".iep-selected-student-card");
+      expect(card).toBeInTheDocument();
+      expect(card).toHaveClass("vsp-card");
+
+      // Header / badge
+      expect(within(card).getByText("Selected Student")).toBeInTheDocument();
+
+      // Avatar with initials AB
+      const avatar = card.querySelector(".vsp-avatar");
+      expect(avatar).toBeInTheDocument();
+      expect(avatar).toHaveTextContent("AB");
+
+      // Name & metadata hierarchy
+      const nameElem = card.querySelector(".vsp-card-name");
+      expect(nameElem).toBeInTheDocument();
+      expect(nameElem).toHaveTextContent("Alexander Bartholomew-Montgomery III");
+
+      const metaElem = card.querySelector(".vsp-card-meta");
+      expect(metaElem).toBeInTheDocument();
+      expect(metaElem).toHaveTextContent(
+        "Autism Spectrum Disorder with Associated Receptive Language Delays",
+      );
+
+      // Pills
+      const pillsContainer = card.querySelector(".vsp-card-pills");
+      expect(pillsContainer).toBeInTheDocument();
+      expect(within(pillsContainer).getByText("Grade 3")).toHaveClass("vsp-pill", "grade");
+      expect(within(pillsContainer).getByText("9 yrs")).toHaveClass("vsp-pill");
+      expect(within(pillsContainer).getByText("Male")).toHaveClass("vsp-pill");
+    });
+
+    it("renders goal area dropdown layout in Section C without truncation and allows selecting long goal domains", async () => {
+      const user = userEvent.setup();
+      studentsAPI.list.mockResolvedValue([longNamedStudent]);
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={99} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("NEXT"));
+
+      const toolbar = document.querySelector(".iep-ai-goal-toolbar");
+      expect(toolbar).toBeInTheDocument();
+
+      const goalSelect = screen.getByRole("combobox");
+      expect(goalSelect).toBeInTheDocument();
+      expect(goalSelect).toHaveAttribute("id", "iep-goal-area-select");
+
+      // Check long goal area option exists in dropdown
+      const options = Array.from(goalSelect.options).map((opt) => opt.text);
+      expect(options).toContain("Social / Interpersonal Skills");
+
+      // Select long goal domain
+      await user.selectOptions(goalSelect, "Social / Interpersonal Skills");
+      expect(goalSelect.value).toBe("Social / Interpersonal Skills");
+
+      // Verify selected summary updates with full text
+      const summary = document.querySelector(".iep-selected-goal-summary");
+      expect(summary).toBeInTheDocument();
+      expect(within(summary).getByText("Social / Interpersonal Skills")).toBeInTheDocument();
+    });
+  });
 });
 
 
