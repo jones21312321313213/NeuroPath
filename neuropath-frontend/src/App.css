@@ -2426,10 +2426,20 @@ select option,
 }
 .iep-ai-goal-toolbar {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto;
+  grid-template-columns: 1fr;
+  width: 100%;
   gap: 16px;
   align-items: end;
   margin-bottom: 18px;
+}
+.iep-ai-goal-toolbar .form-group {
+  width: 100%;
+  min-width: 0;
+}
+.iep-ai-goal-toolbar .form-select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 .iep-generated-goal-card {
   border: 1px solid #e4e9ef;
@@ -2459,7 +2469,7 @@ select option,
 }
 .iep-view-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 240px;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
   gap: 22px;
   margin-bottom: 18px;
 }
@@ -2469,7 +2479,7 @@ select option,
 }
 .iep-view-controls.has-selected {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 240px;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
   gap: 22px;
 }
 .iep-search-group {
@@ -2902,6 +2912,7 @@ select option,
 
 @media (max-width: 900px) {
   .iep-view-controls,
+  .iep-view-controls.has-selected,
   .iep-ai-goal-toolbar,
   .form-two-col-sections,
   .iep-check-grid {
@@ -2956,30 +2967,113 @@ select option,
 
 /* Selected student summary for Generate IEP */
 .iep-selected-student-card {
-  min-width: 260px;
-  border: 1px solid #d8e1ea;
-  border-radius: 8px;
-  background: #f8fbff;
-  padding: 14px 16px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 1px solid rgba(130, 199, 255, 0.35);
+  border-radius: 14px;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 12px;
+  box-shadow: 0 2px 10px rgba(37, 137, 199, 0.08);
+  overflow: hidden;
 }
 
-.iep-selected-student-card span {
-  font-size: 12px;
-  color: #7a8795;
+.iep-selected-student-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.iep-selected-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #0369a1;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
+  background: rgba(130, 199, 255, 0.15);
+  border: 1px solid rgba(130, 199, 255, 0.35);
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
 }
 
-.iep-selected-student-card strong {
-  color: #1f2d3d;
-  font-size: 16px;
+.iep-selected-student-card .vsp-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
 }
 
-.iep-selected-student-card small {
-  color: #6b7280;
+.iep-selected-student-card .vsp-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2589c7, #82c7ff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(130, 199, 255, 0.4);
+}
+
+.iep-selected-student-card .vsp-card-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.iep-selected-student-card .vsp-card-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a3a4a;
+  margin: 0 0 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.iep-selected-student-card .vsp-card-meta {
+  font-size: 12px;
+  color: #0369a1;
+  font-weight: 500;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.iep-selected-student-card .vsp-card-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.iep-selected-student-card .vsp-pill {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: rgba(130, 199, 255, 0.12);
+  color: #1a6fa8;
+  border: 1px solid rgba(130, 199, 255, 0.3);
+  white-space: nowrap;
+}
+
+.iep-selected-student-card .vsp-pill.grade {
+  background: rgba(52, 199, 123, 0.1);
+  color: #1a7a4a;
+  border-color: rgba(52, 199, 123, 0.3);
 }
 
 /* Multi-select dropdown for Generate IEP learner goal areas */
