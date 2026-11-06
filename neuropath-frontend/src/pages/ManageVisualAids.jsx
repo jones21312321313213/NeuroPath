@@ -1420,7 +1420,7 @@ export default function ManageVisualAids({ setActivePage }) {
       {/* Hero + tabs */}
       <div className="va-page-hero">
         <div className="va-hero-top">
-          <div>
+          <div className="va-hero-content">
             <div className="va-hero-eyebrow">
               <div className="va-hero-eyebrow-dot" />
               NeuroPath · AI-Powered Tools

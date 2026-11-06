@@ -56,6 +56,14 @@
   margin-bottom: 24px;
   position: relative;
   z-index: 1;
+  width: 100%;
+}
+
+.va-hero-top > div,
+.va-hero-content {
+  width: 100%;
+  flex: 1 1 100%;
+  min-width: 0;
 }
 
 .va-hero-eyebrow {
@@ -1634,12 +1642,14 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-radius: 12px;
-  padding: 16px 20px;
+  padding: 20px 24px;
   color: #ffffff;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  max-width: 1060px;
+  gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .va-hero-guide-top {
@@ -1648,14 +1658,17 @@
   justify-content: space-between;
   gap: 14px;
   flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .va-hero-guide-header {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  flex: 1;
-  min-width: 260px;
+  gap: 14px;
+  flex: 1 1 100%;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .va-hero-guide-icon-badge {
@@ -1681,9 +1694,11 @@
 
 .va-hero-guide-desc {
   font-size: 13.5px;
-  color: rgba(255, 255, 255, 0.92);
-  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1.6;
   margin: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 .va-hero-guide-desc strong {
@@ -1710,10 +1725,24 @@
 
 .va-hero-guide-steps {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 10px;
-  padding-top: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  padding-top: 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.16);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 960px) {
+  .va-hero-guide-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .va-hero-guide-steps {
+    grid-template-columns: 1fr;
+  }
 }
 
 .va-hero-guide-step {
@@ -1743,22 +1772,34 @@
 }
 
 .va-hero-guide-expanded {
-  padding-top: 14px;
+  padding-top: 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.2);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .va-hero-guide-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 860px) {
+  .va-hero-guide-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .va-hero-guide-card {
   background: #ffffff;
   border-radius: 12px;
-  padding: 16px 18px;
+  padding: 20px 22px;
   color: #1e293b;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .va-hero-guide-card h4 {
@@ -1771,7 +1812,7 @@
 .va-hero-guide-card p {
   font-size: 13px;
   color: #475569;
-  line-height: 1.5;
+  line-height: 1.55;
   margin: 0 0 10px 0;
 }
 
@@ -1780,7 +1821,7 @@
   padding-left: 18px;
   font-size: 12.5px;
   color: #334155;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .va-hero-guide-card ul li {

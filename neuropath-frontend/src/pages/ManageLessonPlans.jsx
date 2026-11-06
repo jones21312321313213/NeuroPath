@@ -1645,7 +1645,7 @@ export default function ManageLessonPlans({ setActivePage }) {
     <div className="page-content ts-page">
       <div className="ts-page-hero">
         <div className="ts-hero-top">
-          <div>
+          <div className="ts-hero-content">
             <div className="ts-hero-eyebrow">
               <div className="ts-hero-eyebrow-dot" />
               NeuroPath · AI-Powered Tools
