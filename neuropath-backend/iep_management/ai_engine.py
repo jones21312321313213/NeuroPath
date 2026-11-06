@@ -47,7 +47,7 @@ class AIEngineService:
 
         primary_model = getattr(settings, 'GEMINI_MODEL', cls.GEMINI_MODEL)
         models_to_try = [primary_model]
-        for fb in ['gemini-3.8-flash', 'gemini-flash-latest', 'gemma-4-26b-a4b-it', 'gemini-2.5-flash', 'gemini-1.5-flash']:
+        for fb in ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-1.5-flash']:
             if fb not in models_to_try:
                 models_to_try.append(fb)
 

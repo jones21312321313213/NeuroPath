@@ -807,17 +807,38 @@ class GenerateIEPGoalsFromIEPView(APIView):
             raise RuntimeError("AI generation service returned empty or invalid response for objective rows.")
 
         try:
+            parsed = None
             clean = raw.strip()
-            if "```" in clean:
-                clean = re.sub(r"^```(?:json)?\s*", "", clean, flags=re.IGNORECASE)
-                clean = re.sub(r"\s*```$", "", clean)
-                clean = clean.strip()
 
-            match = re.search(r"\[.*\]|\{.*\}", clean, re.DOTALL)
-            if match:
-                clean = match.group(0)
+            # 1. Direct parse attempt
+            try:
+                parsed = json.loads(clean)
+            except Exception:
+                pass
 
-            parsed = json.loads(clean)
+            # 2. Extract from fenced markdown code block
+            if parsed is None:
+                fence_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', clean, re.IGNORECASE)
+                if fence_match:
+                    try:
+                        parsed = json.loads(fence_match.group(1).strip())
+                    except Exception:
+                        pass
+
+            # 3. Robust substring bracket match
+            if parsed is None:
+                for pattern in [r'\[\s*\{[\s\S]*\}\s*\]', r'\[[\s\S]*\]', r'\{[\s\S]*\}']:
+                    m = re.search(pattern, clean)
+                    if m:
+                        try:
+                            parsed = json.loads(m.group(0))
+                            break
+                        except Exception:
+                            continue
+
+            if parsed is None:
+                raise RuntimeError("AI generation service could not parse objective rows: no valid JSON array or object found in response.")
+
             if isinstance(parsed, dict):
                 for k in ["objective_rows", "objectives", "rows"]:
                     if k in parsed and isinstance(parsed[k], list):
