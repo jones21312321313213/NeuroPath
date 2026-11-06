@@ -3073,9 +3073,15 @@ export default function IEPGenerationPage({
       if (cooldownSeconds > 0) {
         setRegenCooldown(cooldownSeconds);
       }
-      toast.success(
-        "New IEP draft formulated. Review the goals below and click 'Accept & Save IEP' to apply.",
-      );
+      if (activeGeneratedIepId || pendingIepId) {
+        toast.success(
+          "IEP goals regenerated successfully! Review the draft below and click 'Accept & Save IEP' to apply.",
+        );
+      } else {
+        toast.success(
+          "IEP goals generated successfully! Review the draft below and click 'Accept & Save IEP' to apply.",
+        );
+      }
     } catch (err) {
       showError(err.message || "Unknown error", "Failed to Generate AI Goals");
       setGenerationDone(false);

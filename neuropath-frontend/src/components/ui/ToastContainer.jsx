@@ -6,15 +6,25 @@ import {
   CloseIcon,
 } from "./icons";
 
-export default function ToastContainer() {
+export default function ToastContainer({ position = "top-right" }) {
   const { toasts, removeToast } = useToast();
 
   if (!toasts || toasts.length === 0) return null;
 
+  const isTop = position.startsWith("top");
+  const positionClass =
+    position === "bottom-right"
+      ? "bottom-5 right-5"
+      : position === "bottom-left"
+      ? "bottom-5 left-5"
+      : position === "top-left"
+      ? "top-5 left-5"
+      : "top-5 right-5";
+
   return (
     <div
       aria-label="Notifications"
-      className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0"
+      className={`fixed ${positionClass} z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0`}
     >
       {toasts.map((toast) => {
         const isSuccess = toast.type === "success";
@@ -37,12 +47,14 @@ export default function ToastContainer() {
           ? "text-amber-600 bg-amber-100"
           : "text-sky-600 bg-sky-100";
 
+        const slideClass = isTop ? "slide-in-from-top-3" : "slide-in-from-bottom-3";
+
         return (
           <div
             key={toast.id}
             role="status"
             aria-live="polite"
-            className={`pointer-events-auto flex items-start gap-3 p-3.5 rounded-xl border shadow-lg backdrop-blur-xs transition-all animate-in fade-in slide-in-from-bottom-3 duration-200 ${bgClass}`}
+            className={`pointer-events-auto flex items-start gap-3 p-3.5 rounded-xl border shadow-lg backdrop-blur-xs transition-all animate-in fade-in ${slideClass} duration-200 ${bgClass}`}
           >
             <div
               className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${iconColorClass}`}
