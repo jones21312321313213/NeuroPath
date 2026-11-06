@@ -269,6 +269,27 @@ class AIEngineServiceTestCase(TestCase):
         self.assertEqual(mock_post.call_count, 2)
         mock_sleep.assert_called_once()
 
+    @patch('requests.post')
+    def test_post_with_retry_defaults_to_35s_timeout(self, mock_post):
+        mock_resp = MagicMock(status_code=200)
+        mock_post.return_value = mock_resp
+
+        res = AIEngineService._post_with_retry("https://api.test/generate", headers={}, json={})
+        self.assertEqual(res, mock_resp)
+        mock_post.assert_called_once()
+        self.assertEqual(mock_post.call_args[1]['timeout'], 35)
+
+    @override_settings(AI_REQUEST_TIMEOUT=45)
+    @patch('requests.post')
+    def test_post_with_retry_respects_settings_timeout(self, mock_post):
+        mock_resp = MagicMock(status_code=200)
+        mock_post.return_value = mock_resp
+
+        res = AIEngineService._post_with_retry("https://api.test/generate", headers={}, json={})
+        self.assertEqual(res, mock_resp)
+        mock_post.assert_called_once()
+        self.assertEqual(mock_post.call_args[1]['timeout'], 45)
+
     @override_settings(GEMINI_API_KEY='test-gemini-key', GEMINI_MODEL='gemini-1.5-flash')
     @patch('time.sleep', return_value=None)
     @patch('requests.post')
