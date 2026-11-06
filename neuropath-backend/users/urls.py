@@ -9,6 +9,7 @@ from .views import( StudentProfileListCreateView,
                    TeacherProfileUpdateController,
                    TeacherTutorialCompleteController,
                    ConsentCertificatePdfView)
+from .views import TeacherAlignmentProfileController
 
 urlpatterns = [
     path('register/', TeacherCreateController.as_view(), name='teacher-register'),
@@ -26,4 +27,5 @@ urlpatterns = [
     path('students/<int:pk>/consent-pdf/', ConsentCertificatePdfView.as_view(), name='student-consent-pdf'),
     path('students/consent-pdf/', ConsentCertificatePdfView.as_view(), name='generate-consent-pdf'),
     path('profile/update/', TeacherProfileUpdateController.as_view(), name='teacher-profile-update'),
+    path('alignment-profile/', TeacherAlignmentProfileController.as_view(), name='teacher-alignment-profile'),
 ]

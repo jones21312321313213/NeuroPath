@@ -11,9 +11,34 @@ from django.db import transaction
 from django.db.models import Q
 from .models import StudentProfile, Teacher
 from .utils import get_teacher_for_user
+from iep_management.alignment import verified_alignment_profile
 from django.contrib.auth.models import User
 from .serializers import StudentProfileSerializer, ValidationService, TeacherSerializer
 from django.contrib.auth import authenticate
+
+
+class TeacherAlignmentProfileController(APIView):
+    """Expose only the authenticated teacher's safe, aggregated style profile."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        teacher = get_teacher_for_user(request.user)
+        if not teacher:
+            return Response({"message": "Unable to verify teacher account."}, status=status.HTTP_403_FORBIDDEN)
+        profile = teacher.alignment_profile if isinstance(teacher.alignment_profile, dict) else {}
+        safe_profile = verified_alignment_profile(profile)
+        return Response({
+            "version": profile.get("version", 3),
+            "interactions": profile.get("interactions", 0),
+            "preferences": safe_profile["preferences"],
+            "confidence": safe_profile["confidence"],
+            "response_needs": safe_profile["response_needs"],
+            "recurring_topics": safe_profile["recurring_topics"],
+            "task_types": safe_profile["task_types"],
+            "evidence": profile.get("evidence", {}),
+            "context_evidence": profile.get("context_evidence", {}),
+            "updated_at": teacher.alignment_profile_updated_at,
+        })
 # =====================================================================
 # SDD MODULE: TEACHER REGISTRATION
 # Component Name: TeacherCreateController

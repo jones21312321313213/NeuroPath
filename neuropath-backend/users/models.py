@@ -9,9 +9,27 @@ class Teacher(models.Model):
     passwordHash = models.CharField(max_length=255)
     createdDate = models.DateTimeField(auto_now_add=True)
     has_completed_tutorial = models.BooleanField(default=False)
+    alignment_profile = models.JSONField(default=dict, blank=True)
+    alignment_profile_updated_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.name
+
+
+class TeacherAlignmentEvent(models.Model):
+    """Queued, privacy-safe preference labels awaiting profile aggregation."""
+    teacher = models.ForeignKey(
+        Teacher,
+        on_delete=models.CASCADE,
+        related_name='alignment_events',
+    )
+    signals = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [models.Index(fields=['processed_at', 'created_at'], name='users_alignproc_created_idx')]
 
 
 class StudentProfile(models.Model):
