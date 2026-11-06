@@ -1187,7 +1187,50 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       expect(screen.getByText("SMART Aligned")).toBeInTheDocument();
       expect(screen.queryByText(/R-GORI/i)).not.toBeInTheDocument();
 
-      // Goals should NOT be saved to backend yet
+      // IEP document and goals should NOT be saved to backend yet (Issue #256)
+      expect(iepAPI.save).not.toHaveBeenCalled();
+      expect(iepAPI.saveGoal).not.toHaveBeenCalled();
+    });
+
+    it("does not persist IEP document when modal is dismissed or canceled without clicking Accept & Save (Issue #256)", async () => {
+      const user = userEvent.setup();
+      iepAPI.save.mockResolvedValue({ iepID: 202, studentID: 1 });
+      iepAPI.generateGoalsFromIep.mockResolvedValue({
+        goals: [draftGoal],
+      });
+      iepAPI.saveGoal.mockResolvedValue({ goalID: 10 });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("NEXT"));
+      const goalSelect = screen.getByRole("combobox");
+      await user.selectOptions(goalSelect, "Functional Academic Skills");
+
+      const generateBtn = screen.getByRole("button", {
+        name: /generate final iep/i,
+      });
+      await user.click(generateBtn);
+
+      await screen.findByText("Review Generated IEP Draft");
+      expect(iepAPI.save).not.toHaveBeenCalled();
+
+      // Dismiss modal by clicking Cancel / Close
+      const cancelBtn = screen.getByRole("button", { name: /cancel \/ close/i });
+      await user.click(cancelBtn);
+
+      await waitFor(() => {
+        expect(screen.queryByText("Review Generated IEP Draft")).not.toBeInTheDocument();
+      });
+
+      expect(iepAPI.save).not.toHaveBeenCalled();
       expect(iepAPI.saveGoal).not.toHaveBeenCalled();
     });
 
@@ -1219,13 +1262,15 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       await user.click(generateBtn);
 
       await screen.findByText("Review Generated IEP Draft");
+      expect(iepAPI.save).not.toHaveBeenCalled();
 
       // Click Accept & Save IEP
       const acceptBtn = screen.getByRole("button", { name: /accept & save iep/i });
       await user.click(acceptBtn);
 
-      // Verify saveGoal was called with the draft goal payload
+      // Verify IEP document is now saved and saveGoal was called with the draft goal payload
       await waitFor(() => {
+        expect(iepAPI.save).toHaveBeenCalledTimes(1);
         expect(iepAPI.saveGoal).toHaveBeenCalledWith(
           expect.objectContaining({
             annual_goal: "Learner will complete daily arithmetic tasks with 80% accuracy.",
@@ -1283,7 +1328,8 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       const regenBtn = screen.getByRole("button", { name: /^regenerate$/i });
       await user.click(regenBtn);
 
-      // Verify saveGoal was NEVER called
+      // Verify save and saveGoal were NEVER called (Issue #256)
+      expect(iepAPI.save).not.toHaveBeenCalled();
       expect(iepAPI.saveGoal).not.toHaveBeenCalled();
 
       // Verify generateGoalsFromIep was invoked a second time with the custom guidance
