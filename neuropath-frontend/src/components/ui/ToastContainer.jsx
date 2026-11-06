@@ -14,7 +14,7 @@ export default function ToastContainer() {
   return (
     <div
       aria-label="Notifications"
-      className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0"
+      className="fixed top-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0"
     >
       {toasts.map((toast) => {
         const isSuccess = toast.type === "success";
@@ -37,12 +37,14 @@ export default function ToastContainer() {
           ? "text-amber-600 bg-amber-100"
           : "text-sky-600 bg-sky-100";
 
+        const animClass = toast.isExiting ? "toast-slide-out" : "toast-slide-in";
+
         return (
           <div
             key={toast.id}
             role="status"
             aria-live="polite"
-            className={`pointer-events-auto flex items-start gap-3 p-3.5 rounded-xl border shadow-lg backdrop-blur-xs transition-all animate-in fade-in slide-in-from-bottom-3 duration-200 ${bgClass}`}
+            className={`pointer-events-auto flex items-start gap-3 p-3.5 rounded-xl border shadow-lg backdrop-blur-xs transition-all ${bgClass} ${animClass}`}
           >
             <div
               className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${iconColorClass}`}

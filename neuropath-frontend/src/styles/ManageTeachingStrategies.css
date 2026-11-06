@@ -55,6 +55,14 @@
   margin-bottom: 24px;
   position: relative;
   z-index: 1;
+  width: 100%;
+}
+
+.ts-hero-top > div,
+.ts-hero-content {
+  width: 100%;
+  flex: 1 1 100%;
+  min-width: 0;
 }
 
 .ts-hero-eyebrow {
@@ -1236,6 +1244,268 @@
   gap: 12px;
   margin-top: 24px;
   flex-wrap: wrap;
+}
+
+
+
+/* ── Hero Guide Trigger & Wrapper ──────────────────── */
+.ts-hero-guide-wrapper {
+  margin-top: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ts-hero-guide-trigger-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.ts-hero-guide-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 9999px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.ts-hero-guide-trigger-btn:hover {
+  background: rgba(255, 255, 255, 0.26);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+
+.ts-hero-guide-trigger-btn.active {
+  background: #ffffff;
+  color: #1e6fbf;
+  border-color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ── Hero Inline Guide Banner ───────────────────────── */
+.ts-hero-guide-banner {
+  margin-top: 16px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 20px 24px;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.ts-hero-guide-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ts-hero-guide-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex: 1 1 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ts-hero-guide-icon-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.ts-hero-guide-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 3px;
+  letter-spacing: -0.2px;
+}
+
+.ts-hero-guide-desc {
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1.6;
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.ts-hero-guide-desc strong {
+  color: #ffffff;
+}
+
+.ts-hero-guide-toggle-btn {
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.ts-hero-guide-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.ts-hero-guide-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 960px) {
+  .ts-hero-guide-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .ts-hero-guide-steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ts-hero-guide-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.ts-hero-guide-step strong {
+  color: #ffffff;
+}
+
+.ts-hero-guide-step .ts-step-num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #1e6fbf;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.ts-hero-guide-expanded {
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ts-hero-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 860px) {
+  .ts-hero-guide-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ts-hero-guide-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 20px 22px;
+  color: #1e293b;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.ts-hero-guide-card h4 {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+}
+
+.ts-hero-guide-card p {
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.55;
+  margin: 0 0 10px 0;
+}
+
+.ts-hero-guide-card ul {
+  margin: 0 0 12px 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  color: #334155;
+  line-height: 1.55;
+}
+
+.ts-hero-guide-card ul li {
+  margin-bottom: 5px;
+}
+
+.ts-hero-guide-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 7px;
+  color: #1d4ed8;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ts-hero-guide-link-btn:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
 }
 
 /* ── Responsive ─────────────────────────────────────── */

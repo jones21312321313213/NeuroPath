@@ -570,8 +570,8 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
       expect(screen.getByText("DELETE IEP")).toBeInTheDocument();
       expect(
-        screen.getByRole("region", { name: "Instructional Support Next Steps" }),
-      ).toBeInTheDocument();
+        screen.queryByRole("region", { name: "Instructional Support Next Steps" }),
+      ).not.toBeInTheDocument();
       expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
       expect(
         screen.getByText("Section B: Difficulties, Barriers, and Enabling Supports"),
@@ -630,8 +630,8 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       expect(screen.getByText("EDIT IEP")).toBeInTheDocument();
       expect(screen.getByText("DELETE IEP")).toBeInTheDocument();
       expect(
-        screen.getByRole("region", { name: "Instructional Support Next Steps" }),
-      ).toBeInTheDocument();
+        screen.queryByRole("region", { name: "Instructional Support Next Steps" }),
+      ).not.toBeInTheDocument();
       expect(screen.getByText("Considerations of Special Factors")).toBeInTheDocument();
       expect(
         screen.getByText("Section B: Difficulties, Barriers, and Enabling Supports"),

@@ -136,18 +136,21 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
 
     expect(screen.getByRole("heading", { name: /manage visual aids/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /generate/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /info/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /view/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^info$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^view$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /delete/i })).toBeInTheDocument();
   });
 
-  it("renders Info tab and displays guidance on what Manage/View tabs are for", async () => {
+  it("displays inline guidance below title and provides navigation to View tab", async () => {
     renderComponent();
 
-    const infoBtn = screen.getByRole("button", { name: /info/i });
-    expect(infoBtn).toBeInTheDocument();
-    fireEvent.click(infoBtn);
+    expect(screen.queryByText("About Visual Aids & Quick Guide")).not.toBeInTheDocument();
 
+    const guideBtn = screen.getByRole("button", { name: /View Tool Guide & Info/i });
+    expect(guideBtn).toBeInTheDocument();
+    fireEvent.click(guideBtn);
+
+    expect(screen.getByText("About Visual Aids & Quick Guide")).toBeInTheDocument();
     expect(screen.getByText("About Visual Aids")).toBeInTheDocument();
     expect(screen.getByText('What is the "Manage" Section?')).toBeInTheDocument();
 
@@ -155,7 +158,7 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
     expect(goToViewBtn).toBeInTheDocument();
     fireEvent.click(goToViewBtn);
 
-    expect(screen.getByRole("button", { name: /view/i })).toHaveClass("active");
+    expect(screen.getByRole("button", { name: /^view$/i })).toHaveClass("active");
   });
 
   it("renders students in Step 1 and shows IEP goals and preset chips when student is selected", async () => {
@@ -345,7 +348,7 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
     const { container } = renderComponent();
 
     // Click View tab
-    const viewTab = screen.getByRole("button", { name: /view/i, selector: ".va-tab-btn" });
+    const viewTab = screen.getByRole("button", { name: /^view$/i });
     fireEvent.click(viewTab);
 
     await waitFor(() => {
@@ -465,7 +468,7 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
     });
 
     // Try to switch to "View" tab while in draft state
-    const viewTabBtn = screen.getByRole("button", { name: /view/i });
+    const viewTabBtn = screen.getByRole("button", { name: /^view$/i });
     fireEvent.click(viewTabBtn);
 
     // Confirmation modal should appear
@@ -503,7 +506,7 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
     });
 
     // Try to switch to "View" tab
-    const viewTabBtn = screen.getByRole("button", { name: /view/i });
+    const viewTabBtn = screen.getByRole("button", { name: /^view$/i });
     fireEvent.click(viewTabBtn);
 
     await waitFor(() => {
