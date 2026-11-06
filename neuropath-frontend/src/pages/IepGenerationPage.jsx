@@ -3453,14 +3453,34 @@ export default function IEPGenerationPage({
                 ieps={ieps}
               />
               {selectedStudent ? (
-                <div className="iep-selected-student-card">
-                  <span>Selected Student</span>
-                  <strong>
-                    {getStudentName(selectedStudent) || "No student selected"}
-                  </strong>
-                  <small>
-                    {`Grade ${selectedStudent.grade || "—"} · Age ${selectedStudent.age || "—"}`}
-                  </small>
+                <div className="iep-selected-student-card vsp-card">
+                  <div className="iep-selected-student-header">
+                    <span className="iep-selected-badge">Selected Student</span>
+                  </div>
+                  <div className="vsp-card-top">
+                    <div className="vsp-avatar" aria-hidden="true">
+                      {getInitials(getStudentName(selectedStudent))}
+                    </div>
+                    <div className="vsp-card-info">
+                      <p className="vsp-card-name" title={getStudentName(selectedStudent)}>
+                        {getStudentName(selectedStudent) || "No student selected"}
+                      </p>
+                      <span className="vsp-card-meta">
+                        {selectedStudent.diagnosis || selectedStudent.asdBackground || "No diagnosis on record"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="vsp-card-pills">
+                    <span className="vsp-pill grade">
+                      Grade {selectedStudent.grade || "—"}
+                    </span>
+                    {selectedStudent.gender && (
+                      <span className="vsp-pill">{selectedStudent.gender}</span>
+                    )}
+                    {selectedStudent.age && (
+                      <span className="vsp-pill">{selectedStudent.age} yrs</span>
+                    )}
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -3768,9 +3788,10 @@ export default function IEPGenerationPage({
                   )}
 
                   <div className="iep-ai-goal-toolbar multi">
-                    <div className="form-group">
-                      <label className="form-label">Goal Area:</label>
+                    <div className="form-group" style={{ width: "100%" }}>
+                      <label className="form-label" htmlFor="iep-goal-area-select">Goal Area:</label>
                       <select
+                        id="iep-goal-area-select"
                         className="form-select"
                         value={selectedGoalCategory}
                         onChange={(e) => {
