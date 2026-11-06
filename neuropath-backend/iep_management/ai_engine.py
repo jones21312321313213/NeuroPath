@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 import requests
 from django.conf import settings
 
@@ -17,6 +18,15 @@ class AIEngineService:
     OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
     OLLAMA_MODEL = 'llama3.2:3b'
+
+    @classmethod
+    def _post_with_retry(cls, url, headers=None, json=None, timeout=20, retry_delay=1.0):
+        res = requests.post(url, headers=headers, json=json, timeout=timeout)
+        if res.status_code == 429:
+            logger.warning("HTTP 429 encountered for %s. Retrying once after short backoff (%ss)...", url, retry_delay)
+            time.sleep(retry_delay)
+            res = requests.post(url, headers=headers, json=json, timeout=timeout)
+        return res
 
     @classmethod
     def _call_gemini(cls, prompt, system_prompt='', max_tokens=500, json_mode=False):
@@ -66,7 +76,7 @@ class AIEngineService:
                 current_payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}
 
             url = f"{cls.GEMINI_API_URL}/{model}:generateContent"
-            res = requests.post(url, headers=headers, json=current_payload, timeout=20)
+            res = cls._post_with_retry(url, headers=headers, json=current_payload, timeout=20)
             if res.status_code == 404 and len(models_to_try) > 1:
                 last_res = res
                 continue
@@ -127,7 +137,7 @@ class AIEngineService:
         last_res = None
         for model in models_to_try:
             payload['model'] = model
-            res = requests.post(cls.GROQ_API_URL, headers=headers, json=payload, timeout=20)
+            res = cls._post_with_retry(cls.GROQ_API_URL, headers=headers, json=payload, timeout=20)
             if res.status_code == 404 and len(models_to_try) > 1:
                 last_res = res
                 continue
@@ -177,7 +187,7 @@ class AIEngineService:
         last_res = None
         for model in models_to_try:
             payload['model'] = model
-            res = requests.post(cls.OPENROUTER_API_URL, headers=headers, json=payload, timeout=20)
+            res = cls._post_with_retry(cls.OPENROUTER_API_URL, headers=headers, json=payload, timeout=20)
             if res.status_code == 404 and len(models_to_try) > 1:
                 last_res = res
                 continue
