@@ -638,13 +638,12 @@ describe("ManageTeachingStrategies - Unified Manage Interface (Issue #161)", () 
     });
 
     // Check contextual action buttons on rows
-    const viewButtons = screen.getAllByRole("button", { name: /View/i });
-    const editButtons = screen.getAllByRole("button", { name: /Edit/i });
-    const deleteButtons = screen.getAllByRole("button", { name: /Delete/i });
-
-    expect(viewButtons.length).toBeGreaterThanOrEqual(2);
-    expect(editButtons.length).toBeGreaterThanOrEqual(2);
-    expect(deleteButtons.length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole("button", { name: /View Reading Comprehension Scaffolding/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Edit Reading Comprehension Scaffolding/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Delete Reading Comprehension Scaffolding/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /View Math Visual Aids/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Edit Math Visual Aids/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Delete Math Visual Aids/i })).toBeInTheDocument();
   });
 
   it("views full strategy detail and allows navigation back to list", async () => {
@@ -663,8 +662,7 @@ describe("ManageTeachingStrategies - Unified Manage Interface (Issue #161)", () 
     });
 
     // Click View on the first strategy
-    const viewButtons = screen.getAllByRole("button", { name: /View/i });
-    fireEvent.click(viewButtons[0]);
+    fireEvent.click(screen.getByRole("button", { name: /View Reading Comprehension Scaffolding/i }));
 
     // Detail view should display content and contextual actions
     await waitFor(() => {
@@ -875,14 +873,20 @@ describe("ManageTeachingStrategies - Unified Manage Interface (Issue #161)", () 
       });
     });
 
-    it("renders Info tab and displays guidance on what Manage tab is for", async () => {
+    it("displays inline guidance below title and minimizes tabs to Generate and Manage", async () => {
       renderComponent();
 
-      const infoTabBtn = screen.getByRole("tab", { name: /Info/i });
-      expect(infoTabBtn).toBeInTheDocument();
+      expect(screen.queryByRole("tab", { name: /^Info$/i })).not.toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: /Generate/i })).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: /Manage/i })).toBeInTheDocument();
 
-      fireEvent.click(infoTabBtn);
+      expect(screen.queryByText("About Teaching Strategies & Quick Guide")).not.toBeInTheDocument();
 
+      const guideBtn = screen.getByRole("button", { name: /View Tool Guide & Info/i });
+      expect(guideBtn).toBeInTheDocument();
+      fireEvent.click(guideBtn);
+
+      expect(screen.getByText("About Teaching Strategies & Quick Guide")).toBeInTheDocument();
       expect(screen.getByText("About Teaching Strategies")).toBeInTheDocument();
       expect(screen.getByText('What is the "Manage" Tab?')).toBeInTheDocument();
       expect(screen.getByText(/Your centralized intervention and accommodation library/i)).toBeInTheDocument();

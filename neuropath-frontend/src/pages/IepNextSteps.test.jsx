@@ -107,42 +107,13 @@ describe("Post-IEP Next Steps to Classroom Tools (#94)", () => {
     });
     await user.click(studentBtn);
 
-    // Verify next steps card is visible
+    // Verify next steps card is removed from View IEP
     expect(
-      await screen.findByText(/Instructional Support: Use this IEP in the Classroom/i),
-    ).toBeInTheDocument();
-
-    // Verify Lesson Plan button navigates
-    const lessonPlanBtn = screen.getByRole("button", {
-      name: /create lesson plan/i,
-    });
-    await user.click(lessonPlanBtn);
-    expect(setActivePage).toHaveBeenCalledWith("manage-lesson-plans");
-    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/lessons");
-
-    // Verify Visual Aid button navigates
-    const visualAidBtn = screen.getByRole("button", {
-      name: /create visual aid/i,
-    });
-    await user.click(visualAidBtn);
-    expect(setActivePage).toHaveBeenCalledWith("manage-visual-aids");
-    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/visual-aids");
-
-    // Verify Teaching Strategies button navigates
-    const strategyBtn = screen.getByRole("button", {
-      name: /teaching strategies/i,
-    });
-    await user.click(strategyBtn);
-    expect(setActivePage).toHaveBeenCalledWith("manage-teaching-strategies");
-    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/strategies");
-
-    // Verify Back to Overview button navigates
-    const overviewBtn = screen.getByRole("button", {
-      name: /back to overview/i,
-    });
-    await user.click(overviewBtn);
-    expect(setActivePage).toHaveBeenCalledWith("overview");
-    expect(mockNavigate).toHaveBeenCalledWith("/dashboard");
+      screen.queryByText(/Instructional Support: Use this IEP in the Classroom/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /create lesson plan/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("reflects readiness in Overview step 3 when active IEPs exist", async () => {

@@ -20,11 +20,19 @@ export function ToastProvider({ children }) {
       type,
       message,
       duration,
+      isExiting: false,
     };
 
     setToasts((prev) => [...prev, newToast]);
 
     if (duration > 0) {
+      const exitLead = Math.min(400, Math.floor(duration / 2));
+      setTimeout(() => {
+        setToasts((prev) =>
+          prev.map((t) => (t.id === id ? { ...t, isExiting: true } : t))
+        );
+      }, Math.max(0, duration - exitLead));
+
       setTimeout(() => {
         removeToast(id);
       }, duration);
