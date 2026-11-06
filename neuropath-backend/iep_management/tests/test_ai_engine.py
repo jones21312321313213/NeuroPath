@@ -223,6 +223,7 @@ class AIEngineServiceTestCase(TestCase):
     @patch('requests.post')
     def test_post_with_retry_retries_once_on_429(self, mock_post, mock_sleep):
         resp_429 = MagicMock(status_code=429)
+        resp_429.headers = {}
         resp_200 = MagicMock(status_code=200)
         mock_post.side_effect = [resp_429, resp_200]
 
@@ -230,6 +231,32 @@ class AIEngineServiceTestCase(TestCase):
         self.assertEqual(res, resp_200)
         self.assertEqual(mock_post.call_count, 2)
         mock_sleep.assert_called_once()
+
+    @patch('time.sleep', return_value=None)
+    @patch('requests.post')
+    def test_post_with_retry_respects_retry_after_header(self, mock_post, mock_sleep):
+        resp_429 = MagicMock(status_code=429)
+        resp_429.headers = {"Retry-After": "4.5"}
+        resp_200 = MagicMock(status_code=200)
+        mock_post.side_effect = [resp_429, resp_200]
+
+        res = AIEngineService._post_with_retry("https://api.test/generate", headers={}, json={}, retry_delay=1.0)
+        self.assertEqual(res, resp_200)
+        self.assertEqual(mock_post.call_count, 2)
+        mock_sleep.assert_called_once_with(4.5)
+
+    @patch('time.sleep', return_value=None)
+    @patch('requests.post')
+    def test_post_with_retry_handles_malformed_retry_after_header(self, mock_post, mock_sleep):
+        resp_429 = MagicMock(status_code=429)
+        resp_429.headers = {"Retry-After": "invalid_seconds"}
+        resp_200 = MagicMock(status_code=200)
+        mock_post.side_effect = [resp_429, resp_200]
+
+        res = AIEngineService._post_with_retry("https://api.test/generate", headers={}, json={}, retry_delay=2.0)
+        self.assertEqual(res, resp_200)
+        self.assertEqual(mock_post.call_count, 2)
+        mock_sleep.assert_called_once_with(2.0)
 
     @patch('time.sleep', return_value=None)
     @patch('requests.post')

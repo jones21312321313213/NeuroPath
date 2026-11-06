@@ -23,8 +23,15 @@ class AIEngineService:
     def _post_with_retry(cls, url, headers=None, json=None, timeout=20, retry_delay=1.0):
         res = requests.post(url, headers=headers, json=json, timeout=timeout)
         if res.status_code == 429:
-            logger.warning("HTTP 429 encountered for %s. Retrying once after short backoff (%ss)...", url, retry_delay)
-            time.sleep(retry_delay)
+            delay = retry_delay
+            retry_after = getattr(res, "headers", {}).get("Retry-After") if hasattr(res, "headers") and res.headers else None
+            if retry_after:
+                try:
+                    delay = max(0.5, min(float(retry_after), 10.0))
+                except (ValueError, TypeError):
+                    pass
+            logger.warning("HTTP 429 encountered for %s. Retrying once after short backoff (%ss)...", url, delay)
+            time.sleep(delay)
             res = requests.post(url, headers=headers, json=json, timeout=timeout)
         return res
 
