@@ -761,8 +761,13 @@ function StudentSearchBox({
                         {getInitials(getStudentName(student))}
                       </div>
                       <div className="vsp-card-info">
-                        <p className="vsp-card-name">{getStudentName(student)}</p>
-                        <span className="vsp-card-meta">
+                        <p className="vsp-card-name" title={getStudentName(student)}>
+                          {getStudentName(student)}
+                        </p>
+                        <span
+                          className="vsp-card-meta"
+                          title={student.diagnosis || student.asdBackground || "No diagnosis on record"}
+                        >
                           {student.diagnosis || student.asdBackground || "No diagnosis on record"}
                         </span>
                       </div>
@@ -1369,9 +1374,7 @@ function ViewIEPPanel({
         }
       />
 
-      <div
-        className={`iep-view-controls ${selectedStudent ? "has-selected" : "full-width"}`}
-      >
+      <div className="iep-view-controls full-width">
         <StudentSearchBox
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
@@ -2870,7 +2873,10 @@ export default function IEPGenerationPage({
 
   // ── Generate Final IEP ────────────────────────────────────────────────────
 
-  const handleGenerateFinalIep = async (overrideTeacherPrompt) => {
+  const handleGenerateFinalIep = async (
+    overrideTeacherPrompt,
+    isRegeneration = false,
+  ) => {
     if (!getStudentId(selectedStudent)) {
       showError("Please select a student first.", "Student Required");
       return;
@@ -2957,7 +2963,7 @@ export default function IEPGenerationPage({
       if (cooldownSeconds > 0) {
         setRegenCooldown(cooldownSeconds);
       }
-      if (activeGeneratedIepId || pendingIepId) {
+      if (isRegeneration || activeGeneratedIepId || pendingIepId) {
         toast.success(
           "IEP goals regenerated successfully! Review the draft below and click 'Accept & Save IEP' to apply.",
         );
@@ -3110,7 +3116,7 @@ export default function IEPGenerationPage({
     if (typeof customPrompt === "string" && customPrompt.trim()) {
       setTeacherPrompt(customPrompt);
     }
-    await handleGenerateFinalIep(customPrompt);
+    await handleGenerateFinalIep(customPrompt, true);
   };
 
   const handleConfirmSingleGoalRegen = async () => {
@@ -3443,7 +3449,10 @@ export default function IEPGenerationPage({
                       <p className="vsp-card-name" title={getStudentName(selectedStudent)}>
                         {getStudentName(selectedStudent) || "No student selected"}
                       </p>
-                      <span className="vsp-card-meta">
+                      <span
+                        className="vsp-card-meta"
+                        title={selectedStudent.diagnosis || selectedStudent.asdBackground || "No diagnosis on record"}
+                      >
                         {selectedStudent.diagnosis || selectedStudent.asdBackground || "No diagnosis on record"}
                       </span>
                     </div>
@@ -3774,7 +3783,7 @@ export default function IEPGenerationPage({
                   )}
 
                   <div className="iep-ai-goal-toolbar multi">
-                    <div className="form-group" style={{ width: "100%" }}>
+                    <div className="form-group">
                       <label className="form-label" htmlFor="iep-goal-area-select">Goal Area:</label>
                       <select
                         id="iep-goal-area-select"
@@ -4372,7 +4381,7 @@ export default function IEPGenerationPage({
               size="sm"
               onClick={() => {
                 setShowRegenConfirmModal(false);
-                handleGenerateFinalIep();
+                handleGenerateFinalIep(undefined, true);
               }}
               disabled={regenCooldown > 0}
               className="bg-amber-600 hover:bg-amber-700 text-white"
