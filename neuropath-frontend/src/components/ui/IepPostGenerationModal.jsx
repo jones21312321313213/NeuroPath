@@ -247,7 +247,7 @@ export function IepPostGenerationModal({
                         title="Inspect R-GORI Compliance details"
                         aria-label={`R-GORI compliance details for Goal ${idx + 1}`}
                       >
-                        <span>🎯 R-GORI</span>
+                        <span>R-GORI</span>
                         {(goal.rgori_audit?.total_score != null || goal._rgori_score != null) && (
                           <span className="text-[11px] font-bold bg-white px-1.5 py-0.2 rounded border border-indigo-200">
                             {goal.rgori_audit?.total_score ?? goal._rgori_score}/100
