@@ -1427,13 +1427,27 @@ function ViewIEPPanel({
               </p>
             </div>
             {!isEditing && (
-              <div className="iep-view-actions">
-                <button className="btn btn-back" onClick={openEdit}>
+              <div
+                className="iep-view-actions"
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: "10px",
+                  flexWrap: "nowrap",
+                }}
+              >
+                <button
+                  className="btn btn-back"
+                  onClick={openEdit}
+                  style={{ whiteSpace: "nowrap", flexShrink: 0 }}
+                >
                   EDIT IEP
                 </button>
                 <button
                   className="btn iep-btn-danger"
                   onClick={() => setDeleteTarget(selectedIep)}
+                  style={{ whiteSpace: "nowrap", flexShrink: 0 }}
                 >
                   DELETE IEP
                 </button>

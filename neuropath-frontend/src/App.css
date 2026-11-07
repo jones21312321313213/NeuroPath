@@ -2913,9 +2913,16 @@ select option,
 }
 .iep-view-actions {
   display: flex;
+  flex-direction: row;
+  align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+  flex-shrink: 0;
+}
+.iep-view-actions .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .iep-btn-danger {
   background: #d32f2f;
@@ -2950,6 +2957,9 @@ select option,
   }
   .iep-view-actions {
     justify-content: flex-start;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
   }
 }
 .iep-edit-panel {
