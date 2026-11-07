@@ -73,15 +73,18 @@ describe("RgoriComplianceModal", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the pedagogical review feedback summary and annual goal", () => {
+  it("renders the target annual goal and does not render the removed pedagogical feedback block", () => {
     render(<RgoriComplianceModal {...defaultProps} />);
 
     expect(
-      screen.getByText(/Exemplary SMART ABCD alignment across all 4 pedagogical R-GORI criteria/)
-    ).toBeInTheDocument();
-    expect(
       screen.getByText(/Given visual schedule strips, Alex will independently transition/)
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Pedagogical Review Summary/i)
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Exemplary SMART ABCD alignment across all 4 pedagogical R-GORI criteria/)
+    ).not.toBeInTheDocument();
   });
 
   it("does not render modal when isOpen is false", () => {

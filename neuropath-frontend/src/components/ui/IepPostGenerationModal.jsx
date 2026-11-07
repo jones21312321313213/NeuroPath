@@ -243,13 +243,13 @@ export function IepPostGenerationModal({
                       <button
                         type="button"
                         onClick={() => setActiveRgoriGoal(goal)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition cursor-pointer"
                         title="Inspect R-GORI Compliance details"
                         aria-label={`R-GORI compliance details for Goal ${idx + 1}`}
                       >
                         <span>R-GORI</span>
                         {(goal.rgori_audit?.total_score != null || goal._rgori_score != null) && (
-                          <span className="text-[11px] font-bold bg-white px-1.5 py-0.2 rounded border border-indigo-200">
+                          <span className="text-[11px] font-bold bg-white text-blue-700 px-1.5 py-0.2 rounded border border-blue-200">
                             {goal.rgori_audit?.total_score ?? goal._rgori_score}/100
                           </span>
                         )}

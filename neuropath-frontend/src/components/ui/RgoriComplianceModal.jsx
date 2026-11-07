@@ -1,7 +1,6 @@
 import { Modal } from "./Modal";
 import { Badge } from "./Badge";
 import { Button } from "./Button";
-import { TargetIcon, LightBulbIcon } from "./icons";
 
 /**
  * RgoriComplianceModal (Issue #255)
@@ -30,13 +29,6 @@ export function RgoriComplianceModal({
   const status =
     audit?.status ||
     (totalScore >= 85 ? "Exemplary" : totalScore >= 65 ? "IEP Ready" : "Review Advised");
-
-  const statusVariant =
-    status === "Exemplary"
-      ? "success"
-      : status === "IEP Ready"
-      ? "info"
-      : "warning";
 
   const rawBreakdown = audit?.breakdown || {};
 
@@ -86,7 +78,6 @@ export function RgoriComplianceModal({
       subtitle: "Observable Actions & Thresholds",
       score: measurability.score,
       explanation: measurability.explanation,
-      badgeColor: "border-blue-200 bg-blue-50 text-blue-700",
     },
     {
       id: "functionality",
@@ -94,7 +85,6 @@ export function RgoriComplianceModal({
       subtitle: "Daily Classroom Access & Routines",
       score: functionality.score,
       explanation: functionality.explanation,
-      badgeColor: "border-emerald-200 bg-emerald-50 text-emerald-700",
     },
     {
       id: "generality",
@@ -102,7 +92,6 @@ export function RgoriComplianceModal({
       subtitle: "Multi-Setting & Cross-Context Transfer",
       score: generality.score,
       explanation: generality.explanation,
-      badgeColor: "border-purple-200 bg-purple-50 text-purple-700",
     },
     {
       id: "instructional_context",
@@ -110,15 +99,8 @@ export function RgoriComplianceModal({
       subtitle: "Jargon-Free & Teachable in Routine",
       score: instructionalContext.score,
       explanation: instructionalContext.explanation,
-      badgeColor: "border-amber-200 bg-amber-50 text-amber-800",
     },
   ];
-
-  const feedback =
-    audit?.feedback ||
-    (totalScore >= 65
-      ? "Goal satisfies pedagogical R-GORI criteria and adheres to SMART ABCD standards."
-      : "Goal requires additional observable criteria before finalizing.");
 
   return (
     <Modal
@@ -141,10 +123,11 @@ export function RgoriComplianceModal({
                 </span>
               )}
             </div>
-            <div className="text-xs text-slate-600 flex items-center gap-1.5">
-              <TargetIcon className="w-4 h-4 text-indigo-600 shrink-0" aria-hidden="true" />
-              <span className="italic line-clamp-2">{annualGoal}</span>
-            </div>
+            {annualGoal && (
+              <p className="text-xs text-slate-600 italic line-clamp-2 m-0">
+                {annualGoal}
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
@@ -152,22 +135,13 @@ export function RgoriComplianceModal({
               <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 Total Quality Score
               </div>
-              <div className="text-2xl font-black text-slate-900 tracking-tight">
+              <div className="text-2xl font-bold text-blue-600 tracking-tight">
                 {totalScore}/100
               </div>
             </div>
-            <Badge variant={statusVariant} size="lg">
+            <Badge variant="info" size="lg">
               {status}
             </Badge>
-          </div>
-        </div>
-
-        {/* Pedagogical Feedback Box */}
-        <div className="p-3.5 bg-indigo-50/70 border border-indigo-200 rounded-xl flex items-start gap-3 text-xs text-indigo-950">
-          <LightBulbIcon className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" aria-hidden="true" />
-          <div>
-            <strong className="font-semibold">Pedagogical Review Summary: </strong>
-            <span>{feedback}</span>
           </div>
         </div>
 
@@ -187,9 +161,7 @@ export function RgoriComplianceModal({
                     {c.subtitle}
                   </div>
                 </div>
-                <span
-                  className={`px-2 py-0.5 text-xs font-extrabold rounded-md border ${c.badgeColor}`}
-                >
+                <span className="px-2 py-0.5 text-xs font-bold rounded-md border border-blue-200 bg-blue-50 text-blue-700">
                   {c.score}/25
                 </span>
               </div>
@@ -198,10 +170,10 @@ export function RgoriComplianceModal({
                 {c.explanation}
               </p>
 
-              {/* Mini visual indicator */}
+              {/* Visual indicator */}
               <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                 <div
-                  className="bg-indigo-600 h-1.5 rounded-full transition-all duration-300"
+                  className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
                   style={{ width: `${Math.min(100, Math.max(0, (c.score / 25) * 100))}%` }}
                 />
               </div>
@@ -224,3 +196,5 @@ export function RgoriComplianceModal({
     </Modal>
   );
 }
+
+export default RgoriComplianceModal;
