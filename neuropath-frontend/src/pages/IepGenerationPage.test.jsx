@@ -1185,7 +1185,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         screen.getByText("Learner will complete daily arithmetic tasks with 80% accuracy."),
       ).toBeInTheDocument();
       expect(screen.getByText("SMART Aligned")).toBeInTheDocument();
-      expect(screen.queryByText(/R-GORI/i)).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /r-gori/i })).toBeInTheDocument();
 
       // IEP document and goals should NOT be saved to backend yet (Issue #256)
       expect(iepAPI.save).not.toHaveBeenCalled();

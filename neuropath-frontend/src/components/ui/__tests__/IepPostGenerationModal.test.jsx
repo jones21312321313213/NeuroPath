@@ -12,6 +12,30 @@ describe("IepPostGenerationModal", () => {
       target_metric: "80% accuracy across 3 trials",
       _rgori_score: 88,
       _rgori_feedback: "Well-defined criteria and specific contextual timeline.",
+      rgori_audit: {
+        total_score: 88,
+        status: "Exemplary",
+        compliant: true,
+        feedback: "Exemplary SMART ABCD alignment across all 4 pedagogical R-GORI criteria.",
+        breakdown: {
+          measurability: {
+            score: 23,
+            explanation: "Observable action verb with clear criteria.",
+          },
+          functionality: {
+            score: 22,
+            explanation: "Direct daily communication access.",
+          },
+          generality: {
+            score: 21,
+            explanation: "Transferable across settings.",
+          },
+          instructional_context: {
+            score: 22,
+            explanation: "Jargon-free terminology.",
+          },
+        },
+      },
       objective_rows: [
         {
           objective: "Identify target icons on communication board",
@@ -68,7 +92,8 @@ describe("IepPostGenerationModal", () => {
     expect(screen.getByText("Visual schedule, AAC device")).toBeInTheDocument();
   });
 
-  it("displays SMART Aligned badge and renders goals cleanly without R-GORI badge", () => {
+  it("renders interactive R-GORI compliance button for each goal and opens inspection modal when clicked", async () => {
+    const user = userEvent.setup();
     render(
       <IepPostGenerationModal
         isOpen={true}
@@ -80,11 +105,17 @@ describe("IepPostGenerationModal", () => {
     );
 
     expect(screen.getByText("SMART Aligned")).toBeInTheDocument();
-    expect(screen.queryByText(/R-GORI/i)).not.toBeInTheDocument();
+    const rgoriBtn = screen.getByRole("button", { name: /r-gori/i });
+    expect(rgoriBtn).toBeInTheDocument();
+    expect(screen.getByText("88/100")).toBeInTheDocument();
+
+    // Click R-GORI inspection button to open modal
+    await user.click(rgoriBtn);
+
+    // Verify RgoriComplianceModal opens with breakdown details
+    expect(screen.getByText("R-GORI Pedagogical Compliance Audit")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Student will independently use an AAC device to make 3-word requests.",
-      ),
+      screen.getByText("Observable action verb with clear criteria."),
     ).toBeInTheDocument();
   });
 

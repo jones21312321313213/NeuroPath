@@ -13,6 +13,7 @@ from django.shortcuts import get_object_or_404
 from django.db import IntegrityError, transaction
 from .services import AIGenerationService
 from .ai_engine import AIEngineService
+from .rgori_service import RGORICheckerService
 from .privacy_utils import (
     anonymize_student_context,
     scrub_pii_from_text,
@@ -709,6 +710,11 @@ class GenerateIEPGoalsFromIEPView(APIView):
                 else self._map_difficulty_to_category(difficulty)
             )
 
+            # Audit goal against R-GORI criteria deterministically and attach explainable breakdown
+            rgori_audit = RGORICheckerService.audit_goal_explainable(
+                annual_goal, student_context
+            )
+
             # Build the full goal payload (ready for POST /api/iep/goals/)
             payload = {
                 "iep": iep_id,
@@ -717,6 +723,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
                 "goalName": self._derive_goal_name(difficulty, goal_area),
                 "target_metric": self._derive_target_metric(difficulty, assistive_tech),
                 "objective_rows": objective_rows,
+                "rgori_audit": rgori_audit,
                 "_attempts": 1,
             }
 

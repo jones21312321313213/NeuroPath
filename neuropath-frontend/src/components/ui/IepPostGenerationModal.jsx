@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Modal } from "./Modal";
 import { Button } from "./Button";
 import { Badge } from "./Badge";
+import { RgoriComplianceModal } from "./RgoriComplianceModal";
 import {
   ArrowPathIcon,
   ClockIcon,
@@ -49,6 +50,7 @@ export function IepPostGenerationModal({
 }) {
   const [showRegenPrompt, setShowRegenPrompt] = useState(false);
   const [regenerationNotes, setRegenerationNotes] = useState("");
+  const [activeRgoriGoal, setActiveRgoriGoal] = useState(null);
   const [remainingCooldown, setRemainingCooldown] = useState(
     isOpen ? cooldownSeconds : 0,
   );
@@ -103,6 +105,7 @@ export function IepPostGenerationModal({
       : [];
 
   return (
+    <>
     <Modal
       isOpen={isOpen}
       onClose={isSaving || isRegenerating ? undefined : onClose}
@@ -237,6 +240,20 @@ export function IepPostGenerationModal({
                       </h4>
                     </div>
                     <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setActiveRgoriGoal(goal)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition cursor-pointer"
+                        title="Inspect R-GORI Compliance details"
+                        aria-label={`R-GORI compliance details for Goal ${idx + 1}`}
+                      >
+                        <span>R-GORI</span>
+                        {(goal.rgori_audit?.total_score != null || goal._rgori_score != null) && (
+                          <span className="text-[11px] font-bold bg-white text-blue-700 px-1.5 py-0.2 rounded border border-blue-200">
+                            {goal.rgori_audit?.total_score ?? goal._rgori_score}/100
+                          </span>
+                        )}
+                      </button>
                       <Badge variant="success" size="sm">
                         SMART Aligned
                       </Badge>
@@ -384,6 +401,33 @@ export function IepPostGenerationModal({
         </div>
       </div>
     </Modal>
+
+    {activeRgoriGoal && (
+      <RgoriComplianceModal
+        isOpen={Boolean(activeRgoriGoal)}
+        onClose={() => setActiveRgoriGoal(null)}
+        goalTitle={
+          activeRgoriGoal.subject_category ||
+          activeRgoriGoal.goalName ||
+          "Individualized Goal"
+        }
+        annualGoal={
+          activeRgoriGoal.annual_goal ||
+          activeRgoriGoal.annualGoal ||
+          ""
+        }
+        audit={
+          activeRgoriGoal.rgori_audit ||
+          (activeRgoriGoal._rgori_score
+            ? {
+                total_score: activeRgoriGoal._rgori_score,
+                feedback: activeRgoriGoal._rgori_feedback,
+              }
+            : null)
+        }
+      />
+    )}
+    </>
   );
 }
 
