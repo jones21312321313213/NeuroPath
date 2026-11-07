@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Modal } from "./Modal";
 import { Button } from "./Button";
 import { Badge } from "./Badge";
+import { RgoriComplianceModal } from "./RgoriComplianceModal";
 import {
   ArrowPathIcon,
   ClockIcon,
@@ -32,6 +33,7 @@ import {
  * @param {(notes?: string) => Promise<void>|void} props.onRegenerate - Callback to trigger draft regeneration
  * @param {boolean} [props.isSaving=false] - Whether the goals are currently saving
  * @param {boolean} [props.isRegenerating=false] - Whether regeneration is in progress
+ * @param {number} [props.cooldownSeconds=10] - Cooldown duration in seconds before regeneration can be triggered again
  */
 export function IepPostGenerationModal({
   isOpen = false,
@@ -44,9 +46,46 @@ export function IepPostGenerationModal({
   onRegenerate,
   isSaving = false,
   isRegenerating = false,
+  cooldownSeconds = 10,
 }) {
   const [showRegenPrompt, setShowRegenPrompt] = useState(false);
   const [regenerationNotes, setRegenerationNotes] = useState("");
+  const [activeRgoriGoal, setActiveRgoriGoal] = useState(null);
+  const [remainingCooldown, setRemainingCooldown] = useState(
+    isOpen ? cooldownSeconds : 0,
+  );
+  const wasRegeneratingRef = useRef(isRegenerating);
+  const prevIsOpenRef = useRef(isOpen);
+
+  useEffect(() => {
+    if (isOpen && !prevIsOpenRef.current) {
+      setRemainingCooldown(cooldownSeconds);
+    }
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, cooldownSeconds]);
+
+  useEffect(() => {
+    if (wasRegeneratingRef.current && !isRegenerating && isOpen) {
+      setRemainingCooldown(cooldownSeconds);
+    }
+    wasRegeneratingRef.current = isRegenerating;
+  }, [isRegenerating, isOpen, cooldownSeconds]);
+
+  useEffect(() => {
+    if (!isOpen || remainingCooldown <= 0) return;
+
+    const intervalId = setInterval(() => {
+      setRemainingCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(intervalId);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [isOpen, remainingCooldown]);
 
   if (!isOpen) return null;
 
@@ -66,6 +105,7 @@ export function IepPostGenerationModal({
       : [];
 
   return (
+    <>
     <Modal
       isOpen={isOpen}
       onClose={isSaving || isRegenerating ? undefined : onClose}
@@ -92,13 +132,20 @@ export function IepPostGenerationModal({
               variant="secondary"
               size="sm"
               onClick={handleRegenerateClick}
-              disabled={isSaving || isRegenerating}
-              className="w-full sm:w-auto border-slate-300 text-slate-700 hover:bg-slate-100"
+              disabled={isSaving || isRegenerating || remainingCooldown > 0}
+              className={`w-full sm:w-auto border-slate-300 text-slate-700 hover:bg-slate-100 ${
+                remainingCooldown > 0 ? "opacity-50 cursor-not-allowed text-slate-400 bg-slate-100" : ""
+              }`}
             >
               {isRegenerating ? (
                 <span className="flex items-center gap-1.5">
                   <ArrowPathIcon className="w-4 h-4 animate-spin text-slate-500" aria-hidden="true" />
                   Regenerating...
+                </span>
+              ) : remainingCooldown > 0 ? (
+                <span className="flex items-center gap-1.5">
+                  <ArrowPathIcon className="w-4 h-4 text-slate-400" aria-hidden="true" />
+                  Regenerate ({remainingCooldown}s)
                 </span>
               ) : (
                 <span className="flex items-center gap-1.5">
@@ -193,6 +240,20 @@ export function IepPostGenerationModal({
                       </h4>
                     </div>
                     <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setActiveRgoriGoal(goal)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition cursor-pointer"
+                        title="Inspect R-GORI Compliance details"
+                        aria-label={`R-GORI compliance details for Goal ${idx + 1}`}
+                      >
+                        <span>R-GORI</span>
+                        {(goal.rgori_audit?.total_score != null || goal._rgori_score != null) && (
+                          <span className="text-[11px] font-bold bg-white text-blue-700 px-1.5 py-0.2 rounded border border-blue-200">
+                            {goal.rgori_audit?.total_score ?? goal._rgori_score}/100
+                          </span>
+                        )}
+                      </button>
                       <Badge variant="success" size="sm">
                         SMART Aligned
                       </Badge>
@@ -340,6 +401,33 @@ export function IepPostGenerationModal({
         </div>
       </div>
     </Modal>
+
+    {activeRgoriGoal && (
+      <RgoriComplianceModal
+        isOpen={Boolean(activeRgoriGoal)}
+        onClose={() => setActiveRgoriGoal(null)}
+        goalTitle={
+          activeRgoriGoal.subject_category ||
+          activeRgoriGoal.goalName ||
+          "Individualized Goal"
+        }
+        annualGoal={
+          activeRgoriGoal.annual_goal ||
+          activeRgoriGoal.annualGoal ||
+          ""
+        }
+        audit={
+          activeRgoriGoal.rgori_audit ||
+          (activeRgoriGoal._rgori_score
+            ? {
+                total_score: activeRgoriGoal._rgori_score,
+                feedback: activeRgoriGoal._rgori_feedback,
+              }
+            : null)
+        }
+      />
+    )}
+    </>
   );
 }
 

@@ -7,6 +7,170 @@ logger = logging.getLogger(__name__)
 
 
 class RGORICheckerService:
+    APPROVED_VERBS = {
+        "answers", "classifies", "communicates", "copies", "counts", "defines",
+        "follows", "greets", "identifies", "imitates", "initiates", "labels",
+        "locates", "manipulates", "matches", "names", "points", "prints",
+        "produces", "reads", "reaches", "remains", "requests", "responds",
+        "selects", "signs", "sorts", "uses", "vocalizes", "verbalizes",
+        "writes", "transition", "transitions", "walks", "sits", "attends",
+        "participates", "completes", "demonstrates", "speaks", "asks",
+        "shares", "raises", "regulates", "engages", "maintains", "identifies"
+    }
+
+    NON_OBSERVABLE_VERBS = {
+        "understands", "understand", "appreciates", "appreciate", "considers",
+        "consider", "decodes", "explores", "explore", "examines", "examine",
+        "improves", "improve", "increases", "increase", "integrates", "integrate",
+        "realizes", "realize", "knows", "know", "make sense", "makes sense",
+        "tries", "try", "visualizes", "visualize", "learn", "learns"
+    }
+
+    CLINICAL_JARGON = [
+        "bilateral motor coordination", "cooperative play", "intelligibility",
+        "pincer grasp", "simple turn taking", "tripod grasp", "vestibular",
+        "proprioceptive", "tactile defensiveness", "sensory processing disorder"
+    ]
+
+    @classmethod
+    def audit_goal_explainable(cls, goal_text, student_context=""):
+        """
+        Deterministically evaluates an annual goal against the 4 R-GORI criteria
+        using explainable ABCD pedagogical heuristics without blocking AI network calls.
+        """
+        text = (goal_text or "").strip()
+        lower_text = text.lower()
+
+        # -------------------------------------------------------------
+        # 1. MEASURABILITY (Observable verb [12] + Measurable criteria [13])
+        # -------------------------------------------------------------
+        non_obs_matches = [v for v in cls.NON_OBSERVABLE_VERBS if re.search(r"\b" + re.escape(v) + r"\b", lower_text)]
+        obs_matches = [v for v in cls.APPROVED_VERBS if re.search(r"\b" + re.escape(v) + r"\b", lower_text)]
+
+        if non_obs_matches and not obs_matches:
+            obs_score = 0
+            obs_exp = f"Employs non-observable internal verb ('{non_obs_matches[0]}') lacking definite behavioral criteria."
+        elif non_obs_matches and obs_matches:
+            obs_score = 6
+            obs_exp = f"Includes observable actions ('{obs_matches[0]}') alongside non-observable phrases ('{non_obs_matches[0]}')."
+        elif obs_matches:
+            obs_score = 12
+            obs_exp = f"Employs clear observable action verb ('{obs_matches[0]}') with verifiable execution boundaries."
+        else:
+            obs_score = 6
+            obs_exp = "Behavioral action is implied but would benefit from a more concrete observable action verb."
+
+        measurable_indicators = []
+        if re.search(r"\b(independently|correctly|without prompts|with 0 prompts|unassisted)\b", lower_text):
+            measurable_indicators.append("independence/accuracy condition")
+        if re.search(r"\b\d+%\b", lower_text) or "accuracy" in lower_text:
+            measurable_indicators.append("percentage accuracy threshold")
+        if re.search(r"\b\d+\s*(?:out of|of|\/)\s*\d+\b", lower_text) or "opportunities" in lower_text or "trials" in lower_text:
+            measurable_indicators.append("trial frequency ratio")
+        if re.search(r"\b(?:across|over)\s+\d+\s+consecutive\b", lower_text) or "weeks" in lower_text or "sessions" in lower_text:
+            measurable_indicators.append("consecutive endurance period")
+        if re.search(r"\bfor\s+\d+\s+(?:minutes|mins|seconds|secs)\b", lower_text):
+            measurable_indicators.append("duration threshold")
+
+        if len(measurable_indicators) >= 2:
+            meas_score = 13
+            meas_exp = f"Specifies rigorous measurement criteria including {', '.join(measurable_indicators[:2])}."
+        elif len(measurable_indicators) == 1:
+            meas_score = 8
+            meas_exp = f"Provides baseline criteria ({measurable_indicators[0]}), but lacks multi-session mastery endurance."
+        else:
+            meas_score = 0
+            meas_exp = "Missing quantifiable thresholds, percentage criteria, and trial frequencies."
+
+        measurability_score = max(0, min(25, obs_score + meas_score))
+        measurability_explanation = f"{obs_exp} {meas_exp}"
+
+        # -------------------------------------------------------------
+        # 2. FUNCTIONALITY (Daily Participation [12] + Task Completion [13])
+        # -------------------------------------------------------------
+        func_indicators = []
+        if re.search(r"\b(classroom|activities|routine|daily|school|recess|lunch|transition|home|community)\b", lower_text):
+            func_indicators.append("routine participation")
+        if re.search(r"\b(communicate|request|interact|peer|independently|self-care|participate|respond|express)\b", lower_text):
+            func_indicators.append("functional independence")
+
+        if len(func_indicators) >= 2:
+            func_score = 25
+            func_exp = "Directly facilitates student access, interaction, and essential independence in daily classroom routines."
+        elif len(func_indicators) == 1:
+            func_score = 18
+            func_exp = "Addresses functional participation within specific activities, with moderate transferability to general routines."
+        else:
+            func_score = 10
+            func_exp = "Appears academic or drill-focused without clear integration into active daily school routines."
+
+        # -------------------------------------------------------------
+        # 3. GENERALITY (Generic Concept [12] + Across Settings [13])
+        # -------------------------------------------------------------
+        gen_indicators = []
+        if re.search(r"\b(across|various|multiple|different|settings|routines|opportunities|materials|peers|adults|teachers)\b", lower_text):
+            gen_indicators.append("cross-context transfer")
+        if not re.search(r"\b(cut with scissors|rote counts to ten|stacks three cubes)\b", lower_text):
+            gen_indicators.append("broad behavioral class")
+
+        if len(gen_indicators) >= 2:
+            gen_score = 25
+            gen_exp = "Targets a generic behavioral competency that readily generalizes across settings, materials, and team members."
+        elif len(gen_indicators) == 1:
+            gen_score = 18
+            gen_exp = "Represents a broad behavioral skill, though explicit generalization parameters across contexts could be expanded."
+        else:
+            gen_score = 10
+            gen_exp = "Risk of restricted behavior locked to isolated stimuli or single specific classroom materials."
+
+        # -------------------------------------------------------------
+        # 4. INSTRUCTIONAL CONTEXT (Teachable in Routine [12] + Jargon-Free [13])
+        # -------------------------------------------------------------
+        jargon_matches = [j for j in cls.CLINICAL_JARGON if j in lower_text]
+        if jargon_matches:
+            inst_score = 14
+            inst_exp = f"Teachable across activities, but contains clinical terminology ('{jargon_matches[0]}') that may confuse general education aides or parents."
+        else:
+            inst_score = 25
+            inst_exp = "Expressed in clean, jargon-free pedagogical language directly teachable by general ed teachers, aides, and parents."
+
+        total_score = max(0, min(100, measurability_score + func_score + gen_score + inst_score))
+
+        if total_score >= 85:
+            status = "Exemplary"
+            feedback = "Exemplary SMART ABCD alignment across all 4 pedagogical R-GORI criteria."
+        elif total_score >= 65:
+            status = "IEP Ready"
+            feedback = "Meets R-GORI compliance standards; ready for IEP committee review."
+        else:
+            status = "Review Advised"
+            feedback = "Review advised: Strengthen observable action verbs and measurable criteria before finalizing."
+
+        return {
+            "total_score": total_score,
+            "status": status,
+            "compliant": total_score >= 65,
+            "feedback": feedback,
+            "breakdown": {
+                "measurability": {
+                    "score": measurability_score,
+                    "explanation": measurability_explanation,
+                },
+                "functionality": {
+                    "score": func_score,
+                    "explanation": func_exp,
+                },
+                "generality": {
+                    "score": gen_score,
+                    "explanation": gen_exp,
+                },
+                "instructional_context": {
+                    "score": inst_score,
+                    "explanation": inst_exp,
+                },
+            },
+        }
+
     @staticmethod
     def evaluate_goal(goal_text, student_context):
         system_prompt = (

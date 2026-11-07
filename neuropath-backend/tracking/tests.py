@@ -506,6 +506,35 @@ class TrackingAuthAndTenantIsolationTests(TestCase):
         self.assertEqual(math_data['chartData'], [80, 95])
         self.assertEqual(math_data['status'], 'On Track')
 
+    def test_record_progress_with_behavioral_observations_and_custom_date(self):
+        self._auth(self.token1)
+        payload = {
+            'studentID': self.student1.pk,
+            'subjectName': 'Reading',
+            'performanceScore': 85,
+            'behavioralObservations': 'Student engaged well with visual cues and finished 85% of reading cards.',
+            'evaluationDate': '2026-10-25',
+        }
+        response = self.client.post('/api/tracking/analytics/', payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data.get('behavioralObservations'), payload['behavioralObservations'])
+
+        dash_response = self.client.get('/api/tracking/progress-dashboard/', {'studentID': self.student1.pk})
+        self.assertEqual(dash_response.status_code, status.HTTP_200_OK)
+        reading_data = next((s for s in dash_response.data if s['name'] == 'Reading'), None)
+        self.assertIsNotNone(reading_data)
+        self.assertEqual(reading_data['behavioralObservations'], payload['behavioralObservations'])
+
+    def test_classroom_progress_summary_for_teacher(self):
+        self._auth(self.token1)
+        response = self.client.get('/api/tracking/progress-dashboard/?classroom=true')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('overallMasteryRate', response.data)
+        self.assertIn('goalsOnTrackCount', response.data)
+        self.assertIn('needsSupportCount', response.data)
+        self.assertIn('totalStudents', response.data)
+        self.assertGreaterEqual(response.data['totalStudents'], 1)
+
 
 class RecentActivityAPITestCase(TestCase):
     def setUp(self):

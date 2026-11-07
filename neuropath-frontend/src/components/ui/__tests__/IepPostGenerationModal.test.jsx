@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IepPostGenerationModal } from "../IepPostGenerationModal";
 
@@ -12,6 +12,30 @@ describe("IepPostGenerationModal", () => {
       target_metric: "80% accuracy across 3 trials",
       _rgori_score: 88,
       _rgori_feedback: "Well-defined criteria and specific contextual timeline.",
+      rgori_audit: {
+        total_score: 88,
+        status: "Exemplary",
+        compliant: true,
+        feedback: "Exemplary SMART ABCD alignment across all 4 pedagogical R-GORI criteria.",
+        breakdown: {
+          measurability: {
+            score: 23,
+            explanation: "Observable action verb with clear criteria.",
+          },
+          functionality: {
+            score: 22,
+            explanation: "Direct daily communication access.",
+          },
+          generality: {
+            score: 21,
+            explanation: "Transferable across settings.",
+          },
+          instructional_context: {
+            score: 22,
+            explanation: "Jargon-free terminology.",
+          },
+        },
+      },
       objective_rows: [
         {
           objective: "Identify target icons on communication board",
@@ -68,7 +92,8 @@ describe("IepPostGenerationModal", () => {
     expect(screen.getByText("Visual schedule, AAC device")).toBeInTheDocument();
   });
 
-  it("displays SMART Aligned badge and renders goals cleanly without R-GORI badge", () => {
+  it("renders interactive R-GORI compliance button for each goal and opens inspection modal when clicked", async () => {
+    const user = userEvent.setup();
     render(
       <IepPostGenerationModal
         isOpen={true}
@@ -80,11 +105,17 @@ describe("IepPostGenerationModal", () => {
     );
 
     expect(screen.getByText("SMART Aligned")).toBeInTheDocument();
-    expect(screen.queryByText(/R-GORI/i)).not.toBeInTheDocument();
+    const rgoriBtn = screen.getByRole("button", { name: /r-gori/i });
+    expect(rgoriBtn).toBeInTheDocument();
+    expect(screen.getByText("88/100")).toBeInTheDocument();
+
+    // Click R-GORI inspection button to open modal
+    await user.click(rgoriBtn);
+
+    // Verify RgoriComplianceModal opens with breakdown details
+    expect(screen.getByText("R-GORI Pedagogical Compliance Audit")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Student will independently use an AAC device to make 3-word requests.",
-      ),
+      screen.getByText("Observable action verb with clear criteria."),
     ).toBeInTheDocument();
   });
 
@@ -135,6 +166,7 @@ describe("IepPostGenerationModal", () => {
         onClose={vi.fn()}
         onAcceptAndSave={vi.fn()}
         onRegenerate={handleRegen}
+        cooldownSeconds={0}
       />,
     );
 
@@ -154,6 +186,7 @@ describe("IepPostGenerationModal", () => {
         onClose={vi.fn()}
         onAcceptAndSave={vi.fn()}
         onRegenerate={handleRegen}
+        cooldownSeconds={0}
       />,
     );
 
@@ -283,5 +316,99 @@ describe("IepPostGenerationModal", () => {
     expect(screen.getByText("Given blocks, add 1+1 to 1+3 with physical cues")).toBeInTheDocument();
     expect(screen.getByText("Given blocks, add 1+1 to 1+5 with faded cues")).toBeInTheDocument();
     expect(screen.getByText("Independently add numbers up to 10 with 80% accuracy")).toBeInTheDocument();
+  });
+
+  describe("10-second Cooldown Timer (Issue #259)", () => {
+    it("renders Regenerate button disabled with 10s countdown on initial render by default while Accept & Save IEP is immediately clickable", () => {
+      vi.useFakeTimers();
+      const handleAccept = vi.fn();
+      render(
+        <IepPostGenerationModal
+          isOpen={true}
+          goals={mockGoals}
+          onClose={vi.fn()}
+          onAcceptAndSave={handleAccept}
+          onRegenerate={vi.fn()}
+        />,
+      );
+
+      // Regenerate button should be disabled with "(10s)" label
+      const regenBtn = screen.getByRole("button", { name: /regenerate \(10s\)/i });
+      expect(regenBtn).toBeDisabled();
+
+      // Accept & Save IEP button must be immediately enabled and clickable
+      const saveBtn = screen.getByRole("button", { name: /accept & save iep/i });
+      expect(saveBtn).toBeEnabled();
+
+      vi.useRealTimers();
+    });
+
+    it("decrements countdown timer and enables Regenerate button after cooldown expires", () => {
+      vi.useFakeTimers();
+      const handleRegen = vi.fn();
+      render(
+        <IepPostGenerationModal
+          isOpen={true}
+          goals={mockGoals}
+          onClose={vi.fn()}
+          onAcceptAndSave={vi.fn()}
+          onRegenerate={handleRegen}
+        />,
+      );
+
+      const regenBtn = screen.getByRole("button", { name: /regenerate \(10s\)/i });
+      expect(regenBtn).toBeDisabled();
+
+      // Advance by 5 seconds
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(screen.getByRole("button", { name: /regenerate \(5s\)/i })).toBeDisabled();
+
+      // Advance by remaining 5 seconds
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      const reEnabledRegenBtn = screen.getByRole("button", { name: /^regenerate$/i });
+      expect(reEnabledRegenBtn).toBeEnabled();
+
+      reEnabledRegenBtn.click();
+      expect(handleRegen).toHaveBeenCalledTimes(1);
+
+      vi.useRealTimers();
+    });
+
+    it("restarts cooldown timer when regeneration completes (isRegenerating transitions true -> false)", () => {
+      vi.useFakeTimers();
+      const { rerender } = render(
+        <IepPostGenerationModal
+          isOpen={true}
+          goals={mockGoals}
+          onClose={vi.fn()}
+          onAcceptAndSave={vi.fn()}
+          onRegenerate={vi.fn()}
+          isRegenerating={true}
+        />,
+      );
+
+      expect(screen.getByRole("button", { name: /regenerating\.\.\./i })).toBeDisabled();
+
+      // When generation finishes
+      rerender(
+        <IepPostGenerationModal
+          isOpen={true}
+          goals={mockGoals}
+          onClose={vi.fn()}
+          onAcceptAndSave={vi.fn()}
+          onRegenerate={vi.fn()}
+          isRegenerating={false}
+        />,
+      );
+
+      const regenBtn = screen.getByRole("button", { name: /regenerate \(10s\)/i });
+      expect(regenBtn).toBeDisabled();
+
+      vi.useRealTimers();
+    });
   });
 });

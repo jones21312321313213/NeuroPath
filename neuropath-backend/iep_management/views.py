@@ -13,6 +13,7 @@ from django.shortcuts import get_object_or_404
 from django.db import IntegrityError, transaction
 from .services import AIGenerationService
 from .ai_engine import AIEngineService
+from .rgori_service import RGORICheckerService
 from .privacy_utils import (
     anonymize_student_context,
     scrub_pii_from_text,
@@ -566,24 +567,38 @@ class GenerateIEPGoalsFromIEPView(APIView):
  
         # --- 1. Validate required fields ---
         iep_id = data.get('iep_id')
-        if not iep_id:
+        student_id = data.get('student_id') or data.get('studentID')
+        if not iep_id and not student_id:
             return Response(
-                {"error": "iep_id is required."},
+                {"error": "Either iep_id or student_id is required."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        try:
-            iep = IEPModel.objects.select_related('studentID__teacher').get(pk=iep_id)
-        except IEPModel.DoesNotExist:
-            return Response({"error": "IEP not found."}, status=status.HTTP_404_NOT_FOUND)
-
         teacher = get_teacher_for_user(request.user)
-        if not teacher or iep.studentID.teacher != teacher:
+        if not teacher:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if iep_id:
+            try:
+                iep = IEPModel.objects.select_related('studentID__teacher').get(pk=iep_id)
+            except (IEPModel.DoesNotExist, ValueError):
+                return Response({"error": "IEP not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if iep.studentID.teacher != teacher:
+                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            student = iep.studentID
+        else:
+            try:
+                student = StudentProfile.objects.select_related('teacher').get(pk=student_id)
+            except (StudentProfile.DoesNotExist, ValueError):
+                return Response({"error": "Student not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if student.teacher != teacher:
+                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
         # Enforce RA 10173 Parental/Guardian Consent
         try:
-            verify_ra10173_consent(iep.studentID)
+            verify_ra10173_consent(student)
         except ConsentRequiredException as e:
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
  
@@ -599,10 +614,10 @@ class GenerateIEPGoalsFromIEPView(APIView):
         special_factors     = generated_details.get('special_factors_considerations', [])
         
         # Anonymize student descriptor and scrub PII from free-text notes
-        student_desc = anonymize_student_context(iep.studentID)
+        student_desc = anonymize_student_context(student)
         pii_tokens = [
-            getattr(iep.studentID, 'name', ''),
-            getattr(iep.studentID, 'guardian_name', ''),
+            getattr(student, 'name', ''),
+            getattr(student, 'guardian_name', ''),
             data.get('student_name', '')
         ]
         special_factor_notes = scrub_pii_from_text(
@@ -695,6 +710,11 @@ class GenerateIEPGoalsFromIEPView(APIView):
                 else self._map_difficulty_to_category(difficulty)
             )
 
+            # Audit goal against R-GORI criteria deterministically and attach explainable breakdown
+            rgori_audit = RGORICheckerService.audit_goal_explainable(
+                annual_goal, student_context
+            )
+
             # Build the full goal payload (ready for POST /api/iep/goals/)
             payload = {
                 "iep": iep_id,
@@ -703,6 +723,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
                 "goalName": self._derive_goal_name(difficulty, goal_area),
                 "target_metric": self._derive_target_metric(difficulty, assistive_tech),
                 "objective_rows": objective_rows,
+                "rgori_audit": rgori_audit,
                 "_attempts": 1,
             }
 
@@ -807,17 +828,38 @@ class GenerateIEPGoalsFromIEPView(APIView):
             raise RuntimeError("AI generation service returned empty or invalid response for objective rows.")
 
         try:
+            parsed = None
             clean = raw.strip()
-            if "```" in clean:
-                clean = re.sub(r"^```(?:json)?\s*", "", clean, flags=re.IGNORECASE)
-                clean = re.sub(r"\s*```$", "", clean)
-                clean = clean.strip()
 
-            match = re.search(r"\[.*\]|\{.*\}", clean, re.DOTALL)
-            if match:
-                clean = match.group(0)
+            # 1. Direct parse attempt
+            try:
+                parsed = json.loads(clean)
+            except Exception:
+                pass
 
-            parsed = json.loads(clean)
+            # 2. Extract from fenced markdown code block
+            if parsed is None:
+                fence_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', clean, re.IGNORECASE)
+                if fence_match:
+                    try:
+                        parsed = json.loads(fence_match.group(1).strip())
+                    except Exception:
+                        pass
+
+            # 3. Robust substring bracket match
+            if parsed is None:
+                for pattern in [r'\[\s*\{[\s\S]*\}\s*\]', r'\[[\s\S]*\]', r'\{[\s\S]*\}']:
+                    m = re.search(pattern, clean)
+                    if m:
+                        try:
+                            parsed = json.loads(m.group(0))
+                            break
+                        except Exception:
+                            continue
+
+            if parsed is None:
+                raise RuntimeError("AI generation service could not parse objective rows: no valid JSON array or object found in response.")
+
             if isinstance(parsed, dict):
                 for k in ["objective_rows", "objectives", "rows"]:
                     if k in parsed and isinstance(parsed[k], list):

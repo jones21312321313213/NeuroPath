@@ -975,10 +975,31 @@ class ProgressAnalyticsAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        behavioral_obs = request.data.get('behavioralObservations') or request.data.get('behavioral_observations') or ''
+        eval_date = request.data.get('dateLogged') or request.data.get('evaluationDate')
+        parsed_date = timezone.now()
+        if eval_date:
+            try:
+                from django.utils.dateparse import parse_datetime, parse_date
+                import datetime
+                parsed = parse_datetime(str(eval_date))
+                if not parsed:
+                    d = parse_date(str(eval_date))
+                    if d:
+                        parsed = timezone.make_aware(datetime.datetime.combine(d, datetime.time.min))
+                if parsed:
+                    if timezone.is_naive(parsed):
+                        parsed = timezone.make_aware(parsed)
+                    parsed_date = parsed
+            except Exception:
+                pass
+
         record = StudentProgress.objects.create(
             student=student,
             subjectName=str(subject_name).strip(),
             performanceScore=score,
+            behavioralObservations=str(behavioral_obs).strip(),
+            dateLogged=parsed_date,
         )
         serializer = ProgressAnalyticsSerializer(record)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -993,8 +1014,47 @@ class StudentProgressDashboardView(APIView):
     permission_classes = [SessionAuthenticationGuard]
 
     def get(self, request, *args, **kwargs):
+        teacher = get_teacher_for_user(request.user)
+        is_classroom_summary = request.query_params.get('classroom') == 'true' or request.query_params.get('aggregate') == 'true'
+
         student_id = request.query_params.get('studentID') or request.query_params.get('student_id')
         if not student_id:
+            if is_classroom_summary and teacher:
+                students = StudentProfile.objects.filter(teacher=teacher)
+                total_students = students.count()
+                all_records = StudentProgress.objects.filter(student__teacher=teacher).order_by('dateLogged')
+                if not all_records.exists():
+                    return Response({
+                        "totalStudents": total_students,
+                        "evaluatedStudents": 0,
+                        "overallMasteryRate": 0,
+                        "goalsOnTrackCount": 0,
+                        "needsSupportCount": 0,
+                        "totalLogs": 0,
+                        "lastEvaluated": "N/A",
+                    }, status=status.HTTP_200_OK)
+
+                evaluated_students = all_records.values('student').distinct().count()
+                latest_scores = {}
+                for r in all_records:
+                    latest_scores[(r.student_id, r.subjectName)] = r.performanceScore
+                scores_list = list(latest_scores.values())
+                mastery = round(sum(scores_list) / len(scores_list)) if scores_list else 0
+                on_track = sum(1 for s in scores_list if s >= 70)
+                needs_support = sum(1 for s in scores_list if s < 70)
+                last_log = all_records.last()
+                last_eval = last_log.dateLogged.strftime("%B %d, %Y") if last_log and last_log.dateLogged else "N/A"
+
+                return Response({
+                    "totalStudents": total_students,
+                    "evaluatedStudents": evaluated_students,
+                    "overallMasteryRate": mastery,
+                    "goalsOnTrackCount": on_track,
+                    "needsSupportCount": needs_support,
+                    "totalLogs": all_records.count(),
+                    "lastEvaluated": last_eval,
+                }, status=status.HTTP_200_OK)
+
             return Response(
                 {"error": "A valid studentID query parameter is required."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -1045,8 +1105,9 @@ class StudentProgressDashboardView(APIView):
                 "name": subj_name,
                 "progress": latest_score,
                 "status": "On Track" if latest_score >= 70 else "Needs Support",
-                "lastUpdated": latest.dateLogged.strftime("%B %d, %Y"),
+                "lastUpdated": latest.dateLogged.strftime("%B %d, %Y") if latest.dateLogged else "N/A",
                 "currentLevel": compute_level(latest_score),
+                "behavioralObservations": latest.behavioralObservations or "",
                 "chartData": scores,
                 "months": months,
             })

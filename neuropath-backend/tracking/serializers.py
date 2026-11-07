@@ -40,4 +40,4 @@ class ProgressAnalyticsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StudentProgress
-        fields = ['progressID', 'subjectName', 'performanceScore', 'trackingInterval']
+        fields = ['progressID', 'subjectName', 'performanceScore', 'trackingInterval', 'behavioralObservations', 'dateLogged']

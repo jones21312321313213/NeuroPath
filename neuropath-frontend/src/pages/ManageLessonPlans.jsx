@@ -232,6 +232,7 @@ function PlanRowList({
   onView,
   onEdit,
   onDelete,
+  onExport,
   actionLabel,
   onAction,
   actionClass = "ts-btn ts-btn-primary",
@@ -273,6 +274,16 @@ function PlanRowList({
                 >
                   View
                 </button>
+                {onExport && (
+                  <button
+                    type="button"
+                    className="ts-btn ts-btn-secondary"
+                    onClick={() => onExport(plan)}
+                    aria-label={`Export PDF for ${plan.title}`}
+                  >
+                    Export PDF
+                  </button>
+                )}
                 {onEdit && (
                   <button
                     type="button"
@@ -994,6 +1005,26 @@ function ManagePlansTab({ setActivePage, onGoToGenerate }) {
     setSuccessMessage("");
   };
 
+  const handleExportPlanPdf = async (plan) => {
+    if (!plan?.lessonID) return;
+    try {
+      const blob = await lessonPlansAPI.exportPDF(plan.lessonID);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `LessonPlan_${plan.lessonID}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+      toast.success("Lesson plan exported successfully.");
+    } catch (err) {
+      toast.error(err.message || "Failed to export Lesson Plan PDF.");
+    }
+  };
+
   const handleOpenEdit = (plan) => {
     setEditingPlan(plan);
     const parsedPhases = parseLessonPhases(
@@ -1493,6 +1524,13 @@ function ManagePlansTab({ setActivePage, onGoToGenerate }) {
             <button
               type="button"
               className="ts-btn ts-btn-secondary"
+              onClick={() => handleExportPlanPdf(viewingPlan)}
+            >
+              Export PDF
+            </button>
+            <button
+              type="button"
+              className="ts-btn ts-btn-secondary"
               onClick={() => handleOpenEdit(viewingPlan)}
             >
               Edit Plan
@@ -1591,6 +1629,7 @@ function ManagePlansTab({ setActivePage, onGoToGenerate }) {
           <PlanRowList
             plans={plans}
             onView={(p) => setViewingPlan(p)}
+            onExport={(p) => handleExportPlanPdf(p)}
             onEdit={(p) => handleOpenEdit(p)}
             onDelete={(p) => setToDeletePlan(p)}
           />

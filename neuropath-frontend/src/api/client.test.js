@@ -403,6 +403,43 @@ describe("api client", () => {
         }),
       );
     });
+
+    it("returns correct exportUrl for a lesson plan", () => {
+      expect(lessonPlansAPI.exportUrl(12)).toBe(
+        "http://localhost:8000/api/resources/export-lesson-plan/12/",
+      );
+    });
+
+    it("exports lesson plan PDF with auth token", async () => {
+      localStorage.setItem("neuropath_access_token", "test-token");
+      const mockBlob = new Blob(["%PDF-1.4 lesson plan test"], { type: "application/pdf" });
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        blob: vi.fn().mockResolvedValueOnce(mockBlob),
+      });
+
+      const result = await lessonPlansAPI.exportPDF(12);
+
+      expect(result).toBe(mockBlob);
+      expect(fetch).toHaveBeenCalledWith(
+        "http://localhost:8000/api/resources/export-lesson-plan/12/",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: "Token test-token",
+          }),
+        }),
+      );
+    });
+
+    it("throws an error when lessonPlansAPI.exportPDF fails", async () => {
+      fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: vi.fn().mockResolvedValueOnce({ error: "Saved Lesson Plan not found." }),
+      });
+
+      await expect(lessonPlansAPI.exportPDF(999)).rejects.toThrow("Saved Lesson Plan not found.");
+    });
   });
 
   describe("teachingStrategiesAPI", () => {
