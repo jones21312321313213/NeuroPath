@@ -21,7 +21,6 @@ import {
   DocumentIcon,
   SparklesIcon,
   PencilIcon,
-  LightBulbIcon,
   BookOpenIcon,
   PhotoIcon,
   TargetIcon,
@@ -1523,74 +1522,6 @@ function ViewIEPPanel({
             </span>
           </div>
 
-          {/* Post-IEP Next Steps / Classroom Tools */}
-          {!isEditing && (
-            <section
-              className="iep-next-steps-card"
-              aria-label="Instructional Support Next Steps"
-            >
-              <header className="iep-next-steps-header">
-                <span className="iep-next-steps-icon" aria-hidden="true">
-                  <LightBulbIcon className="w-5 h-5 text-amber-500" aria-hidden="true" />
-                </span>
-                <div>
-                  <h4>Instructional Support: Use this IEP in the Classroom</h4>
-                  <p>
-                    This IEP is ready. Generate tailored lesson plans, visual aids, and teaching strategies based on this student's goals.
-                  </p>
-                </div>
-              </header>
-              <nav
-                className="iep-next-steps-grid"
-                aria-label="Classroom tool actions"
-              >
-                <button
-                  type="button"
-                  className="iep-next-step-btn"
-                  onClick={() => {
-                    navigate("/dashboard/lessons");
-                    if (setActivePage) setActivePage("manage-lesson-plans");
-                  }}
-                >
-                  <BookOpenIcon className="w-4 h-4 mr-1.5 inline text-blue-600" aria-hidden="true" />
-                  Create Lesson Plan
-                </button>
-                <button
-                  type="button"
-                  className="iep-next-step-btn"
-                  onClick={() => {
-                    navigate("/dashboard/visual-aids");
-                    if (setActivePage) setActivePage("manage-visual-aids");
-                  }}
-                >
-                  <PhotoIcon className="w-4 h-4 mr-1.5 inline text-purple-600" aria-hidden="true" />
-                  Create Visual Aid
-                </button>
-                <button
-                  type="button"
-                  className="iep-next-step-btn iep-next-step-btn-secondary"
-                  onClick={() => {
-                    navigate("/dashboard/strategies");
-                    if (setActivePage) setActivePage("manage-teaching-strategies");
-                  }}
-                >
-                  <TargetIcon className="w-4 h-4 mr-1.5 inline text-emerald-600" aria-hidden="true" />
-                  Teaching Strategies
-                </button>
-                <button
-                  type="button"
-                  className="iep-next-step-btn iep-next-step-btn-ghost"
-                  onClick={() => {
-                    navigate("/dashboard");
-                    if (setActivePage) setActivePage("overview");
-                  }}
-                >
-                  <HomeIcon className="w-4 h-4 mr-1.5 inline text-slate-600" aria-hidden="true" />
-                  Back to Overview
-                </button>
-              </nav>
-            </section>
-          )}
 
           {/* Inline edit panel */}
           {isEditing && (
@@ -2180,6 +2111,7 @@ export default function IEPGenerationPage({
   initialStudentId = null,
   setActivePage,
   setSelectedStudentId,
+  cooldownSeconds = 10,
 }) {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -2258,6 +2190,17 @@ export default function IEPGenerationPage({
     prompt: "",
     isRegenerating: false,
   });
+
+  // Issue #259 10-Second Cooldown Timer
+  const [regenCooldown, setRegenCooldown] = useState(0);
+
+  useEffect(() => {
+    if (regenCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setRegenCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [regenCooldown]);
 
   // Manual goal state in Section C
   const [showManualGoal, setShowManualGoal] = useState(false);
@@ -2948,67 +2891,11 @@ export default function IEPGenerationPage({
     setPendingGeneratedGoals([]);
     setGoalSaveStatus("");
 
-    // Step 1: Save the IEP document once for this generation session.
-    // Additional generated goals for the same student/session are appended to
-    // the same IEP version instead of creating another version.
-    let savedIepId = activeGeneratedIepId;
-    try {
-      const accommodationText = buildGeneratedAccommodations();
-      setGeneratedAccommodations(accommodationText);
+    // Calculate accommodations for draft preview without persisting IEP document yet (Issue #256)
+    const accommodationText = buildGeneratedAccommodations();
+    setGeneratedAccommodations(accommodationText);
 
-      const baselineText = [
-        `Student: ${form.learnerName || getStudentName(selectedStudent) || ""}`,
-        `Diagnosis: ${form.disabilityCategory || ""}`,
-        `Assessment / Diagnosis Details: ${form.diagnosisDetails || ""}`,
-        `Present Evaluation: ${form.presentEvaluation || ""}`,
-        `Academic Strengths: ${form.academicStrengths || ""}`,
-        `Academic Needs: ${form.academicNeeds || ""}`,
-        `Parental Concerns: ${form.parentalConcerns || ""}`,
-        `Curriculum Impact: ${form.curriculumImpact || ""}`,
-      ].join("\n");
-
-      const special_factors_considerations = form.barrierRows
-        .filter((r) => r.difficulty.trim())
-        .map((row, i) => ({
-          difficulty: row.difficulty,
-          assistive_technology:
-            form.assistiveTechnologies[i] ||
-            form.assistiveTechnologies[0] ||
-            "",
-        }));
-
-      if (!savedIepId) {
-        savedIepId = await ensureIepDocument();
-      } else {
-        await iepAPI.update(savedIepId, {
-          baselineData: baselineText,
-          accommodations: accommodationText,
-          generatedDetails: {
-            ...form,
-            specialFactorNotes: form.specialFactorNotes,
-            special_factor_notes: form.specialFactorNotes,
-            generatedAccommodations: accommodationText,
-            special_factors_considerations,
-          },
-          difficulties: form.barrierRows.map((r) => r.difficulty).join("\n"),
-          learning_barriers: form.barrierRows
-            .map((r) => r.barrierQualifier)
-            .join("\n"),
-          learning_facilitators: form.barrierRows
-            .map((r) => r.facilitator)
-            .join("\n"),
-          learning_accommodations: form.barrierRows
-            .map((r) => r.accommodation)
-            .join("\n"),
-        });
-      }
-    } catch (err) {
-      showError(err.message || "Unknown error", "Failed to Save IEP Document");
-      setGeneratingFinalIep(false);
-      return;
-    }
-
-    // Step 2: Generate AI goals
+    // Step 2: Generate AI goals in draft state
     try {
       const special_factors_considerations = form.barrierRows
         .filter((r) => r.difficulty.trim())
@@ -3026,7 +2913,8 @@ export default function IEPGenerationPage({
           : teacherPrompt;
 
       const result = await iepAPI.generateGoalsFromIep({
-        iep_id: savedIepId,
+        iep_id: activeGeneratedIepId || null,
+        student_id: getStudentId(selectedStudent),
         student_name: form.learnerName || getStudentName(selectedStudent) || "",
         goal_area: selectedGoalCategory,
         teacher_prompt: effectiveTeacherPrompt,
@@ -3056,8 +2944,20 @@ export default function IEPGenerationPage({
 
       const goals = result?.goals || [];
       setPendingGeneratedGoals(goals);
-      setPendingIepId(savedIepId);
+      setPendingIepId(activeGeneratedIepId || null);
       setShowPostGenModal(true);
+      if (cooldownSeconds > 0) {
+        setRegenCooldown(cooldownSeconds);
+      }
+      if (activeGeneratedIepId || pendingIepId) {
+        toast.success(
+          "IEP goals regenerated successfully! Review the draft below and click 'Accept & Save IEP' to apply.",
+        );
+      } else {
+        toast.success(
+          "IEP goals generated successfully! Review the draft below and click 'Accept & Save IEP' to apply.",
+        );
+      }
     } catch (err) {
       showError(err.message || "Unknown error", "Failed to Generate AI Goals");
       setGenerationDone(false);
@@ -3067,7 +2967,7 @@ export default function IEPGenerationPage({
   };
 
   const handleAcceptAndSaveGoals = async () => {
-    if (!pendingGeneratedGoals.length || !pendingIepId) {
+    if (!pendingGeneratedGoals.length) {
       setShowPostGenModal(false);
       return;
     }
@@ -3075,6 +2975,73 @@ export default function IEPGenerationPage({
     setIsSavingPendingGoals(true);
     setSavingGoals(true);
     setGoalSaveStatus("saving");
+
+    // Persist or update IEP document only upon user approval (Issue #256)
+    let targetIepId = activeGeneratedIepId || pendingIepId;
+    try {
+      if (!targetIepId) {
+        targetIepId = await ensureIepDocument();
+      } else {
+        const accommodationText = buildGeneratedAccommodations();
+        const baselineText = [
+          `Student: ${form.learnerName || getStudentName(selectedStudent) || ""}`,
+          `Diagnosis: ${form.disabilityCategory || ""}`,
+          `Assessment / Diagnosis Details: ${form.diagnosisDetails || ""}`,
+          `Present Evaluation: ${form.presentEvaluation || ""}`,
+          `Academic Strengths: ${form.academicStrengths || ""}`,
+          `Academic Needs: ${form.academicNeeds || ""}`,
+          `Parental Concerns: ${form.parentalConcerns || ""}`,
+          `Curriculum Impact: ${form.curriculumImpact || ""}`,
+        ].join("\n");
+
+        const special_factors_considerations = form.barrierRows
+          .filter((r) => r.difficulty.trim())
+          .map((row, i) => ({
+            difficulty: row.difficulty,
+            assistive_technology:
+              form.assistiveTechnologies[i] ||
+              form.assistiveTechnologies[0] ||
+              "",
+          }));
+
+        await iepAPI.update(targetIepId, {
+          baselineData: baselineText,
+          accommodations: accommodationText,
+          generatedDetails: {
+            ...form,
+            specialFactorNotes: form.specialFactorNotes,
+            special_factor_notes: form.specialFactorNotes,
+            generatedAccommodations: accommodationText,
+            special_factors_considerations,
+          },
+          difficulties: form.barrierRows.map((r) => r.difficulty).join("\n"),
+          learning_barriers: form.barrierRows
+            .map((r) => r.barrierQualifier)
+            .join("\n"),
+          learning_facilitators: form.barrierRows
+            .map((r) => r.facilitator)
+            .join("\n"),
+          learning_accommodations: form.barrierRows
+            .map((r) => r.accommodation)
+            .join("\n"),
+        });
+      }
+    } catch (err) {
+      showError(err.message || "Unknown error", "Failed to Save IEP Document");
+      setSavingGoals(false);
+      setIsSavingPendingGoals(false);
+      setGoalSaveStatus("error");
+      return;
+    }
+
+    if (!targetIepId) {
+      showError("Could not create or locate an IEP record for this goal.", "Save Failed");
+      setSavingGoals(false);
+      setIsSavingPendingGoals(false);
+      setGoalSaveStatus("error");
+      return;
+    }
+
     let allSaved = true;
 
     for (const goal of pendingGeneratedGoals) {
@@ -3088,7 +3055,7 @@ export default function IEPGenerationPage({
         } = goal;
         await iepAPI.saveGoal({
           ...goalPayload,
-          iep: pendingIepId,
+          iep: targetIepId,
           goalName:
             goalPayload.goalName || goalPayload.subject_category || "Goal",
           target_metric: goalPayload.target_metric || "Standard IEP Metric",
@@ -3221,6 +3188,9 @@ export default function IEPGenerationPage({
         prompt: "",
         isRegenerating: false,
       });
+      if (cooldownSeconds > 0) {
+        setRegenCooldown(cooldownSeconds);
+      }
     } catch (err) {
       toast.error(err.message || "Failed to regenerate goal.");
       setSingleGoalRegenModal((prev) => ({ ...prev, isRegenerating: false }));
@@ -3453,14 +3423,34 @@ export default function IEPGenerationPage({
                 ieps={ieps}
               />
               {selectedStudent ? (
-                <div className="iep-selected-student-card">
-                  <span>Selected Student</span>
-                  <strong>
-                    {getStudentName(selectedStudent) || "No student selected"}
-                  </strong>
-                  <small>
-                    {`Grade ${selectedStudent.grade || "—"} · Age ${selectedStudent.age || "—"}`}
-                  </small>
+                <div className="iep-selected-student-card vsp-card">
+                  <div className="iep-selected-student-header">
+                    <span className="iep-selected-badge">Selected Student</span>
+                  </div>
+                  <div className="vsp-card-top">
+                    <div className="vsp-avatar" aria-hidden="true">
+                      {getInitials(getStudentName(selectedStudent))}
+                    </div>
+                    <div className="vsp-card-info">
+                      <p className="vsp-card-name" title={getStudentName(selectedStudent)}>
+                        {getStudentName(selectedStudent) || "No student selected"}
+                      </p>
+                      <span className="vsp-card-meta">
+                        {selectedStudent.diagnosis || selectedStudent.asdBackground || "No diagnosis on record"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="vsp-card-pills">
+                    <span className="vsp-pill grade">
+                      Grade {selectedStudent.grade || "—"}
+                    </span>
+                    {selectedStudent.gender && (
+                      <span className="vsp-pill">{selectedStudent.gender}</span>
+                    )}
+                    {selectedStudent.age && (
+                      <span className="vsp-pill">{selectedStudent.age} yrs</span>
+                    )}
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -3737,10 +3727,18 @@ export default function IEPGenerationPage({
                         <button
                           type="button"
                           className="btn btn-back"
-                          style={{ fontSize: "0.8rem", padding: "4px 10px" }}
+                          style={{
+                            fontSize: "0.8rem",
+                            padding: "4px 10px",
+                            opacity: regenCooldown > 0 ? 0.6 : 1,
+                            cursor: regenCooldown > 0 ? "not-allowed" : "pointer",
+                          }}
                           onClick={() => setShowRegenConfirmModal(true)}
+                          disabled={regenCooldown > 0}
                         >
-                          Regenerate Goals
+                          {regenCooldown > 0
+                            ? `Regenerate Goals (${regenCooldown}s)`
+                            : "Regenerate Goals"}
                         </button>
                       </div>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
@@ -3768,9 +3766,10 @@ export default function IEPGenerationPage({
                   )}
 
                   <div className="iep-ai-goal-toolbar multi">
-                    <div className="form-group">
-                      <label className="form-label">Goal Area:</label>
+                    <div className="form-group" style={{ width: "100%" }}>
+                      <label className="form-label" htmlFor="iep-goal-area-select">Goal Area:</label>
                       <select
+                        id="iep-goal-area-select"
                         className="form-select"
                         value={selectedGoalCategory}
                         onChange={(e) => {
@@ -3846,12 +3845,19 @@ export default function IEPGenerationPage({
                         disabled={
                           generatingFinalIep ||
                           savingGoals ||
+                          regenCooldown > 0 ||
                           (selectedStudent &&
                             selectedStudent.parental_consent_obtained === false)
                         }
-                        style={{ marginRight: 8 }}
+                        style={{
+                          marginRight: 8,
+                          opacity: regenCooldown > 0 ? 0.6 : 1,
+                          cursor: regenCooldown > 0 ? "not-allowed" : "pointer",
+                        }}
                       >
-                        Regenerate Goals
+                        {regenCooldown > 0
+                          ? `Regenerate Goals (${regenCooldown}s)`
+                          : "Regenerate Goals"}
                       </button>
                     )}
                     <button
@@ -4207,7 +4213,13 @@ export default function IEPGenerationPage({
                                   <button
                                     type="button"
                                     className="btn btn-back"
-                                    style={{ fontSize: "0.78rem", padding: "4px 10px", whiteSpace: "nowrap" }}
+                                    style={{
+                                      fontSize: "0.78rem",
+                                      padding: "4px 10px",
+                                      whiteSpace: "nowrap",
+                                      opacity: regenCooldown > 0 ? 0.6 : 1,
+                                      cursor: regenCooldown > 0 ? "not-allowed" : "pointer",
+                                    }}
                                     onClick={() =>
                                       setSingleGoalRegenModal({
                                         isOpen: true,
@@ -4217,8 +4229,11 @@ export default function IEPGenerationPage({
                                         isRegenerating: false,
                                       })
                                     }
+                                    disabled={regenCooldown > 0}
                                   >
-                                    Regenerate Goal
+                                    {regenCooldown > 0
+                                      ? `Regenerate Goal (${regenCooldown}s)`
+                                      : "Regenerate Goal"}
                                   </button>
                                 </div>
                               </div>
@@ -4326,6 +4341,7 @@ export default function IEPGenerationPage({
         onRegenerate={handleRegenerateFromModal}
         isSaving={isSavingPendingGoals}
         isRegenerating={generatingFinalIep}
+        cooldownSeconds={cooldownSeconds}
       />
 
       {/* Regeneration Confirmation Modal (ENH25) */}
@@ -4350,9 +4366,12 @@ export default function IEPGenerationPage({
                 setShowRegenConfirmModal(false);
                 handleGenerateFinalIep();
               }}
+              disabled={regenCooldown > 0}
               className="bg-amber-600 hover:bg-amber-700 text-white"
             >
-              Regenerate Goals
+              {regenCooldown > 0
+                ? `Regenerate Goals (${regenCooldown}s)`
+                : "Regenerate Goals"}
             </Button>
           </div>
         }
@@ -4389,12 +4408,14 @@ export default function IEPGenerationPage({
               variant="primary"
               size="sm"
               onClick={handleConfirmSingleGoalRegen}
-              disabled={singleGoalRegenModal.isRegenerating}
+              disabled={singleGoalRegenModal.isRegenerating || regenCooldown > 0}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {singleGoalRegenModal.isRegenerating
                 ? "Regenerating..."
-                : "Regenerate Goal"}
+                : regenCooldown > 0
+                  ? `Regenerate Goal (${regenCooldown}s)`
+                  : "Regenerate Goal"}
             </Button>
           </div>
         }
