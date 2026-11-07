@@ -1823,7 +1823,7 @@ select option,
   color: #334155;
   cursor: pointer;
   transition: all 0.15s ease;
-  line-height: 1.2;
+  line-height: 2;
 }
 .iep-archives-btn:hover {
   background: #f8fafc;

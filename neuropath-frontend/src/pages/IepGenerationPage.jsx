@@ -638,6 +638,7 @@ function StudentSearchBox({
         >
           Search Student
         </label>
+    
         {selectedStudent && (
           <button
             type="button"
@@ -650,7 +651,9 @@ function StudentSearchBox({
             }}
           >
             Change Student
+            
           </button>
+          
         )}
       </div>
 
@@ -1305,24 +1308,64 @@ function ViewIEPPanel({
 
   return (
     <div className="form-card iep-card">
+    
       <SectionHeader
         title="View IEP"
         subtitle="Search a student name, select a matching result — the latest IEP loads automatically."
         action={
-          <button
-            type="button"
-            className="iep-archives-btn"
-            onClick={() => setShowArchivedModal(true)}
-            aria-label="View archived IEPs"
-          >
-            <i className="ti ti-archive" aria-hidden="true" style={{ fontSize: "1rem" }} />
-            <span>Archived IEPs</span>
-            {selectedStudent && (
-              <span className="iep-count-badge">
-                {archivedIeps.length}
-              </span>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: "12px", flexWrap: "wrap" }}>
+            {selectedStudent && (activeIeps.length > 1 || studentIeps.length > 1) && (
+              <div className="form-group iep-version-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Active IEP Version</label>
+                <select
+                  value={selectedIep?.iepID || ""}
+                  className="form-select"
+                  disabled={loadingIeps}
+                  onChange={(e) => {
+                    const targetIep =
+                      studentIeps.find(
+                        (iep) => String(iep.iepID) === e.target.value,
+                      ) || null;
+                    if (isFormDirty) {
+                      promptNavigation(() => setSelectedIep(targetIep));
+                    } else {
+                      setSelectedIep(targetIep);
+                    }
+                  }}
+                >
+                  {(activeIeps.length > 0 ? activeIeps : studentIeps).map((iep) => {
+                    const isAct = !iep.is_archived && Number(iep.version) === latestActiveVersion;
+                    const statusTag = iep.is_archived
+                      ? "(Archived)"
+                      : isAct
+                        ? "(Active)"
+                        : "(Superseded)";
+                    return (
+                      <option key={iep.iepID} value={iep.iepID}>
+                        Version {iep.version} {statusTag}
+                        {iep.formattedDate ? ` · Last Updated: ${iep.formattedDate}` : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
             )}
-          </button>
+
+            <button
+              type="button"
+              className="iep-archives-btn"
+              onClick={() => setShowArchivedModal(true)}
+              aria-label="View archived IEPs"
+            >
+              <i className="ti ti-archive" aria-hidden="true" style={{ fontSize: "1rem" }} />
+              <span>Archived IEPs</span>
+              {selectedStudent && (
+                <span className="iep-count-badge">
+                  {archivedIeps.length}
+                </span>
+              )}
+            </button>
+          </div>
         }
       />
 
@@ -1344,42 +1387,7 @@ function ViewIEPPanel({
           loadingStudents={loadingStudents}
           ieps={ieps}
         />
-        {selectedStudent && (activeIeps.length > 1 || studentIeps.length > 1) && (
-          <div className="form-group iep-version-group">
-            <label className="form-label">Active IEP Version</label>
-            <select
-              value={selectedIep?.iepID || ""}
-              className="form-select"
-              disabled={loadingIeps}
-              onChange={(e) => {
-                const targetIep =
-                  studentIeps.find(
-                    (iep) => String(iep.iepID) === e.target.value,
-                  ) || null;
-                if (isFormDirty) {
-                  promptNavigation(() => setSelectedIep(targetIep));
-                } else {
-                  setSelectedIep(targetIep);
-                }
-              }}
-            >
-              {(activeIeps.length > 0 ? activeIeps : studentIeps).map((iep) => {
-                const isAct = !iep.is_archived && Number(iep.version) === latestActiveVersion;
-                const statusTag = iep.is_archived
-                  ? "(Archived)"
-                  : isAct
-                    ? "(Active)"
-                    : "(Superseded)";
-                return (
-                  <option key={iep.iepID} value={iep.iepID}>
-                    Version {iep.version} {statusTag}
-                    {iep.formattedDate ? ` · Last Updated: ${iep.formattedDate}` : ""}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-        )}
+        
       </div>
 
       {viewError && (
