@@ -1994,53 +1994,22 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       });
     });
 
-    describe("Direct Download for IEP PDF Export (ENH22)", () => {
-      beforeEach(() => {
-        window.URL.createObjectURL = vi.fn(() => "blob:http://localhost:3000/mock-iep-uuid");
-        window.URL.revokeObjectURL = vi.fn();
-      });
-
-      it("triggers direct file download when EXPORT PDF is clicked", async () => {
-        const user = userEvent.setup();
-        const mockBlob = new Blob(["%PDF-1.4 test"], { type: "application/pdf" });
-        iepAPI.exportPDF.mockResolvedValueOnce(mockBlob);
-
-        const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click");
-
+    describe("View IEP actions layout", () => {
+      it("does not render EXPORT PDF on the View IEP tab and renders EDIT IEP, DELETE IEP inline and ARCHIVE VERSION beside date", async () => {
         render(
           <MemoryRouter>
             <IEPGenerationPage mode="view" initialStudentId={1} />
           </MemoryRouter>,
         );
-
-        const exportBtn = await screen.findByRole("button", { name: "EXPORT PDF" });
-        await user.click(exportBtn);
 
         await waitFor(() => {
-          expect(iepAPI.exportPDF).toHaveBeenCalledWith(101);
-          expect(window.URL.createObjectURL).toHaveBeenCalledWith(mockBlob);
-          expect(clickSpy).toHaveBeenCalled();
+          expect(screen.getByRole("button", { name: "EDIT IEP" })).toBeInTheDocument();
         });
-      });
 
-      it("displays error alert when IEP PDF export fails", async () => {
-        const user = userEvent.setup();
-        iepAPI.exportPDF.mockRejectedValueOnce(
-          new Error("Network connection lost. Failed to export PDF."),
-        );
-
-        render(
-          <MemoryRouter>
-            <IEPGenerationPage mode="view" initialStudentId={1} />
-          </MemoryRouter>,
-        );
-
-        const exportBtn = await screen.findByRole("button", { name: "EXPORT PDF" });
-        await user.click(exportBtn);
-
-        expect(
-          await screen.findByText("Network connection lost. Failed to export PDF."),
-        ).toBeInTheDocument();
+        // Assert EXPORT PDF is not rendered on View IEP tab (export is on Outcome Monitoring)
+        expect(screen.queryByRole("button", { name: "EXPORT PDF" })).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "DELETE IEP" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "ARCHIVE VERSION" })).toBeInTheDocument();
       });
     });
   });

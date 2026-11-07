@@ -930,39 +930,7 @@ function ViewIEPPanel({
     }
   };
 
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const [exportPdfError, setExportPdfError] = useState("");
 
-  const handleExportPDF = async () => {
-    if (isExportingPdf || !selectedIep?.iepID) return;
-    setIsExportingPdf(true);
-    setExportPdfError("");
-    try {
-      const blob = await iepAPI.exportPDF(selectedIep.iepID);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      const cleanName = (
-        selectedIep.studentName ||
-        getStudentName(selectedStudent) ||
-        "Student"
-      ).replace(/\s+/g, "_");
-      link.download = `IEP_${cleanName}_v${selectedIep.version || 1}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-      }, 1000);
-      toast.success("IEP exported as PDF successfully.");
-    } catch (err) {
-      const errMsg = err.message || "Failed to export IEP PDF. Please try again.";
-      setExportPdfError(errMsg);
-      toast.error(errMsg);
-    } finally {
-      setIsExportingPdf(false);
-    }
-  };
 
   const [isEditing, setIsEditing] = useState(false);
   const [editBarrierRows, setEditBarrierRows] = useState([]);
@@ -1463,31 +1431,6 @@ function ViewIEPPanel({
                 <button className="btn btn-back" onClick={openEdit}>
                   EDIT IEP
                 </button>
-                {selectedIep.is_archived ? (
-                  <button
-                    type="button"
-                    className="btn btn-back"
-                    onClick={() => handleToggleArchive(selectedIep, false)}
-                  >
-                    UNARCHIVE VERSION
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn btn-back"
-                    onClick={() => handleToggleArchive(selectedIep, true)}
-                  >
-                    ARCHIVE VERSION
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="btn btn-back iep-export-pdf-btn"
-                  onClick={handleExportPDF}
-                  disabled={isExportingPdf}
-                >
-                  {isExportingPdf ? "Exporting PDF..." : "EXPORT PDF"}
-                </button>
                 <button
                   className="btn iep-btn-danger"
                   onClick={() => setDeleteTarget(selectedIep)}
@@ -1497,12 +1440,6 @@ function ViewIEPPanel({
               </div>
             )}
           </div>
-
-          {exportPdfError && (
-            <div role="alert" className="iep-alert iep-alert-error" style={{ marginBottom: 12 }}>
-              {exportPdfError}
-            </div>
-          )}
 
           <div className="iep-view-meta iep-view-meta-badges">
             <span
@@ -1525,6 +1462,25 @@ function ViewIEPPanel({
             <span className="iep-status-badge iep-date-badge">
               {`Last Updated: ${selectedIep.formattedDate || "Date unavailable"}`}
             </span>
+            {!isEditing && (
+              selectedIep.is_archived ? (
+                <button
+                  type="button"
+                  className="btn btn-back iep-archive-toggle-btn"
+                  onClick={() => handleToggleArchive(selectedIep, false)}
+                >
+                  UNARCHIVE VERSION
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-back iep-archive-toggle-btn"
+                  onClick={() => handleToggleArchive(selectedIep, true)}
+                >
+                  ARCHIVE VERSION
+                </button>
+              )
+            )}
           </div>
 
 
