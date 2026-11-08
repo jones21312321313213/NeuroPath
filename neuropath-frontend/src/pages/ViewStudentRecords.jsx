@@ -369,7 +369,7 @@ function PageSectionBC({
       const link = document.createElement("a");
       link.href = url;
       const rawDisplay = studentName || d?.name || "Student";
-      const cleanName = (rawDisplay.startsWith("gAAAAA") ? (d?.profileDetails?.studentName || "Student") : rawDisplay).replace(/\s+/g, "_");
+      const cleanName = ((rawDisplay.startsWith("gAAAAA") || rawDisplay.startsWith("[Encrypted")) ? (d?.profileDetails?.studentName || rawDisplay) : rawDisplay).replace(/\s+/g, "_");
       link.download = `StudentRecord_${cleanName}.pdf`;
       document.body.appendChild(link);
       link.click();
@@ -582,9 +582,11 @@ function PageSectionBC({
         onClose={() => setIsSignatureModalOpen(false)}
         onConfirmExport={(sig) => handleExport(sig)}
         studentName={
-          (studentName && !studentName.startsWith("gAAAAA") ? studentName : "") ||
-          (d?.name && !d.name.startsWith("gAAAAA") ? d.name : "") ||
+          (studentName && !studentName.startsWith("gAAAAA") && !studentName.startsWith("[Encrypted") ? studentName : "") ||
+          (d?.name && !d.name.startsWith("gAAAAA") && !d.name.startsWith("[Encrypted") ? d.name : "") ||
           d?.profileDetails?.studentName ||
+          studentName ||
+          d?.name ||
           "Learner"
         }
         teacherName={teacherNameToExport}
@@ -827,18 +829,19 @@ export default function ViewStudentRecords({ setActivePage }) {
         const bDetails = normalizeGeneratedDetails(targetBIep);
 
         const rawName = raw.name || "";
-        const resolvedName = (rawName && !rawName.startsWith("gAAAAA"))
+        const isNameObfuscated = rawName.startsWith("gAAAAA") || rawName.startsWith("[Encrypted");
+        const resolvedName = (!isNameObfuscated && rawName)
           ? rawName
-          : pd.studentName || pd.learnerName || (s.name && !s.name.startsWith("gAAAAA") ? s.name : PLACEHOLDER.name);
+          : pd.studentName || pd.learnerName || (s.name && !s.name.startsWith("gAAAAA") ? s.name : rawName || PLACEHOLDER.name);
 
         const rawDiag = raw.diagnosis || "";
         const rawAsd = raw.asdBackground || "";
-        const resolvedDiag = pd.disabilityCategory || (rawDiag && !rawDiag.startsWith("gAAAAA") ? rawDiag : "") || PLACEHOLDER.disabilityCategory;
-        const resolvedAsd = pd.diagnosisDetails || (rawAsd && !rawAsd.startsWith("gAAAAA") ? rawAsd : "") || PLACEHOLDER.diagnosisDetails;
+        const resolvedDiag = pd.disabilityCategory || (rawDiag && !rawDiag.startsWith("gAAAAA") && !rawDiag.startsWith("[Encrypted") ? rawDiag : "") || PLACEHOLDER.disabilityCategory;
+        const resolvedAsd = pd.diagnosisDetails || (rawAsd && !rawAsd.startsWith("gAAAAA") && !rawAsd.startsWith("[Encrypted") ? rawAsd : "") || PLACEHOLDER.diagnosisDetails;
         const rawAssess = raw.assessmentResult || "";
-        const resolvedAssess = pd.presentEvaluation || (rawAssess && !rawAssess.startsWith("gAAAAA") ? rawAssess : "") || PLACEHOLDER.presentEvaluation;
+        const resolvedAssess = pd.presentEvaluation || (rawAssess && !rawAssess.startsWith("gAAAAA") && !rawAssess.startsWith("[Encrypted") ? rawAssess : "") || PLACEHOLDER.presentEvaluation;
         const rawNeeds = raw.support_needs || "";
-        const resolvedNeeds = pd.academicNeeds || (rawNeeds && !rawNeeds.startsWith("gAAAAA") ? rawNeeds : "") || PLACEHOLDER.academicNeeds;
+        const resolvedNeeds = pd.academicNeeds || (rawNeeds && !rawNeeds.startsWith("gAAAAA") && !rawNeeds.startsWith("[Encrypted") ? rawNeeds : "") || PLACEHOLDER.academicNeeds;
 
         setRecordData({
           ...PLACEHOLDER,
@@ -891,7 +894,7 @@ export default function ViewStudentRecords({ setActivePage }) {
   const getStudentDisplayName = (st) => {
     if (!st) return "Student";
     const raw = st.name || "";
-    if (raw && !raw.startsWith("gAAAAA")) return raw;
+    if (raw && !raw.startsWith("gAAAAA") && !raw.startsWith("[Encrypted")) return raw;
     const pd = st.profileDetails || {};
     return pd.studentName || pd.learnerName || (raw && !raw.startsWith("gAAAAA") ? raw : "Student");
   };

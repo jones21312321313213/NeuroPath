@@ -67,4 +67,11 @@ class StudentProfile(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
 
     def __str__(self):
-        return self.name or f"Student {self.studentID}"
+        raw_name = str(self.name or '').strip()
+        if not raw_name or raw_name.startswith('gAAAAA') or raw_name.startswith('[Encrypted'):
+            pd = self.profileDetails if isinstance(self.profileDetails, dict) else {}
+            resolved = pd.get('studentName') or pd.get('learnerName')
+            if resolved:
+                return resolved
+            return f"[Encrypted Student #{self.studentID}]"
+        return raw_name
