@@ -969,7 +969,10 @@ class StudentPIIDecryptionFailureAndRotationTests(TestCase):
             email="teacher.encrypt@example.com",
             passwordHash="hashed"
         )
-        self.foreign_key = Fernet.generate_key().decode('utf-8')
+        while True:
+            self.foreign_key = Fernet.generate_key().decode('utf-8')
+            if not self.foreign_key.startswith('-'):
+                break
         self.foreign_fernet = Fernet(self.foreign_key.encode('utf-8'))
 
         self.student = StudentProfile.objects.create(
@@ -1088,8 +1091,8 @@ class StudentPIIDecryptionFailureAndRotationTests(TestCase):
         call_command(
             'reencrypt_student_pii',
             '--dry-run',
-            '--old-key', self.foreign_key,
-            '--student-id', str(self.student.pk),
+            f'--old-key={self.foreign_key}',
+            f'--student-id={self.student.pk}',
             stdout=out
         )
         output = out.getvalue()
@@ -1105,8 +1108,8 @@ class StudentPIIDecryptionFailureAndRotationTests(TestCase):
         out = io.StringIO()
         call_command(
             'reencrypt_student_pii',
-            '--old-key', self.foreign_key,
-            '--student-id', str(self.student.pk),
+            f'--old-key={self.foreign_key}',
+            f'--student-id={self.student.pk}',
             stdout=out
         )
         output = out.getvalue()
