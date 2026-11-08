@@ -195,25 +195,27 @@ class BinaryReportRenderEngine:
         )
 
         pd = student_record.profileDetails if isinstance(student_record.profileDetails, dict) else {}
+        student_id = getattr(student_record, 'pk', None) or getattr(student_record, 'studentID', None)
+        id_suffix = f" #{student_id}" if student_id else ""
         raw_name = student_record.name or ''
-        if raw_name.startswith('gAAAAA'):
+        if raw_name.startswith('gAAAAA') or raw_name.startswith('[Encrypted'):
             raw_name = ''
-        student_name = raw_name or pd.get('studentName') or pd.get('learnerName') or 'Learner Name'
+        student_name = raw_name or pd.get('studentName') or pd.get('learnerName') or f"[Encrypted Student{id_suffix}]"
         school_val = pd.get('school') or 'DepEd Division SPED Center'
         school_year_val = pd.get('schoolYear') or '2026-2027'
         birthdate_val = pd.get('birthdate') or 'N/A'
         raw_diag = student_record.diagnosis or ''
-        if raw_diag.startswith('gAAAAA'):
+        if raw_diag.startswith('gAAAAA') or raw_diag.startswith('[Encrypted'):
             raw_diag = ''
         raw_asd = student_record.asdBackground or ''
-        if raw_asd.startswith('gAAAAA'):
+        if raw_asd.startswith('gAAAAA') or raw_asd.startswith('[Encrypted'):
             raw_asd = ''
         diagnosis_val = pd.get('disabilityCategory') or raw_diag or raw_asd or 'Autism Spectrum Disorder (ASD)'
         lrn_val = getattr(student_record, 'lrn', None) or pd.get('lrn') or f"LRN-{student_record.pk:06d}"
         raw_guard = getattr(student_record, 'guardian_name', None) or ''
-        if raw_guard.startswith('gAAAAA'):
+        if raw_guard.startswith('gAAAAA') or raw_guard.startswith('[Encrypted'):
             raw_guard = ''
-        parent_val = raw_guard or pd.get('guardianName') or pd.get('parentName') or 'Parent / Guardian'
+        parent_val = raw_guard or pd.get('guardianName') or pd.get('parentName') or f"[Encrypted Guardian{id_suffix}]"
         relationship_val = getattr(student_record, 'guardian_relationship', None) or pd.get('relationship') or 'Parent / Guardian'
         contact_val = pd.get('parentContact') or pd.get('contactNumber') or 'On File (RA 10173 Protected)'
         resolved_teacher = (teacher_name or "").strip()
@@ -1119,11 +1121,13 @@ def _resolve_student_display_name(student):
     if not student:
         return "Student"
     raw = getattr(student, 'name', '') or ''
-    if raw.startswith("gAAAAA"):
+    if raw.startswith("gAAAAA") or raw.startswith("[Encrypted"):
         raw = ''
     pd = getattr(student, 'profileDetails', None)
     pd_dict = pd if isinstance(pd, dict) else {}
-    return raw or pd_dict.get("studentName") or pd_dict.get("learnerName") or f"Student {getattr(student, 'pk', '')}"
+    student_id = getattr(student, 'pk', None) or getattr(student, 'studentID', None)
+    fallback = f"[Encrypted Student #{student_id}]" if student_id else "Student"
+    return raw or pd_dict.get("studentName") or pd_dict.get("learnerName") or fallback
 
 # =====================================================================
 # SDD COMPONENT: RecentActivityAPIView (ENH30)

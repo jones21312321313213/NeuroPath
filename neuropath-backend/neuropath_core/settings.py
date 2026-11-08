@@ -39,6 +39,7 @@ def _derive_fernet_key(secret: str) -> str:
     return base64.urlsafe_b64encode(digest).decode()
 
 STUDENT_PII_ENCRYPTION_KEY = env('STUDENT_PII_ENCRYPTION_KEY', default=_derive_fernet_key(SECRET_KEY))
+STUDENT_PII_FALLBACK_ENCRYPTION_KEYS = env.list('STUDENT_PII_FALLBACK_ENCRYPTION_KEYS', default=[])
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool('DEBUG', default=False)
