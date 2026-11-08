@@ -211,7 +211,6 @@ class BinaryReportRenderEngine:
         if raw_asd.startswith('gAAAAA') or raw_asd.startswith('[Encrypted'):
             raw_asd = ''
         diagnosis_val = pd.get('disabilityCategory') or raw_diag or raw_asd or 'Autism Spectrum Disorder (ASD)'
-        lrn_val = getattr(student_record, 'lrn', None) or pd.get('lrn') or f"LRN-{student_record.pk:06d}"
         raw_guard = getattr(student_record, 'guardian_name', None) or ''
         if raw_guard.startswith('gAAAAA') or raw_guard.startswith('[Encrypted'):
             raw_guard = ''
@@ -272,11 +271,9 @@ class BinaryReportRenderEngine:
         p1_d1 = [
             [Paragraph("LEARNER IDENTIFICATION &amp; DEMOGRAPHICS", banner_style), ""],
             [Paragraph("Learner Full Name:", table_cell_bold), Paragraph(esc(student_name), table_cell)],
-            [Paragraph("Learner Reference No. (LRN):", table_cell_bold), Paragraph(esc(str(lrn_val)), table_cell)],
             [Paragraph("Age / Grade Level:", table_cell_bold), Paragraph(esc(f"{student_record.age} years old • Grade {student_record.grade}"), table_cell)],
             [Paragraph("Gender / Date of Birth:", table_cell_bold), Paragraph(esc(f"{student_record.gender or 'N/A'} • {birthdate_val}"), table_cell)],
             [Paragraph("Primary Diagnosis / Classification:", table_cell_bold), Paragraph(esc(diagnosis_val), table_cell)],
-            [Paragraph("ASD Developmental Baseline:", table_cell_bold), Paragraph(esc(student_record.asdBackground or pd.get('diagnosisDetails') or 'Level 1 ASD requiring supportive structure'), table_cell)],
         ]
         t1_left = Table(p1_d1, colWidths=[45 * mm, 85 * mm])
         t1_left.setStyle(TableStyle([
@@ -397,6 +394,57 @@ class BinaryReportRenderEngine:
             story.append(Paragraph(f"No Section B factors recorded for version {sec_b_ver}.", table_cell))
         else:
             story.append(Paragraph("CONSIDERATIONS OF SPECIAL FACTORS", section_title_style))
+            story.append(Paragraph("Selection of Barriers and Qualifiers for Learning Barriers and Facilitators", section_title_style))
+            story.append(Paragraph("Based on the teacher's observation, utilize the standardized DepEd assessment matrix below:", subtitle_style))
+
+            qual_data = [
+                [
+                    Paragraph("DIFFICULTIES<br/>(select all relevant categories)", table_hdr),
+                    Paragraph("Qualifier for Learning Barriers", table_hdr),
+                    Paragraph("Qualifier for Learning Facilitators", table_hdr),
+                ],
+                [
+                    Paragraph(
+                        "• Difficulty in Displaying Interpersonal Behavior<br/>"
+                        "• Difficulty in Basic Learning &amp; Applying Knowledge<br/>"
+                        "• Difficulty in Communicating<br/>"
+                        "• Difficulty in Mobility<br/>"
+                        "• Difficulty in Hearing<br/>"
+                        "• Difficulty in Seeing<br/>"
+                        "• Difficulty in Remembering or Concentrating<br/>"
+                        "• Difficulty in Performing Adaptive Skills",
+                        table_cell_small
+                    ),
+                    Paragraph(
+                        "<b>1. No barrier:</b> no manifestation<br/>"
+                        "<b>2. Mild barrier:</b> 1-2 manifestations<br/>"
+                        "<b>3. Moderate barrier:</b> 3-4 manifestations<br/>"
+                        "<b>4. Severe barrier:</b> 5 and beyond<br/>"
+                        "<i>(Characteristics manifestation)</i>",
+                        table_cell_small
+                    ),
+                    Paragraph(
+                        "<b>No barrier:</b> no manifestation (Parents)<br/>"
+                        "<b>Mild barrier:</b> 1-2 manifestations (SPED / OT)<br/>"
+                        "<b>Moderate barrier:</b> 3-4 manifestations (SPED, Reg. Teacher, Parents)<br/>"
+                        "<b>Severe barrier:</b> 5 and beyond (Multi-Disciplinary Team)<br/>"
+                        "<i>Note: Needed Facilitator depends upon the Doctor's recommendation.</i>",
+                        table_cell_small
+                    ),
+                ]
+            ]
+            qual_table = Table(qual_data, colWidths=[90 * mm, 88 * mm, 95 * mm])
+            qual_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), NAVY),
+                ('BOX', (0, 0), (-1, -1), 0.75, NAVY),
+                ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+                ('TOPPADDING', (0, 0), (-1, -1), 2),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            story.append(qual_table)
+            story.append(Spacer(1, 2.5 * mm))
+
             story.append(Paragraph("<b>INSTRUCTION:</b> Indicate all difficulties and assistive technology/devices needed.", subtitle_style))
             
             sec_b_diffs = []
@@ -442,7 +490,7 @@ class BinaryReportRenderEngine:
                     Paragraph(esc(d_val), table_cell_bold),
                     Paragraph(esc(at_val).replace('\n', '<br/>'), table_cell),
                 ])
-            while len(consid_data) < 5:
+            while len(consid_data) < 3:
                 consid_data.append([Paragraph("&nbsp;", table_cell), Paragraph("&nbsp;", table_cell)])
 
             consid_table = Table(consid_data, colWidths=[80 * mm, 193 * mm])
@@ -450,12 +498,12 @@ class BinaryReportRenderEngine:
                 ('BACKGROUND', (0, 0), (-1, 0), NAVY),
                 ('BOX', (0, 0), (-1, -1), 0.75, NAVY),
                 ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-                ('TOPPADDING', (0, 0), (-1, -1), 3),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                ('TOPPADDING', (0, 0), (-1, -1), 2),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ]))
             story.append(consid_table)
-            story.append(Spacer(1, 4 * mm))
+            story.append(Spacer(1, 2.5 * mm))
 
             story.append(Paragraph(sec_b_title_text, section_title_style))
             sec_b_data = [[
@@ -472,7 +520,7 @@ class BinaryReportRenderEngine:
                     Paragraph(esc(sec_b_facils[i] if i < len(sec_b_facils) else "—"), table_cell),
                     Paragraph(esc(sec_b_accoms[i] if i < len(sec_b_accoms) else "—"), table_cell),
                 ])
-            while len(sec_b_data) < 5:
+            while len(sec_b_data) < 3:
                 sec_b_data.append([Paragraph("&nbsp;", table_cell)] * 4)
 
             sec_b_table = Table(sec_b_data, colWidths=[58 * mm, 71 * mm, 71 * mm, 73 * mm])
@@ -480,8 +528,8 @@ class BinaryReportRenderEngine:
                 ('BACKGROUND', (0, 0), (-1, 0), NAVY),
                 ('BOX', (0, 0), (-1, -1), 0.75, NAVY),
                 ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-                ('TOPPADDING', (0, 0), (-1, -1), 3.5),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
+                ('TOPPADDING', (0, 0), (-1, -1), 2),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ]))
             story.append(sec_b_table)
@@ -498,59 +546,6 @@ class BinaryReportRenderEngine:
         if not section_c_iep and sec_c_ver:
             story.append(Paragraph(f"No learner goals recorded for version {sec_c_ver}.", table_cell))
         else:
-            story.append(Paragraph("Selection of Barriers and Qualifiers for Learning Barriers and Facilitators", section_title_style))
-            story.append(Paragraph("Based on the teacher's observation, utilize the standardized DepEd assessment matrix below:", subtitle_style))
-
-            qual_data = [
-                [
-                    Paragraph("DIFFICULTIES<br/>(select all relevant categories)", table_hdr),
-                    Paragraph("Qualifier for Learning Barriers", table_hdr),
-                    Paragraph("Qualifier for Learning Facilitators", table_hdr),
-                ],
-                [
-                    Paragraph(
-                        "• Difficulty in Displaying Interpersonal Behavior<br/>"
-                        "• Difficulty in Basic Learning &amp; Applying Knowledge<br/>"
-                        "• Difficulty in Communicating<br/>"
-                        "• Difficulty in Mobility<br/>"
-                        "• Difficulty in Hearing<br/>"
-                        "• Difficulty in Seeing<br/>"
-                        "• Difficulty in Remembering or Concentrating<br/>"
-                        "• Difficulty in Performing Adaptive Skills",
-                        table_cell_small
-                    ),
-                    Paragraph(
-                        "<b>1. No barrier:</b> no manifestation<br/>"
-                        "<b>2. Mild barrier:</b> 1-2 manifestations<br/>"
-                        "<b>3. Moderate barrier:</b> 3-4 manifestations<br/>"
-                        "<b>4. Severe barrier:</b> 5 and beyond<br/>"
-                        "<i>(Characteristics manifestation)</i>",
-                        table_cell_small
-                    ),
-                    Paragraph(
-                        "<b>No barrier:</b> no manifestation (Parents)<br/>"
-                        "<b>Mild barrier:</b> 1-2 manifestations (SPED / OT)<br/>"
-                        "<b>Moderate barrier:</b> 3-4 manifestations (SPED, Reg. Teacher, Parents)<br/>"
-                        "<b>Severe barrier:</b> 5 and beyond (Multi-Disciplinary Team)<br/>"
-                        "<i>Note: Needed Facilitator depends upon the Doctor's recommendation.</i>",
-                        table_cell_small
-                    ),
-                ]
-            ]
-            qual_table = Table(qual_data, colWidths=[90 * mm, 88 * mm, 95 * mm])
-            qual_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), NAVY),
-                ('BOX', (0, 0), (-1, -1), 0.75, NAVY),
-                ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-                ('TOPPADDING', (0, 0), (-1, -1), 3),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ]))
-            story.append(qual_table)
-            story.append(Spacer(1, 4 * mm))
-
-            story.append(Paragraph(sec_c_title_text, section_title_style))
-
             goal_1_name = "CARE SKILLS"
             goal_1_annual = f"At the end of the year {student_name} can demonstrate understanding of the basic concepts in daily self-care routines including handwashing, toileting, dressing, and managing personal belongings with visual supports and minimal adult assistance."
             
@@ -780,11 +775,11 @@ class BinaryReportRenderEngine:
             ],
             [
                 Paragraph(f"<b>{esc(resolved_teacher.upper())}</b>", sig_name_style),
-                Paragraph(f"<b>{esc(student_name.upper())}</b>", sig_name_style),
+                Paragraph(f"<b>{esc(parent_val.upper())}</b>", sig_name_style),
             ],
             [
                 Paragraph("Teacher", sig_label_style),
-                Paragraph("Student", sig_label_style),
+                Paragraph("Parent / Guardian", sig_label_style),
             ],
         ]
 

@@ -529,10 +529,8 @@ describe("ViewStudentRecords Component", () => {
     });
   });
 
-  it("invokes window.print when clicking PRINT RECORD", async () => {
+  it("does not render PRINT RECORD or Age filter, keeping only Grade filter and PDF export actions", async () => {
     const user = userEvent.setup();
-    const printSpy = vi.fn();
-    window.print = printSpy;
 
     render(
       <MemoryRouter>
@@ -541,6 +539,11 @@ describe("ViewStudentRecords Component", () => {
     );
 
     await screen.findByText("Alice Johnson");
+
+    // Verify Grade filter is present and Age filter is removed
+    expect(screen.getByLabelText(/filter by grade/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/filter by age/i)).not.toBeInTheDocument();
+
     const selectButtons = screen.getAllByRole("button", { name: /select/i });
     await user.click(selectButtons[0]);
 
@@ -550,10 +553,9 @@ describe("ViewStudentRecords Component", () => {
     const nextBtn2 = await screen.findByRole("button", { name: /next →/i });
     await user.click(nextBtn2);
 
-    const printBtn = await screen.findByRole("button", { name: /print record/i });
-    await user.click(printBtn);
-
-    expect(printSpy).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: /print record/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /e-sign & export/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /export pdf/i })).toBeInTheDocument();
   });
 
   it("preserves and restores chosen versions across session using sessionStorage", async () => {

@@ -799,7 +799,7 @@ select option,
 
 /* ── Colorful Greeting Hero Banner ──────────────────── */
 .overview-welcome {
-  background: linear-gradient(135deg, #2b77c4 0%, #3d9de8 55%, #5aabf0 100%);
+  background: linear-gradient(135deg, #5aabf0 0%, #3d9de8 55%, #2b77c4 100%);
   border-radius: 16px;
   padding: 30px 36px;
   color: #ffffff;
@@ -4065,3 +4065,32 @@ select option,
     padding-top: 6px;
   }
 }
+
+/* ── Native View Transitions + Inner Form Reveal ────────────────── */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes npInnerReveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.np-inner-reveal {
+  animation: npInnerReveal 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .np-inner-reveal {
+    animation: none;
+  }
+}
+

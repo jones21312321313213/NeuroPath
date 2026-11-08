@@ -321,23 +321,43 @@ function PlanRowList({
   );
 }
 
+function resolveStudentDisplayName(s) {
+  if (!s) return "Student";
+  const candidate = String(s.studentName || s.name || "").trim();
+  if (
+    !candidate ||
+    candidate.startsWith("gAAAAA") ||
+    candidate.startsWith("[Encrypted")
+  ) {
+    return (
+      s.profileDetails?.studentName ||
+      s.profileDetails?.learnerName ||
+      s.learnerName ||
+      candidate ||
+      "Student"
+    );
+  }
+  return candidate;
+}
+
 // Student grid (shared selector)
 function StudentGrid({ students, selectedID, onSelect }) {
   return (
     <div className="ts-student-grid">
       {students.map((s) => {
         const isSelected = selectedID === s.studentID;
+        const displayName = resolveStudentDisplayName(s);
         return (
           <div
             key={s.studentID}
             className={`ts-student-card ${isSelected ? "selected" : ""}`}
-            onClick={() => onSelect(s)}
+            onClick={() => onSelect({ ...s, studentName: displayName, name: displayName })}
           >
             <div className="ts-avatar">
-              {getInitials(s.studentName || s.name)}
+              {getInitials(displayName)}
             </div>
             <div className="ts-student-meta">
-              <div className="ts-student-name">{s.studentName || s.name}</div>
+              <div className="ts-student-name">{displayName}</div>
               {s.grade ? (
                 <span className="ts-student-tag">Grade {s.grade}</span>
               ) : (

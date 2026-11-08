@@ -245,5 +245,30 @@ describe("LoginPage", () => {
     const emailInput = screen.getByLabelText(/email address/i);
     expect(emailInput).toHaveValue("state_user@school.org");
   });
+
+  it("displays friendly rate-limit message when login request is throttled", async () => {
+    login.mockRejectedValueOnce(new Error("Request was throttled. Expected available in 30 seconds."));
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByLabelText(/email address/i), "jane@example.com");
+    await user.type(screen.getByLabelText(/^password/i), "wrong");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(
+      await screen.findByText("Login tries limits, try again in 30 secs"),
+    ).toBeInTheDocument();
+  });
+
+  it("renders a top-left back icon link to the landing page", async () => {
+    const onNavigateHome = vi.fn();
+    const user = userEvent.setup();
+    renderPage({ onNavigateHome });
+
+    const backLink = screen.getByRole("link", { name: /back to landing page/i });
+    expect(backLink).toHaveAttribute("href", "/");
+    await user.click(backLink);
+    expect(onNavigateHome).toHaveBeenCalledTimes(1);
+  });
 });
 

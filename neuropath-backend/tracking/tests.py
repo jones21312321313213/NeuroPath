@@ -303,6 +303,16 @@ class BinaryReportRenderEngineTestCase(TestCase):
         self.assertEqual(len(reader.pages), 6)
         p1 = reader.pages[0]
         self.assertGreater(p1.mediabox.width, p1.mediabox.height)
+        p1_text = p1.extract_text()
+        self.assertNotIn("Learner Reference No. (LRN):", p1_text)
+        self.assertNotIn("ASD Developmental Baseline:", p1_text)
+
+        p3_text = " ".join(reader.pages[2].extract_text().split())
+        self.assertIn("CONSIDERATIONS OF SPECIAL FACTORS", p3_text)
+        self.assertIn("Based on the teacher's observation, utilize the standardized DepEd assessment matrix below:", p3_text)
+
+        p6_text = " ".join(reader.pages[5].extract_text().split())
+        self.assertIn("Parent / Guardian", p6_text)
 
 
 class TrackingAuthAndTenantIsolationTests(TestCase):

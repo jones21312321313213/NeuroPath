@@ -504,17 +504,26 @@ function GenerateTab({ onSave, setActivePage, onDraftStatusChange, promptNavigat
             {directory.map((student) => {
               const isSelected =
                 selectedStudent?.studentID === student.studentID;
+              const rawName = String(student.studentName || student.name || "").trim();
+              const displayName =
+                !rawName || rawName.startsWith("gAAAAA") || rawName.startsWith("[Encrypted")
+                  ? student.profileDetails?.studentName ||
+                    student.profileDetails?.learnerName ||
+                    student.learnerName ||
+                    rawName ||
+                    "Student"
+                  : rawName;
               return (
                 <div
                   key={student.studentID}
                   className={`ts-student-card ${isSelected ? "selected" : ""}`}
-                  onClick={() => handleSelectStudent(student)}
+                  onClick={() => handleSelectStudent({ ...student, studentName: displayName })}
                 >
                   <div className="ts-avatar">
-                    {getInitials(student.studentName)}
+                    {getInitials(displayName)}
                   </div>
                   <div className="ts-student-meta">
-                    <div className="ts-student-name">{student.studentName}</div>
+                    <div className="ts-student-name">{displayName}</div>
                     <span className="ts-student-tag">Student</span>
                   </div>
                   <div className="ts-student-check">
@@ -1377,20 +1386,31 @@ function ManageStrategiesTab({ setActivePage, onGoToGenerate }) {
         />
       ) : (
         <div className="ts-student-grid">
-          {filteredStudents.map((s) => (
-            <div
-              key={s.studentID}
-              className="ts-student-card"
-              onClick={() => handleSelectStudent(s)}
-            >
-              <div className="ts-avatar">{getInitials(s.studentName)}</div>
-              <div className="ts-student-meta">
-                <div className="ts-student-name">{s.studentName}</div>
-                <span className="ts-student-tag">Student</span>
+          {filteredStudents.map((s) => {
+            const rawName = String(s.studentName || s.name || "").trim();
+            const displayName =
+              !rawName || rawName.startsWith("gAAAAA") || rawName.startsWith("[Encrypted")
+                ? s.profileDetails?.studentName ||
+                  s.profileDetails?.learnerName ||
+                  s.learnerName ||
+                  rawName ||
+                  "Student"
+                : rawName;
+            return (
+              <div
+                key={s.studentID}
+                className="ts-student-card"
+                onClick={() => handleSelectStudent({ ...s, studentName: displayName })}
+              >
+                <div className="ts-avatar">{getInitials(displayName)}</div>
+                <div className="ts-student-meta">
+                  <div className="ts-student-name">{displayName}</div>
+                  <span className="ts-student-tag">Student</span>
+                </div>
+                <div className="ts-student-check" />
               </div>
-              <div className="ts-student-check" />
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

@@ -12,7 +12,76 @@ import {
   CheckIcon,
   WarningIcon,
   CalendarIcon,
+  CloseIcon,
+  SparklesIcon,
 } from "../components/ui/icons";
+
+const RELEASE_NOTES = [
+  {
+    version: "v1.2.0",
+    date: "November 2026",
+    isLatest: true,
+    summary: "Outcome Monitoring alignment, R-GORI pedagogical inspection, DepEd PDF export updates, and AI rate-limit resilience.",
+    changes: [
+      {
+        tag: "New Feature",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
+        text: "Interactive R-GORI Pedagogical Compliance Inspection dialog with 4-factor goal scoring in IEP draft reviews.",
+      },
+      {
+        tag: "New Feature",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
+        text: "Outcome Monitoring executive classroom KPIs, 70% target milestone benchmark lines, predictive trend forecasting, and behavioral observation logging.",
+      },
+      {
+        tag: "Compliance",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
+        text: "Updated DepEd Student Record PDF template: relocated assessment matrix under Section B Special Factors, streamlined Page 1 demographics, and added Parent/Guardian sign-off block.",
+      },
+      {
+        tag: "UI Polish",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
+        text: "Streamlined View IEP actions (inline Edit/Delete IEP, Archive Version beside date), 10-second AI regenerate cooldown, and clearer login rate-limit messaging.",
+      },
+    ],
+  },
+  {
+    version: "v1.1.0",
+    date: "October 2026",
+    isLatest: false,
+    summary: "Standardized resource exports, RA 10173 data privacy hardening, and multi-engine AI fallbacks.",
+    changes: [
+      {
+        tag: "New Feature",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
+        text: "Standardized PDF exports for Lesson Plans, Teaching Strategies, and Visual Aids.",
+      },
+      {
+        tag: "Security",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
+        text: "RA 10173 Data Privacy Act consent workflow and Fernet AES encryption at rest with resilient student name resolution.",
+      },
+      {
+        tag: "UI Polish",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
+        text: "Interactive onboarding tutorial, session inactivity auto-logout warnings, and multi-tab synchronization.",
+      },
+    ],
+  },
+  {
+    version: "v1.0.0",
+    date: "September 2026",
+    isLatest: false,
+    summary: "Initial production release of NeuroPath for Special Education teachers.",
+    changes: [
+      {
+        tag: "New Feature",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
+        text: "Core Student Profiling, AI-Assisted IEP Generation, Lesson Plan Builder, Teaching Strategies, and Visual Aid Studio.",
+      },
+    ],
+  },
+];
 
 const features = [
   {
@@ -61,7 +130,18 @@ function FeatureCard({ feature, index }) {
 
 export default function LandingPage({ onGetStarted }) {
   const [scrolled, setScrolled] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
+  const [showVersionPopup, setShowVersionPopup] = useState(true);
+  const [isPopupHovered, setIsPopupHovered] = useState(false);
   const heroRef = useRef(null);
+
+  useEffect(() => {
+    if (!showVersionPopup || isPopupHovered) return;
+    const timer = setTimeout(() => {
+      setShowVersionPopup(false);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [showVersionPopup, isPopupHovered]);
 
   useEffect(() => {
     // 1. Intersection Observer for fade-in animations
@@ -100,6 +180,25 @@ export default function LandingPage({ onGetStarted }) {
   }, []);
 
   const navigate = useNavigate();
+
+  const handleNavigateLogin = () => {
+    if (onGetStarted) {
+      onGetStarted();
+    } else if (typeof document !== "undefined" && typeof document.startViewTransition === "function") {
+      document.startViewTransition(() => navigate("/login"));
+    } else {
+      navigate("/login");
+    }
+  };
+
+  const handleNavigateRegister = () => {
+    if (typeof document !== "undefined" && typeof document.startViewTransition === "function") {
+      document.startViewTransition(() => navigate("/register"));
+    } else {
+      navigate("/register");
+    }
+  };
+
   return (
     <div
       className="min-h-screen font-sans overflow-x-hidden"
@@ -125,7 +224,7 @@ export default function LandingPage({ onGetStarted }) {
             </span>
           </div>
 
-          <div className="flex items-center gap-6 sm:gap-8">
+          <div className="flex items-center gap-4 sm:gap-6">
             <a
               href="features"
               onClick={(e) => {
@@ -151,8 +250,15 @@ export default function LandingPage({ onGetStarted }) {
               About
             </a>
             <button
+              type="button"
+              onClick={() => setShowChangelog(true)}
+              className="text-sm font-medium transition-colors text-[#5a9dbf] hover:text-[#1a6fa8] cursor-pointer"
+            >
+              Release Notes
+            </button>
+            <button
               href="signin"
-              onClick={onGetStarted}
+              onClick={handleNavigateLogin}
               className={`text-sm font-semibold transition-all active:scale-95 text-[#1a6fa8] border-[1.5px] border-[#82C7FF] bg-white shadow-[0_1px_4px_rgba(130,199,255,0.2)] hover:bg-[#e8f5ff] hover:border-[#2589c7]
                 ${scrolled ? "px-3.5 py-1.5 rounded-full text-xs" : "px-4 py-2 rounded-xl"}`}
             >
@@ -161,6 +267,60 @@ export default function LandingPage({ onGetStarted }) {
           </div>
         </div>
       </nav>
+
+      {/* TOP-RIGHT 5-SECOND VERSION POPUP (STAYS OPEN WHILE HOVERED) */}
+      {showVersionPopup && (
+        <div
+          role="status"
+          aria-label="Latest version release popup"
+          onMouseEnter={() => setIsPopupHovered(true)}
+          onMouseLeave={() => setIsPopupHovered(false)}
+          className="fixed top-3 right-3 z-[70] max-w-xs w-full bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-[#82C7FF]/60 p-4 transition-all duration-300"
+          style={{ top: "12px", right: "12px" }}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-[#e8f5ff] text-[#1a6fa8]">
+                <SparklesIcon className="w-4 h-4" aria-hidden="true" />
+              </span>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-extrabold text-[#1a6fa8]">
+                    Version v1.2.0
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase bg-[#e8f5ff] text-[#1a6fa8]">
+                    New
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">
+                  NeuroPath has been updated with R-GORI inspection &amp; DepEd PDF enhancements.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowVersionPopup(false)}
+              aria-label="Dismiss version popup"
+              className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
+            >
+              <CloseIcon className="w-3.5 h-3.5" aria-hidden="true" />
+            </button>
+          </div>
+          <div className="mt-2.5 pt-2 border-t border-slate-100 flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setShowVersionPopup(false);
+                setShowChangelog(true);
+              }}
+              aria-label="View version v1.2.0 changelog"
+              className="text-xs font-bold text-[#2589c7] hover:text-[#1a6fa8] underline underline-offset-2 cursor-pointer flex items-center gap-1"
+            >
+              View Changelogs →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* HERO */}
       <section
@@ -242,7 +402,7 @@ export default function LandingPage({ onGetStarted }) {
 
           <div className="fade-in-init opacity-0 translate-y-4 transition-all duration-700 ease-out delay-200 flex items-center gap-4 w-full sm:w-auto">
             <button
-              onClick={onGetStarted}
+              onClick={handleNavigateLogin}
               className="group flex items-center justify-center gap-2 text-white font-semibold px-6 py-3.5 rounded-xl transition-all active:scale-[0.98] w-full sm:w-auto"
               style={{
                 background: "linear-gradient(135deg, #2589c7 0%, #82C7FF 100%)",
@@ -279,7 +439,7 @@ export default function LandingPage({ onGetStarted }) {
             <div
               className="px-4 py-3 flex items-center justify-between"
               style={{
-                background: "linear-gradient(135deg, #1e6fbf 0%, #2589c7 50%, #5aabf0 100%)",
+                background: "linear-gradient(135deg, #1a6fa8 0%, #2589c7 50%, #5aabf0 100%)",
                 borderBottom: "1px solid #93c5fd",
               }}
             >
@@ -292,9 +452,9 @@ export default function LandingPage({ onGetStarted }) {
               <span
                 className="text-[10px] font-bold px-2.5 py-0.5 rounded-full tracking-wide uppercase shadow-sm"
                 style={{
-                  background: "#dcfce7",
-                  border: "1px solid #86efac",
-                  color: "#166534",
+                  background: "#e8f5ff",
+                  border: "1px solid #82C7FF",
+                  color: "#1a6fa8",
                 }}
               >
                 ● Active IEP
@@ -305,11 +465,11 @@ export default function LandingPage({ onGetStarted }) {
               {/* Student Header */}
               <div
                 className="flex items-center gap-3 p-3 rounded-xl transition-colors"
-                style={{ background: "#f0f7ff", border: "1px solid #bfdbfe" }}
+                style={{ background: "#f0f8ff", border: "1px solid #bfdbfe" }}
               >
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm text-white shadow-sm flex-shrink-0"
-                  style={{ background: "linear-gradient(135deg, #1e6fbf, #3b82f6)" }}
+                  style={{ background: "linear-gradient(135deg, #1a6fa8, #2589c7)" }}
                 >
                   AS
                 </div>
@@ -317,19 +477,19 @@ export default function LandingPage({ onGetStarted }) {
                   <p className="text-sm font-bold truncate text-slate-800">
                     Angelo Singson
                   </p>
-                  <p className="text-xs font-medium text-sky-700">
+                  <p className="text-xs font-medium text-[#2589c7]">
                     Grade 1 · SPED Learner
                   </p>
                 </div>
                 <span
                   className="text-[10px] font-bold px-2.5 py-1 rounded-full flex-shrink-0 inline-flex items-center gap-1"
                   style={{
-                    background: "#ecfdf5",
-                    border: "1px solid #a7f3d0",
-                    color: "#059669",
+                    background: "#e8f5ff",
+                    border: "1px solid #82C7FF",
+                    color: "#1a6fa8",
                   }}
                 >
-                  <CheckIcon className="w-3 h-3 text-emerald-600" aria-hidden="true" />
+                  <CheckIcon className="w-3 h-3 text-[#1a6fa8]" aria-hidden="true" />
                   On Track
                 </span>
               </div>
@@ -347,29 +507,29 @@ export default function LandingPage({ onGetStarted }) {
                 <div className="grid grid-cols-2 gap-2">
                   <div
                     className="rounded-xl p-2.5 text-left border"
-                    style={{ background: "#f8fafc", borderColor: "#e2e8f0" }}
+                    style={{ background: "#f8fbff", borderColor: "#dbeafe" }}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-semibold text-slate-600">Mastery Rate</span>
-                      <ChartBarIcon className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
+                      <ChartBarIcon className="w-3.5 h-3.5 text-[#2589c7]" aria-hidden="true" />
                     </div>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-lg font-bold text-slate-800">78%</span>
-                      <span className="text-[10px] text-emerald-600 font-semibold">↑ 4% gain</span>
+                      <span className="text-lg font-bold text-[#1a3a4a]">78%</span>
+                      <span className="text-[10px] text-[#2589c7] font-semibold">↑ 4% gain</span>
                     </div>
                     <span className="text-[10px] text-slate-500 block">Avg across 5 domains</span>
                   </div>
 
                   <div
                     className="rounded-xl p-2.5 text-left border"
-                    style={{ background: "#f8fafc", borderColor: "#e2e8f0" }}
+                    style={{ background: "#f8fbff", borderColor: "#dbeafe" }}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-semibold text-slate-600">Goals on Track</span>
-                      <TargetIcon className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
+                      <TargetIcon className="w-3.5 h-3.5 text-[#2589c7]" aria-hidden="true" />
                     </div>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-lg font-bold text-emerald-600">4</span>
+                      <span className="text-lg font-bold text-[#1a6fa8]">4</span>
                       <span className="text-[10px] text-slate-400 font-normal">/ 5 domains</span>
                     </div>
                     <span className="text-[10px] text-slate-500 block">≥ 70% benchmark</span>
@@ -377,30 +537,30 @@ export default function LandingPage({ onGetStarted }) {
 
                   <div
                     className="rounded-xl p-2.5 text-left border"
-                    style={{ background: "#f8fafc", borderColor: "#e2e8f0" }}
+                    style={{ background: "#f8fbff", borderColor: "#dbeafe" }}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-semibold text-slate-600">Needs Support</span>
-                      <WarningIcon className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
+                      <WarningIcon className="w-3.5 h-3.5 text-[#5aabf0]" aria-hidden="true" />
                     </div>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-lg font-bold text-amber-600">1</span>
-                      <span className="text-[10px] text-amber-600 font-medium">Domain</span>
+                      <span className="text-lg font-bold text-[#2589c7]">1</span>
+                      <span className="text-[10px] text-[#4a7a94] font-medium">Domain</span>
                     </div>
                     <span className="text-[10px] text-slate-500 block">&lt; 70% threshold</span>
                   </div>
 
                   <div
                     className="rounded-xl p-2.5 text-left border"
-                    style={{ background: "#f8fafc", borderColor: "#e2e8f0" }}
+                    style={{ background: "#f8fbff", borderColor: "#dbeafe" }}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-semibold text-slate-600">Target Benchmark</span>
-                      <CalendarIcon className="w-3.5 h-3.5 text-sky-600" aria-hidden="true" />
+                      <CalendarIcon className="w-3.5 h-3.5 text-[#2589c7]" aria-hidden="true" />
                     </div>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-lg font-bold text-sky-700">70%</span>
-                      <span className="text-[10px] text-sky-600 font-semibold">Standard</span>
+                      <span className="text-lg font-bold text-[#1a6fa8]">70%</span>
+                      <span className="text-[10px] text-[#2589c7] font-semibold">Standard</span>
                     </div>
                     <span className="text-[10px] text-slate-500 block">DepEd mastery criteria</span>
                   </div>
@@ -411,21 +571,21 @@ export default function LandingPage({ onGetStarted }) {
               <div className="pt-1">
                 <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 mb-2">
                   <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+                    <span className="w-2 h-2 rounded-full bg-[#2589c7] inline-block" />
                     DepEd Learning Domains
                   </span>
-                  <div className="flex items-center gap-1 text-[10px] text-sky-700 font-bold bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-sky-500" />
+                  <div className="flex items-center gap-1 text-[10px] text-[#1a6fa8] font-bold bg-[#f0f8ff] px-2 py-0.5 rounded border border-[#bfdbfe]">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#2589c7]" />
                     70% Target Benchmark
                   </div>
                 </div>
 
                 <div className="space-y-2.5">
                   {[
-                    { label: "Communication", value: 88, status: "On Track", color: "#16a34a", bg: "linear-gradient(90deg, #3b82f6, #16a34a)" },
-                    { label: "Reading", value: 82, status: "On Track", color: "#16a34a", bg: "linear-gradient(90deg, #38bdf8, #2563eb)" },
-                    { label: "Mathematics", value: 74, status: "On Track", color: "#16a34a", bg: "linear-gradient(90deg, #60a5fa, #3b82f6)" },
-                    { label: "Social Skills", value: 64, status: "Needs Support", color: "#d97706", bg: "linear-gradient(90deg, #f59e0b, #d97706)" },
+                    { label: "Communication", value: 88, status: "On Track", bg: "linear-gradient(90deg, #1a6fa8, #2589c7)" },
+                    { label: "Reading", value: 82, status: "On Track", bg: "linear-gradient(90deg, #2589c7, #3d9de8)" },
+                    { label: "Mathematics", value: 74, status: "On Track", bg: "linear-gradient(90deg, #3d9de8, #5aabf0)" },
+                    { label: "Social Skills", value: 64, status: "Needs Support", bg: "linear-gradient(90deg, #82C7FF, #5aabf0)" },
                   ].map((item) => (
                     <div key={item.label} className="group">
                       <div className="flex justify-between items-center text-[11px] mb-1">
@@ -434,14 +594,14 @@ export default function LandingPage({ onGetStarted }) {
                           <span
                             className="text-[9px] font-bold px-1.5 py-0.2 rounded"
                             style={{
-                              background: item.value >= 70 ? "#ecfdf5" : "#fffbeb",
-                              color: item.value >= 70 ? "#059669" : "#b45309",
-                              border: `1px solid ${item.value >= 70 ? "#a7f3d0" : "#fde68a"}`,
+                              background: item.value >= 70 ? "#e8f5ff" : "#f0f8ff",
+                              color: item.value >= 70 ? "#1a6fa8" : "#4a7a94",
+                              border: `1px solid ${item.value >= 70 ? "#82C7FF" : "#bfdbfe"}`,
                             }}
                           >
                             {item.status}
                           </span>
-                          <span className="font-bold text-slate-800 min-w-[28px] text-right">
+                          <span className="font-bold text-[#1a3a4a] min-w-[28px] text-right">
                             {item.value}%
                           </span>
                         </div>
@@ -449,7 +609,7 @@ export default function LandingPage({ onGetStarted }) {
                       <div className="relative h-2 rounded-full overflow-hidden bg-slate-100 border border-slate-200">
                         {/* 70% Target Benchmark indicator line */}
                         <div
-                          className="absolute top-0 bottom-0 z-10 w-0.5 bg-sky-600 opacity-60"
+                          className="absolute top-0 bottom-0 z-10 w-0.5 bg-[#1a6fa8] opacity-60"
                           style={{ left: "70%" }}
                           title="70% Target Benchmark"
                         />
@@ -469,14 +629,14 @@ export default function LandingPage({ onGetStarted }) {
               {/* Progress Log Strip Footer */}
               <div
                 className="flex items-center justify-between px-3 py-2 rounded-lg text-[10px] text-slate-600"
-                style={{ background: "#f8fafc", border: "1px solid #e2e8f0" }}
+                style={{ background: "#f0f8ff", border: "1px solid #dbeafe" }}
               >
                 <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#2589c7] animate-pulse" />
                   <span className="font-medium">Classroom Trend:</span>
-                  <span className="font-semibold text-slate-700">Sep 62% → Oct 78%</span>
+                  <span className="font-semibold text-[#1a3a4a]">Sep 62% → Oct 78%</span>
                 </div>
-                <span className="font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                <span className="font-bold text-[#1a6fa8] bg-[#e8f5ff] px-1.5 py-0.5 rounded border border-[#82C7FF]/60">
                   +16% Attainment
                 </span>
               </div>
@@ -556,7 +716,7 @@ export default function LandingPage({ onGetStarted }) {
               deserves a plan as unique as they are.
             </p>
             <button
-              onClick={() => navigate("/register")}
+              onClick={handleNavigateRegister}
               className="group flex items-center justify-center gap-2 font-bold px-6 py-4 rounded-xl shadow-lg active:scale-[0.98] transition-all w-full sm:w-auto text-sm"
               style={{ background: "#fff", color: "#1a6fa8" }}
               onMouseEnter={(e) =>
@@ -594,11 +754,109 @@ export default function LandingPage({ onGetStarted }) {
               NeuroPath
             </span>
           </div>
-          <p className="text-xs" style={{ color: "#82C7FF" }}>
-            © 2026 NeuroPath. Empowering every learner's journey.
-          </p>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setShowChangelog(true)}
+              className="text-xs font-semibold text-[#2589c7] hover:text-[#1a6fa8] underline underline-offset-2 cursor-pointer"
+            >
+              Changelog &amp; Release Notes (v1.2.0)
+            </button>
+            <span className="text-xs text-slate-300">•</span>
+            <p className="text-xs" style={{ color: "#82C7FF" }}>
+              © 2026 NeuroPath. Empowering every learner's journey.
+            </p>
+          </div>
         </div>
       </footer>
+
+      {/* CHANGELOG & RELEASE NOTES MODAL */}
+      {showChangelog && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="changelog-modal-title"
+          onClick={() => setShowChangelog(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl border border-[#82C7FF]/40 max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-[#f0f8ff]/60">
+              <div className="flex items-center gap-2.5">
+                <SparklesIcon className="w-5 h-5 text-[#1a6fa8]" aria-hidden="true" />
+                <div>
+                  <h2 id="changelog-modal-title" className="text-lg font-extrabold text-[#1a3a4a]">
+                    Changelog &amp; Release Notes
+                  </h2>
+                  <p className="text-xs text-[#5a9dbf]">
+                    What's new in NeuroPath
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowChangelog(false)}
+                aria-label="Close changelog modal"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <CloseIcon className="w-5 h-5" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-6">
+              {RELEASE_NOTES.map((rel) => (
+                <div
+                  key={rel.version}
+                  className="rounded-xl border border-slate-200/80 p-5 bg-slate-50/50"
+                >
+                  <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-extrabold text-[#1a6fa8]">
+                        {rel.version}
+                      </span>
+                      {rel.isLatest && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-800 border-blue-200">
+                          Latest Release
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs font-medium text-slate-500">
+                      {rel.date}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 mb-3 leading-relaxed">
+                    {rel.summary}
+                  </p>
+                  <ul className="space-y-2">
+                    {rel.changes.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2.5 text-xs text-slate-700">
+                        <span
+                          className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold border ${item.tagColor}`}
+                        >
+                          {item.tag}
+                        </span>
+                        <span className="leading-relaxed">{item.text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowChangelog(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#1a6fa8] hover:bg-[#155a8a] transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
