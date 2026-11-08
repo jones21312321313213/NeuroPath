@@ -48,10 +48,10 @@ describe("IepVersionDetailsModal", () => {
         studentName="Leo Miller"
       />
     );
-    expect(screen.queryByText(/IEP Version 2 Details/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /IEP Version 2/i })).not.toBeInTheDocument();
   });
 
-  it("renders version metadata, accommodations, and fetches goals when open", async () => {
+  it("renders streamlined modal with goals associated with version when open", async () => {
     const handleClose = vi.fn();
     const handleSelect = vi.fn();
 
@@ -65,13 +65,8 @@ describe("IepVersionDetailsModal", () => {
       />
     );
 
-    expect(screen.getByRole("heading", { name: /IEP Version 2 Details/i })).toBeInTheDocument();
-    expect(screen.getByText("Transition Program")).toBeInTheDocument();
-    expect(screen.getAllByText(/October 15, 2026/i).length).toBeGreaterThanOrEqual(1);
-    expect(
-      screen.getByText("Extended time for tests, sensory breaks every 30 minutes.")
-    ).toBeInTheDocument();
-    expect(screen.getByText("Auditory processing sensitivity")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^IEP Version 2$/i })).toBeInTheDocument();
+    expect(screen.getByText("Goals Associated with Version 2")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(iepAPI.listGoalsByIep).toHaveBeenCalledWith(201);

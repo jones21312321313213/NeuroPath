@@ -696,7 +696,7 @@ function GenerateTab({ onSave, setActivePage, onDraftStatusChange, promptNavigat
                         }}
                       >
                         <EyeIcon className="w-3.5 h-3.5" aria-hidden="true" />
-                        <span>View Full Details</span>
+                        <span>View Full Version</span>
                       </button>
                       {isSelected && (
                         <span className="ts-iep-selected-pill">
