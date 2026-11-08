@@ -118,7 +118,7 @@ export default function RegisterPage({ onNavigateLogin, onNavigateHome }) {
 
   return (
     <div
-      className="min-h-screen grid grid-cols-1 lg:grid-cols-12 font-sans relative np-page-enter"
+      className="min-h-screen grid grid-cols-1 lg:grid-cols-12 font-sans relative"
       style={{ background: "#fff" }}
     >
       {/* Top-Left Back to Landing Page Icon */}
@@ -156,7 +156,7 @@ export default function RegisterPage({ onNavigateLogin, onNavigateHome }) {
 
         {/* Steps card — centered */}
         <div
-          className="relative z-10 max-w-sm w-full rounded-2xl p-6 shadow-2xl"
+          className="relative z-10 max-w-sm w-full rounded-2xl p-6 shadow-2xl np-inner-reveal"
           style={{
             background: "rgba(255,255,255,0.15)",
             border: "1px solid rgba(255,255,255,0.3)",
@@ -249,7 +249,7 @@ export default function RegisterPage({ onNavigateLogin, onNavigateHome }) {
         className="col-span-1 lg:col-span-7 flex items-center justify-center p-6 sm:p-12 md:p-16 overflow-y-auto"
         style={{ background: "#fff" }}
       >
-        <div className="w-full max-w-md flex flex-col text-left">
+        <div className="w-full max-w-md flex flex-col text-left np-inner-reveal">
           <div className="mb-8">
             <h1
               className="text-2xl sm:text-3xl font-black tracking-tight mb-2"

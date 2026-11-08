@@ -4066,11 +4066,17 @@ select option,
   }
 }
 
-/* ── Subtle Page Transitions (Landing <-> Auth) ────────────────── */
-@keyframes npPageFadeIn {
+/* ── Native View Transitions + Inner Form Reveal ────────────────── */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes npInnerReveal {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -4078,12 +4084,12 @@ select option,
   }
 }
 
-.np-page-enter {
-  animation: npPageFadeIn 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+.np-inner-reveal {
+  animation: npInnerReveal 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .np-page-enter {
+  .np-inner-reveal {
     animation: none;
   }
 }

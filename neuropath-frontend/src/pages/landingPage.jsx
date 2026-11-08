@@ -133,7 +133,6 @@ export default function LandingPage({ onGetStarted }) {
   const [showChangelog, setShowChangelog] = useState(false);
   const [showVersionPopup, setShowVersionPopup] = useState(true);
   const [isPopupHovered, setIsPopupHovered] = useState(false);
-  const [isLeaving, setIsLeaving] = useState(false);
   const heroRef = useRef(null);
 
   useEffect(() => {
@@ -183,30 +182,26 @@ export default function LandingPage({ onGetStarted }) {
   const navigate = useNavigate();
 
   const handleNavigateLogin = () => {
-    if (isLeaving) return;
-    setIsLeaving(true);
-    setTimeout(() => {
-      if (onGetStarted) {
-        onGetStarted();
-      } else {
-        navigate("/login");
-      }
-    }, 200);
+    if (onGetStarted) {
+      onGetStarted();
+    } else if (typeof document !== "undefined" && typeof document.startViewTransition === "function") {
+      document.startViewTransition(() => navigate("/login"));
+    } else {
+      navigate("/login");
+    }
   };
 
   const handleNavigateRegister = () => {
-    if (isLeaving) return;
-    setIsLeaving(true);
-    setTimeout(() => {
+    if (typeof document !== "undefined" && typeof document.startViewTransition === "function") {
+      document.startViewTransition(() => navigate("/register"));
+    } else {
       navigate("/register");
-    }, 200);
+    }
   };
 
   return (
     <div
-      className={`min-h-screen font-sans overflow-x-hidden np-page-enter transition-all duration-200 ease-out ${
-        isLeaving ? "opacity-0 translate-y-1 pointer-events-none" : "opacity-100 translate-y-0"
-      }`}
+      className="min-h-screen font-sans overflow-x-hidden"
       style={{ background: "#f0f8ff", color: "#1a3a4a" }}
     >
       {/* NAV */}
