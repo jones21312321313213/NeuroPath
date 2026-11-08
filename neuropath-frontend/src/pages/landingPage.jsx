@@ -35,12 +35,12 @@ const RELEASE_NOTES = [
       },
       {
         tag: "Compliance",
-        tagColor: "bg-emerald-100 text-emerald-800 border-emerald-200",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
         text: "Updated DepEd Student Record PDF template: relocated assessment matrix under Section B Special Factors, streamlined Page 1 demographics, and added Parent/Guardian sign-off block.",
       },
       {
         tag: "UI Polish",
-        tagColor: "bg-amber-100 text-amber-800 border-amber-200",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
         text: "Streamlined View IEP actions (inline Edit/Delete IEP, Archive Version beside date), 10-second AI regenerate cooldown, and clearer login rate-limit messaging.",
       },
     ],
@@ -58,12 +58,12 @@ const RELEASE_NOTES = [
       },
       {
         tag: "Security",
-        tagColor: "bg-purple-100 text-purple-800 border-purple-200",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
         text: "RA 10173 Data Privacy Act consent workflow and Fernet AES encryption at rest with resilient student name resolution.",
       },
       {
         tag: "UI Polish",
-        tagColor: "bg-amber-100 text-amber-800 border-amber-200",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
         text: "Interactive onboarding tutorial, session inactivity auto-logout warnings, and multi-tab synchronization.",
       },
     ],
@@ -133,6 +133,7 @@ export default function LandingPage({ onGetStarted }) {
   const [showChangelog, setShowChangelog] = useState(false);
   const [showVersionPopup, setShowVersionPopup] = useState(true);
   const [isPopupHovered, setIsPopupHovered] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
   const heroRef = useRef(null);
 
   useEffect(() => {
@@ -180,9 +181,32 @@ export default function LandingPage({ onGetStarted }) {
   }, []);
 
   const navigate = useNavigate();
+
+  const handleNavigateLogin = () => {
+    if (isLeaving) return;
+    setIsLeaving(true);
+    setTimeout(() => {
+      if (onGetStarted) {
+        onGetStarted();
+      } else {
+        navigate("/login");
+      }
+    }, 200);
+  };
+
+  const handleNavigateRegister = () => {
+    if (isLeaving) return;
+    setIsLeaving(true);
+    setTimeout(() => {
+      navigate("/register");
+    }, 200);
+  };
+
   return (
     <div
-      className="min-h-screen font-sans overflow-x-hidden"
+      className={`min-h-screen font-sans overflow-x-hidden np-page-enter transition-all duration-200 ease-out ${
+        isLeaving ? "opacity-0 translate-y-1 pointer-events-none" : "opacity-100 translate-y-0"
+      }`}
       style={{ background: "#f0f8ff", color: "#1a3a4a" }}
     >
       {/* NAV */}
@@ -239,7 +263,7 @@ export default function LandingPage({ onGetStarted }) {
             </button>
             <button
               href="signin"
-              onClick={onGetStarted}
+              onClick={handleNavigateLogin}
               className={`text-sm font-semibold transition-all active:scale-95 text-[#1a6fa8] border-[1.5px] border-[#82C7FF] bg-white shadow-[0_1px_4px_rgba(130,199,255,0.2)] hover:bg-[#e8f5ff] hover:border-[#2589c7]
                 ${scrolled ? "px-3.5 py-1.5 rounded-full text-xs" : "px-4 py-2 rounded-xl"}`}
             >
@@ -383,7 +407,7 @@ export default function LandingPage({ onGetStarted }) {
 
           <div className="fade-in-init opacity-0 translate-y-4 transition-all duration-700 ease-out delay-200 flex items-center gap-4 w-full sm:w-auto">
             <button
-              onClick={onGetStarted}
+              onClick={handleNavigateLogin}
               className="group flex items-center justify-center gap-2 text-white font-semibold px-6 py-3.5 rounded-xl transition-all active:scale-[0.98] w-full sm:w-auto"
               style={{
                 background: "linear-gradient(135deg, #2589c7 0%, #82C7FF 100%)",
@@ -697,7 +721,7 @@ export default function LandingPage({ onGetStarted }) {
               deserves a plan as unique as they are.
             </p>
             <button
-              onClick={() => navigate("/register")}
+              onClick={handleNavigateRegister}
               className="group flex items-center justify-center gap-2 font-bold px-6 py-4 rounded-xl shadow-lg active:scale-[0.98] transition-all w-full sm:w-auto text-sm"
               style={{ background: "#fff", color: "#1a6fa8" }}
               onMouseEnter={(e) =>
@@ -798,7 +822,7 @@ export default function LandingPage({ onGetStarted }) {
                         {rel.version}
                       </span>
                       {rel.isLatest && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-800 border-blue-200">
                           Latest Release
                         </span>
                       )}

@@ -100,7 +100,7 @@ export default function LoginPage({
 
   return (
     <div
-      className="min-h-screen grid grid-cols-1 lg:grid-cols-12 font-sans relative"
+      className="min-h-screen grid grid-cols-1 lg:grid-cols-12 font-sans relative np-page-enter"
       style={{ background: "#fff" }}
     >
       {/* Top-Left Back to Landing Page Icon */}
