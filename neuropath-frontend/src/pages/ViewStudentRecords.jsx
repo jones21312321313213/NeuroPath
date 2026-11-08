@@ -385,10 +385,6 @@ function PageSectionBC({
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
     <div className="vsr-page">
       {/* Teacher Guidance / Multi-version documentation card */}
@@ -546,14 +542,6 @@ function PageSectionBC({
         <div className="vsr-action-btn-group">
           <button
             type="button"
-            className="btn btn-secondary vsr-print-btn"
-            onClick={handlePrint}
-            title="Print record"
-          >
-            PRINT RECORD
-          </button>
-          <button
-            type="button"
             className="btn btn-secondary vsr-esign-btn flex items-center gap-1.5"
             onClick={() => setIsSignatureModalOpen(true)}
             disabled={isExporting}
@@ -605,7 +593,6 @@ export default function ViewStudentRecords({ setActivePage }) {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [filterGrade, setFilterGrade] = useState("");
-  const [filterAge, setFilterAge] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 6;
 
@@ -904,10 +891,9 @@ export default function ViewStudentRecords({ setActivePage }) {
       const displayName = getStudentDisplayName(s);
       const matchName = displayName.toLowerCase().includes(search.toLowerCase());
       const matchGrade = filterGrade ? s.grade === parseInt(filterGrade) : true;
-      const matchAge = filterAge ? s.age === parseInt(filterAge) : true;
-      return matchName && matchGrade && matchAge;
+      return matchName && matchGrade;
     });
-  }, [students, search, filterGrade, filterAge]);
+  }, [students, search, filterGrade]);
 
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginatedStudents = useMemo(() => {
@@ -1020,23 +1006,6 @@ export default function ViewStudentRecords({ setActivePage }) {
                       </option>
                     ))}
                   </select>
-                  <select
-                    id="filter-age-select"
-                    aria-label="Filter by age"
-                    className="form-select om-filter-select"
-                    value={filterAge}
-                    onChange={(e) => {
-                      setFilterAge(e.target.value);
-                      setPage(1);
-                    }}
-                  >
-                    <option value="">Age</option>
-                    {[6, 7, 8, 9, 10, 11, 12].map((a) => (
-                      <option key={a} value={a}>
-                        {a}
-                      </option>
-                    ))}
-                  </select>
                 </div>
               </div>
 
@@ -1062,7 +1031,6 @@ export default function ViewStudentRecords({ setActivePage }) {
                       onAction={() => {
                         setSearch("");
                         setFilterGrade("");
-                        setFilterAge("");
                         setPage(1);
                       }}
                     />
