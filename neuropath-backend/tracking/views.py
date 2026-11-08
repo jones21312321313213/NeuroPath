@@ -344,11 +344,11 @@ class BinaryReportRenderEngine:
         story.append(PageBreak())
         story.append(Paragraph("I. Present Levels of Academic Achievement and Functional Performance (PLAAFP)", section_title_style))
 
-        present_eval = pd.get('presentEvaluation') or student_record.assessmentResult or "Fails to finish task/activity most of the time. Difficulty in concentrating and paying attention. Does certain repetitive behaviors when frustrated."
-        strengths = pd.get('academicStrengths') or "Spells words using alphabet blocks, pairs big and small letters, arranges sequential items from A-Z. Improved eye contact and familiar command responses."
-        needs = pd.get('academicNeeds') or student_record.support_needs or "Needs structured routines, visual task supports, shortened activities, sensory breaks, and positive reinforcement to improve attention and task completion."
-        concerns = pd.get('parentalConcerns') or "Parents desire enhanced functional communication, independent self-care skills (feeding/toilet), and improved peer interactions during group learning."
-        curriculum_impact = pd.get('curriculumImpact') or "Difficulty concentrating, inattentive without visual prompt, fails to complete structured tasks independently, impacting standard curriculum participation."
+        present_eval = pd.get('presentEvaluation') or student_record.assessmentResult or "No present level evaluation recorded on file."
+        strengths = pd.get('academicStrengths') or "No academic or functional strengths recorded on file."
+        needs = pd.get('academicNeeds') or student_record.support_needs or "No academic or functional needs recorded on file."
+        concerns = pd.get('parentalConcerns') or "No parental concerns recorded on file."
+        curriculum_impact = pd.get('curriculumImpact') or "No curriculum impact assessment recorded on file."
 
         def make_plaafp_block(title, content_text, min_lines=3):
             rows = [[Paragraph(f"<b>{title}</b>", banner_style)]]
@@ -543,59 +543,75 @@ class BinaryReportRenderEngine:
             sec_c_title_text += f" (Version {section_c_iep.version})"
         story.append(Paragraph(sec_c_title_text, section_title_style))
 
+        all_goals = []
+        if section_c_iep:
+            from resources.views import _sync_goals_from_generated_details
+            _sync_goals_from_generated_details(section_c_iep)
+            all_goals = list(section_c_iep.individual_goals.all()) if hasattr(section_c_iep, 'individual_goals') else []
+
         if not section_c_iep and sec_c_ver:
             story.append(Paragraph(f"No learner goals recorded for version {sec_c_ver}.", table_cell))
         else:
-            goal_1_name = "CARE SKILLS"
-            goal_1_annual = f"At the end of the year {student_name} can demonstrate understanding of the basic concepts in daily self-care routines including handwashing, toileting, dressing, and managing personal belongings with visual supports and minimal adult assistance."
-            
-            g1_rows_data = []
-            all_goals = []
-            if section_c_iep:
-                from resources.views import _sync_goals_from_generated_details
-                _sync_goals_from_generated_details(section_c_iep)
-                all_goals = list(section_c_iep.individual_goals.all()) if hasattr(section_c_iep, 'individual_goals') else []
-                if all_goals:
-                    g_first = all_goals[0]
-                    goal_1_name = g_first.subject_category or g_first.goalName or "CARE SKILLS"
-                    if g_first.annual_goal:
-                        goal_1_annual = g_first.annual_goal
-                    for r in g_first.objective_rows.all():
-                        g1_rows_data.append([
-                            Paragraph(esc(r.enroute_objectives or '—'), table_cell),
-                            Paragraph(esc(r.interventions_procedures or '—').replace('\n', '<br/>'), table_cell),
-                            Paragraph(esc(r.timeline_mins_session or '—'), table_cell_center),
-                            Paragraph(esc(r.individuals_responsible or 'SPED Teacher, Parents'), table_cell_center),
-                            Paragraph(esc(r.progress_instructional or 'Satisfactory progress observed'), table_cell),
-                            Paragraph(esc(r.remarks or 'Handwritten based on actual learning'), table_cell),
-                        ])
-
-            if not g1_rows_data and not section_c_iep:
-                g1_rows_data = [
+            if not all_goals:
+                sec_c_banner_row = [
+                    [Paragraph("NON-GRADED LEVEL — SECTION C: LEARNER'S GOALS", banner_style), "", "", "", "", ""],
+                    [Paragraph("<b>Status:</b> No approved IEP goals recorded for this learner yet.", table_cell_bold), "", "", "", "", ""],
                     [
-                        Paragraph("1. Show understanding of the basic concepts of daily self-care hygiene including handwashing, toileting, dressing, and managing personal belongings.<br/><b>(TP-CS-eT-NG-1)</b>", table_cell),
-                        Paragraph("<b>(Mother Tongue) Verbal</b><br/>• Demonstrate hand washing independently using proper steps (turn on water, apply soap, scrub, rinse, dry)<br/>• Distinguish things needed in handwashing and toileting", table_cell),
-                        Paragraph("Whole year round<br/><br/>15 to 20 minutes every day (based on learner's ability)", table_cell_center),
-                        Paragraph("SNED Teacher<br/><br/>Parents<br/><br/>Guardian", table_cell_center),
-                        Paragraph("Able to perform hand washing properly.<br/><br/>Can identify / recognize things used in hand washing and in toileting.", table_cell),
-                        Paragraph("Handwritten based on actual learning", table_cell),
+                        Paragraph("ENROUTE OBJECTIVES<br/>(Harvest from K-12 Curriculum)", table_hdr),
+                        Paragraph("INTERVENTIONS / ACTIVITIES / PROCEDURE<br/>(Harvest from K-12 Curriculum)", table_hdr),
+                        Paragraph("TIMELINE / MINS / SESSION", table_hdr),
+                        Paragraph("INDIVIDUALS RESPONSIBLE", table_hdr),
+                        Paragraph("PROGRESS / INSTRUCTIONAL EVALUATION", table_hdr),
+                        Paragraph("REMARKS<br/>(Handwritten based on actual learning)", table_hdr),
+                    ],
+                    [
+                        Paragraph("No learner goals or objective milestones have been generated or approved for this student yet. Generate and approve an Individualized Education Plan (IEP) in the AI-Based IEP Generation module to populate Section C.", table_cell),
+                        Paragraph("—", table_cell),
+                        Paragraph("—", table_cell_center),
+                        Paragraph("SPED Teacher", table_cell_center),
+                        Paragraph("Pending evaluation", table_cell),
+                        Paragraph("Pending IEP approval", table_cell),
                     ]
                 ]
+            else:
+                g_first = all_goals[0]
+                goal_1_name = g_first.subject_category or g_first.goalName or "CARE SKILLS"
+                goal_1_annual = g_first.annual_goal or f"At the end of the year {student_name} will achieve targeted mastery."
+                g1_rows_data = []
+                for r in g_first.objective_rows.all():
+                    g1_rows_data.append([
+                        Paragraph(esc(r.enroute_objectives or '—'), table_cell),
+                        Paragraph(esc(r.interventions_procedures or '—').replace('\n', '<br/>'), table_cell),
+                        Paragraph(esc(r.timeline_mins_session or '—'), table_cell_center),
+                        Paragraph(esc(r.individuals_responsible or 'SPED Teacher, Parents'), table_cell_center),
+                        Paragraph(esc(r.progress_instructional or 'Satisfactory progress observed'), table_cell),
+                        Paragraph(esc(r.remarks or 'Handwritten based on actual learning'), table_cell),
+                    ])
+                if not g1_rows_data:
+                    g1_rows_data.append([
+                        Paragraph("Goal established. Specific enroute milestones pending teacher input.", table_cell),
+                        Paragraph("—", table_cell),
+                        Paragraph("—", table_cell_center),
+                        Paragraph("SPED Teacher", table_cell_center),
+                        Paragraph("Pending evaluation", table_cell),
+                        Paragraph("Handwritten based on actual learning", table_cell),
+                    ])
 
-            sec_c_banner_row = [
-                [Paragraph(f"NON-GRADED LEVEL — {esc(goal_1_name)}", banner_style), "", "", "", "", ""],
-                [Paragraph(f"<b>Annual Goal / Long Term:</b> {esc(goal_1_annual)}", table_cell_bold), "", "", "", "", ""],
-                [
-                    Paragraph("ENROUTE OBJECTIVES<br/>(Harvest from K-12 Curriculum)", table_hdr),
-                    Paragraph("INTERVENTIONS / ACTIVITIES / PROCEDURE<br/>(Harvest from K-12 Curriculum)", table_hdr),
-                    Paragraph("TIMELINE / MINS / SESSION", table_hdr),
-                    Paragraph("INDIVIDUALS RESPONSIBLE", table_hdr),
-                    Paragraph("PROGRESS / INSTRUCTIONAL EVALUATION", table_hdr),
-                    Paragraph("REMARKS<br/>(Handwritten based on actual learning)", table_hdr),
+                sec_c_banner_row = [
+                    [Paragraph(f"NON-GRADED LEVEL — {esc(goal_1_name)}", banner_style), "", "", "", "", ""],
+                    [Paragraph(f"<b>Annual Goal / Long Term:</b> {esc(goal_1_annual)}", table_cell_bold), "", "", "", "", ""],
+                    [
+                        Paragraph("ENROUTE OBJECTIVES<br/>(Harvest from K-12 Curriculum)", table_hdr),
+                        Paragraph("INTERVENTIONS / ACTIVITIES / PROCEDURE<br/>(Harvest from K-12 Curriculum)", table_hdr),
+                        Paragraph("TIMELINE / MINS / SESSION", table_hdr),
+                        Paragraph("INDIVIDUALS RESPONSIBLE", table_hdr),
+                        Paragraph("PROGRESS / INSTRUCTIONAL EVALUATION", table_hdr),
+                        Paragraph("REMARKS<br/>(Handwritten based on actual learning)", table_hdr),
+                    ]
                 ]
-            ]
-            for r in g1_rows_data:
-                sec_c_banner_row.append(r)
+                for r in g1_rows_data:
+                    sec_c_banner_row.append(r)
+
             while len(sec_c_banner_row) < 5:
                 sec_c_banner_row.append([Paragraph("&nbsp;", table_cell)] * 6)
 
@@ -618,83 +634,67 @@ class BinaryReportRenderEngine:
         # PAGE 5: AI GENERATED IEP (from FORMAT_FOR_THE_AI_GENERATION.png)
         # =========================================================================
         story.append(PageBreak())
-        
-        goal_2_name = "MATHEMATICS & NUMERACY"
-        goal_2_annual = f"At the end of the year {student_name} can be able to count the numbers 0-10, identify numerals, and perform one-to-one object correspondence."
-        g2_rows_data = []
 
-        all_goals_p5 = list(section_c_iep.individual_goals.all()) if (section_c_iep and hasattr(section_c_iep, 'individual_goals')) else []
-        if len(all_goals_p5) > 1:
-            g_sec = all_goals_p5[1]
-            goal_2_name = g_sec.subject_category or g_sec.goalName or "MATHEMATICS"
-            if g_sec.annual_goal:
-                goal_2_annual = g_sec.annual_goal
-            for r in g_sec.objective_rows.all():
-                g2_rows_data.append([
-                    Paragraph(esc(r.enroute_objectives or '—'), table_cell),
-                    Paragraph(esc(r.interventions_procedures or '—').replace('\n', '<br/>'), table_cell),
-                    Paragraph(esc(r.timeline_mins_session or '—'), table_cell_center),
-                    Paragraph(esc(r.individuals_responsible or 'SPED Teacher, Parents'), table_cell_center),
-                    Paragraph(esc(r.progress_instructional or 'Satisfactory evaluation recorded'), table_cell),
-                    Paragraph(esc(r.remarks or 'Handwritten based on actual learning'), table_cell),
-                ])
-        elif len(all_goals_p5) == 1:
-            g_sec = all_goals_p5[0]
-            goal_2_name = g_sec.subject_category or g_sec.goalName or "TARGET GOAL SPECIFICATION"
-            if g_sec.annual_goal:
-                goal_2_annual = g_sec.annual_goal
-            for r in g_sec.objective_rows.all():
-                g2_rows_data.append([
-                    Paragraph(esc(r.enroute_objectives or '—'), table_cell),
-                    Paragraph(esc(r.interventions_procedures or '—').replace('\n', '<br/>'), table_cell),
-                    Paragraph(esc(r.timeline_mins_session or '—'), table_cell_center),
-                    Paragraph(esc(r.individuals_responsible or 'SPED Teacher, Parents'), table_cell_center),
-                    Paragraph(esc(r.progress_instructional or 'Satisfactory evaluation recorded'), table_cell),
-                    Paragraph(esc(r.remarks or 'Handwritten based on actual learning'), table_cell),
-                ])
-
-        if not g2_rows_data and not section_c_iep:
-            g2_rows_data = [
+        if not all_goals:
+            table_p5_rows = [
+                [Paragraph("AI-GENERATED IEP SPECIFICATION — PENDING GENERATION", banner_style), "", "", "", "", ""],
+                [Paragraph("<b>Status:</b> No target IEP specifications recorded for this learner yet.", table_cell_bold), "", "", "", "", ""],
                 [
-                    Paragraph("Recognizing numbers from 0-10<br/><br/><b>(TP-MFP-nv-NG-1)</b>", table_cell),
-                    Paragraph("<b>(Mother Tongue)</b><br/>Familiarize the number figures from 1-10.<br/><i>(based on learner's ability)</i>", table_cell),
-                    Paragraph("1 week<br/><br/>15-20 minutes every day<br/><i>(based on learner's ability)</i>", table_cell_center),
-                    Paragraph("SPED Teacher<br/><br/>Parents / Guardians", table_cell_center),
-                    Paragraph("Identify numbers from 0-10 with tactile counters.", table_cell),
-                    Paragraph("Handwritten based on actual learning", table_cell),
+                    Paragraph("ENROUTE OBJECTIVES<br/>(Harvest from K-12 Curriculum)", table_hdr),
+                    Paragraph("INTERVENTIONS / ACTIVITIES / PROCEDURE<br/>(Harvest from K-12 Curriculum)", table_hdr),
+                    Paragraph("TIMELINE / MINS / SESSION", table_hdr),
+                    Paragraph("INDIVIDUALS RESPONSIBLE", table_hdr),
+                    Paragraph("PROGRESS / INSTRUCTIONAL EVALUATION", table_hdr),
+                    Paragraph("REMARKS<br/>(Handwritten based on actual learning)", table_hdr),
                 ],
                 [
-                    Paragraph("Counting Objects with one-to-one correspondence up to quantity of 10<br/><br/><b>(TP-MFP-nv-NG-2)</b>", table_cell),
-                    Paragraph("<b>(Mother Tongue)</b><br/>Visual count using real objects / counters 0-10<br/><i>(based on learner's ability)</i>", table_cell),
-                    Paragraph("2 weeks<br/><br/>15-20 minutes every day<br/><i>(based on learner's ability)</i>", table_cell_center),
-                    Paragraph("SPED Teacher<br/><br/>Parents / Guardians", table_cell_center),
-                    Paragraph("Able to count visually objects from 0-10 accurately.", table_cell),
-                    Paragraph("Handwritten based on actual learning", table_cell),
-                ],
-                [
-                    Paragraph("Read/trace and write numerals up to 10 in symbols and in words.<br/><br/><b>(TP-MFP-nv-NG-4)</b>", table_cell),
-                    Paragraph("<b>(Mother Tongue)</b><br/>Name, write, and trace<br/><i>(based on learner's ability)</i>", table_cell),
-                    Paragraph("3 weeks<br/><br/>15-20 minutes every day<br/><i>(based on learner's ability)</i>", table_cell_center),
-                    Paragraph("SPED Teacher<br/><br/>Parents / Guardians", table_cell_center),
-                    Paragraph("Able to write numbers from 1-10 in figure and in words.", table_cell),
-                    Paragraph("Handwritten based on actual learning", table_cell),
+                    Paragraph("Target IEP specifications and 3-month milestone progression will appear here once goals are generated and approved in the AI-Based IEP Generation module.", table_cell),
+                    Paragraph("—", table_cell),
+                    Paragraph("—", table_cell_center),
+                    Paragraph("SPED Teacher", table_cell_center),
+                    Paragraph("Pending evaluation", table_cell),
+                    Paragraph("Pending IEP approval", table_cell),
                 ]
             ]
+        else:
+            g_sec = all_goals[1] if len(all_goals) > 1 else all_goals[0]
+            goal_2_name = g_sec.subject_category or g_sec.goalName or "TARGET GOAL SPECIFICATION"
+            goal_2_annual = g_sec.annual_goal or f"At the end of the year {student_name} will achieve targeted mastery."
+            g2_rows_data = []
+            for r in g_sec.objective_rows.all():
+                g2_rows_data.append([
+                    Paragraph(esc(r.enroute_objectives or '—'), table_cell),
+                    Paragraph(esc(r.interventions_procedures or '—').replace('\n', '<br/>'), table_cell),
+                    Paragraph(esc(r.timeline_mins_session or '—'), table_cell_center),
+                    Paragraph(esc(r.individuals_responsible or 'SPED Teacher, Parents'), table_cell_center),
+                    Paragraph(esc(r.progress_instructional or 'Satisfactory evaluation recorded'), table_cell),
+                    Paragraph(esc(r.remarks or 'Handwritten based on actual learning'), table_cell),
+                ])
+            if not g2_rows_data:
+                g2_rows_data.append([
+                    Paragraph("Goal established. Specific enroute milestones pending teacher input.", table_cell),
+                    Paragraph("—", table_cell),
+                    Paragraph("—", table_cell_center),
+                    Paragraph("SPED Teacher", table_cell_center),
+                    Paragraph("Pending evaluation", table_cell),
+                    Paragraph("Handwritten based on actual learning", table_cell),
+                ])
 
-        table_p5_rows = [
-            [Paragraph(f"AI-GENERATED IEP SPECIFICATION — {esc(goal_2_name)}", banner_style), "", "", "", "", ""],
-            [Paragraph(f"<b>Annual Goal / Long Term:</b> {esc(goal_2_annual)}", table_cell_bold), "", "", "", "", ""],
-            [
-                Paragraph("ENROUTE OBJECTIVES<br/>(Harvest from K-12 Curriculum)", table_hdr),
-                Paragraph("INTERVENTIONS / ACTIVITIES / PROCEDURE<br/>(Harvest from K-12 Curriculum)", table_hdr),
-                Paragraph("TIMELINE / MINS / SESSION", table_hdr),
-                Paragraph("INDIVIDUALS RESPONSIBLE", table_hdr),
-                Paragraph("PROGRESS / INSTRUCTIONAL EVALUATION", table_hdr),
-                Paragraph("REMARKS<br/>(Handwritten based on actual learning)", table_hdr),
+            table_p5_rows = [
+                [Paragraph(f"AI-GENERATED IEP SPECIFICATION — {esc(goal_2_name)}", banner_style), "", "", "", "", ""],
+                [Paragraph(f"<b>Annual Goal / Long Term:</b> {esc(goal_2_annual)}", table_cell_bold), "", "", "", "", ""],
+                [
+                    Paragraph("ENROUTE OBJECTIVES<br/>(Harvest from K-12 Curriculum)", table_hdr),
+                    Paragraph("INTERVENTIONS / ACTIVITIES / PROCEDURE<br/>(Harvest from K-12 Curriculum)", table_hdr),
+                    Paragraph("TIMELINE / MINS / SESSION", table_hdr),
+                    Paragraph("INDIVIDUALS RESPONSIBLE", table_hdr),
+                    Paragraph("PROGRESS / INSTRUCTIONAL EVALUATION", table_hdr),
+                    Paragraph("REMARKS<br/>(Handwritten based on actual learning)", table_hdr),
+                ]
             ]
-        ]
-        for r in g2_rows_data:
-            table_p5_rows.append(r)
+            for r in g2_rows_data:
+                table_p5_rows.append(r)
+
         while len(table_p5_rows) < 6:
             table_p5_rows.append([Paragraph("&nbsp;", table_cell)] * 6)
 
