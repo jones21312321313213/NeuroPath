@@ -35,9 +35,11 @@ class PDFXmlSinkAndSSRFGuardsTests(TestCase):
         )
 
     def test_reportlab_exporters_escape_malicious_xml_and_img_tags_without_crashing(self):
+        from resources.views import escape_reportlab_text
+        self.assertNotIn("\x00", escape_reportlab_text("Null\x00Byte\x07Test"))
         xml_payload = (
             '<para><img src="http://127.0.0.1:8000/admin"/>'
-            '<font color="red"><b>Unclosed tag\x00\x07'
+            '<font color="red"><b>Unclosed tag\x07\x1f'
         )
         lp = LessonPlan.objects.create(
             iep_goal=self.goal,
