@@ -256,7 +256,8 @@ export default function LandingPage({ onGetStarted }) {
           aria-label="Latest version release popup"
           onMouseEnter={() => setIsPopupHovered(true)}
           onMouseLeave={() => setIsPopupHovered(false)}
-          className="fixed top-20 right-4 sm:right-6 z-[60] max-w-xs w-full bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-[#82C7FF]/60 p-4 transition-all duration-300"
+          className="fixed top-3 right-3 z-[70] max-w-xs w-full bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-[#82C7FF]/60 p-4 transition-all duration-300"
+          style={{ top: "12px", right: "12px" }}
         >
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2">
