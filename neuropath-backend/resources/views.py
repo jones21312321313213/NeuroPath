@@ -1488,11 +1488,18 @@ class VisualAidGeneratorService:
                 }
             ]
 
+        def _sanitize_step_field(val, max_len=240):
+            from iep_management.ai_engine import AIEngineService
+            cleaned = AIEngineService.strip_struq_tokens(str(val or ""))
+            cleaned = re.sub(r"<[^>]*>", "", cleaned)
+            cleaned = re.sub(r"\s+", " ", cleaned).strip()
+            return cleaned[:max_len]
+
         standardized_steps = []
         for idx, s in enumerate(steps[:3], start=1):
-            title = str(s.get("title") or f"Step {idx}").strip()
-            desc = str(s.get("description") or s.get("caption") or f"Perform step {idx}.").strip()
-            visual_cue = str(s.get("visual_cue") or desc).strip()
+            title = _sanitize_step_field(s.get("title") or f"Step {idx}", max_len=80) or f"Step {idx}"
+            desc = _sanitize_step_field(s.get("description") or s.get("caption") or f"Perform step {idx}.", max_len=240)
+            visual_cue = _sanitize_step_field(s.get("visual_cue") or desc, max_len=240)
             standardized_steps.append({
                 "step": idx,
                 "title": title,

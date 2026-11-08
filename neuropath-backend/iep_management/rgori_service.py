@@ -312,17 +312,26 @@ OUTPUT FORMAT (return this exact JSON, no other text):
             cleaned = re.sub(r"\s*```$", "", cleaned)
             cleaned = cleaned.strip()
 
-        # Extract JSON object substring
-        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
-        if match:
-            cleaned = match.group(0)
+        # Extract first valid JSON object non-greedily using JSONDecoder.raw_decode
+        decoder = json.JSONDecoder()
+        data = None
+        for idx, ch in enumerate(cleaned):
+            if ch == "{":
+                try:
+                    candidate, _ = decoder.raw_decode(cleaned[idx:])
+                    if isinstance(candidate, dict):
+                        data = candidate
+                        break
+                except Exception:
+                    continue
 
         try:
-            data = json.loads(cleaned)
+            if data is None:
+                data = json.loads(cleaned)
             if not isinstance(data, dict):
                 raise RuntimeError("Failed to parse R-GORI evaluation: expected a JSON object.")
 
-            # Ensure we have total_score or can compute it
+            # Compute total_score deterministically from the 4 criterion scores when breakdown is present
             breakdown = data.get("breakdown")
             if isinstance(breakdown, dict) and all(
                 k in breakdown for k in ["measurability", "functionality", "generality", "instructional_context"]
@@ -331,19 +340,13 @@ OUTPUT FORMAT (return this exact JSON, no other text):
                 functionality = max(0, min(25, int(breakdown.get("functionality", 0))))
                 generality = max(0, min(25, int(breakdown.get("generality", 0))))
                 instructional_context = max(0, min(25, int(breakdown.get("instructional_context", 0))))
-                total_score = max(
-                    0,
-                    min(
-                        100,
-                        int(data.get("total_score", measurability + functionality + generality + instructional_context)),
-                    ),
-                )
                 clean_breakdown = {
                     "measurability": measurability,
                     "functionality": functionality,
                     "generality": generality,
                     "instructional_context": instructional_context,
                 }
+                total_score = max(0, min(100, sum(clean_breakdown.values())))
             elif "total_score" in data:
                 total_score = max(0, min(100, int(data.get("total_score", 0))))
                 quarter = round(total_score / 4)
@@ -356,9 +359,8 @@ OUTPUT FORMAT (return this exact JSON, no other text):
             else:
                 raise RuntimeError("Failed to parse R-GORI evaluation: missing score metrics.")
 
-            compliant = data.get("compliant")
-            if not isinstance(compliant, bool):
-                compliant = total_score >= 65
+            # Always compute compliance deterministically in Python; ignore LLM-supplied booleans
+            compliant = total_score >= 65
 
             feedback = data.get("feedback")
             if not feedback or not isinstance(feedback, str):

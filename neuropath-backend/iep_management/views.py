@@ -745,6 +745,13 @@ class GenerateIEPGoalsFromIEPView(APIView):
         }, status=status.HTTP_200_OK)
  
  
+    @staticmethod
+    def _sanitize_step_a_annual_goal(annual_goal: str) -> str:
+        cleaned = AIEngineService.strip_struq_tokens(annual_goal or "")
+        cleaned = re.sub(r"<[^>]*>", "", cleaned)
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        return cleaned[:500]
+
     def _generate_validated_goal(
         self, iep_id, student_name, difficulty, assistive_tech,
         accommodations, facilitators, student_context,
@@ -756,10 +763,18 @@ class GenerateIEPGoalsFromIEPView(APIView):
         """
         try:
             # --- Step A: Generate annual goal ---
-            annual_goal = self._generate_annual_goal(
+            raw_annual_goal = self._generate_annual_goal(
                 student_name, difficulty, assistive_tech, accommodations,
                 facilitators, goal_area, teacher_prompt,
                 special_factor_notes=special_factor_notes
+            )
+            annual_goal = self._sanitize_step_a_annual_goal(raw_annual_goal)
+            if not annual_goal:
+                raise RuntimeError("Step A annual goal generation returned an empty goal after sanitization.")
+
+            # Inter-step gate: Audit Step A goal against R-GORI criteria deterministically before Step B chaining
+            rgori_audit = RGORICheckerService.audit_goal_explainable(
+                annual_goal, student_context
             )
 
             # --- Step B: Generate objective rows for this goal ---
@@ -774,11 +789,6 @@ class GenerateIEPGoalsFromIEPView(APIView):
             subject_category = (
                 goal_area if goal_area
                 else self._map_difficulty_to_category(difficulty)
-            )
-
-            # Audit goal against R-GORI criteria deterministically and attach explainable breakdown
-            rgori_audit = RGORICheckerService.audit_goal_explainable(
-                annual_goal, student_context
             )
 
             # Build the full goal payload (ready for POST /api/iep/goals/)
@@ -959,14 +969,16 @@ class GenerateIEPGoalsFromIEPView(APIView):
                     except Exception:
                         pass
 
-            # 3. Robust substring bracket match
+            # 3. Non-greedy structured JSON decoding via JSONDecoder.raw_decode
             if parsed is None:
-                for pattern in [r'\[\s*\{[\s\S]*\}\s*\]', r'\[[\s\S]*\]', r'\{[\s\S]*\}']:
-                    m = re.search(pattern, clean)
-                    if m:
+                decoder = json.JSONDecoder()
+                for idx, ch in enumerate(clean):
+                    if ch in ("[", "{"):
                         try:
-                            parsed = json.loads(m.group(0))
-                            break
+                            candidate, _ = decoder.raw_decode(clean[idx:])
+                            if isinstance(candidate, (list, dict)):
+                                parsed = candidate
+                                break
                         except Exception:
                             continue
 
