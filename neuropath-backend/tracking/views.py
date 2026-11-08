@@ -211,7 +211,6 @@ class BinaryReportRenderEngine:
         if raw_asd.startswith('gAAAAA') or raw_asd.startswith('[Encrypted'):
             raw_asd = ''
         diagnosis_val = pd.get('disabilityCategory') or raw_diag or raw_asd or 'Autism Spectrum Disorder (ASD)'
-        lrn_val = getattr(student_record, 'lrn', None) or pd.get('lrn') or f"LRN-{student_record.pk:06d}"
         raw_guard = getattr(student_record, 'guardian_name', None) or ''
         if raw_guard.startswith('gAAAAA') or raw_guard.startswith('[Encrypted'):
             raw_guard = ''

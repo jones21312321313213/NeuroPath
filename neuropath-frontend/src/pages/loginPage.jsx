@@ -3,7 +3,6 @@ import { useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   BoltIcon,
-  LockIcon,
   ClockIcon,
   CheckIcon,
   WarningIcon,
