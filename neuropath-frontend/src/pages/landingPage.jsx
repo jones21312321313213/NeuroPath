@@ -12,7 +12,76 @@ import {
   CheckIcon,
   WarningIcon,
   CalendarIcon,
+  CloseIcon,
+  SparklesIcon,
 } from "../components/ui/icons";
+
+const RELEASE_NOTES = [
+  {
+    version: "v1.2.0",
+    date: "November 2026",
+    isLatest: true,
+    summary: "Outcome Monitoring alignment, R-GORI pedagogical inspection, DepEd PDF export updates, and AI rate-limit resilience.",
+    changes: [
+      {
+        tag: "New Feature",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
+        text: "Interactive R-GORI Pedagogical Compliance Inspection dialog with 4-factor goal scoring in IEP draft reviews.",
+      },
+      {
+        tag: "New Feature",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
+        text: "Outcome Monitoring executive classroom KPIs, 70% target milestone benchmark lines, predictive trend forecasting, and behavioral observation logging.",
+      },
+      {
+        tag: "Compliance",
+        tagColor: "bg-emerald-100 text-emerald-800 border-emerald-200",
+        text: "Updated DepEd Student Record PDF template: relocated assessment matrix under Section B Special Factors, streamlined Page 1 demographics, and added Parent/Guardian sign-off block.",
+      },
+      {
+        tag: "UI Polish",
+        tagColor: "bg-amber-100 text-amber-800 border-amber-200",
+        text: "Streamlined View IEP actions (inline Edit/Delete IEP, Archive Version beside date), 10-second AI regenerate cooldown, and clearer login rate-limit messaging.",
+      },
+    ],
+  },
+  {
+    version: "v1.1.0",
+    date: "October 2026",
+    isLatest: false,
+    summary: "Standardized resource exports, RA 10173 data privacy hardening, and multi-engine AI fallbacks.",
+    changes: [
+      {
+        tag: "New Feature",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
+        text: "Standardized PDF exports for Lesson Plans, Teaching Strategies, and Visual Aids.",
+      },
+      {
+        tag: "Security",
+        tagColor: "bg-purple-100 text-purple-800 border-purple-200",
+        text: "RA 10173 Data Privacy Act consent workflow and Fernet AES encryption at rest with resilient student name resolution.",
+      },
+      {
+        tag: "UI Polish",
+        tagColor: "bg-amber-100 text-amber-800 border-amber-200",
+        text: "Interactive onboarding tutorial, session inactivity auto-logout warnings, and multi-tab synchronization.",
+      },
+    ],
+  },
+  {
+    version: "v1.0.0",
+    date: "September 2026",
+    isLatest: false,
+    summary: "Initial production release of NeuroPath for Special Education teachers.",
+    changes: [
+      {
+        tag: "New Feature",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
+        text: "Core Student Profiling, AI-Assisted IEP Generation, Lesson Plan Builder, Teaching Strategies, and Visual Aid Studio.",
+      },
+    ],
+  },
+];
 
 const features = [
   {
@@ -61,6 +130,7 @@ function FeatureCard({ feature, index }) {
 
 export default function LandingPage({ onGetStarted }) {
   const [scrolled, setScrolled] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
   const heroRef = useRef(null);
 
   useEffect(() => {
@@ -125,7 +195,7 @@ export default function LandingPage({ onGetStarted }) {
             </span>
           </div>
 
-          <div className="flex items-center gap-6 sm:gap-8">
+          <div className="flex items-center gap-4 sm:gap-6">
             <a
               href="features"
               onClick={(e) => {
@@ -150,6 +220,23 @@ export default function LandingPage({ onGetStarted }) {
             >
               About
             </a>
+            <button
+              type="button"
+              onClick={() => setShowChangelog(true)}
+              className="text-sm font-medium transition-colors text-[#5a9dbf] hover:text-[#1a6fa8] cursor-pointer"
+            >
+              Release Notes
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowChangelog(true)}
+              aria-label="View version v1.2.0 changelog"
+              title="Click to view v1.2.0 Changelog & Release Notes"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-[#e8f5ff] text-[#1a6fa8] border border-[#82C7FF] hover:bg-[#d4eeff] transition-all cursor-pointer"
+            >
+              <SparklesIcon className="w-3.5 h-3.5 text-[#2589c7]" aria-hidden="true" />
+              <span>v1.2.0</span>
+            </button>
             <button
               href="signin"
               onClick={onGetStarted}
@@ -594,11 +681,109 @@ export default function LandingPage({ onGetStarted }) {
               NeuroPath
             </span>
           </div>
-          <p className="text-xs" style={{ color: "#82C7FF" }}>
-            © 2026 NeuroPath. Empowering every learner's journey.
-          </p>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setShowChangelog(true)}
+              className="text-xs font-semibold text-[#2589c7] hover:text-[#1a6fa8] underline underline-offset-2 cursor-pointer"
+            >
+              Changelog &amp; Release Notes (v1.2.0)
+            </button>
+            <span className="text-xs text-slate-300">•</span>
+            <p className="text-xs" style={{ color: "#82C7FF" }}>
+              © 2026 NeuroPath. Empowering every learner's journey.
+            </p>
+          </div>
         </div>
       </footer>
+
+      {/* CHANGELOG & RELEASE NOTES MODAL */}
+      {showChangelog && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="changelog-modal-title"
+          onClick={() => setShowChangelog(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl border border-[#82C7FF]/40 max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-[#f0f8ff]/60">
+              <div className="flex items-center gap-2.5">
+                <SparklesIcon className="w-5 h-5 text-[#1a6fa8]" aria-hidden="true" />
+                <div>
+                  <h2 id="changelog-modal-title" className="text-lg font-extrabold text-[#1a3a4a]">
+                    Changelog &amp; Release Notes
+                  </h2>
+                  <p className="text-xs text-[#5a9dbf]">
+                    What's new in NeuroPath
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowChangelog(false)}
+                aria-label="Close changelog modal"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <CloseIcon className="w-5 h-5" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-6">
+              {RELEASE_NOTES.map((rel) => (
+                <div
+                  key={rel.version}
+                  className="rounded-xl border border-slate-200/80 p-5 bg-slate-50/50"
+                >
+                  <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-extrabold text-[#1a6fa8]">
+                        {rel.version}
+                      </span>
+                      {rel.isLatest && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200">
+                          Latest Release
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs font-medium text-slate-500">
+                      {rel.date}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 mb-3 leading-relaxed">
+                    {rel.summary}
+                  </p>
+                  <ul className="space-y-2">
+                    {rel.changes.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2.5 text-xs text-slate-700">
+                        <span
+                          className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold border ${item.tagColor}`}
+                        >
+                          {item.tag}
+                        </span>
+                        <span className="leading-relaxed">{item.text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowChangelog(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#1a6fa8] hover:bg-[#155a8a] transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

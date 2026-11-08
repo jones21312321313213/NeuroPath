@@ -27,6 +27,20 @@ def _goal_owned_by_teacher(iep_goal, teacher):
     return bool(teacher and iep_goal and iep_goal.iep.studentID.teacher_id == teacher.teacherID)
 
 
+def _resolve_student_display_name(student):
+    if not student:
+        return "Student"
+    raw_name = str(getattr(student, 'name', '') or '').strip()
+    if not raw_name or raw_name.startswith('gAAAAA') or raw_name.startswith('[Encrypted'):
+        pd = student.profileDetails if isinstance(getattr(student, 'profileDetails', None), dict) else {}
+        resolved = pd.get('studentName') or pd.get('learnerName')
+        if resolved:
+            return str(resolved).strip()
+        sid = getattr(student, 'pk', None) or getattr(student, 'studentID', None)
+        return f"[Encrypted Student #{sid}]" if sid else (raw_name or "Student")
+    return raw_name
+
+
 def _safe_generated_details(details):
     if not details:
         return {}
@@ -424,7 +438,7 @@ class GenerateLessonPlanAPIView(APIView):
             goal_list = _goal_options_for_iep(target_iep) if target_iep else []
             directory_payload.append({
                 "studentID": student.pk,
-                "studentName": student.name,
+                "studentName": _resolve_student_display_name(student),
                 "availableIEPs": iep_list,
                 "selectedIEPID": target_iep.pk if target_iep else None,
                 "availableGoals": goal_list,
@@ -2019,7 +2033,7 @@ class TeachingStrategyGenerationController(APIView):
             goal_list = _goal_options_for_iep(target_iep) if target_iep else []
             directory_payload.append({
                 "studentID": student.pk,
-                "studentName": student.name,
+                "studentName": _resolve_student_display_name(student),
                 "availableIEPs": iep_list,
                 "selectedIEPID": target_iep.pk if target_iep else None,
                 "availableGoals": goal_list

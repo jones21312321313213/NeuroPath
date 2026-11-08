@@ -175,6 +175,7 @@ function AppRoutes() {
               ) : (
                 <LoginPage
                   onNavigateRegister={() => navigate("/register")}
+                  onNavigateHome={() => navigate("/")}
                   onLoginSuccess={() => setShowSplash(true)}
                   successMessage={successMessage}
                   initialEmail={registeredEmail}
@@ -194,6 +195,7 @@ function AppRoutes() {
                 <Navigate to="/dashboard" replace />
               ) : (
                 <RegisterPage
+                  onNavigateHome={() => navigate("/")}
                   onNavigateLogin={(msg, email) => {
                     setSuccessMessage(msg);
                     if (email) setRegisteredEmail(email);

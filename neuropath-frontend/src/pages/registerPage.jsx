@@ -6,11 +6,12 @@ import {
   WarningIcon,
   EyeIcon,
   EyeSlashIcon,
+  ArrowLeftIcon,
 } from "../components/ui/icons";
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 import { evaluatePasswordRules } from "../utils/password";
 
-export default function RegisterPage({ onNavigateLogin }) {
+export default function RegisterPage({ onNavigateLogin, onNavigateHome }) {
   const { register } = useAuth();
   const [form, setForm] = useState({
     firstName: "",
@@ -117,9 +118,24 @@ export default function RegisterPage({ onNavigateLogin }) {
 
   return (
     <div
-      className="min-h-screen grid grid-cols-1 lg:grid-cols-12 font-sans"
+      className="min-h-screen grid grid-cols-1 lg:grid-cols-12 font-sans relative"
       style={{ background: "#fff" }}
     >
+      {/* Top-Left Back to Landing Page Icon */}
+      <a
+        href="/"
+        onClick={(e) => {
+          if (onNavigateHome) {
+            e.preventDefault();
+            onNavigateHome();
+          }
+        }}
+        aria-label="Back to landing page"
+        title="Back to landing page"
+        className="fixed top-4 left-4 z-50 flex items-center justify-center w-10 h-10 rounded-full bg-white/90 hover:bg-white text-[#1a6fa8] shadow-md border border-[#82C7FF]/60 transition-all hover:scale-105"
+      >
+        <ArrowLeftIcon className="w-5 h-5" aria-hidden="true" />
+      </a>
       {/* LEFT VISUAL SIDEBAR */}
       <div
         className="hidden lg:flex lg:col-span-5 p-12 flex-col items-center justify-center relative overflow-hidden text-left"
@@ -224,8 +240,6 @@ export default function RegisterPage({ onNavigateLogin }) {
             className="text-xs mt-6 flex items-center gap-1.5"
             style={{ color: "rgba(255,255,255,0.7)" }}
           >
-            <LockIcon className="w-3.5 h-3.5 text-white/70" aria-hidden="true" />
-            <span>FERPA Compliant Documentation Platform</span>
           </p>
         </div>
       </div>

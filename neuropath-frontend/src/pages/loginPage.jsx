@@ -9,11 +9,13 @@ import {
   WarningIcon,
   EyeIcon,
   EyeSlashIcon,
+  ArrowLeftIcon,
 } from "../components/ui/icons";
 import ForgotPasswordModal from "../components/auth/ForgotPasswordModal";
 
 export default function LoginPage({
   onNavigateRegister,
+  onNavigateHome,
   onLoginSuccess,
   successMessage,
   onClearMessage,
@@ -85,9 +87,12 @@ export default function LoginPage({
         // 2. Trigger your existing App.jsx view shift callback on success
         onLoginSuccess(); 
       } catch (err) {
-        // Catch-all for incorrect passwords or unmapped profiles
-        const errorMsg = err.message || "Invalid email or password.";
-        setError(errorMsg); // Fixed spelling: removed the "s"
+        const rawMsg = err?.message || "";
+        const errorMsg =
+          err?.status === 429 || /throttl/i.test(rawMsg)
+            ? "Login tries limits, try again in 30 secs"
+            : rawMsg || "Invalid email or password.";
+        setError(errorMsg);
       } finally {
         setLoading(false);
       }
@@ -95,9 +100,24 @@ export default function LoginPage({
 
   return (
     <div
-      className="min-h-screen grid grid-cols-1 lg:grid-cols-12 font-sans"
+      className="min-h-screen grid grid-cols-1 lg:grid-cols-12 font-sans relative"
       style={{ background: "#fff" }}
     >
+      {/* Top-Left Back to Landing Page Icon */}
+      <a
+        href="/"
+        onClick={(e) => {
+          if (onNavigateHome) {
+            e.preventDefault();
+            onNavigateHome();
+          }
+        }}
+        aria-label="Back to landing page"
+        title="Back to landing page"
+        className="fixed top-4 left-4 z-50 flex items-center justify-center w-10 h-10 rounded-full bg-white/90 hover:bg-white text-[#1a6fa8] shadow-md border border-[#82C7FF]/60 transition-all hover:scale-105"
+      >
+        <ArrowLeftIcon className="w-5 h-5" aria-hidden="true" />
+      </a>
       {/* LEFT VISUAL SIDEBAR */}
       <div
         className="hidden lg:flex lg:col-span-5 p-12 flex-col items-center justify-center relative overflow-hidden text-left"
@@ -165,8 +185,6 @@ export default function LoginPage({
             className="text-xs mt-6 flex items-center gap-1.5"
             style={{ color: "rgba(255,255,255,0.7)" }}
           >
-            <LockIcon className="w-3.5 h-3.5 text-white/70" aria-hidden="true" />
-            <span>FERPA Compliant Documentation Platform</span>
           </p>
         </div>
       </div>

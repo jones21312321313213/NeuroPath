@@ -50,5 +50,9 @@ describe("LandingPage Component", () => {
     expect(screen.getByText("Lesson Plan Management")).toBeInTheDocument();
     expect(screen.getByText("Visual Aid Management")).toBeInTheDocument();
     expect(screen.getByText("Outcome Monitoring")).toBeInTheDocument();
+
+    // Version badge & Release Notes button in top right navbar
+    expect(screen.getByRole("button", { name: /view version v1\.2\.0 changelog/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Release Notes" })).toBeInTheDocument();
   });
 });
