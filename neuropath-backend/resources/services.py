@@ -49,18 +49,40 @@ class TeachingStrategyGenerationService:
         if not objectives_text.strip():
             objectives_text = "No specific enroute objectives provided. Focus on the annual goal."
 
-        # 3. Construct the highly-structured Context Frame Prompt using Cloud Delimiters
-        prompt = f"""☁️system☁️Act as an elite Special Education Instructional Designer. You provide concise, highly actionable teaching methods. No fluff.☁️/system☁️
-☁️user☁️
-STUDENT CONTEXT (SECTION B):
+        # 3. Construct the Spotlighted Context Frame Prompt with native system_prompt separation
+        nonce = AIEngineService.generate_nonce()
+        spot_difficulties = AIEngineService.sanitize_and_spotlight(
+            f"{getattr(iep, 'difficulties', 'None')} | {getattr(iep, 'learning_barriers', 'None')}",
+            nonce=nonce,
+        )
+        spot_accommodations = AIEngineService.sanitize_and_spotlight(
+            f"{getattr(iep, 'accommodations', 'None')} | {getattr(iep, 'learning_facilitators', 'None')}",
+            nonce=nonce,
+        )
+        spot_goal = AIEngineService.sanitize_and_spotlight(
+            getattr(goal_instance, 'annual_goal', 'Not specified'),
+            nonce=nonce,
+        )
+        spot_objectives = AIEngineService.sanitize_and_spotlight(objectives_text, nonce=nonce)
+        if special_notes:
+            special_notes_line = (
+                f"- Special Factors / Behavioral & Sensory: "
+                f"{AIEngineService.sanitize_and_spotlight(special_notes, nonce=nonce)}\n"
+            )
+
+        system_prompt = (
+            "Act as an elite Special Education Instructional Designer. "
+            "You provide concise, highly actionable teaching methods. No fluff."
+        )
+        prompt = f"""STUDENT CONTEXT (SECTION B):
 - Learner: {student_desc}
-- Difficulties/Barriers: {getattr(iep, 'difficulties', 'None')} | {getattr(iep, 'learning_barriers', 'None')}
-- Accommodations/Facilitators: {getattr(iep, 'accommodations', 'None')} | {getattr(iep, 'learning_facilitators', 'None')}
+- Difficulties/Barriers: {spot_difficulties}
+- Accommodations/Facilitators: {spot_accommodations}
 {special_notes_line}
-TARGET GOAL: {getattr(goal_instance, 'annual_goal', 'Not specified')}
+TARGET GOAL: {spot_goal}
 
 ENROUTE OBJECTIVES:
-{objectives_text}
+{spot_objectives}
 
 INSTRUCTIONS FOR GENERATION:
 Generate a highly focused, actionable teaching strategy. Do NOT just rewrite the objectives. Tell the teacher EXACTLY HOW to teach them.
@@ -76,12 +98,13 @@ Format your response STRICTLY as follows:
 Strict Rules:
 - Keep it concise, practical, and punchy.
 - Do not add "Real-World Application" or "Macro-Environmental Factors" sections at the end.
-- Do not use conversational filler, greetings, or summaries.
-☁️/user☁️"""
+- Do not use conversational filler, greetings, or summaries."""
 
         try:
             # 4. Route to AIEngineService
-            strategy_content, _ = AIEngineService.generate_text(prompt=prompt)
+            strategy_content, _ = AIEngineService.generate_text(
+                prompt=prompt, system_prompt=system_prompt
+            )
             strategy_content = strategy_content.strip()
             
             # 5. Create a dynamic title based on the IEP Goal Name
@@ -150,19 +173,39 @@ class LessonPlanGenerationService:
         except Exception as e:
             raise Exception(f"Failed to extract IEP parameters: {str(e)}")
 
-        # 3. Construct the Cloud Delimited Prompt
-        prompt = f"""☁️system☁️Act as an elite Special Education Instructional Designer. You will be provided with a student's context, an Annual Goal, and multiple Enroute Objectives. 
-You MUST output ONLY a valid JSON object containing an array of lesson plans. Do not include markdown formatting or conversational filler.☁️/system☁️
-☁️user☁️
-STUDENT CONTEXT (SECTION A & B):
-- Learner: {student_desc}
-- Baseline/Barriers: {getattr(iep, 'baselineData', 'None specified')}
-- Accommodations: {getattr(iep, 'accommodations', 'None specified')}
+        # 3. Construct the Spotlighted Prompt with native system_prompt separation
+        nonce = AIEngineService.generate_nonce()
+        spot_baseline = AIEngineService.sanitize_and_spotlight(
+            getattr(iep, 'baselineData', 'None specified'),
+            nonce=nonce,
+        )
+        spot_accomm = AIEngineService.sanitize_and_spotlight(
+            getattr(iep, 'accommodations', 'None specified'),
+            nonce=nonce,
+        )
+        spot_goal = AIEngineService.sanitize_and_spotlight(
+            getattr(goal_instance, 'subject_category', 'Target Goal'),
+            nonce=nonce,
+        )
+        spot_objectives = AIEngineService.sanitize_and_spotlight(
+            objectives_text,
+            nonce=nonce,
+        )
 
-ANNUAL GOAL: {getattr(goal_instance, 'subject_category', 'Target Goal')}
+        system_prompt = (
+            "Act as an elite Special Education Instructional Designer. You will be provided with a student's context, "
+            "an Annual Goal, and multiple Enroute Objectives. You MUST output ONLY a valid JSON object containing an array "
+            "of lesson plans. Do not include markdown formatting or conversational filler."
+        )
+        prompt = f"""STUDENT CONTEXT (SECTION A & B):
+- Learner: {student_desc}
+- Baseline/Barriers: {spot_baseline}
+- Accommodations: {spot_accomm}
+
+ANNUAL GOAL: {spot_goal}
 
 ENROUTE OBJECTIVES:
-{objectives_text}
+{spot_objectives}
 
 TASK:
 Generate a highly tailored lesson plan for EACH Enroute Objective listed above. Ensure the interventions and accommodations are heavily utilized in the 'core_activity'. Output MUST be in this exact JSON structure:
@@ -176,12 +219,13 @@ Generate a highly tailored lesson plan for EACH Enroute Objective listed above. 
       "materials_needed": ["Item 1", "Item 2"]
     }}
   ]
-}}
-☁️/user☁️"""
+}}"""
 
         try:
             # 4. Route to AIEngineService with JSON strict mode
-            raw_content, _ = AIEngineService.generate_text(prompt=prompt, json_mode=True)
+            raw_content, _ = AIEngineService.generate_text(
+                prompt=prompt, system_prompt=system_prompt, json_mode=True
+            )
             
             if isinstance(raw_content, dict):
                 parsed_json = raw_content

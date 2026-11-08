@@ -494,17 +494,28 @@ class GenerateIEPGoalAPIView(APIView):
         data = serializer.validated_data
         pii_tokens = [data.get('student_name', '')]
         scrubbed_barriers = scrub_pii_from_text(data.get('baseline_barriers', ''), pii_tokens)
-        student_context = f"Learner, Diagnosis: {data['diagnosis']}, Barriers: {scrubbed_barriers}"
+        nonce = AIEngineService.generate_nonce()
+        spot_diagnosis = AIEngineService.sanitize_and_spotlight(data['diagnosis'], nonce=nonce)
+        spot_barriers = AIEngineService.sanitize_and_spotlight(scrubbed_barriers, nonce=nonce)
+        spot_domain = AIEngineService.sanitize_and_spotlight(data['target_domain'], nonce=nonce)
+        student_context = f"Learner, Diagnosis: {spot_diagnosis}, Barriers: {spot_barriers}"
+        system_prompt = (
+            "You are an expert Special Education teacher writing a single SMART annual IEP goal. "
+            "Follow the ABCD criteria strictly (Actor, Behavior, Condition, Degree). "
+            "Output ONLY the single goal sentence with no preamble or bullet points."
+        )
         generation_prompt = (
             f"Write a specific, measurable IEP goal following ABCD criteria "
             f"(Actor: learner; Behavior: observable skill with targeted brackets; "
             f"Condition: environmental prompt level; Degree: measurable threshold) "
-            f"targeting {data['target_domain']} for {student_context}."
+            f"targeting {spot_domain} for {student_context}."
         )
         
         # 2. Generation via AI Engine
         try:
-            generated_goal, _ = AIEngineService.generate_text(generation_prompt, max_tokens=250)
+            generated_goal, _ = AIEngineService.generate_text(
+                generation_prompt, system_prompt=system_prompt, max_tokens=250
+            )
             if not generated_goal:
                 return Response(
                     {"error": "AI generation service is temporarily unavailable. Please try again shortly.", "details": None},
@@ -734,62 +745,108 @@ class GenerateIEPGoalsFromIEPView(APIView):
             return None, str(e)
  
  
+    ALLOWED_GOAL_AREAS = {
+        "care skills",
+        "self-care skills",
+        "daily living skills",
+        "mathematical skills",
+        "mathematics",
+        "math",
+        "communication skills",
+        "communication",
+        "social / interpersonal skills",
+        "social-emotional skills",
+        "social skills",
+        "behavioral skills",
+        "functional academic skills",
+        "functional skills",
+        "literacy skills",
+        "reading and writing",
+        "reading",
+        "motor skills",
+        "fine and gross motor skills",
+        "sensory regulation",
+    }
+
+    @classmethod
+    def _validate_goal_area(cls, goal_area: str) -> str:
+        cleaned = (goal_area or "").strip()
+        if not cleaned:
+            return ""
+        if cleaned.lower() not in cls.ALLOWED_GOAL_AREAS:
+            raise ValueError(f"Unsupported or invalid goal_area: '{cleaned}'.")
+        return cleaned
+
     def _generate_annual_goal(
         self, student_name, difficulty, assistive_tech, accommodations,
         facilitators, goal_area='', teacher_prompt='', special_factor_notes=''
     ):
+        validated_goal_area = self._validate_goal_area(goal_area)
+        nonce = AIEngineService.generate_nonce()
+
+        spot_student = AIEngineService.sanitize_and_spotlight(student_name, nonce=nonce)
+        spot_difficulty = AIEngineService.sanitize_and_spotlight(difficulty, nonce=nonce)
+        spot_tech = AIEngineService.sanitize_and_spotlight(assistive_tech, nonce=nonce)
+        spot_accomm = AIEngineService.sanitize_and_spotlight(accommodations, nonce=nonce)
+        spot_fac = AIEngineService.sanitize_and_spotlight(facilitators, nonce=nonce)
+
         teacher_instructions = (
-            f"Additional teacher instructions: {teacher_prompt}\n"
+            f"Additional teacher instructions: {AIEngineService.sanitize_and_spotlight(teacher_prompt, nonce=nonce)}\n"
             if teacher_prompt else ""
         )
         special_factors_line = (
-            f"Special Factors / Behavioral and Sensory Notes: {special_factor_notes}\n"
+            f"Special Factors / Behavioral and Sensory Notes: {AIEngineService.sanitize_and_spotlight(special_factor_notes, nonce=nonce)}\n"
             if special_factor_notes else ""
         )
         goal_area_line = (
-            f"PRIMARY Goal Area (this MUST be the focus of the goal): {goal_area}\n"
-            if goal_area else ""
+            f"PRIMARY Goal Area (this MUST be the focus of the goal): {validated_goal_area}\n"
+            if validated_goal_area else ""
+        )
+        system_prompt = (
+            "You are an expert Special Education teacher writing IEP goals. "
+            "Write ONE specific, measurable, achievable, relevant, and time-bound (SMART) annual IEP goal. "
+            "The goal MUST follow the ABCD criteria:\n"
+            "- Actor: The individual learner (refer to the student by name or 'the learner').\n"
+            "- Behavior: Specific, observable skill with targeted brackets (e.g., 'count and identify numbers 5–10', 'sort classroom objects into 3 categories').\n"
+            "- Condition: Environmental prompt level and context (e.g., 'given visual counters and physical prompts', 'in a structured classroom setting').\n"
+            "- Degree: Measurable criteria/threshold (e.g., 'with 80% accuracy in 4 out of 5 consecutive trials across 2 consecutive weeks').\n"
+            "The goal MUST directly address the PRIMARY Goal Area specified in the user prompt. "
+            "Do NOT write a goal for a different domain. "
+            "Output ONLY the goal sentence. No explanations, no bullet points, no preamble."
         )
         prompt = (
-            f"☁️system☁️"
-            f"You are an expert Special Education teacher writing IEP goals. "
-            f"Write ONE specific, measurable, achievable, relevant, and time-bound (SMART) annual IEP goal. "
-            f"The goal MUST follow the ABCD criteria:\n"
-            f"- Actor: The individual learner (refer to the student by name or 'the learner').\n"
-            f"- Behavior: Specific, observable skill with targeted brackets (e.g., 'count and identify numbers 5–10', 'sort classroom objects into 3 categories').\n"
-            f"- Condition: Environmental prompt level and context (e.g., 'given visual counters and physical prompts', 'in a structured classroom setting').\n"
-            f"- Degree: Measurable criteria/threshold (e.g., 'with 80% accuracy in 4 out of 5 consecutive trials across 2 consecutive weeks').\n"
-            f"The goal MUST directly address the PRIMARY Goal Area specified below. "
-            f"Do NOT write a goal for a different domain. "
-            f"Output ONLY the goal sentence. No explanations, no bullet points, no preamble."
-            f"☁️/system☁️"
-            f"☁️user☁️"
-            f"Student: {student_name}\n"
+            f"Student: {spot_student}\n"
             f"{goal_area_line}"
-            f"Areas of Difficulty (all Section B rows, consolidated): {difficulty}\n"
-            f"Assistive Technology Available: {assistive_tech}\n"
-            f"Accommodations: {accommodations}\n"
-            f"Support Personnel: {facilitators}\n"
+            f"Areas of Difficulty (all Section B rows, consolidated): {spot_difficulty}\n"
+            f"Assistive Technology Available: {spot_tech}\n"
+            f"Accommodations: {spot_accomm}\n"
+            f"Support Personnel: {spot_fac}\n"
             f"{special_factors_line}"
             f"{teacher_instructions}\n"
-            f"Write the annual IEP goal for this student following the ABCD criteria with targeted skill brackets and targeting the PRIMARY Goal Area above."
-            f"☁️/user☁️"
+            f"Write the annual IEP goal for this student following the ABCD criteria "
+            f"(Actor: The individual learner; Behavior: Specific, observable skill with targeted brackets; "
+            f"Condition: Environmental prompt level and context; Degree: Measurable criteria/threshold) "
+            f"and targeting the PRIMARY Goal Area above."
         )
-        goal_text, _ = AIEngineService.generate_text(prompt, max_tokens=200)
+        goal_text, _ = AIEngineService.generate_text(prompt, system_prompt=system_prompt, max_tokens=200)
         return goal_text.strip()
  
  
     def _generate_objective_rows(
         self, student_name, difficulty, assistive_tech, annual_goal, facilitators, goal_area='', special_factor_notes=''
     ):
+        validated_goal_area = self._validate_goal_area(goal_area)
+        nonce = AIEngineService.generate_nonce()
+
+        spot_student = AIEngineService.sanitize_and_spotlight(student_name, nonce=nonce)
+        spot_difficulty = AIEngineService.sanitize_and_spotlight(difficulty, nonce=nonce)
+        spot_tech = AIEngineService.sanitize_and_spotlight(assistive_tech, nonce=nonce)
+        spot_goal = AIEngineService.sanitize_and_spotlight(annual_goal, nonce=nonce)
+        spot_fac = AIEngineService.sanitize_and_spotlight(facilitators, nonce=nonce)
+
         special_factors_line = (
-            f"Special Factors / Behavioral and Sensory Notes: {special_factor_notes}\n"
+            f"Special Factors / Behavioral and Sensory Notes: {AIEngineService.sanitize_and_spotlight(special_factor_notes, nonce=nonce)}\n"
             if special_factor_notes else ""
-        )
-        goal_area_instruction = (
-            f"ALL objectives MUST be stepping-stone skills toward the PRIMARY Goal Area: {goal_area}. "
-            f"Do NOT write objectives about communication, social behavior, or any other domain. "
-            if goal_area else ""
         )
         system_prompt = (
             "You are an expert Special Education teacher writing IEP objective rows for a 3-month quarterly term. "
@@ -803,16 +860,17 @@ class GenerateIEPGoalsFromIEPView(APIView):
             "- month_1_target: 1st Month milestone (baseline skill acquisition with direct prompts/cues and initial bracket, e.g., 'Given visual counters and direct physical prompts, the learner will count numbers 1-3 with 70% accuracy').\n"
             "- month_2_target: 2nd Month milestone (intermediate skill progression with faded prompts/cues and expanded bracket, e.g., 'Given visual counters and faded verbal cues, the learner will count numbers 1-5 with 75% accuracy').\n"
             "- month_3_target: 3rd Month milestone (independent mastery with target bracket, e.g., 'Given visual counters, the learner will independently count and identify numbers 5-10 with 80% accuracy in 4 of 5 trials').\n"
-            f"{goal_area_instruction}"
+            "ALL objectives MUST be stepping-stone skills toward the PRIMARY Goal Area specified in the user prompt. "
+            "Do NOT write objectives about any other domain. "
             "Do not include markdown, backticks, or any text outside the JSON array."
         )
         user_prompt = (
-            f"Student: {student_name}\n"
-            f"PRIMARY Goal Area: {goal_area}\n"
-            f"Areas of Difficulty (all Section B rows, consolidated): {difficulty}\n"
-            f"Assistive Technology: {assistive_tech}\n"
-            f"Annual Goal: {annual_goal}\n"
-            f"Support Personnel: {facilitators}\n"
+            f"Student: {spot_student}\n"
+            f"PRIMARY Goal Area: {validated_goal_area}\n"
+            f"Areas of Difficulty (all Section B rows, consolidated): {spot_difficulty}\n"
+            f"Assistive Technology: {spot_tech}\n"
+            f"Annual Goal: {spot_goal}\n"
+            f"Support Personnel: {spot_fac}\n"
             f"{special_factors_line}\n"
             f"Generate 2-3 enroute objective rows as a JSON array following ABCD criteria and 3-month quarterly progression. "
             f"Each row must specify targeted skill brackets in enroute_objectives and progression across month_1_target, month_2_target, and month_3_target."
