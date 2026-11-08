@@ -281,22 +281,25 @@ class AIEngineService:
         errors = []
         nonce = cls.generate_nonce()
         raw_prompt = str(prompt or '')
-        if re.search(r"<untrusted_data_[0-9a-f]{8}>", raw_prompt):
-            # Caller already wrapped individual fields with Spotlighting nonces;
-            # strip any residual cloud tags or control characters outside tags.
+        effective_system_prompt = (system_prompt or "").strip()
+
+        if effective_system_prompt:
+            if re.search(r"<untrusted_data_[0-9a-f]{8}>", raw_prompt):
+                # Caller already wrapped individual fields with Spotlighting nonces;
+                # strip any residual cloud tags or control characters outside tags.
+                safe_prompt = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", raw_prompt)
+                safe_prompt = re.sub(r"☁️/?(?:system|user|assistant)☁️", "", safe_prompt, flags=re.IGNORECASE)
+            else:
+                safe_prompt = cls.sanitize_and_spotlight(raw_prompt, nonce=nonce)
+
+            if "REMEMBER:" not in safe_prompt:
+                safe_prompt = f"{safe_prompt}{cls.SANDWICH_REMINDER}"
+
+            if "untrusted_data_" not in effective_system_prompt:
+                effective_system_prompt = f"{effective_system_prompt}{cls.SPOTLIGHT_SYSTEM_SUFFIX}"
+        else:
             safe_prompt = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", raw_prompt)
             safe_prompt = re.sub(r"☁️/?(?:system|user|assistant)☁️", "", safe_prompt, flags=re.IGNORECASE)
-        else:
-            safe_prompt = cls.sanitize_and_spotlight(raw_prompt, nonce=nonce)
-
-        if "REMEMBER:" not in safe_prompt:
-            safe_prompt = f"{safe_prompt}{cls.SANDWICH_REMINDER}"
-
-        effective_system_prompt = (system_prompt or "").strip()
-        if effective_system_prompt and "untrusted_data_" not in effective_system_prompt:
-            effective_system_prompt = f"{effective_system_prompt}{cls.SPOTLIGHT_SYSTEM_SUFFIX}"
-        elif not effective_system_prompt:
-            effective_system_prompt = cls.SPOTLIGHT_SYSTEM_SUFFIX.strip()
 
         # Tier 1 (Primary Cloud): Google Gemini
         try:
