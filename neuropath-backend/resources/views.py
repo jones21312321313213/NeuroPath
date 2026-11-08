@@ -1837,7 +1837,6 @@ class GenerateVisualAidAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        from iep_management.privacy_utils import extract_student_pii_terms
         pii_tokens = extract_student_pii_terms(student)
         scrubbed_goal_text = scrub_pii_from_text(target_goal.annual_goal or "learning and development", pii_tokens)
         scrubbed_extra_prompt = scrub_pii_from_text(extra_prompt, pii_tokens)
