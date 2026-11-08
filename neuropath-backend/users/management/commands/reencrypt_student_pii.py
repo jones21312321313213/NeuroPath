@@ -151,7 +151,6 @@ class Command(BaseCommand):
             student_id = row[0]
             field_values = dict(zip(ENCRYPTED_FIELDS, row[1:]))
             student_updates = {}
-            has_failure = False
 
             for field_name in ENCRYPTED_FIELDS:
                 raw_val = field_values.get(field_name)
@@ -192,7 +191,6 @@ class Command(BaseCommand):
                         total_fields_reencrypted += 1
                     else:
                         total_fields_failed += 1
-                        has_failure = True
                         self.stderr.write(
                             self.style.ERROR(
                                 f"  [FAIL] Student #{student_id} field '{field_name}': "
