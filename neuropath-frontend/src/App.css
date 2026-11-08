@@ -814,7 +814,7 @@ select option,
 
 /* ── Colorful Greeting Hero Banner ──────────────────── */
 .overview-welcome {
-  background: linear-gradient(135deg, #5aabf0 0%, #3d9de8 55%, #2b77c4 100%);
+  background: linear-gradient(135deg, #5aabf0 0%, #3d9de8 50%, #1e6fbf 100%);
   border-radius: 16px;
   padding: 30px 36px;
   color: #ffffff;
