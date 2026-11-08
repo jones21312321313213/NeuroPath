@@ -150,11 +150,14 @@ describe("RecordProgressModal", () => {
     await user.click(submitBtn);
 
     await waitFor(() => {
-      expect(trackingAPI.recordProgress).toHaveBeenCalledWith({
-        studentID: 1,
-        subjectName: "Mathematics",
-        performanceScore: 88,
-      });
+      expect(trackingAPI.recordProgress).toHaveBeenCalledWith(
+        expect.objectContaining({
+          studentID: 1,
+          subjectName: "Mathematics",
+          performanceScore: 88,
+          behavioralObservations: "",
+        })
+      );
       expect(mockOnSuccess).toHaveBeenCalled();
     });
   });

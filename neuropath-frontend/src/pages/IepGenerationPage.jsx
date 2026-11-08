@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { iepAPI, studentsAPI } from "../api/client";
 import {
   Button,
@@ -21,16 +21,10 @@ import {
   DocumentIcon,
   SparklesIcon,
   PencilIcon,
-  BookOpenIcon,
-  PhotoIcon,
   TargetIcon,
-  HomeIcon,
   TrashIcon,
   CloseIcon,
   CheckIcon,
-  PlusIcon,
-  RocketIcon,
-  WarningIcon,
 } from "../components/ui/icons";
 import { Pagination } from "../components/ui/Pagination";
 import { formatRelativeTime } from "../utils/dateUtils";
@@ -501,24 +495,24 @@ function normalizeDbGoal(dbGoal) {
   return {
     goalID: g.goalID,
     iep: g.iep,
-    type: g.subject_category || g.goalName || "Goal",
-    annualGoal: g.annual_goal || g.goalName || "—",
-    goalName: g.goalName || g.subject_category || "Goal",
-    targetMetric: g.target_metric || "Standard IEP Metric",
-    rows: (g.objective_rows || []).map((row) => ({
-      id: row.rowID,
-      rowID: row.rowID,
-      objective: row.enroute_objectives || "",
-      month1: row.month_1_target || "",
-      month2: row.month_2_target || "",
-      month3: row.month_3_target || "",
-      month_1_target: row.month_1_target || "",
-      month_2_target: row.month_2_target || "",
-      month_3_target: row.month_3_target || "",
-      interventions: row.interventions_procedures || "",
-      timeline: row.timeline_mins_session || "",
-      responsible: row.individuals_responsible || "",
-      evaluation: row.progress_instructional || "",
+    type: g.subject_category || g.goalName || g.type || "Goal",
+    annualGoal: g.annual_goal || g.annualGoal || g.goalName || "—",
+    goalName: g.goalName || g.subject_category || g.type || "Goal",
+    targetMetric: g.target_metric || g.targetMetric || "Standard IEP Metric",
+    rows: (g.objective_rows || g.rows || []).map((row) => ({
+      id: row.rowID || row.id,
+      rowID: row.rowID || row.id,
+      objective: row.enroute_objectives || row.objective || "",
+      month1: row.month_1_target || row.month1 || "",
+      month2: row.month_2_target || row.month2 || "",
+      month3: row.month_3_target || row.month3 || "",
+      month_1_target: row.month_1_target || row.month1 || "",
+      month_2_target: row.month_2_target || row.month2 || "",
+      month_3_target: row.month_3_target || row.month3 || "",
+      interventions: row.interventions_procedures || row.interventions || "",
+      timeline: row.timeline_mins_session || row.timeline || "",
+      responsible: row.individuals_responsible || row.responsible || "",
+      evaluation: row.progress_instructional || row.evaluation || "",
       remarks: row.remarks || "",
     })),
   };
@@ -638,6 +632,7 @@ function StudentSearchBox({
         >
           Search Student
         </label>
+    
         {selectedStudent && (
           <button
             type="button"
@@ -650,7 +645,9 @@ function StudentSearchBox({
             }}
           >
             Change Student
+            
           </button>
+          
         )}
       </div>
 
@@ -758,8 +755,13 @@ function StudentSearchBox({
                         {getInitials(getStudentName(student))}
                       </div>
                       <div className="vsp-card-info">
-                        <p className="vsp-card-name">{getStudentName(student)}</p>
-                        <span className="vsp-card-meta">
+                        <p className="vsp-card-name" title={getStudentName(student)}>
+                          {getStudentName(student)}
+                        </p>
+                        <span
+                          className="vsp-card-meta"
+                          title={student.diagnosis || student.asdBackground || "No diagnosis on record"}
+                        >
                           {student.diagnosis || student.asdBackground || "No diagnosis on record"}
                         </span>
                       </div>
@@ -928,39 +930,7 @@ function ViewIEPPanel({
     }
   };
 
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const [exportPdfError, setExportPdfError] = useState("");
 
-  const handleExportPDF = async () => {
-    if (isExportingPdf || !selectedIep?.iepID) return;
-    setIsExportingPdf(true);
-    setExportPdfError("");
-    try {
-      const blob = await iepAPI.exportPDF(selectedIep.iepID);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      const cleanName = (
-        selectedIep.studentName ||
-        getStudentName(selectedStudent) ||
-        "Student"
-      ).replace(/\s+/g, "_");
-      link.download = `IEP_${cleanName}_v${selectedIep.version || 1}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-      }, 1000);
-      toast.success("IEP exported as PDF successfully.");
-    } catch (err) {
-      const errMsg = err.message || "Failed to export IEP PDF. Please try again.";
-      setExportPdfError(errMsg);
-      toast.error(errMsg);
-    } finally {
-      setIsExportingPdf(false);
-    }
-  };
 
   const [isEditing, setIsEditing] = useState(false);
   const [editBarrierRows, setEditBarrierRows] = useState([]);
@@ -1305,30 +1275,68 @@ function ViewIEPPanel({
 
   return (
     <div className="form-card iep-card">
+    
       <SectionHeader
         title="View IEP"
         subtitle="Search a student name, select a matching result — the latest IEP loads automatically."
         action={
-          <button
-            type="button"
-            className="iep-archives-btn"
-            onClick={() => setShowArchivedModal(true)}
-            aria-label="View archived IEPs"
-          >
-            <i className="ti ti-archive" aria-hidden="true" style={{ fontSize: "1rem" }} />
-            <span>Archived IEPs</span>
-            {selectedStudent && (
-              <span className="iep-count-badge">
-                {archivedIeps.length}
-              </span>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: "12px", flexWrap: "wrap" }}>
+            {selectedStudent && (activeIeps.length > 1 || studentIeps.length > 1) && (
+              <div className="form-group iep-version-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Active IEP Version</label>
+                <select
+                  value={selectedIep?.iepID || ""}
+                  className="form-select"
+                  disabled={loadingIeps}
+                  onChange={(e) => {
+                    const targetIep =
+                      studentIeps.find(
+                        (iep) => String(iep.iepID) === e.target.value,
+                      ) || null;
+                    if (isFormDirty) {
+                      promptNavigation(() => setSelectedIep(targetIep));
+                    } else {
+                      setSelectedIep(targetIep);
+                    }
+                  }}
+                >
+                  {(activeIeps.length > 0 ? activeIeps : studentIeps).map((iep) => {
+                    const isAct = !iep.is_archived && Number(iep.version) === latestActiveVersion;
+                    const statusTag = iep.is_archived
+                      ? "(Archived)"
+                      : isAct
+                        ? "(Active)"
+                        : "(Superseded)";
+                    return (
+                      <option key={iep.iepID} value={iep.iepID}>
+                        Version {iep.version} {statusTag}
+                        {iep.formattedDate ? ` · Last Updated: ${iep.formattedDate}` : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
             )}
-          </button>
+
+            <button
+              type="button"
+              className="iep-archives-btn"
+              onClick={() => setShowArchivedModal(true)}
+              aria-label="View archived IEPs"
+            >
+              <i className="ti ti-archive" aria-hidden="true" style={{ fontSize: "1rem" }} />
+              <span>Archived IEPs</span>
+              {selectedStudent && (
+                <span className="iep-count-badge">
+                  {archivedIeps.length}
+                </span>
+              )}
+            </button>
+          </div>
         }
       />
 
-      <div
-        className={`iep-view-controls ${selectedStudent ? "has-selected" : "full-width"}`}
-      >
+      <div className="iep-view-controls full-width">
         <StudentSearchBox
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
@@ -1344,42 +1352,7 @@ function ViewIEPPanel({
           loadingStudents={loadingStudents}
           ieps={ieps}
         />
-        {selectedStudent && (activeIeps.length > 1 || studentIeps.length > 1) && (
-          <div className="form-group iep-version-group">
-            <label className="form-label">Active IEP Version</label>
-            <select
-              value={selectedIep?.iepID || ""}
-              className="form-select"
-              disabled={loadingIeps}
-              onChange={(e) => {
-                const targetIep =
-                  studentIeps.find(
-                    (iep) => String(iep.iepID) === e.target.value,
-                  ) || null;
-                if (isFormDirty) {
-                  promptNavigation(() => setSelectedIep(targetIep));
-                } else {
-                  setSelectedIep(targetIep);
-                }
-              }}
-            >
-              {(activeIeps.length > 0 ? activeIeps : studentIeps).map((iep) => {
-                const isAct = !iep.is_archived && Number(iep.version) === latestActiveVersion;
-                const statusTag = iep.is_archived
-                  ? "(Archived)"
-                  : isAct
-                    ? "(Active)"
-                    : "(Superseded)";
-                return (
-                  <option key={iep.iepID} value={iep.iepID}>
-                    Version {iep.version} {statusTag}
-                    {iep.formattedDate ? ` · Last Updated: ${iep.formattedDate}` : ""}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-        )}
+        
       </div>
 
       {viewError && (
@@ -1454,50 +1427,33 @@ function ViewIEPPanel({
               </p>
             </div>
             {!isEditing && (
-              <div className="iep-view-actions">
-                <button className="btn btn-back" onClick={openEdit}>
-                  EDIT IEP
-                </button>
-                {selectedIep.is_archived ? (
-                  <button
-                    type="button"
-                    className="btn btn-back"
-                    onClick={() => handleToggleArchive(selectedIep, false)}
-                  >
-                    UNARCHIVE VERSION
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn btn-back"
-                    onClick={() => handleToggleArchive(selectedIep, true)}
-                  >
-                    ARCHIVE VERSION
-                  </button>
-                )}
+              <div
+                className="iep-view-actions"
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: "10px",
+                  flexWrap: "nowrap",
+                }}
+              >
                 <button
-                  type="button"
-                  className="btn btn-back iep-export-pdf-btn"
-                  onClick={handleExportPDF}
-                  disabled={isExportingPdf}
+                  className="btn btn-back"
+                  onClick={openEdit}
+                  style={{ whiteSpace: "nowrap", flexShrink: 0 }}
                 >
-                  {isExportingPdf ? "Exporting PDF..." : "EXPORT PDF"}
+                  EDIT IEP
                 </button>
                 <button
                   className="btn iep-btn-danger"
                   onClick={() => setDeleteTarget(selectedIep)}
+                  style={{ whiteSpace: "nowrap", flexShrink: 0 }}
                 >
                   DELETE IEP
                 </button>
               </div>
             )}
           </div>
-
-          {exportPdfError && (
-            <div role="alert" className="iep-alert iep-alert-error" style={{ marginBottom: 12 }}>
-              {exportPdfError}
-            </div>
-          )}
 
           <div className="iep-view-meta iep-view-meta-badges">
             <span
@@ -1520,6 +1476,25 @@ function ViewIEPPanel({
             <span className="iep-status-badge iep-date-badge">
               {`Last Updated: ${selectedIep.formattedDate || "Date unavailable"}`}
             </span>
+            {!isEditing && (
+              selectedIep.is_archived ? (
+                <button
+                  type="button"
+                  className="btn btn-back iep-archive-toggle-btn"
+                  onClick={() => handleToggleArchive(selectedIep, false)}
+                >
+                  UNARCHIVE VERSION
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-back iep-archive-toggle-btn"
+                  onClick={() => handleToggleArchive(selectedIep, true)}
+                >
+                  ARCHIVE VERSION
+                </button>
+              )
+            )}
           </div>
 
 
@@ -2111,12 +2086,21 @@ export default function IEPGenerationPage({
   initialStudentId = null,
   setActivePage,
   setSelectedStudentId,
+  cooldownSeconds = 10,
 }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
-  const effectiveStudentId = id || initialStudentId;
-  const activeView = mode;
+  const [activeView, setActiveView] = useState(mode);
+  const [redirectState, setRedirectState] = useState(null);
+  const savedIepRef = useRef(null);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setActiveView(mode);
+    });
+  }, [mode]);
 
   const currentUser = useMemo(() => {
     try {
@@ -2136,6 +2120,18 @@ export default function IEPGenerationPage({
   const [ieps, setIeps] = useState([]);
   const [selectedIep, setSelectedIep] = useState(null);
   const [activeGeneratedIepId, setActiveGeneratedIepId] = useState(null);
+
+  const effectiveStudentId =
+    id ||
+    initialStudentId ||
+    location?.state?.studentId ||
+    redirectState?.studentId ||
+    null;
+  const targetIepIdFromNav =
+    location?.state?.iepId ||
+    redirectState?.iepId ||
+    activeGeneratedIepId ||
+    null;
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [loadingIeps, setLoadingIeps] = useState(false);
   const [viewError, setViewError] = useState("");
@@ -2169,10 +2165,7 @@ export default function IEPGenerationPage({
   // Generation result
   const [generatingFinalIep, setGeneratingFinalIep] = useState(false);
   const [savingGoals, setSavingGoals] = useState(false);
-  const [goalSaveStatus, setGoalSaveStatus] = useState(""); // "" | "saving" | "saved" | "error"
   const [aiGeneratedGoals, setAiGeneratedGoals] = useState([]);
-  const [generationDone, setGenerationDone] = useState(false);
-  const resultRef = useRef(null);
 
   // Post-generation preview modal (Issue #157)
   const [showPostGenModal, setShowPostGenModal] = useState(false);
@@ -2189,6 +2182,17 @@ export default function IEPGenerationPage({
     prompt: "",
     isRegenerating: false,
   });
+
+  // Issue #259 10-Second Cooldown Timer
+  const [regenCooldown, setRegenCooldown] = useState(0);
+
+  useEffect(() => {
+    if (regenCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setRegenCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [regenCooldown]);
 
   // Manual goal state in Section C
   const [showManualGoal, setShowManualGoal] = useState(false);
@@ -2251,9 +2255,9 @@ export default function IEPGenerationPage({
       if (!effectiveStudentId) {
         setSearchTerm("");
         setSelectedStudent(null);
+        setIeps([]);
+        setSelectedIep(null);
       }
-      setIeps([]);
-      setSelectedIep(null);
       setViewError("");
     });
   }, [activeView, effectiveStudentId]);
@@ -2431,12 +2435,49 @@ export default function IEPGenerationPage({
       setViewError("");
       try {
         const data = await iepAPI.listByStudent(sid, currentUserId);
-        const list = Array.isArray(data)
+        const rawList = Array.isArray(data)
           ? data
           : data.results || data.data || [];
         if (mounted) {
+          let list = [...rawList];
+          const cachedSaved = savedIepRef.current;
+          if (
+            cachedSaved &&
+            String(cachedSaved.studentID?.pk ?? cachedSaved.studentID) ===
+              String(sid)
+          ) {
+            const idx = list.findIndex(
+              (item) => String(item.iepID) === String(cachedSaved.iepID),
+            );
+            if (idx >= 0) {
+              const existingDetails =
+                normalizeGeneratedDetails(list[idx]) || {};
+              const cachedDetails =
+                normalizeGeneratedDetails(cachedSaved) || {};
+              list[idx] = {
+                ...cachedSaved,
+                ...list[idx],
+                generatedDetails: {
+                  ...cachedDetails,
+                  ...existingDetails,
+                  learnerGoals:
+                    existingDetails.learnerGoals?.length
+                      ? existingDetails.learnerGoals
+                      : cachedDetails.learnerGoals || [],
+                },
+              };
+            } else {
+              list = [cachedSaved, ...list];
+            }
+          }
+
           setIeps(list);
-          const latest = list[0] || null;
+          const matchedIep = targetIepIdFromNav
+            ? list.find(
+                (iep) => String(iep.iepID) === String(targetIepIdFromNav),
+              )
+            : null;
+          const latest = matchedIep || list[0] || null;
           setSelectedIep(latest);
           if (latest && activeView !== "generate") {
             const d = normalizeGeneratedDetails(latest);
@@ -2463,7 +2504,7 @@ export default function IEPGenerationPage({
     return () => {
       mounted = false;
     };
-  }, [selectedStudent, currentUserId, activeView]);
+  }, [selectedStudent, currentUserId, activeView, targetIepIdFromNav]);
 
   // Pre-fill form from student profile
   useEffect(() => {
@@ -2493,9 +2534,7 @@ export default function IEPGenerationPage({
             },
           ],
         }));
-        setGenerationDone(false);
         setAiGeneratedGoals([]);
-        setGoalSaveStatus("");
         setActiveGeneratedIepId(null);
         setTeacherPrompt("");
         setSelectedGoalCategory("");
@@ -2557,9 +2596,7 @@ export default function IEPGenerationPage({
       }));
       if (isNewStudent) {
         // Reset generation state on student switch
-        setGenerationDone(false);
         setAiGeneratedGoals([]);
-        setGoalSaveStatus("");
         setActiveGeneratedIepId(null);
         setTeacherPrompt("");
         setSelectedGoalCategory("");
@@ -2744,13 +2781,43 @@ export default function IEPGenerationPage({
 
     const savedData = saved?.data || saved;
     savedIepId = savedData?.iepID;
+    const enrichedSavedIep = {
+      studentID: getStudentId(selectedStudent),
+      studentName: form.learnerName || getStudentName(selectedStudent) || "",
+      version: savedData?.version || 1,
+      baselineData: baselineText,
+      accommodations: accommodationText,
+      generatedDetails: {
+        ...form,
+        specialFactorNotes: form.specialFactorNotes,
+        special_factor_notes: form.specialFactorNotes,
+        generatedAccommodations: accommodationText,
+        special_factors_considerations,
+      },
+      difficulties: form.barrierRows.map((r) => r.difficulty).join("\n"),
+      learning_barriers: form.barrierRows
+        .map((r) => r.barrierQualifier)
+        .join("\n"),
+      learning_facilitators: form.barrierRows
+        .map((r) => r.facilitator)
+        .join("\n"),
+      learning_accommodations: form.barrierRows
+        .map((r) => r.accommodation)
+        .join("\n"),
+      ...savedData,
+    };
+    savedIepRef.current = enrichedSavedIep;
     setActiveGeneratedIepId(savedIepId);
     if (
-      String(savedData?.studentID) === String(getStudentId(selectedStudent))
+      String(enrichedSavedIep.studentID) ===
+      String(getStudentId(selectedStudent))
     ) {
-      setIeps((prev) => [savedData, ...prev]);
+      setIeps((prev) => [
+        enrichedSavedIep,
+        ...prev.filter((item) => String(item.iepID) !== String(savedIepId)),
+      ]);
     }
-    setSelectedIep(savedData);
+    setSelectedIep(enrichedSavedIep);
     return savedIepId;
   };
 
@@ -2813,8 +2880,6 @@ export default function IEPGenerationPage({
       };
 
       setAiGeneratedGoals((prev) => [...prev, newGoal]);
-      setGenerationDone(true);
-      setGoalSaveStatus("saved");
       toast.success("Goal added successfully!");
       setManualGoal({
         type: "",
@@ -2850,7 +2915,10 @@ export default function IEPGenerationPage({
 
   // ── Generate Final IEP ────────────────────────────────────────────────────
 
-  const handleGenerateFinalIep = async (overrideTeacherPrompt) => {
+  const handleGenerateFinalIep = async (
+    overrideTeacherPrompt,
+    isRegeneration = false,
+  ) => {
     if (!getStudentId(selectedStudent)) {
       showError("Please select a student first.", "Student Required");
       return;
@@ -2875,71 +2943,13 @@ export default function IEPGenerationPage({
     }
 
     setGeneratingFinalIep(true);
-    setGenerationDone(false);
     setPendingGeneratedGoals([]);
-    setGoalSaveStatus("");
 
-    // Step 1: Save the IEP document once for this generation session.
-    // Additional generated goals for the same student/session are appended to
-    // the same IEP version instead of creating another version.
-    let savedIepId = activeGeneratedIepId;
-    try {
-      const accommodationText = buildGeneratedAccommodations();
-      setGeneratedAccommodations(accommodationText);
+    // Calculate accommodations for draft preview without persisting IEP document yet (Issue #256)
+    const accommodationText = buildGeneratedAccommodations();
+    setGeneratedAccommodations(accommodationText);
 
-      const baselineText = [
-        `Student: ${form.learnerName || getStudentName(selectedStudent) || ""}`,
-        `Diagnosis: ${form.disabilityCategory || ""}`,
-        `Assessment / Diagnosis Details: ${form.diagnosisDetails || ""}`,
-        `Present Evaluation: ${form.presentEvaluation || ""}`,
-        `Academic Strengths: ${form.academicStrengths || ""}`,
-        `Academic Needs: ${form.academicNeeds || ""}`,
-        `Parental Concerns: ${form.parentalConcerns || ""}`,
-        `Curriculum Impact: ${form.curriculumImpact || ""}`,
-      ].join("\n");
-
-      const special_factors_considerations = form.barrierRows
-        .filter((r) => r.difficulty.trim())
-        .map((row, i) => ({
-          difficulty: row.difficulty,
-          assistive_technology:
-            form.assistiveTechnologies[i] ||
-            form.assistiveTechnologies[0] ||
-            "",
-        }));
-
-      if (!savedIepId) {
-        savedIepId = await ensureIepDocument();
-      } else {
-        await iepAPI.update(savedIepId, {
-          baselineData: baselineText,
-          accommodations: accommodationText,
-          generatedDetails: {
-            ...form,
-            specialFactorNotes: form.specialFactorNotes,
-            special_factor_notes: form.specialFactorNotes,
-            generatedAccommodations: accommodationText,
-            special_factors_considerations,
-          },
-          difficulties: form.barrierRows.map((r) => r.difficulty).join("\n"),
-          learning_barriers: form.barrierRows
-            .map((r) => r.barrierQualifier)
-            .join("\n"),
-          learning_facilitators: form.barrierRows
-            .map((r) => r.facilitator)
-            .join("\n"),
-          learning_accommodations: form.barrierRows
-            .map((r) => r.accommodation)
-            .join("\n"),
-        });
-      }
-    } catch (err) {
-      showError(err.message || "Unknown error", "Failed to Save IEP Document");
-      setGeneratingFinalIep(false);
-      return;
-    }
-
-    // Step 2: Generate AI goals
+    // Step 2: Generate AI goals in draft state
     try {
       const special_factors_considerations = form.barrierRows
         .filter((r) => r.difficulty.trim())
@@ -2957,7 +2967,8 @@ export default function IEPGenerationPage({
           : teacherPrompt;
 
       const result = await iepAPI.generateGoalsFromIep({
-        iep_id: savedIepId,
+        iep_id: activeGeneratedIepId || null,
+        student_id: getStudentId(selectedStudent),
         student_name: form.learnerName || getStudentName(selectedStudent) || "",
         goal_area: selectedGoalCategory,
         teacher_prompt: effectiveTeacherPrompt,
@@ -2987,25 +2998,100 @@ export default function IEPGenerationPage({
 
       const goals = result?.goals || [];
       setPendingGeneratedGoals(goals);
-      setPendingIepId(savedIepId);
+      setPendingIepId(activeGeneratedIepId || null);
       setShowPostGenModal(true);
+      if (cooldownSeconds > 0) {
+        setRegenCooldown(cooldownSeconds);
+      }
+      if (isRegeneration || activeGeneratedIepId || pendingIepId) {
+        toast.success(
+          "IEP goals regenerated successfully! Review the draft below and click 'Accept & Save IEP' to apply.",
+        );
+      } else {
+        toast.success(
+          "IEP goals generated successfully! Review the draft below and click 'Accept & Save IEP' to apply.",
+        );
+      }
     } catch (err) {
       showError(err.message || "Unknown error", "Failed to Generate AI Goals");
-      setGenerationDone(false);
     } finally {
       setGeneratingFinalIep(false);
     }
   };
 
   const handleAcceptAndSaveGoals = async () => {
-    if (!pendingGeneratedGoals.length || !pendingIepId) {
+    if (!pendingGeneratedGoals.length) {
       setShowPostGenModal(false);
       return;
     }
 
     setIsSavingPendingGoals(true);
     setSavingGoals(true);
-    setGoalSaveStatus("saving");
+
+    // Persist or update IEP document only upon user approval (Issue #256)
+    let targetIepId = activeGeneratedIepId || pendingIepId;
+    try {
+      if (!targetIepId) {
+        targetIepId = await ensureIepDocument();
+      } else {
+        const accommodationText = buildGeneratedAccommodations();
+        const baselineText = [
+          `Student: ${form.learnerName || getStudentName(selectedStudent) || ""}`,
+          `Diagnosis: ${form.disabilityCategory || ""}`,
+          `Assessment / Diagnosis Details: ${form.diagnosisDetails || ""}`,
+          `Present Evaluation: ${form.presentEvaluation || ""}`,
+          `Academic Strengths: ${form.academicStrengths || ""}`,
+          `Academic Needs: ${form.academicNeeds || ""}`,
+          `Parental Concerns: ${form.parentalConcerns || ""}`,
+          `Curriculum Impact: ${form.curriculumImpact || ""}`,
+        ].join("\n");
+
+        const special_factors_considerations = form.barrierRows
+          .filter((r) => r.difficulty.trim())
+          .map((row, i) => ({
+            difficulty: row.difficulty,
+            assistive_technology:
+              form.assistiveTechnologies[i] ||
+              form.assistiveTechnologies[0] ||
+              "",
+          }));
+
+        await iepAPI.update(targetIepId, {
+          baselineData: baselineText,
+          accommodations: accommodationText,
+          generatedDetails: {
+            ...form,
+            specialFactorNotes: form.specialFactorNotes,
+            special_factor_notes: form.specialFactorNotes,
+            generatedAccommodations: accommodationText,
+            special_factors_considerations,
+          },
+          difficulties: form.barrierRows.map((r) => r.difficulty).join("\n"),
+          learning_barriers: form.barrierRows
+            .map((r) => r.barrierQualifier)
+            .join("\n"),
+          learning_facilitators: form.barrierRows
+            .map((r) => r.facilitator)
+            .join("\n"),
+          learning_accommodations: form.barrierRows
+            .map((r) => r.accommodation)
+            .join("\n"),
+        });
+      }
+    } catch (err) {
+      showError(err.message || "Unknown error", "Failed to Save IEP Document");
+      setSavingGoals(false);
+      setIsSavingPendingGoals(false);
+      return;
+    }
+
+    if (!targetIepId) {
+      showError("Could not create or locate an IEP record for this goal.", "Save Failed");
+      setSavingGoals(false);
+      setIsSavingPendingGoals(false);
+      return;
+    }
+
     let allSaved = true;
 
     for (const goal of pendingGeneratedGoals) {
@@ -3019,7 +3105,7 @@ export default function IEPGenerationPage({
         } = goal;
         await iepAPI.saveGoal({
           ...goalPayload,
-          iep: pendingIepId,
+          iep: targetIepId,
           goalName:
             goalPayload.goalName || goalPayload.subject_category || "Goal",
           target_metric: goalPayload.target_metric || "Standard IEP Metric",
@@ -3029,35 +3115,75 @@ export default function IEPGenerationPage({
       }
     }
 
-    setAiGeneratedGoals((prev) => [...prev, ...pendingGeneratedGoals]);
-    setGoalSaveStatus(allSaved ? "saved" : "error");
-    if (allSaved) {
-      toast.success(
-        "Generated IEP goals saved successfully to student record!",
-      );
+    const nextAiGoals = [...aiGeneratedGoals, ...pendingGeneratedGoals];
+    setAiGeneratedGoals(nextAiGoals);
+
+    const normalizedSavedGoals = nextAiGoals
+      .map(normalizeDbGoal)
+      .filter(Boolean);
+
+    if (
+      savedIepRef.current &&
+      String(savedIepRef.current.iepID) === String(targetIepId)
+    ) {
+      const existingDetails =
+        normalizeGeneratedDetails(savedIepRef.current) || {};
+      savedIepRef.current = {
+        ...savedIepRef.current,
+        generatedDetails: {
+          ...existingDetails,
+          learnerGoals: normalizedSavedGoals,
+        },
+      };
     } else {
-      toast.error("Some IEP goals could not be saved.");
+      const accommodationText = buildGeneratedAccommodations();
+      savedIepRef.current = {
+        iepID: targetIepId,
+        studentID: getStudentId(selectedStudent),
+        studentName: form.learnerName || getStudentName(selectedStudent) || "",
+        version: selectedIep?.version || 1,
+        accommodations: accommodationText,
+        generatedDetails: {
+          ...form,
+          specialFactorNotes: form.specialFactorNotes,
+          special_factor_notes: form.specialFactorNotes,
+          generatedAccommodations: accommodationText,
+          learnerGoals: normalizedSavedGoals,
+        },
+        difficulties: form.barrierRows.map((r) => r.difficulty).join("\n"),
+        learning_barriers: form.barrierRows
+          .map((r) => r.barrierQualifier)
+          .join("\n"),
+        learning_facilitators: form.barrierRows
+          .map((r) => r.facilitator)
+          .join("\n"),
+        learning_accommodations: form.barrierRows
+          .map((r) => r.accommodation)
+          .join("\n"),
+      };
     }
-    setGenerationDone(true);
+
     setSavingGoals(false);
     setIsSavingPendingGoals(false);
     setShowPostGenModal(false);
 
-    setTimeout(
-      () =>
-        resultRef.current?.scrollIntoView?.({
-          behavior: "smooth",
-          block: "start",
-        }),
-      200,
-    );
-  };
-
-  const handleAddAnotherGoal = () => {
-    setGenerationDone(false);
-    setSelectedGoalCategory("");
-    setTeacherPrompt("");
-    setStep(2);
+    if (allSaved) {
+      const sid = getStudentId(selectedStudent);
+      toast.success(
+        "Generated IEP goals saved successfully to student record!",
+      );
+      setRedirectState({ studentId: sid, iepId: targetIepId });
+      setActiveView("view");
+      navigate("/dashboard/iep/view", {
+        state: {
+          studentId: sid,
+          iepId: targetIepId,
+        },
+      });
+      if (setActivePage) setActivePage("view-iep");
+    } else {
+      toast.error("Some IEP goals could not be saved.");
+    }
   };
 
   const handleRegenerateFromModal = async (customPrompt) => {
@@ -3066,7 +3192,7 @@ export default function IEPGenerationPage({
     if (typeof customPrompt === "string" && customPrompt.trim()) {
       setTeacherPrompt(customPrompt);
     }
-    await handleGenerateFinalIep(customPrompt);
+    await handleGenerateFinalIep(customPrompt, true);
   };
 
   const handleConfirmSingleGoalRegen = async () => {
@@ -3152,6 +3278,9 @@ export default function IEPGenerationPage({
         prompt: "",
         isRegenerating: false,
       });
+      if (cooldownSeconds > 0) {
+        setRegenCooldown(cooldownSeconds);
+      }
     } catch (err) {
       toast.error(err.message || "Failed to regenerate goal.");
       setSingleGoalRegenModal((prev) => ({ ...prev, isRegenerating: false }));
@@ -3370,9 +3499,7 @@ export default function IEPGenerationPage({
                 selectedStudent={selectedStudent}
                 onSelect={(student) => {
                   setSelectedStudent(student);
-                  setGenerationDone(false);
                   setAiGeneratedGoals([]);
-                  setGoalSaveStatus("");
                   setSelectedGoalCategory("");
                   setTeacherPrompt("");
                   setGeneratedAccommodations("");
@@ -3384,14 +3511,37 @@ export default function IEPGenerationPage({
                 ieps={ieps}
               />
               {selectedStudent ? (
-                <div className="iep-selected-student-card">
-                  <span>Selected Student</span>
-                  <strong>
-                    {getStudentName(selectedStudent) || "No student selected"}
-                  </strong>
-                  <small>
-                    {`Grade ${selectedStudent.grade || "—"} · Age ${selectedStudent.age || "—"}`}
-                  </small>
+                <div className="iep-selected-student-card vsp-card">
+                  <div className="iep-selected-student-header">
+                    <span className="iep-selected-badge">Selected Student</span>
+                  </div>
+                  <div className="vsp-card-top">
+                    <div className="vsp-avatar" aria-hidden="true">
+                      {getInitials(getStudentName(selectedStudent))}
+                    </div>
+                    <div className="vsp-card-info">
+                      <p className="vsp-card-name" title={getStudentName(selectedStudent)}>
+                        {getStudentName(selectedStudent) || "No student selected"}
+                      </p>
+                      <span
+                        className="vsp-card-meta"
+                        title={selectedStudent.diagnosis || selectedStudent.asdBackground || "No diagnosis on record"}
+                      >
+                        {selectedStudent.diagnosis || selectedStudent.asdBackground || "No diagnosis on record"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="vsp-card-pills">
+                    <span className="vsp-pill grade">
+                      Grade {selectedStudent.grade || "—"}
+                    </span>
+                    {selectedStudent.gender && (
+                      <span className="vsp-pill">{selectedStudent.gender}</span>
+                    )}
+                    {selectedStudent.age && (
+                      <span className="vsp-pill">{selectedStudent.age} yrs</span>
+                    )}
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -3668,10 +3818,18 @@ export default function IEPGenerationPage({
                         <button
                           type="button"
                           className="btn btn-back"
-                          style={{ fontSize: "0.8rem", padding: "4px 10px" }}
+                          style={{
+                            fontSize: "0.8rem",
+                            padding: "4px 10px",
+                            opacity: regenCooldown > 0 ? 0.6 : 1,
+                            cursor: regenCooldown > 0 ? "not-allowed" : "pointer",
+                          }}
                           onClick={() => setShowRegenConfirmModal(true)}
+                          disabled={regenCooldown > 0}
                         >
-                          Regenerate Goals
+                          {regenCooldown > 0
+                            ? `Regenerate Goals (${regenCooldown}s)`
+                            : "Regenerate Goals"}
                         </button>
                       </div>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
@@ -3692,6 +3850,31 @@ export default function IEPGenerationPage({
                           >
                             <CheckIcon className="w-3.5 h-3.5 mr-1 text-emerald-600 inline" aria-hidden="true" />
                             {g.subject_category || g.goalName || `Goal ${idx + 1}`}
+                            <button
+                              type="button"
+                              className="btn btn-back"
+                              style={{
+                                fontSize: "0.72rem",
+                                padding: "2px 8px",
+                                marginLeft: 8,
+                                opacity: regenCooldown > 0 ? 0.6 : 1,
+                                cursor: regenCooldown > 0 ? "not-allowed" : "pointer",
+                              }}
+                              onClick={() =>
+                                setSingleGoalRegenModal({
+                                  isOpen: true,
+                                  goalIndex: idx,
+                                  goal: g,
+                                  prompt: "",
+                                  isRegenerating: false,
+                                })
+                              }
+                              disabled={regenCooldown > 0}
+                            >
+                              {regenCooldown > 0
+                                ? `Regenerate Goal (${regenCooldown}s)`
+                                : "Regenerate Goal"}
+                            </button>
                           </span>
                         ))}
                       </div>
@@ -3700,16 +3883,15 @@ export default function IEPGenerationPage({
 
                   <div className="iep-ai-goal-toolbar multi">
                     <div className="form-group">
-                      <label className="form-label">Goal Area:</label>
+                      <label className="form-label" htmlFor="iep-goal-area-select">Goal Area:</label>
                       <select
+                        id="iep-goal-area-select"
                         className="form-select"
                         value={selectedGoalCategory}
                         onChange={(e) => {
                           setSelectedGoalCategory(e.target.value);
                           setTeacherPrompt("");
                           setGeneratedAccommodations("");
-                          setGoalSaveStatus("");
-                          setGenerationDone(false);
                         }}
                       >
                         <option value="">Select a goal area</option>
@@ -3777,12 +3959,19 @@ export default function IEPGenerationPage({
                         disabled={
                           generatingFinalIep ||
                           savingGoals ||
+                          regenCooldown > 0 ||
                           (selectedStudent &&
                             selectedStudent.parental_consent_obtained === false)
                         }
-                        style={{ marginRight: 8 }}
+                        style={{
+                          marginRight: 8,
+                          opacity: regenCooldown > 0 ? 0.6 : 1,
+                          cursor: regenCooldown > 0 ? "not-allowed" : "pointer",
+                        }}
                       >
-                        Regenerate Goals
+                        {regenCooldown > 0
+                          ? `Regenerate Goals (${regenCooldown}s)`
+                          : "Regenerate Goals"}
                       </button>
                     )}
                     <button
@@ -3959,237 +4148,6 @@ export default function IEPGenerationPage({
                       </div>
                     )}
                   </div>
-
-                  {/* ── Result panel ── */}
-                  {generationDone && (
-                    <div ref={resultRef} className="iep-generation-result">
-                      <div className="iep-result-banner">
-                        <span className="iep-result-icon">
-                          <CheckIcon className="w-6 h-6 text-emerald-600" aria-hidden="true" />
-                        </span>
-                        <div>
-                          <strong>IEP Generated Successfully!</strong>
-                          <p>
-                            The IEP has been saved and the AI goals are
-                            displayed below. You can view or edit the full
-                            record on the View IEP page, or proceed to Classroom Tools.
-                          </p>
-                          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                            <button
-                              type="button"
-                              className="btn btn-secondary"
-                              data-testid="add-another-goal-btn"
-                              style={{
-                                padding: "6px 14px",
-                                fontSize: 12,
-                                background: "#0284c7",
-                                color: "#ffffff",
-                                borderColor: "#0284c7",
-                              }}
-                              onClick={handleAddAnotherGoal}
-                            >
-                              <PlusIcon className="w-3.5 h-3.5 mr-1 inline" aria-hidden="true" />
-                              Add Another Goal to this IEP
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-submit"
-                              style={{ padding: "6px 14px", fontSize: 12 }}
-                              onClick={() => {
-                                navigate("/dashboard/lessons");
-                                if (setActivePage) setActivePage("manage-lesson-plans");
-                              }}
-                            >
-                              <BookOpenIcon className="w-3.5 h-3.5 mr-1 inline" aria-hidden="true" />
-                              Open Classroom Tools
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-back"
-                              style={{ padding: "6px 14px", fontSize: 12 }}
-                              onClick={() => {
-                                navigate("/dashboard/iep/view");
-                                if (setActivePage) setActivePage("view-iep");
-                              }}
-                            >
-                              View Saved IEP
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* --- POST-IEP NEXT STEPS TO CLASSROOM TOOLS --- */}
-                      <section
-                        className="iep-next-steps-card"
-                        aria-label="Post-IEP Next Steps"
-                      >
-                        <header className="iep-next-steps-header">
-                          <span className="iep-next-steps-icon" aria-hidden="true">
-                            <RocketIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
-                          </span>
-                          <div>
-                            <h4>Next Steps: Classroom Tools & Instructional Support</h4>
-                            <p>
-                              Your IEP is saved and ready! Put this IEP into action by creating aligned classroom materials or returning to your dashboard.
-                            </p>
-                          </div>
-                        </header>
-                        <nav
-                          className="iep-next-steps-grid"
-                          aria-label="Post-IEP tool actions"
-                        >
-                          <button
-                            type="button"
-                            className="iep-next-step-btn"
-                            onClick={() => {
-                              navigate("/dashboard/lessons");
-                              if (setActivePage) setActivePage("manage-lesson-plans");
-                            }}
-                          >
-                            <BookOpenIcon className="w-4 h-4 mr-1.5 inline text-blue-600" aria-hidden="true" />
-                            Create Lesson Plan
-                          </button>
-                          <button
-                            type="button"
-                            className="iep-next-step-btn"
-                            onClick={() => {
-                              navigate("/dashboard/visual-aids");
-                              if (setActivePage) setActivePage("manage-visual-aids");
-                            }}
-                          >
-                            <PhotoIcon className="w-4 h-4 mr-1.5 inline text-purple-600" aria-hidden="true" />
-                            Create Visual Aid
-                          </button>
-                          <button
-                            type="button"
-                            className="iep-next-step-btn iep-next-step-btn-secondary"
-                            onClick={() => {
-                              navigate("/dashboard/strategies");
-                              if (setActivePage) setActivePage("manage-teaching-strategies");
-                            }}
-                          >
-                            <TargetIcon className="w-4 h-4 mr-1.5 inline text-emerald-600" aria-hidden="true" />
-                            Teaching Strategies
-                          </button>
-                          <button
-                            type="button"
-                            className="iep-next-step-btn iep-next-step-btn-ghost"
-                            onClick={() => {
-                              navigate("/dashboard");
-                              if (setActivePage) setActivePage("overview");
-                            }}
-                          >
-                            <HomeIcon className="w-4 h-4 mr-1.5 inline text-slate-600" aria-hidden="true" />
-                            Back to Overview
-                          </button>
-                        </nav>
-                      </section>
-
-                      {goalSaveStatus === "saving" && (
-                        <p className="iep-muted" style={{ marginBottom: 12 }}>
-                          <span className="inline-flex items-center gap-1.5">
-                            <ClockIcon className="w-4 h-4 inline animate-spin text-slate-500" aria-hidden="true" />
-                            Saving goals to IEP record...
-                          </span>
-                        </p>
-                      )}
-                      {goalSaveStatus === "saved" && (
-                        <p className="iep-save-ok">
-                          <span className="inline-flex items-center gap-1.5">
-                            <CheckIcon className="w-4 h-4 inline text-emerald-600" aria-hidden="true" />
-                            All goals saved successfully to the IEP.
-                          </span>
-                        </p>
-                      )}
-                      {goalSaveStatus === "error" && (
-                        <p className="iep-save-error">
-                          <span className="inline-flex items-center gap-1.5">
-                            <WarningIcon className="w-4 h-4 inline text-amber-600" aria-hidden="true" />
-                            Some goals could not be saved. Please try again.
-                          </span>
-                        </p>
-                      )}
-
-                      {aiGeneratedGoals.length > 0 ? (
-                        <>
-                          <h3
-                            className="iep-view-section-title"
-                            style={{ marginTop: 18 }}
-                          >
-                            AI-Generated Goals
-                          </h3>
-                          {aiGeneratedGoals.map((goal, idx) => (
-                            <div key={goal.goalID || idx} className="iep-goal-preview">
-                              <div className="iep-info-block">
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                                  <div>
-                                    <h3>{goal.subject_category || goal.goalName || "Annual Goal"} — Annual Goal</h3>
-                                    <p
-                                      style={{
-                                        margin: "4px 0 8px",
-                                        color: "#444",
-                                        fontSize: 13,
-                                        lineHeight: 1.6,
-                                      }}
-                                    >
-                                      {goal.annual_goal || goal.annualGoal}
-                                    </p>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    className="btn btn-back"
-                                    style={{ fontSize: "0.78rem", padding: "4px 10px", whiteSpace: "nowrap" }}
-                                    onClick={() =>
-                                      setSingleGoalRegenModal({
-                                        isOpen: true,
-                                        goalIndex: idx,
-                                        goal,
-                                        prompt: "",
-                                        isRegenerating: false,
-                                      })
-                                    }
-                                  >
-                                    Regenerate Goal
-                                  </button>
-                                </div>
-                              </div>
-                              <ReadOnlyGoalTable
-                                rows={(goal.objective_rows || []).map(
-                                  (row, i) => ({
-                                    id: i,
-                                    objective: row.enroute_objectives || row.objective,
-                                    month1: row.month_1_target || row.month1 || row.month_1,
-                                    month2: row.month_2_target || row.month2 || row.month_2,
-                                    month3: row.month_3_target || row.month3 || row.month_3,
-                                    month_1_target: row.month_1_target || row.month1 || row.month_1,
-                                    month_2_target: row.month_2_target || row.month2 || row.month_2,
-                                    month_3_target: row.month_3_target || row.month3 || row.month_3,
-                                    interventions: row.interventions_procedures || row.interventions,
-                                    timeline: row.timeline_mins_session || row.timeline,
-                                    responsible: row.individuals_responsible || row.responsible,
-                                    evaluation: row.progress_instructional || row.evaluation,
-                                    remarks: row.remarks,
-                                  }),
-                                )}
-                              />
-                            </div>
-                          ))}
-                        </>
-                      ) : (
-                        <div
-                          className="iep-info-block"
-                          style={{ marginTop: 14 }}
-                        >
-                          <h3>IEP Saved</h3>
-                          <p style={{ margin: 0, color: "#555", fontSize: 13 }}>
-                            No goal details were returned by the AI. The IEP
-                            document has been saved — you can view it on the
-                            View IEP page.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </section>
               )}
 
@@ -4257,6 +4215,7 @@ export default function IEPGenerationPage({
         onRegenerate={handleRegenerateFromModal}
         isSaving={isSavingPendingGoals}
         isRegenerating={generatingFinalIep}
+        cooldownSeconds={cooldownSeconds}
       />
 
       {/* Regeneration Confirmation Modal (ENH25) */}
@@ -4279,11 +4238,14 @@ export default function IEPGenerationPage({
               size="sm"
               onClick={() => {
                 setShowRegenConfirmModal(false);
-                handleGenerateFinalIep();
+                handleGenerateFinalIep(undefined, true);
               }}
+              disabled={regenCooldown > 0}
               className="bg-amber-600 hover:bg-amber-700 text-white"
             >
-              Regenerate Goals
+              {regenCooldown > 0
+                ? `Regenerate Goals (${regenCooldown}s)`
+                : "Regenerate Goals"}
             </Button>
           </div>
         }
@@ -4320,12 +4282,14 @@ export default function IEPGenerationPage({
               variant="primary"
               size="sm"
               onClick={handleConfirmSingleGoalRegen}
-              disabled={singleGoalRegenModal.isRegenerating}
+              disabled={singleGoalRegenModal.isRegenerating || regenCooldown > 0}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {singleGoalRegenModal.isRegenerating
                 ? "Regenerating..."
-                : "Regenerate Goal"}
+                : regenCooldown > 0
+                  ? `Regenerate Goal (${regenCooldown}s)`
+                  : "Regenerate Goal"}
             </Button>
           </div>
         }

@@ -148,6 +148,16 @@ function AppRoutes() {
   const [registeredEmail, setRegisteredEmail] = useState("");
   const [showSplash, setShowSplash] = useState(false);
 
+  const transitionNavigate = (to, options) => {
+    if (typeof document !== "undefined" && typeof document.startViewTransition === "function") {
+      document.startViewTransition(() => {
+        navigate(to, options);
+      });
+    } else {
+      navigate(to, options);
+    }
+  };
+
   return (
     <>
       <SessionTimeoutManager />
@@ -164,7 +174,7 @@ function AppRoutes() {
         <Routes>
           <Route
             path="/"
-            element={<LandingPage onGetStarted={() => navigate("/login")} />}
+            element={<LandingPage onGetStarted={() => transitionNavigate("/login")} />}
           />
 
           <Route
@@ -174,7 +184,8 @@ function AppRoutes() {
                 <Navigate to="/dashboard" replace />
               ) : (
                 <LoginPage
-                  onNavigateRegister={() => navigate("/register")}
+                  onNavigateRegister={() => transitionNavigate("/register")}
+                  onNavigateHome={() => transitionNavigate("/")}
                   onLoginSuccess={() => setShowSplash(true)}
                   successMessage={successMessage}
                   initialEmail={registeredEmail}
@@ -194,10 +205,11 @@ function AppRoutes() {
                 <Navigate to="/dashboard" replace />
               ) : (
                 <RegisterPage
+                  onNavigateHome={() => transitionNavigate("/")}
                   onNavigateLogin={(msg, email) => {
                     setSuccessMessage(msg);
                     if (email) setRegisteredEmail(email);
-                    navigate("/login", { state: { email } });
+                    transitionNavigate("/login", { state: { email } });
                   }}
                 />
               )

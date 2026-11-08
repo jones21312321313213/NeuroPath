@@ -1185,13 +1185,14 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         screen.getByText("Learner will complete daily arithmetic tasks with 80% accuracy."),
       ).toBeInTheDocument();
       expect(screen.getByText("SMART Aligned")).toBeInTheDocument();
-      expect(screen.queryByText(/R-GORI/i)).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /r-gori/i })).toBeInTheDocument();
 
-      // Goals should NOT be saved to backend yet
+      // IEP document and goals should NOT be saved to backend yet (Issue #256)
+      expect(iepAPI.save).not.toHaveBeenCalled();
       expect(iepAPI.saveGoal).not.toHaveBeenCalled();
     });
 
-    it("persists goals to backend and displays success banner when Accept & Save IEP is clicked in preview modal", async () => {
+    it("does not persist IEP document when modal is dismissed or canceled without clicking Accept & Save (Issue #256)", async () => {
       const user = userEvent.setup();
       iepAPI.save.mockResolvedValue({ iepID: 202, studentID: 1 });
       iepAPI.generateGoalsFromIep.mockResolvedValue({
@@ -1219,13 +1220,63 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       await user.click(generateBtn);
 
       await screen.findByText("Review Generated IEP Draft");
+      expect(iepAPI.save).not.toHaveBeenCalled();
+
+      // Dismiss modal by clicking Cancel / Close
+      const cancelBtn = screen.getByRole("button", { name: /cancel \/ close/i });
+      await user.click(cancelBtn);
+
+      await waitFor(() => {
+        expect(screen.queryByText("Review Generated IEP Draft")).not.toBeInTheDocument();
+      });
+
+      expect(iepAPI.save).not.toHaveBeenCalled();
+      expect(iepAPI.saveGoal).not.toHaveBeenCalled();
+    });
+
+    it("persists goals to backend, closes preview modal, and redirects to View IEP tab displaying the newly saved IEP when Accept & Save IEP is clicked", async () => {
+      const user = userEvent.setup();
+      const setActivePage = vi.fn();
+      iepAPI.save.mockResolvedValue({ iepID: 202, studentID: 1, version: 2 });
+      iepAPI.generateGoalsFromIep.mockResolvedValue({
+        goals: [draftGoal],
+      });
+      iepAPI.saveGoal.mockResolvedValue({ goalID: 10 });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage
+            mode="generate"
+            initialStudentId={1}
+            setActivePage={setActivePage}
+            cooldownSeconds={0}
+          />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("NEXT"));
+      const goalSelect = screen.getByRole("combobox");
+      await user.selectOptions(goalSelect, "Functional Academic Skills");
+
+      const generateBtn = screen.getByRole("button", {
+        name: /generate final iep/i,
+      });
+      await user.click(generateBtn);
+
+      await screen.findByText("Review Generated IEP Draft");
+      expect(iepAPI.save).not.toHaveBeenCalled();
 
       // Click Accept & Save IEP
       const acceptBtn = screen.getByRole("button", { name: /accept & save iep/i });
       await user.click(acceptBtn);
 
-      // Verify saveGoal was called with the draft goal payload
+      // Verify IEP document is now saved and saveGoal was called with the draft goal payload
       await waitFor(() => {
+        expect(iepAPI.save).toHaveBeenCalledTimes(1);
         expect(iepAPI.saveGoal).toHaveBeenCalledWith(
           expect.objectContaining({
             annual_goal: "Learner will complete daily arithmetic tasks with 80% accuracy.",
@@ -1235,10 +1286,25 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         );
       });
 
-      // Verify modal is dismissed and success banner is displayed
+      // Verify modal is dismissed, inline result block is not rendered, and user is redirected to View IEP
       await waitFor(() => {
         expect(screen.queryByText("Review Generated IEP Draft")).not.toBeInTheDocument();
-        expect(screen.getByText("IEP Generated Successfully!")).toBeInTheDocument();
+        expect(screen.queryByText("IEP Generated Successfully!")).not.toBeInTheDocument();
+        expect(
+          screen.queryByText("Next Steps: Classroom Tools & Instructional Support"),
+        ).not.toBeInTheDocument();
+        expect(mockNavigate).toHaveBeenCalledWith("/dashboard/iep/view", {
+          state: { studentId: 1, iepId: 202 },
+        });
+        expect(setActivePage).toHaveBeenCalledWith("view-iep");
+      });
+
+      // Verify View IEP tab is displayed with the newly saved IEP selected
+      await waitFor(() => {
+        expect(screen.getByText("View IEP")).toBeInTheDocument();
+        expect(
+          screen.getByText("Learner will complete daily arithmetic tasks with 80% accuracy."),
+        ).toBeInTheDocument();
       });
     });
 
@@ -1252,7 +1318,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
 
       render(
         <MemoryRouter>
-          <IEPGenerationPage mode="generate" initialStudentId={1} />
+          <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={0} />
         </MemoryRouter>,
       );
 
@@ -1283,7 +1349,8 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       const regenBtn = screen.getByRole("button", { name: /^regenerate$/i });
       await user.click(regenBtn);
 
-      // Verify saveGoal was NEVER called
+      // Verify save and saveGoal were NEVER called (Issue #256)
+      expect(iepAPI.save).not.toHaveBeenCalled();
       expect(iepAPI.saveGoal).not.toHaveBeenCalled();
 
       // Verify generateGoalsFromIep was invoked a second time with the custom guidance
@@ -1339,7 +1406,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         .mockResolvedValueOnce({ goalID: 101 })
         .mockResolvedValueOnce({ goalID: 102 });
 
-      render(
+      const { rerender } = render(
         <MemoryRouter>
           <IEPGenerationPage mode="generate" initialStudentId={1} />
         </MemoryRouter>,
@@ -1365,19 +1432,31 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       const acceptBtn = screen.getByRole("button", { name: /accept & save iep/i });
       await user.click(acceptBtn);
 
-      // Verify success banner & initial goal display
+      // Verify redirect to View IEP & initial goal display
       await waitFor(() => {
-        expect(screen.getByText("IEP Generated Successfully!")).toBeInTheDocument();
-        expect(screen.getByText(/Mathematical Skills — Annual Goal/i)).toBeInTheDocument();
+        expect(mockNavigate).toHaveBeenCalledWith("/dashboard/iep/view", {
+          state: { studentId: 1, iepId: 303 },
+        });
+        expect(screen.getByText("View IEP")).toBeInTheDocument();
+        expect(
+          screen.getByText("Learner will add two single-digit numbers with 90% accuracy."),
+        ).toBeInTheDocument();
       });
 
       // Verify iepAPI.save called once to establish IEP 303
       expect(iepAPI.save).toHaveBeenCalledTimes(1);
 
-      // Verify Add Another Goal button is rendered
-      const addAnotherBtn = screen.getByTestId("add-another-goal-btn");
-      expect(addAnotherBtn).toBeInTheDocument();
-      await user.click(addAnotherBtn);
+      // Switch back to Generate IEP tab to add another goal to the active IEP
+      rerender(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+      rerender(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
 
       // Returns to Step 2 with active goals summary badge
       await waitFor(() => {
@@ -1404,10 +1483,15 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         expect.any(Object),
       );
 
-      // Verify both goals are displayed together in the result view
+      // Verify both goals are displayed together in the View IEP panel
       await waitFor(() => {
-        expect(screen.getByText(/Mathematical Skills — Annual Goal/i)).toBeInTheDocument();
-        expect(screen.getByText(/Communication Skills — Annual Goal/i)).toBeInTheDocument();
+        expect(screen.getByText("View IEP")).toBeInTheDocument();
+        expect(
+          screen.getByText("Learner will add two single-digit numbers with 90% accuracy."),
+        ).toBeInTheDocument();
+        expect(
+          screen.getByText("Learner will use picture exchange cards to request water."),
+        ).toBeInTheDocument();
       });
     });
   });
@@ -1492,7 +1576,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       it("renders Section A, B, and C stepper items with active and completion states", async () => {
         render(
           <MemoryRouter>
-            <IEPGenerationPage mode="generate" initialStudentId={1} />
+            <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={0} />
           </MemoryRouter>,
         );
 
@@ -1516,7 +1600,7 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         const user = userEvent.setup();
         render(
           <MemoryRouter>
-            <IEPGenerationPage mode="generate" initialStudentId={1} />
+            <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={0} />
           </MemoryRouter>,
         );
 
@@ -1570,9 +1654,9 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         iepAPI.save.mockResolvedValue({ iepID: 301, studentID: 1 });
         iepAPI.saveGoal.mockResolvedValue({ goalID: 501 });
 
-        render(
+        const { rerender } = render(
           <MemoryRouter>
-            <IEPGenerationPage mode="generate" initialStudentId={1} />
+            <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={0} />
           </MemoryRouter>,
         );
 
@@ -1586,16 +1670,25 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         await user.selectOptions(screen.getByRole("combobox"), "Mathematical Skills");
         await user.click(screen.getByRole("button", { name: /generate final iep/i }));
 
-        // Accept & save
+        // Accept & save (redirects to View IEP)
         await screen.findByText("Review Generated IEP Draft");
         await user.click(screen.getByRole("button", { name: /accept & save iep/i }));
 
         await waitFor(() => {
-          expect(screen.getByText("IEP Generated Successfully!")).toBeInTheDocument();
+          expect(screen.getByText("View IEP")).toBeInTheDocument();
         });
 
-        // Click Add Another Goal to return to section C with existing goals
-        await user.click(screen.getByTestId("add-another-goal-btn"));
+        // Switch back to Generate IEP to view existing goals in Section C
+        rerender(
+          <MemoryRouter>
+            <IEPGenerationPage mode="view" initialStudentId={1} cooldownSeconds={0} />
+          </MemoryRouter>,
+        );
+        rerender(
+          <MemoryRouter>
+            <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={0} />
+          </MemoryRouter>,
+        );
 
         await waitFor(() => {
           expect(screen.getByText(/Goals already added to this IEP/i)).toBeInTheDocument();
@@ -1633,9 +1726,9 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         iepAPI.save.mockResolvedValue({ iepID: 302, studentID: 1 });
         iepAPI.saveGoal.mockResolvedValue({ goalID: 502 });
 
-        render(
+        const { rerender } = render(
           <MemoryRouter>
-            <IEPGenerationPage mode="generate" initialStudentId={1} />
+            <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={0} />
           </MemoryRouter>,
         );
 
@@ -1649,7 +1742,21 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
 
         await screen.findByText("Review Generated IEP Draft");
         await user.click(screen.getByRole("button", { name: /accept & save iep/i }));
-        await user.click(screen.getByTestId("add-another-goal-btn"));
+
+        await waitFor(() => {
+          expect(screen.getByText("View IEP")).toBeInTheDocument();
+        });
+
+        rerender(
+          <MemoryRouter>
+            <IEPGenerationPage mode="view" initialStudentId={1} cooldownSeconds={0} />
+          </MemoryRouter>,
+        );
+        rerender(
+          <MemoryRouter>
+            <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={0} />
+          </MemoryRouter>,
+        );
 
         await waitFor(() => {
           expect(screen.getByText(/Goals already added to this IEP/i)).toBeInTheDocument();
@@ -1704,9 +1811,9 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         iepAPI.saveGoal.mockResolvedValue({ goalID: 601 });
         iepAPI.updateGoal.mockResolvedValue({ goalID: 601 });
 
-        render(
+        const { rerender } = render(
           <MemoryRouter>
-            <IEPGenerationPage mode="generate" initialStudentId={1} />
+            <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={0} />
           </MemoryRouter>,
         );
 
@@ -1721,7 +1828,22 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         await screen.findByText("Review Generated IEP Draft");
         await user.click(screen.getByRole("button", { name: /accept & save iep/i }));
 
-        // Now in result preview, find "Regenerate Goal" button on the goal card
+        await waitFor(() => {
+          expect(screen.getByText("View IEP")).toBeInTheDocument();
+        });
+
+        rerender(
+          <MemoryRouter>
+            <IEPGenerationPage mode="view" initialStudentId={1} cooldownSeconds={0} />
+          </MemoryRouter>,
+        );
+        rerender(
+          <MemoryRouter>
+            <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={0} />
+          </MemoryRouter>,
+        );
+
+        // Now in active goals summary, find "Regenerate Goal" button on the goal pill
         await waitFor(() => {
           expect(screen.getByText("Regenerate Goal")).toBeInTheDocument();
         });
@@ -1760,7 +1882,6 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
               annual_goal: "Updated granular communication goal with AAC support.",
             }),
           );
-          expect(screen.getByText("Updated granular communication goal with AAC support.")).toBeInTheDocument();
         });
       });
     });
@@ -1873,53 +1994,22 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       });
     });
 
-    describe("Direct Download for IEP PDF Export (ENH22)", () => {
-      beforeEach(() => {
-        window.URL.createObjectURL = vi.fn(() => "blob:http://localhost:3000/mock-iep-uuid");
-        window.URL.revokeObjectURL = vi.fn();
-      });
-
-      it("triggers direct file download when EXPORT PDF is clicked", async () => {
-        const user = userEvent.setup();
-        const mockBlob = new Blob(["%PDF-1.4 test"], { type: "application/pdf" });
-        iepAPI.exportPDF.mockResolvedValueOnce(mockBlob);
-
-        const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click");
-
+    describe("View IEP actions layout", () => {
+      it("does not render EXPORT PDF on the View IEP tab and renders EDIT IEP, DELETE IEP inline and ARCHIVE VERSION beside date", async () => {
         render(
           <MemoryRouter>
             <IEPGenerationPage mode="view" initialStudentId={1} />
           </MemoryRouter>,
         );
-
-        const exportBtn = await screen.findByRole("button", { name: "EXPORT PDF" });
-        await user.click(exportBtn);
 
         await waitFor(() => {
-          expect(iepAPI.exportPDF).toHaveBeenCalledWith(101);
-          expect(window.URL.createObjectURL).toHaveBeenCalledWith(mockBlob);
-          expect(clickSpy).toHaveBeenCalled();
+          expect(screen.getByRole("button", { name: "EDIT IEP" })).toBeInTheDocument();
         });
-      });
 
-      it("displays error alert when IEP PDF export fails", async () => {
-        const user = userEvent.setup();
-        iepAPI.exportPDF.mockRejectedValueOnce(
-          new Error("Network connection lost. Failed to export PDF."),
-        );
-
-        render(
-          <MemoryRouter>
-            <IEPGenerationPage mode="view" initialStudentId={1} />
-          </MemoryRouter>,
-        );
-
-        const exportBtn = await screen.findByRole("button", { name: "EXPORT PDF" });
-        await user.click(exportBtn);
-
-        expect(
-          await screen.findByText("Network connection lost. Failed to export PDF."),
-        ).toBeInTheDocument();
+        // Assert EXPORT PDF is not rendered on View IEP tab (export is on Outcome Monitoring)
+        expect(screen.queryByRole("button", { name: "EXPORT PDF" })).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "DELETE IEP" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "ARCHIVE VERSION" })).toBeInTheDocument();
       });
     });
   });
@@ -2358,6 +2448,244 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
         expect(sectionBStep).toHaveClass("completed");
         expect(within(sectionBStep).getByText("✓")).toBeInTheDocument();
         expect(within(sectionBStep).getByText("Completed")).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("Issue #257 - Goal Area Dropdown Layout & Selected Student Card Restyling", () => {
+    const longNamedStudent = {
+      id: 99,
+      studentID: 99,
+      name: "Alexander Bartholomew-Montgomery III",
+      grade: "3",
+      age: "9",
+      gender: "Male",
+      diagnosis: "Autism Spectrum Disorder with Associated Receptive Language Delays",
+      difficulty: "Communication",
+      parental_consent_obtained: true,
+    };
+
+    it("renders restyled selected student card matching .vsp-card hierarchy with avatar initials and pills", async () => {
+      studentsAPI.list.mockResolvedValue([longNamedStudent]);
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={99} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Alexander Bartholomew-Montgomery III")).toBeInTheDocument();
+      });
+
+      const card = document.querySelector(".iep-selected-student-card");
+      expect(card).toBeInTheDocument();
+      expect(card).toHaveClass("vsp-card");
+
+      // Header / badge
+      expect(within(card).getByText("Selected Student")).toBeInTheDocument();
+
+      // Avatar with initials AB
+      const avatar = card.querySelector(".vsp-avatar");
+      expect(avatar).toBeInTheDocument();
+      expect(avatar).toHaveTextContent("AB");
+
+      // Name & metadata hierarchy
+      const nameElem = card.querySelector(".vsp-card-name");
+      expect(nameElem).toBeInTheDocument();
+      expect(nameElem).toHaveTextContent("Alexander Bartholomew-Montgomery III");
+
+      const metaElem = card.querySelector(".vsp-card-meta");
+      expect(metaElem).toBeInTheDocument();
+      expect(metaElem).toHaveTextContent(
+        "Autism Spectrum Disorder with Associated Receptive Language Delays",
+      );
+
+      // Pills
+      const pillsContainer = card.querySelector(".vsp-card-pills");
+      expect(pillsContainer).toBeInTheDocument();
+      expect(within(pillsContainer).getByText("Grade 3")).toHaveClass("vsp-pill", "grade");
+      expect(within(pillsContainer).getByText("9 yrs")).toHaveClass("vsp-pill");
+      expect(within(pillsContainer).getByText("Male")).toHaveClass("vsp-pill");
+    });
+
+    it("renders goal area dropdown layout in Section C without truncation and allows selecting long goal domains", async () => {
+      const user = userEvent.setup();
+      studentsAPI.list.mockResolvedValue([longNamedStudent]);
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={99} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("NEXT"));
+
+      const toolbar = document.querySelector(".iep-ai-goal-toolbar");
+      expect(toolbar).toBeInTheDocument();
+
+      const goalSelect = screen.getByRole("combobox");
+      expect(goalSelect).toBeInTheDocument();
+      expect(goalSelect).toHaveAttribute("id", "iep-goal-area-select");
+
+      // Check long goal area option exists in dropdown
+      const options = Array.from(goalSelect.options).map((opt) => opt.text);
+      expect(options).toContain("Social / Interpersonal Skills");
+
+      // Select long goal domain
+      await user.selectOptions(goalSelect, "Social / Interpersonal Skills");
+      expect(goalSelect.value).toBe("Social / Interpersonal Skills");
+
+      // Verify selected summary updates with full text
+      const summary = document.querySelector(".iep-selected-goal-summary");
+      expect(summary).toBeInTheDocument();
+      expect(within(summary).getByText("Social / Interpersonal Skills")).toBeInTheDocument();
+    });
+  });
+
+  describe("10-Second Cooldown on Regeneration Triggers (Issue #259)", () => {
+    it("disables modal regenerate button with default 10-second cooldown immediately after generation completes while keeping Accept & Save immediately clickable", async () => {
+      const user = userEvent.setup();
+      iepAPI.save.mockResolvedValue({ iepID: 999, studentID: 1 });
+      iepAPI.generateGoalsFromIep.mockResolvedValue({
+        goals: [
+          {
+            subject_category: "Communication Skills",
+            annual_goal: "Marcus will use visual communication book.",
+            target_metric: "80% accuracy",
+            objective_rows: [],
+          },
+        ],
+      });
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("NEXT"));
+      await user.selectOptions(screen.getByRole("combobox"), "Communication Skills");
+      await user.click(screen.getByRole("button", { name: /generate final iep/i }));
+
+      // Review Generated IEP Draft modal should be displayed with 10s cooldown
+      await screen.findByText("Review Generated IEP Draft");
+      const modalRegenBtn = screen.getByRole("button", { name: /regenerate \(10s\)/i });
+      expect(modalRegenBtn).toBeDisabled();
+
+      // Accept & Save must be immediately enabled and clickable
+      const saveBtn = screen.getByRole("button", { name: /accept & save iep/i });
+      expect(saveBtn).toBeEnabled();
+    });
+
+    it("disables inline goal regeneration triggers with countdown and re-enables them after cooldown expires", async () => {
+      const user = userEvent.setup();
+      iepAPI.save.mockResolvedValue({ iepID: 999, studentID: 1 });
+      iepAPI.generateGoalsFromIep.mockResolvedValue({
+        goals: [
+          {
+            subject_category: "Communication Skills",
+            annual_goal: "Marcus will use visual communication book.",
+            target_metric: "80% accuracy",
+            objective_rows: [],
+          },
+        ],
+      });
+      iepAPI.saveGoal.mockResolvedValue({ goalID: 101 });
+
+      const { rerender } = render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText("NEXT"));
+      await user.selectOptions(screen.getByRole("combobox"), "Communication Skills");
+      await user.click(screen.getByRole("button", { name: /generate final iep/i }));
+
+      await screen.findByText("Review Generated IEP Draft");
+      const saveBtn = screen.getByRole("button", { name: /accept & save iep/i });
+      await user.click(saveBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText("View IEP")).toBeInTheDocument();
+      });
+
+      rerender(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} cooldownSeconds={1} />
+        </MemoryRouter>,
+      );
+      rerender(
+        <MemoryRouter>
+          <IEPGenerationPage mode="generate" initialStudentId={1} cooldownSeconds={1} />
+        </MemoryRouter>,
+      );
+
+      // Inline button should be disabled with (1s) cooldown
+      const cardRegenBtn = await screen.findByRole("button", { name: /regenerate goal \(1s\)/i });
+      expect(cardRegenBtn).toBeDisabled();
+
+      // After 1 second, button re-enables cleanly without timer suffix
+      await waitFor(
+        () => {
+          expect(screen.getByRole("button", { name: /^regenerate goal$/i })).toBeEnabled();
+        },
+        { timeout: 3000 },
+      );
+    });
+  });
+
+  describe("Redirect to View IEP Tab & Remove Inline Result Block (Issue #267)", () => {
+    it("auto-selects student and specific saved IEP version from router location.state when mounted in View IEP mode", async () => {
+      const olderIep = {
+        ...mockIep,
+        iepID: 101,
+        version: 1,
+        formattedDate: "August 1, 2026",
+        accommodations: "Older accommodations",
+      };
+      const newlySavedIep = {
+        ...mockIep,
+        iepID: 205,
+        version: 2,
+        formattedDate: "November 7, 2026",
+        accommodations: "Newly generated visual supports",
+      };
+      iepAPI.listByStudent.mockResolvedValue([olderIep, newlySavedIep]);
+
+      render(
+        <MemoryRouter
+          initialEntries={[
+            {
+              pathname: "/dashboard/iep/view",
+              state: { studentId: 1, iepId: 205 },
+            },
+          ]}
+        >
+          <IEPGenerationPage mode="view" />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("View IEP")).toBeInTheDocument();
+        expect(screen.getByText("Alex Doe")).toBeInTheDocument();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText("Newly generated visual supports")).toBeInTheDocument();
       });
     });
   });

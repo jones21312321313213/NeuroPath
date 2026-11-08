@@ -42,6 +42,8 @@ function RecordProgressForm({
     isCustomInitial ? defaultDomain : "",
   );
   const [score, setScore] = useState("75");
+  const [evaluationDate, setEvaluationDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [behavioralObservations, setBehavioralObservations] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -73,6 +75,8 @@ function RecordProgressForm({
         studentID: student.studentID,
         subjectName: targetSubject,
         performanceScore: numScore,
+        behavioralObservations: behavioralObservations.trim(),
+        evaluationDate: evaluationDate,
       });
 
       if (onSubmitSuccess) {
@@ -140,6 +144,21 @@ function RecordProgressForm({
         </div>
       )}
 
+      {/* Evaluation Date */}
+      <div className="form-group rpm-form-group">
+        <label htmlFor="rpm-date-input" className="form-label rpm-label">
+          Evaluation Date
+        </label>
+        <input
+          id="rpm-date-input"
+          type="date"
+          className="form-input rpm-input"
+          value={evaluationDate}
+          onChange={(e) => setEvaluationDate(e.target.value)}
+          disabled={isSubmitting}
+        />
+      </div>
+
       {/* Performance Score Input & Slider */}
       <div className="form-group rpm-form-group">
         <div className="rpm-score-header">
@@ -184,6 +203,23 @@ function RecordProgressForm({
             disabled={isSubmitting}
           />
         </div>
+      </div>
+
+      {/* Behavioral Observations & Milestone Notes */}
+      <div className="form-group rpm-form-group">
+        <label htmlFor="rpm-observations-input" className="form-label rpm-label">
+          Behavioral Observations & Milestone Notes
+        </label>
+        <textarea
+          id="rpm-observations-input"
+          className="form-input rpm-textarea"
+          rows={3}
+          maxLength={500}
+          placeholder="Record qualitative observations, accommodations used, student engagement level..."
+          value={behavioralObservations}
+          onChange={(e) => setBehavioralObservations(e.target.value)}
+          disabled={isSubmitting}
+        />
       </div>
 
       {/* Footer Actions */}

@@ -27,78 +27,185 @@ function EmptyState({ message }) {
 
 function LineChart({ data = [], months = [] }) {
   if (!data || data.length === 0) return null;
-  const w = 280,
+  const w = 300,
     h = 100,
     max = 100;
-  const divisor = data.length > 1 ? data.length - 1 : 1;
+
+  // Predictive forecasting calculation (slope projection if >= 2 points)
+  const hasForecast = data.length >= 2;
+  const stepDivisor = hasForecast ? data.length : (data.length > 1 ? data.length - 1 : 1);
+
   const points = data
     .map((v, i) => {
-      const x = data.length > 1 ? (i / divisor) * (w - 20) + 10 : w / 2;
+      const x = (i / stepDivisor) * (w - 30) + 15;
       const y = h - (v / max) * (h - 10) - 5;
       return `${x},${y}`;
     })
     .join(" ");
 
+  const benchmarkY = h - (70 / max) * (h - 10) - 5;
+
+  let forecastCoord = null;
+  let lastCoord = null;
+  if (hasForecast) {
+    const n = data.length;
+    const slope = (data[n - 1] - data[0]) / (n - 1);
+    const forecastVal = Math.max(0, Math.min(100, Math.round(data[n - 1] + slope)));
+    const lastX = ((n - 1) / stepDivisor) * (w - 30) + 15;
+    const lastY = h - (data[n - 1] / max) * (h - 10) - 5;
+    const forecastX = (n / stepDivisor) * (w - 30) + 15;
+    const forecastY = h - (forecastVal / max) * (h - 10) - 5;
+    lastCoord = { x: lastX, y: lastY };
+    forecastCoord = { x: forecastX, y: forecastY, val: forecastVal };
+  }
+
   return (
-    <svg width={w} height={h} style={{ overflow: "visible" }}>
-      {[25, 50, 75, 100].map((v) => {
-        const y = h - (v / max) * (h - 10) - 5;
-        return (
-          <g key={v}>
+    <div>
+      <svg width={w} height={h + 20} style={{ overflow: "visible" }}>
+        {[25, 50, 75, 100].map((v) => {
+          const y = h - (v / max) * (h - 10) - 5;
+          return (
+            <g key={v}>
+              <line
+                x1={10}
+                y1={y}
+                x2={w - 10}
+                y2={y}
+                stroke="#e2e8f0"
+                strokeWidth={1}
+              />
+              <text x={0} y={y + 4} fontSize={10} fill="#64748b" fontWeight={600}>
+                {v}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Target Milestone Benchmark Line (70%) */}
+        <line
+          x1={10}
+          y1={benchmarkY}
+          x2={w - 10}
+          y2={benchmarkY}
+          stroke="#16a34a"
+          strokeWidth={1.5}
+          strokeDasharray="4 4"
+        />
+        <text
+          x={w - 12}
+          y={benchmarkY - 3}
+          fontSize={9}
+          fill="#16a34a"
+          fontWeight={700}
+          textAnchor="end"
+        >
+          Target (70%)
+        </text>
+
+        {/* Actual Progress Line */}
+        <polyline
+          points={points}
+          fill="none"
+          stroke="#0284c7"
+          strokeWidth={3}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+
+        {/* Predictive Trend Line Projection */}
+        {hasForecast && forecastCoord && (
+          <>
             <line
-              x1={10}
-              y1={y}
-              x2={w - 10}
-              y2={y}
-              stroke="#e2e8f0"
-              strokeWidth={1}
+              x1={lastCoord.x}
+              y1={lastCoord.y}
+              x2={forecastCoord.x}
+              y2={forecastCoord.y}
+              stroke="#0284c7"
+              strokeWidth={2}
+              strokeDasharray="3 3"
             />
-            <text x={0} y={y + 4} fontSize={11} fill="#64748b" fontWeight={600}>
-              {v}
+            <circle
+              cx={forecastCoord.x}
+              cy={forecastCoord.y}
+              r={4.5}
+              fill="#ffffff"
+              stroke="#0284c7"
+              strokeWidth={2}
+            />
+            <text
+              x={forecastCoord.x}
+              y={forecastCoord.y - 7}
+              fontSize={9}
+              fill="#0284c7"
+              fontWeight={700}
+              textAnchor="middle"
+            >
+              {forecastCoord.val}%
             </text>
-          </g>
-        );
-      })}
-      <polyline
-        points={points}
-        fill="none"
-        stroke="#0284c7"
-        strokeWidth={3}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-      {data.map((v, i) => {
-        const x = data.length > 1 ? (i / divisor) * (w - 20) + 10 : w / 2;
-        const y = h - (v / max) * (h - 10) - 5;
-        return (
-          <circle
-            key={i}
-            cx={x}
-            cy={y}
-            r={4.5}
-            fill="#0284c7"
-            stroke="#ffffff"
-            strokeWidth={2}
-          />
-        );
-      })}
-      {months.map((m, i) => {
-        const x = months.length > 1 ? (i / (months.length - 1)) * (w - 20) + 10 : w / 2;
-        return (
-          <text
-            key={i}
-            x={x}
-            y={h + 16}
-            fontSize={11}
-            fill="#64748b"
-            fontWeight={600}
-            textAnchor="middle"
-          >
-            {m}
-          </text>
-        );
-      })}
-    </svg>
+            <text
+              x={forecastCoord.x}
+              y={h + 16}
+              fontSize={10}
+              fill="#0284c7"
+              fontWeight={700}
+              textAnchor="middle"
+            >
+              Forecast
+            </text>
+          </>
+        )}
+
+        {/* Historical Coordinate Dots */}
+        {data.map((v, i) => {
+          const x = (i / stepDivisor) * (w - 30) + 15;
+          const y = h - (v / max) * (h - 10) - 5;
+          return (
+            <circle
+              key={i}
+              cx={x}
+              cy={y}
+              r={4.5}
+              fill="#0284c7"
+              stroke="#ffffff"
+              strokeWidth={2}
+            />
+          );
+        })}
+
+        {/* Month Labels */}
+        {months.map((m, i) => {
+          const x = (i / stepDivisor) * (w - 30) + 15;
+          return (
+            <text
+              key={i}
+              x={x}
+              y={h + 16}
+              fontSize={11}
+              fill="#64748b"
+              fontWeight={600}
+              textAnchor="middle"
+            >
+              {m}
+            </text>
+          );
+        })}
+      </svg>
+
+      {/* Interactive Legend */}
+      <div className="flex items-center justify-center gap-4 mt-4 text-xs text-slate-500 font-medium">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-0.5 bg-sky-600 rounded"></span> Actual
+        </span>
+        {hasForecast && (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 border-t-2 border-dashed border-sky-600"></span> Forecast
+          </span>
+        )}
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 border-t-2 border-dashed border-emerald-600"></span> Target (≥ 70%)
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -115,6 +222,15 @@ export default function ViewProgressDashboard() {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [subjects, setSubjects] = useState([]);
+  const [classroomStats, setClassroomStats] = useState({
+    totalStudents: 0,
+    evaluatedStudents: 0,
+    overallMasteryRate: 0,
+    goalsOnTrackCount: 0,
+    needsSupportCount: 0,
+    totalLogs: 0,
+    lastEvaluated: "N/A",
+  });
   const [subjectsLoading, setSubjectsLoading] = useState(false);
   const [subjectsError, setSubjectsError] = useState("");
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
@@ -145,6 +261,16 @@ export default function ViewProgressDashboard() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     const cancel = loadStudents();
+    if (trackingAPI.getClassroomProgressSummary) {
+      trackingAPI
+        .getClassroomProgressSummary()
+        .then((data) => {
+          if (data && typeof data === "object") {
+            setClassroomStats(data);
+          }
+        })
+        .catch(() => {});
+    }
     return () => {
       if (typeof cancel === "function") cancel();
     };
@@ -317,17 +443,18 @@ export default function ViewProgressDashboard() {
               <div className="om-summary-box">
                 <p className="om-box-title">Summary</p>
                 <div className="om-summary-rows">
-                  {[
-                    {
-                      label: "Current Level",
-                      value: selectedSubject.currentLevel,
-                    },
-                  ].map((row) => (
-                    <div key={row.label} className="om-summary-row">
-                      <span className="om-summary-label">{row.label}</span>
-                      <span className="om-summary-value">{row.value}</span>
+                  <div className="om-summary-row">
+                    <span className="om-summary-label">Current Level</span>
+                    <span className="om-summary-value">{selectedSubject.currentLevel}</span>
+                  </div>
+                  {selectedSubject.behavioralObservations && (
+                    <div className="om-summary-row" style={{ flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
+                      <span className="om-summary-label">Behavioral Observations</span>
+                      <span className="om-summary-value" style={{ fontWeight: 400, fontSize: 13, color: "#334155", textAlign: "left" }}>
+                        {selectedSubject.behavioralObservations}
+                      </span>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
@@ -508,6 +635,64 @@ export default function ViewProgressDashboard() {
       </div>
       <div className="om-body">
         <div className="om-card">
+          {/* Classroom Executive KPI Summary Cards (SRS Table 26 Step 1) */}
+          <div className="om-kpi-grid" style={{ marginBottom: "1.5rem" }}>
+            <div className="om-kpi-card">
+              <div className="om-kpi-header">
+                <span className="om-kpi-title">Overall Class Average</span>
+                <span className="om-kpi-icon">
+                  <ChartBarIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
+                </span>
+              </div>
+              <span className="om-kpi-value">
+                {classroomStats.overallMasteryRate}%
+              </span>
+              <span className="om-kpi-subtext">Classroom mastery benchmark</span>
+            </div>
+
+            <div className="om-kpi-card">
+              <div className="om-kpi-header">
+                <span className="om-kpi-title">Goals on Track (≥ 70%)</span>
+                <span className="om-kpi-icon">
+                  <TargetIcon className="w-5 h-5 text-emerald-600" aria-hidden="true" />
+                </span>
+              </div>
+              <span className="om-kpi-value" style={{ color: "#16a34a" }}>
+                {classroomStats.goalsOnTrackCount}
+              </span>
+              <span className="om-kpi-subtext">Domains meeting standard</span>
+            </div>
+
+            <div className="om-kpi-card">
+              <div className="om-kpi-header">
+                <span className="om-kpi-title">Needs Intervention</span>
+                <span className="om-kpi-icon">
+                  <WarningIcon className="w-5 h-5 text-amber-600" aria-hidden="true" />
+                </span>
+              </div>
+              <span
+                className="om-kpi-value"
+                style={{ color: classroomStats.needsSupportCount > 0 ? "#d97706" : "#1a2b40" }}
+              >
+                {classroomStats.needsSupportCount}
+              </span>
+              <span className="om-kpi-subtext">Domains scoring &lt; 70%</span>
+            </div>
+
+            <div className="om-kpi-card">
+              <div className="om-kpi-header">
+                <span className="om-kpi-title">Active Roster Evaluated</span>
+                <span className="om-kpi-icon">
+                  <CalendarIcon className="w-5 h-5 text-slate-500" aria-hidden="true" />
+                </span>
+              </div>
+              <span className="om-kpi-value om-kpi-date-value">
+                {classroomStats.evaluatedStudents} / {students.length}
+              </span>
+              <span className="om-kpi-subtext">Learners with progress logs</span>
+            </div>
+          </div>
+
           <h2 className="om-list-title">List of Students</h2>
           {error ? (
             <ErrorState

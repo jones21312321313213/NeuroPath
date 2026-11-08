@@ -98,21 +98,29 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         pd = instance.profileDetails if isinstance(instance.profileDetails, dict) else {}
+        student_id = getattr(instance, 'pk', None) or getattr(instance, 'studentID', None)
+        id_suffix = f" #{student_id}" if student_id else ""
+
         raw_name = data.get('name') or ''
-        if not raw_name or raw_name.startswith('gAAAAA'):
-            data['name'] = pd.get('studentName') or pd.get('learnerName') or raw_name
+        if not raw_name or raw_name.startswith('gAAAAA') or raw_name.startswith('[Encrypted'):
+            data['name'] = pd.get('studentName') or pd.get('learnerName') or f"[Encrypted Student{id_suffix}]"
+
         raw_diag = data.get('diagnosis') or ''
-        if not raw_diag or raw_diag.startswith('gAAAAA'):
-            data['diagnosis'] = pd.get('disabilityCategory') or raw_diag
+        if not raw_diag or raw_diag.startswith('gAAAAA') or raw_diag.startswith('[Encrypted'):
+            data['diagnosis'] = pd.get('disabilityCategory') or (raw_diag if not raw_diag.startswith('gAAAAA') and not raw_diag.startswith('[Encrypted') else '[Encrypted Diagnosis]')
+
         raw_asd = data.get('asdBackground') or ''
-        if not raw_asd or raw_asd.startswith('gAAAAA'):
-            data['asdBackground'] = pd.get('diagnosisDetails') or raw_asd
+        if not raw_asd or raw_asd.startswith('gAAAAA') or raw_asd.startswith('[Encrypted'):
+            data['asdBackground'] = pd.get('diagnosisDetails') or (raw_asd if not raw_asd.startswith('gAAAAA') and not raw_asd.startswith('[Encrypted') else '[Encrypted Background]')
+
         raw_guard = data.get('guardian_name') or ''
-        if not raw_guard or raw_guard.startswith('gAAAAA'):
-            data['guardian_name'] = pd.get('guardianName') or raw_guard
+        if not raw_guard or raw_guard.startswith('gAAAAA') or raw_guard.startswith('[Encrypted'):
+            data['guardian_name'] = pd.get('guardianName') or f"[Encrypted Guardian{id_suffix}]"
+
         raw_assess = data.get('assessmentResult') or ''
-        if not raw_assess or raw_assess.startswith('gAAAAA'):
-            data['assessmentResult'] = pd.get('presentEvaluation') or raw_assess
+        if not raw_assess or raw_assess.startswith('gAAAAA') or raw_assess.startswith('[Encrypted'):
+            data['assessmentResult'] = pd.get('presentEvaluation') or (raw_assess if not raw_assess.startswith('gAAAAA') and not raw_assess.startswith('[Encrypted') else '[Encrypted Evaluation]')
+
         return data
 
 
@@ -137,21 +145,29 @@ class ValidationService(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         pd = instance.profileDetails if isinstance(instance.profileDetails, dict) else {}
+        student_id = getattr(instance, 'pk', None) or getattr(instance, 'studentID', None)
+        id_suffix = f" #{student_id}" if student_id else ""
+
         raw_name = data.get('name') or ''
-        if not raw_name or raw_name.startswith('gAAAAA'):
-            data['name'] = pd.get('studentName') or pd.get('learnerName') or raw_name
+        if not raw_name or raw_name.startswith('gAAAAA') or raw_name.startswith('[Encrypted'):
+            data['name'] = pd.get('studentName') or pd.get('learnerName') or f"[Encrypted Student{id_suffix}]"
+
         raw_diag = data.get('diagnosis') or ''
-        if not raw_diag or raw_diag.startswith('gAAAAA'):
-            data['diagnosis'] = pd.get('disabilityCategory') or raw_diag
+        if not raw_diag or raw_diag.startswith('gAAAAA') or raw_diag.startswith('[Encrypted'):
+            data['diagnosis'] = pd.get('disabilityCategory') or (raw_diag if not raw_diag.startswith('gAAAAA') and not raw_diag.startswith('[Encrypted') else '[Encrypted Diagnosis]')
+
         raw_asd = data.get('asdBackground') or ''
-        if not raw_asd or raw_asd.startswith('gAAAAA'):
-            data['asdBackground'] = pd.get('diagnosisDetails') or raw_asd
+        if not raw_asd or raw_asd.startswith('gAAAAA') or raw_asd.startswith('[Encrypted'):
+            data['asdBackground'] = pd.get('diagnosisDetails') or (raw_asd if not raw_asd.startswith('gAAAAA') and not raw_asd.startswith('[Encrypted') else '[Encrypted Background]')
+
         raw_guard = data.get('guardian_name') or ''
-        if not raw_guard or raw_guard.startswith('gAAAAA'):
-            data['guardian_name'] = pd.get('guardianName') or raw_guard
+        if not raw_guard or raw_guard.startswith('gAAAAA') or raw_guard.startswith('[Encrypted'):
+            data['guardian_name'] = pd.get('guardianName') or f"[Encrypted Guardian{id_suffix}]"
+
         raw_assess = data.get('assessmentResult') or ''
-        if not raw_assess or raw_assess.startswith('gAAAAA'):
-            data['assessmentResult'] = pd.get('presentEvaluation') or raw_assess
+        if not raw_assess or raw_assess.startswith('gAAAAA') or raw_assess.startswith('[Encrypted'):
+            data['assessmentResult'] = pd.get('presentEvaluation') or (raw_assess if not raw_assess.startswith('gAAAAA') and not raw_assess.startswith('[Encrypted') else '[Encrypted Evaluation]')
+
         return data
 
     def validate(self, data):

@@ -116,6 +116,88 @@ describe("Post-IEP Next Steps to Classroom Tools (#94)", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("removes inline Next Steps result block from Generate IEP tab and redirects to View IEP upon Accept & Save IEP (#267)", async () => {
+    const mockStudent = {
+      studentID: 10,
+      name: "Ethan Carter",
+      grade: 3,
+      age: 8,
+      difficulty: "Sensory Processing",
+      parental_consent_obtained: true,
+    };
+    const savedIep = {
+      iepID: 105,
+      studentID: 10,
+      studentName: "Ethan Carter",
+      version: 1,
+      formattedDate: "2026-09-01",
+    };
+
+    studentsAPI.list.mockResolvedValue([mockStudent]);
+    iepAPI.listByStudent.mockResolvedValue([savedIep]);
+    iepAPI.listGoalsByIep.mockResolvedValue([]);
+    iepAPI.save.mockResolvedValue(savedIep);
+    iepAPI.generateGoalsFromIep.mockResolvedValue({
+      goals: [
+        {
+          subject_category: "Functional Academic Skills",
+          goalName: "Functional Academic Skills",
+          annual_goal: "Ethan will complete visual schedule tasks independently.",
+          target_metric: "80% accuracy",
+          objective_rows: [],
+        },
+      ],
+    });
+    iepAPI.saveGoal.mockResolvedValue({ goalID: 11 });
+
+    const setActivePage = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter>
+        <IEPGenerationPage
+          mode="generate"
+          initialStudentId={10}
+          setActivePage={setActivePage}
+          cooldownSeconds={0}
+        />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText("NEXT"));
+    await user.selectOptions(screen.getByRole("combobox"), "Functional Academic Skills");
+    await user.click(screen.getByRole("button", { name: /generate final iep/i }));
+
+    await screen.findByText("Review Generated IEP Draft");
+    await user.click(screen.getByRole("button", { name: /accept & save iep/i }));
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/dashboard/iep/view", {
+        state: { studentId: 10, iepId: 105 },
+      });
+      expect(setActivePage).toHaveBeenCalledWith("view-iep");
+    });
+
+    // Inline post-generation Next Steps & result banner must not be rendered
+    expect(screen.queryByText("IEP Generated Successfully!")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Next Steps: Classroom Tools & Instructional Support/i),
+    ).not.toBeInTheDocument();
+    expect(document.querySelector(".iep-generation-result")).toBeNull();
+
+    // Redirected View IEP panel is rendered with the newly saved IEP
+    await waitFor(() => {
+      expect(screen.getByText("View IEP")).toBeInTheDocument();
+      expect(
+        screen.getByText("Ethan will complete visual schedule tasks independently."),
+      ).toBeInTheDocument();
+    });
+  });
+
   it("reflects readiness in Overview step 3 when active IEPs exist", async () => {
     studentsAPI.list.mockResolvedValue([{ id: 101, name: "Student A" }]);
     iepAPI.dashboardStats.mockResolvedValue({

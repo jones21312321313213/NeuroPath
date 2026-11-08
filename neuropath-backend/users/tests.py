@@ -951,6 +951,178 @@ class StudentDataEncryptionAtRestTests(TestCase):
         self.assertEqual(refreshed.diagnosis, "")
 
 
+class StudentPIIDecryptionFailureAndRotationTests(TestCase):
+    """
+    Verification tests for Issue #258:
+    - Decryption failure when ciphertext was encrypted with an unknown or mismatched Fernet key.
+    - Never leaks raw 'gAAAAA...' Fernet ciphertext token to API responses, serializers, or model representations.
+    - Fallback to clean masked placeholder '[Encrypted Student #<id>]'.
+    - Preserves underlying raw ciphertext in database if student is subsequently saved.
+    - Support for MultiFernet fallback keys for zero-downtime rotation across environments.
+    - Re-encryption management command ('reencrypt_student_pii') to migrate records to the active key.
+    """
+
+    def setUp(self):
+        from cryptography.fernet import Fernet
+        self.teacher = Teacher.objects.create(
+            name="Teacher Tester",
+            email="teacher.encrypt@example.com",
+            passwordHash="hashed"
+        )
+        while True:
+            self.foreign_key = Fernet.generate_key().decode('utf-8')
+            if not self.foreign_key.startswith('-'):
+                break
+        self.foreign_fernet = Fernet(self.foreign_key.encode('utf-8'))
+
+        self.student = StudentProfile.objects.create(
+            teacher=self.teacher,
+            name="Original Student",
+            guardian_name="Original Guardian",
+            diagnosis="Autism Spectrum Disorder",
+            asdBackground="Background info",
+            assessmentResult="Baseline level 2",
+            age=8,
+            grade=2
+        )
+
+    def _inject_foreign_ciphertext(self, plaintext_name="Secret Child"):
+        """Directly writes ciphertext generated with foreign key into DB columns."""
+        from django.db import connection
+        foreign_ct_name = self.foreign_fernet.encrypt(plaintext_name.encode('utf-8')).decode('utf-8')
+        foreign_ct_guardian = self.foreign_fernet.encrypt(b"Secret Guardian").decode('utf-8')
+        foreign_ct_diag = self.foreign_fernet.encrypt(b"Secret Diagnosis").decode('utf-8')
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'UPDATE "users_studentprofile" SET "name" = %s, "guardian_name" = %s, "diagnosis" = %s '
+                'WHERE "studentID" = %s',
+                [foreign_ct_name, foreign_ct_guardian, foreign_ct_diag, self.student.studentID]
+            )
+        return foreign_ct_name, foreign_ct_guardian, foreign_ct_diag
+
+    def test_decryption_failure_returns_placeholder_and_never_raw_fernet_token(self):
+        """When token cannot be decrypted, EncryptedCharField must return masked placeholder, never raw gAAAAA..."""
+        foreign_name, foreign_guardian, foreign_diag = self._inject_foreign_ciphertext()
+
+        refreshed = StudentProfile.objects.get(pk=self.student.pk)
+
+        # Value must not be the raw token
+        self.assertFalse(str(refreshed.name).startswith('gAAAAA'))
+        self.assertFalse(str(refreshed.guardian_name).startswith('gAAAAA'))
+        self.assertFalse(str(refreshed.diagnosis).startswith('gAAAAA'))
+
+        # Must return human-friendly masked placeholder
+        self.assertEqual(refreshed.name, "[Encrypted Student]")
+        self.assertEqual(refreshed.guardian_name, "[Encrypted Guardian]")
+        self.assertEqual(refreshed.diagnosis, "[Encrypted diagnosis]")
+
+        # Placeholder retains raw_ciphertext
+        self.assertEqual(refreshed.name.raw_ciphertext, foreign_name)
+
+        # Model __str__ displays user-friendly fallback identifier with student ID
+        self.assertEqual(str(refreshed), f"[Encrypted Student #{self.student.studentID}]")
+
+    def test_saving_instance_with_placeholder_preserves_raw_ciphertext_in_database(self):
+        """Saving an instance whose decryption failed must NOT corrupt DB with placeholder text."""
+        from django.db import connection
+        foreign_name, _, _ = self._inject_foreign_ciphertext()
+
+        loaded = StudentProfile.objects.get(pk=self.student.pk)
+        self.assertEqual(loaded.name, "[Encrypted Student]")
+
+        # Modify an unrelated field and save
+        loaded.age = 10
+        loaded.save()
+
+        # Database raw column must still contain the original foreign ciphertext
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT "name" FROM "users_studentprofile" WHERE "studentID" = %s', [self.student.pk])
+            raw_in_db = cursor.fetchone()[0]
+
+        self.assertEqual(raw_in_db, foreign_name)
+        self.assertTrue(raw_in_db.startswith('gAAAAA'))
+
+    def test_serializer_to_representation_masks_raw_tokens_with_student_id(self):
+        """StudentProfileSerializer must return '[Encrypted Student #<id>]' and never raw Fernet tokens."""
+        from users.serializers import StudentProfileSerializer
+        self._inject_foreign_ciphertext()
+
+        student = StudentProfile.objects.get(pk=self.student.pk)
+        data = StudentProfileSerializer(student).data
+
+        self.assertEqual(data['name'], f"[Encrypted Student #{self.student.pk}]")
+        self.assertEqual(data['guardian_name'], f"[Encrypted Guardian #{self.student.pk}]")
+        self.assertFalse(data['name'].startswith('gAAAAA'))
+        self.assertFalse(data['guardian_name'].startswith('gAAAAA'))
+
+    def test_serializer_prefers_profile_details_name_if_available(self):
+        """If profileDetails has studentName in JSON, serializer uses it rather than placeholder."""
+        from users.serializers import StudentProfileSerializer
+        self._inject_foreign_ciphertext()
+
+        student = StudentProfile.objects.get(pk=self.student.pk)
+        student.profileDetails = {"studentName": "Maria Clara"}
+        student.save()
+
+        data = StudentProfileSerializer(student).data
+        self.assertEqual(data['name'], "Maria Clara")
+
+    def test_multi_fernet_fallback_key_decrypts_seamlessly(self):
+        """When foreign key is added to STUDENT_PII_FALLBACK_ENCRYPTION_KEYS, decryption succeeds seamlessly."""
+        self._inject_foreign_ciphertext(plaintext_name="Decrypted Child")
+
+        with self.settings(STUDENT_PII_FALLBACK_ENCRYPTION_KEYS=[self.foreign_key]):
+            refreshed = StudentProfile.objects.get(pk=self.student.pk)
+            self.assertEqual(refreshed.name, "Decrypted Child")
+            self.assertEqual(refreshed.guardian_name, "Secret Guardian")
+            self.assertEqual(refreshed.diagnosis, "Secret Diagnosis")
+
+    def test_reencrypt_student_pii_management_command(self):
+        """Management utility 'reencrypt_student_pii' successfully migrates records from old key to current key."""
+        from django.core.management import call_command
+        from django.db import connection
+        import io
+
+        foreign_name, _, _ = self._inject_foreign_ciphertext(plaintext_name="Migrated Student")
+
+        out = io.StringIO()
+        # 1. Test Dry-Run
+        call_command(
+            'reencrypt_student_pii',
+            '--dry-run',
+            f'--old-key={self.foreign_key}',
+            f'--student-id={self.student.pk}',
+            stdout=out
+        )
+        output = out.getvalue()
+        self.assertIn("DRY-RUN", output)
+        self.assertIn("would be updated", output)
+
+        # Database should STILL have the foreign ciphertext
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT "name" FROM "users_studentprofile" WHERE "studentID" = %s', [self.student.pk])
+            self.assertEqual(cursor.fetchone()[0], foreign_name)
+
+        # 2. Test Real Execution
+        out = io.StringIO()
+        call_command(
+            'reencrypt_student_pii',
+            f'--old-key={self.foreign_key}',
+            f'--student-id={self.student.pk}',
+            stdout=out
+        )
+        output = out.getvalue()
+        self.assertIn("Successfully committed updates", output)
+
+        # Without foreign fallback in settings, ORM should now decrypt cleanly using active default key
+        refreshed = StudentProfile.objects.get(pk=self.student.pk)
+        self.assertEqual(refreshed.name, "Migrated Student")
+        self.assertEqual(refreshed.guardian_name, "Secret Guardian")
+        self.assertEqual(refreshed.diagnosis, "Secret Diagnosis")
+
+
+
 class AuthSecurityHardeningTests(APITestCase):
     """
     Security verification tests for Issue #234:

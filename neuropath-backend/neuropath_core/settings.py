@@ -39,14 +39,15 @@ def _derive_fernet_key(secret: str) -> str:
     return base64.urlsafe_b64encode(digest).decode()
 
 STUDENT_PII_ENCRYPTION_KEY = env('STUDENT_PII_ENCRYPTION_KEY', default=_derive_fernet_key(SECRET_KEY))
+STUDENT_PII_FALLBACK_ENCRYPTION_KEYS = env.list('STUDENT_PII_FALLBACK_ENCRYPTION_KEYS', default=[])
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool('DEBUG', default=False)
 
 # Hosts this backend will answer for.
-# Always ensures local loopback is included so container healthchecks succeed.
+# Always ensures local loopback and Render host domains are included.
 ALLOWED_HOSTS = list(set(
-    ['localhost', '127.0.0.1', '[::1]'] +
+    ['localhost', '127.0.0.1', '[::1]', '.onrender.com', 'neuropath-api.onrender.com'] +
     env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', '[::1]'] if DEBUG else [])
 ))
 
@@ -185,8 +186,8 @@ STORAGES = {
 }
 
 # ── CORS SETTINGS ───────────────────────────────────────
-# Origins the React app is served from. Defaults cover local development; set
-# CORS_ALLOWED_ORIGINS in .env to authorize a deployed frontend origin.
+# Origins the React app is served from. Defaults cover local development and Vercel;
+# set CORS_ALLOWED_ORIGINS in .env to authorize additional custom deployed frontend origins.
 CORS_ALLOWED_ORIGINS = [
     origin.rstrip('/')
     for origin in env.list(
@@ -196,8 +197,14 @@ CORS_ALLOWED_ORIGINS = [
             "http://127.0.0.1:5173",
             "http://localhost:3000",
             "http://127.0.0.1:3000",
+            "https://neuro-path.vercel.app",
         ],
     )
+]
+
+# Authorize all Vercel deployments (production and preview branches)
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https:\/\/.*\.vercel\.app$",
 ]
 
 # Allows credential sharing and session syncing across your local ports
@@ -215,6 +222,10 @@ CSRF_TRUSTED_ORIGINS = [
         default=[
             "http://localhost:5173",
             "http://127.0.0.1:5173",
+            "https://neuro-path.vercel.app",
+            "https://*.vercel.app",
+            "https://*.onrender.com",
+            "https://neuropath-api.onrender.com",
         ],
     )
 ]

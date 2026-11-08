@@ -21,11 +21,13 @@ class HistoricalRecordDataSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         raw_name = data.get('name') or ''
         pd = instance.profileDetails if isinstance(instance.profileDetails, dict) else {}
-        if not raw_name or raw_name.startswith('gAAAAA'):
-            data['name'] = pd.get('studentName') or pd.get('learnerName') or raw_name
+        student_id = getattr(instance, 'pk', None) or getattr(instance, 'studentID', None)
+        id_suffix = f" #{student_id}" if student_id else ""
+        if not raw_name or raw_name.startswith('gAAAAA') or raw_name.startswith('[Encrypted'):
+            data['name'] = pd.get('studentName') or pd.get('learnerName') or f"[Encrypted Student{id_suffix}]"
         raw_dis = data.get('primaryDisability') or ''
-        if not raw_dis or raw_dis.startswith('gAAAAA'):
-            data['primaryDisability'] = pd.get('disabilityCategory') or pd.get('diagnosisDetails') or raw_dis
+        if not raw_dis or raw_dis.startswith('gAAAAA') or raw_dis.startswith('[Encrypted'):
+            data['primaryDisability'] = pd.get('disabilityCategory') or pd.get('diagnosisDetails') or (raw_dis if not raw_dis.startswith('gAAAAA') and not raw_dis.startswith('[Encrypted') else '[Encrypted Disability]')
         return data
    
 # =====================================================================
@@ -40,4 +42,4 @@ class ProgressAnalyticsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StudentProgress
-        fields = ['progressID', 'subjectName', 'performanceScore', 'trackingInterval']
+        fields = ['progressID', 'subjectName', 'performanceScore', 'trackingInterval', 'behavioralObservations', 'dateLogged']

@@ -1,5 +1,7 @@
 from django.test import TestCase
 from unittest.mock import patch
+from django.contrib.auth.models import User
+from rest_framework.test import APIClient
 from users.models import Teacher, StudentProfile
 from iep_management.models import IEPModel
 from iep_management.services import AIGenerationService
@@ -106,4 +108,115 @@ class InsightsAndGoalsTestCase(TestCase):
         self.assertEqual(row['month1'], row['month_1_target'])
         self.assertEqual(row['month2'], row['month_2_target'])
         self.assertEqual(row['month3'], row['month_3_target'])
+
+
+class GenerateIEPGoalsDraftingTestCase(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.auth_user = User.objects.create_user(
+            username='drafting_teacher@test.com',
+            email='drafting_teacher@test.com',
+            password='TestPassword123!'
+        )
+        self.teacher = Teacher.objects.create(
+            email='drafting_teacher@test.com',
+            name='Teacher Draft',
+            passwordHash='hash'
+        )
+        self.student = StudentProfile.objects.create(
+            name='Draft Learner',
+            age=9,
+            teacher=self.teacher,
+            diagnosis='ADHD',
+            support_needs='Movement breaks',
+            parental_consent_obtained=True,
+            guardian_name='Guardian Draft',
+            consent_date='2026-09-01'
+        )
+        self.student_unconsented = StudentProfile.objects.create(
+            name='Unconsented Learner',
+            age=8,
+            teacher=self.teacher,
+            diagnosis='ADHD',
+            support_needs='Movement breaks',
+            parental_consent_obtained=False,
+            guardian_name='Guardian Unconsented'
+        )
+        self.client.force_authenticate(user=self.auth_user)
+
+    @patch('iep_management.views.GenerateIEPGoalsFromIEPView._generate_objective_rows')
+    @patch('iep_management.views.GenerateIEPGoalsFromIEPView._generate_annual_goal')
+    def test_generate_goals_with_student_id_without_iep_id(self, mock_goal, mock_rows):
+        mock_goal.return_value = "Draft Learner will complete tasks with 80% accuracy."
+        mock_rows.return_value = [{
+            "enroute_objectives": "Draft sub-task",
+            "month_1_target": "Milestone 1",
+            "month_2_target": "Milestone 2",
+            "month_3_target": "Milestone 3",
+            "month1": "Milestone 1",
+            "month2": "Milestone 2",
+            "month3": "Milestone 3",
+            "interventions_procedures": "Visual checklist",
+            "timeline_mins_session": "15 mins",
+            "individuals_responsible": "SNED Teacher",
+            "progress_instructional": "Checklist",
+            "remarks": "On track"
+        }]
+
+        payload = {
+            "student_id": self.student.pk,
+            "goal_area": "Functional Academic Skills",
+            "difficulties": "Difficulty in staying focused",
+            "generatedDetails": {
+                "special_factors_considerations": [
+                    {
+                        "difficulty": "Difficulty in staying focused",
+                        "assistive_technology": "Timer"
+                    }
+                ]
+            }
+        }
+        response = self.client.post('/api/iep/generate-goals-from-iep/', payload, format='json')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsNone(data.get('iep_id'))
+        self.assertEqual(len(data.get('goals', [])), 1)
+        self.assertIsNone(data['goals'][0].get('iep'))
+        # Ensure no IEPModel was created in the database
+        self.assertEqual(IEPModel.objects.count(), 0)
+
+    def test_generate_goals_without_iep_id_blocked_if_unconsented(self):
+        payload = {
+            "student_id": self.student_unconsented.pk,
+            "goal_area": "Functional Academic Skills",
+            "difficulties": "Difficulty in staying focused",
+            "generatedDetails": {
+                "special_factors_considerations": [
+                    {
+                        "difficulty": "Difficulty in staying focused",
+                        "assistive_technology": "Timer"
+                    }
+                ]
+            }
+        }
+        response = self.client.post('/api/iep/generate-goals-from-iep/', payload, format='json')
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("RA 10173", response.json().get('error', ''))
+
+    def test_generate_goals_missing_both_iep_and_student_id(self):
+        payload = {
+            "goal_area": "Functional Academic Skills",
+            "difficulties": "Difficulty in staying focused",
+            "generatedDetails": {
+                "special_factors_considerations": [
+                    {
+                        "difficulty": "Difficulty in staying focused",
+                        "assistive_technology": "Timer"
+                    }
+                ]
+            }
+        }
+        response = self.client.post('/api/iep/generate-goals-from-iep/', payload, format='json')
+        self.assertEqual(response.status_code, 400)
+
 

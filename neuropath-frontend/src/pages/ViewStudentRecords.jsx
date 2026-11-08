@@ -10,28 +10,23 @@ import Pagination from "../components/ui/Pagination";
 import { InboxIcon, CheckIcon, WarningIcon } from "../components/ui/icons";
 import SignaturePadModal from "../components/SignaturePadModal";
 
-// ── Placeholder data shown when backend fields are missing ─────────────────
-const PLACEHOLDER = {
-  name: "Juan dela Cruz",
-  age: "11",
-  grade: "6",
-  gender: "Male",
-  school: "CIT",
-  schoolYear: "2026-2027",
-  birthdate: "10-15-1920",
-  disabilityCategory: "Autism Spectrum Disorder",
-  diagnosisDetails: "Cannot eat without eating.",
+// ── Default empty record schema shown when fields are not yet recorded ─────
+const EMPTY_RECORD = {
+  name: "",
+  age: "",
+  grade: "",
+  gender: "",
+  school: "",
+  schoolYear: "",
+  birthdate: "",
+  disabilityCategory: "",
+  diagnosisDetails: "",
   difficultyMarkers: [],
-  presentEvaluation:
-    "Based on the Q1 diagnostic reading inventory, the learner decodes individual words at a Grade 3 level but demonstrates a Grade 1 level in deep inferential comprehension.",
-  academicStrengths:
-    "The learner excels significantly in mathematics, particularly in arithmetic operations and pattern identification.",
-  academicNeeds:
-    "Requires direct, explicit instruction in reading comprehension strategies.",
-  parentalConcerns:
-    "Parents are deeply concerned about his reading frustration leading to task avoidance behaviors at home.",
-  curriculumImpact:
-    "The learner's reading processing deficits significantly restrict his ability to comprehend word problems independently.",
+  presentEvaluation: "",
+  academicStrengths: "",
+  academicNeeds: "",
+  parentalConcerns: "",
+  curriculumImpact: "",
   aiAccommodations: "",
   barrierRows: [],
   learnerGoals: [],
@@ -369,7 +364,7 @@ function PageSectionBC({
       const link = document.createElement("a");
       link.href = url;
       const rawDisplay = studentName || d?.name || "Student";
-      const cleanName = (rawDisplay.startsWith("gAAAAA") ? (d?.profileDetails?.studentName || "Student") : rawDisplay).replace(/\s+/g, "_");
+      const cleanName = ((rawDisplay.startsWith("gAAAAA") || rawDisplay.startsWith("[Encrypted")) ? (d?.profileDetails?.studentName || rawDisplay) : rawDisplay).replace(/\s+/g, "_");
       link.download = `StudentRecord_${cleanName}.pdf`;
       document.body.appendChild(link);
       link.click();
@@ -383,10 +378,6 @@ function PageSectionBC({
     } finally {
       setIsExporting(false);
     }
-  };
-
-  const handlePrint = () => {
-    window.print();
   };
 
   return (
@@ -546,14 +537,6 @@ function PageSectionBC({
         <div className="vsr-action-btn-group">
           <button
             type="button"
-            className="btn btn-secondary vsr-print-btn"
-            onClick={handlePrint}
-            title="Print record"
-          >
-            PRINT RECORD
-          </button>
-          <button
-            type="button"
             className="btn btn-secondary vsr-esign-btn flex items-center gap-1.5"
             onClick={() => setIsSignatureModalOpen(true)}
             disabled={isExporting}
@@ -582,9 +565,11 @@ function PageSectionBC({
         onClose={() => setIsSignatureModalOpen(false)}
         onConfirmExport={(sig) => handleExport(sig)}
         studentName={
-          (studentName && !studentName.startsWith("gAAAAA") ? studentName : "") ||
-          (d?.name && !d.name.startsWith("gAAAAA") ? d.name : "") ||
+          (studentName && !studentName.startsWith("gAAAAA") && !studentName.startsWith("[Encrypted") ? studentName : "") ||
+          (d?.name && !d.name.startsWith("gAAAAA") && !d.name.startsWith("[Encrypted") ? d.name : "") ||
           d?.profileDetails?.studentName ||
+          studentName ||
+          d?.name ||
           "Learner"
         }
         teacherName={teacherNameToExport}
@@ -603,7 +588,6 @@ export default function ViewStudentRecords({ setActivePage }) {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [filterGrade, setFilterGrade] = useState("");
-  const [filterAge, setFilterAge] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 6;
 
@@ -827,37 +811,38 @@ export default function ViewStudentRecords({ setActivePage }) {
         const bDetails = normalizeGeneratedDetails(targetBIep);
 
         const rawName = raw.name || "";
-        const resolvedName = (rawName && !rawName.startsWith("gAAAAA"))
+        const isNameObfuscated = rawName.startsWith("gAAAAA") || rawName.startsWith("[Encrypted");
+        const resolvedName = (!isNameObfuscated && rawName)
           ? rawName
-          : pd.studentName || pd.learnerName || (s.name && !s.name.startsWith("gAAAAA") ? s.name : PLACEHOLDER.name);
+          : pd.studentName || pd.learnerName || (s.name && !s.name.startsWith("gAAAAA") ? s.name : rawName || EMPTY_RECORD.name || "Student");
 
         const rawDiag = raw.diagnosis || "";
         const rawAsd = raw.asdBackground || "";
-        const resolvedDiag = pd.disabilityCategory || (rawDiag && !rawDiag.startsWith("gAAAAA") ? rawDiag : "") || PLACEHOLDER.disabilityCategory;
-        const resolvedAsd = pd.diagnosisDetails || (rawAsd && !rawAsd.startsWith("gAAAAA") ? rawAsd : "") || PLACEHOLDER.diagnosisDetails;
+        const resolvedDiag = pd.disabilityCategory || (rawDiag && !rawDiag.startsWith("gAAAAA") && !rawDiag.startsWith("[Encrypted") ? rawDiag : "") || EMPTY_RECORD.disabilityCategory;
+        const resolvedAsd = pd.diagnosisDetails || (rawAsd && !rawAsd.startsWith("gAAAAA") && !rawAsd.startsWith("[Encrypted") ? rawAsd : "") || EMPTY_RECORD.diagnosisDetails;
         const rawAssess = raw.assessmentResult || "";
-        const resolvedAssess = pd.presentEvaluation || (rawAssess && !rawAssess.startsWith("gAAAAA") ? rawAssess : "") || PLACEHOLDER.presentEvaluation;
+        const resolvedAssess = pd.presentEvaluation || (rawAssess && !rawAssess.startsWith("gAAAAA") && !rawAssess.startsWith("[Encrypted") ? rawAssess : "") || EMPTY_RECORD.presentEvaluation;
         const rawNeeds = raw.support_needs || "";
-        const resolvedNeeds = pd.academicNeeds || (rawNeeds && !rawNeeds.startsWith("gAAAAA") ? rawNeeds : "") || PLACEHOLDER.academicNeeds;
+        const resolvedNeeds = pd.academicNeeds || (rawNeeds && !rawNeeds.startsWith("gAAAAA") && !rawNeeds.startsWith("[Encrypted") ? rawNeeds : "") || EMPTY_RECORD.academicNeeds;
 
         setRecordData({
-          ...PLACEHOLDER,
+          ...EMPTY_RECORD,
           studentID: s.studentID,
           name: resolvedName,
-          age: String(raw.age || s.age || PLACEHOLDER.age),
-          grade: String(raw.grade || s.grade || PLACEHOLDER.grade),
-          gender: raw.gender || PLACEHOLDER.gender,
-          school: pd.school || PLACEHOLDER.school,
-          schoolYear: pd.schoolYear || PLACEHOLDER.schoolYear,
-          birthdate: pd.birthdate || PLACEHOLDER.birthdate,
+          age: String(raw.age || s.age || ""),
+          grade: String(raw.grade || s.grade || ""),
+          gender: raw.gender || "",
+          school: pd.school || "",
+          schoolYear: pd.schoolYear || "",
+          birthdate: pd.birthdate || "",
           disabilityCategory: resolvedDiag,
           diagnosisDetails: resolvedAsd,
-          difficultyMarkers: pd.difficultyMarkers || PLACEHOLDER.difficultyMarkers,
+          difficultyMarkers: pd.difficultyMarkers || [],
           presentEvaluation: resolvedAssess,
-          academicStrengths: pd.academicStrengths || PLACEHOLDER.academicStrengths,
+          academicStrengths: pd.academicStrengths || "",
           academicNeeds: resolvedNeeds,
-          parentalConcerns: pd.parentalConcerns || PLACEHOLDER.parentalConcerns,
-          curriculumImpact: pd.curriculumImpact || PLACEHOLDER.curriculumImpact,
+          parentalConcerns: pd.parentalConcerns || "",
+          curriculumImpact: pd.curriculumImpact || "",
           aiAccommodations: bDetails.generatedAccommodations || targetBIep?.accommodations || "",
           barrierRows: buildBarrierRowsFromIep(targetBIep),
           learnerGoals: initialGoals,
@@ -867,11 +852,11 @@ export default function ViewStudentRecords({ setActivePage }) {
       })
       .catch(() => {
         setRecordData({
-          ...PLACEHOLDER,
+          ...EMPTY_RECORD,
           studentID: s.studentID,
           name: s.name,
-          grade: String(s.grade),
-          age: String(s.age),
+          grade: String(s.grade || ""),
+          age: String(s.age || ""),
         });
       })
       .finally(() => setLoadingDetail(false));
@@ -891,7 +876,7 @@ export default function ViewStudentRecords({ setActivePage }) {
   const getStudentDisplayName = (st) => {
     if (!st) return "Student";
     const raw = st.name || "";
-    if (raw && !raw.startsWith("gAAAAA")) return raw;
+    if (raw && !raw.startsWith("gAAAAA") && !raw.startsWith("[Encrypted")) return raw;
     const pd = st.profileDetails || {};
     return pd.studentName || pd.learnerName || (raw && !raw.startsWith("gAAAAA") ? raw : "Student");
   };
@@ -901,10 +886,9 @@ export default function ViewStudentRecords({ setActivePage }) {
       const displayName = getStudentDisplayName(s);
       const matchName = displayName.toLowerCase().includes(search.toLowerCase());
       const matchGrade = filterGrade ? s.grade === parseInt(filterGrade) : true;
-      const matchAge = filterAge ? s.age === parseInt(filterAge) : true;
-      return matchName && matchGrade && matchAge;
+      return matchName && matchGrade;
     });
-  }, [students, search, filterGrade, filterAge]);
+  }, [students, search, filterGrade]);
 
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginatedStudents = useMemo(() => {
@@ -1017,23 +1001,6 @@ export default function ViewStudentRecords({ setActivePage }) {
                       </option>
                     ))}
                   </select>
-                  <select
-                    id="filter-age-select"
-                    aria-label="Filter by age"
-                    className="form-select om-filter-select"
-                    value={filterAge}
-                    onChange={(e) => {
-                      setFilterAge(e.target.value);
-                      setPage(1);
-                    }}
-                  >
-                    <option value="">Age</option>
-                    {[6, 7, 8, 9, 10, 11, 12].map((a) => (
-                      <option key={a} value={a}>
-                        {a}
-                      </option>
-                    ))}
-                  </select>
                 </div>
               </div>
 
@@ -1059,7 +1026,6 @@ export default function ViewStudentRecords({ setActivePage }) {
                       onAction={() => {
                         setSearch("");
                         setFilterGrade("");
-                        setFilterAge("");
                         setPage(1);
                       }}
                     />

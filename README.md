@@ -305,6 +305,23 @@ DB_ENGINE=django.db.backends.sqlite3 DB_NAME=test_db.sqlite3 python manage.py te
 ```
 > **Note on AI Services:** AI generation services (Groq, Hugging Face, Pollinations) are mocked or provide deterministic fallbacks in the test suite, allowing fast, offline, and quota-free automated test execution.
 
+#### PII Key Rotation & Maintenance (Republic Act 10173)
+
+NeuroPath encrypts student PII (names, guardian details, clinical diagnoses, and assessment results) at rest using AES-256 Fernet ciphers. If encryption keys are rotated or records need re-encrypting across environments:
+
+```bash
+cd neuropath-backend
+
+# Dry-run migration to inspect records before writing
+python manage.py reencrypt_student_pii --dry-run --old-key "<previous-fernet-key>"
+
+# Migrate records to the new active key
+python manage.py reencrypt_student_pii --old-key "<previous-fernet-key>"
+
+# Migrate from a previous Django SECRET_KEY
+python manage.py reencrypt_student_pii --old-secret "<previous-django-secret-key>"
+```
+
 **Frontend Tests (Vitest):**
 ```bash
 cd neuropath-frontend
@@ -362,10 +379,16 @@ NeuroPath uses separate `.env` files for the backend and frontend. **Never commi
 
 ```env
 # ───────────────────────────────────────────
-# DJANGO CORE
+# DJANGO CORE & SECURITY
 # ───────────────────────────────────────────
 SECRET_KEY=your-secret-key-here
 DEBUG=True
+
+# Application-layer Fernet (AES-256) encryption key for student PII (RA 10173 compliance).
+# Generate via: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# NOTE: All developers sharing the same database (e.g. Supabase) MUST use the same key.
+STUDENT_PII_ENCRYPTION_KEY=your-fernet-encryption-key-here
+# STUDENT_PII_FALLBACK_ENCRYPTION_KEYS=key1,key2  # For zero-downtime key rotation
 
 # ───────────────────────────────────────────
 # DATABASE (PostgreSQL / Supabase)

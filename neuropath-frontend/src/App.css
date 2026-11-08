@@ -86,11 +86,26 @@ button.sidebar-header {
 .sidebar-brand {
   display: flex;
   align-items: center;
+  gap: 10px;
   overflow: hidden;
+}
+
+.sidebar-brand-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .sidebar-brand.collapsed {
   justify-content: center;
+}
+
+.sidebar-brand-logo-collapsed {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .sidebar-brand-abbr {
@@ -679,10 +694,18 @@ button.sidebar-header {
 
 .form-select {
   appearance: none;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  height: auto;
+  padding: 8px 36px 8px 14px;
+  line-height: 1.4;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
-  padding-right: 34px;
+  text-align: left;
+  text-indent: 0;
   color-scheme: light;
 }
 
@@ -791,7 +814,7 @@ select option,
 
 /* ── Colorful Greeting Hero Banner ──────────────────── */
 .overview-welcome {
-  background: linear-gradient(135deg, #2b77c4 0%, #3d9de8 55%, #5aabf0 100%);
+  background: linear-gradient(135deg, #5aabf0 0%, #3d9de8 55%, #2b77c4 100%);
   border-radius: 16px;
   padding: 30px 36px;
   color: #ffffff;
@@ -1823,7 +1846,7 @@ select option,
   color: #334155;
   cursor: pointer;
   transition: all 0.15s ease;
-  line-height: 1.2;
+  line-height: 2;
 }
 .iep-archives-btn:hover {
   background: #f8fafc;
@@ -2425,11 +2448,26 @@ select option,
   line-height: 1.6;
 }
 .iep-ai-goal-toolbar {
-  display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
   gap: 16px;
-  align-items: end;
   margin-bottom: 18px;
+}
+.iep-ai-goal-toolbar .form-group {
+  width: 100%;
+  max-width: 440px;
+  min-width: 0;
+}
+.iep-ai-goal-toolbar .form-select {
+  width: 100%;
+  max-width: 440px;
+  min-width: 0;
+  min-height: 44px;
+  height: auto;
+  padding: 8px 36px 8px 14px;
+  line-height: 1.4;
 }
 .iep-generated-goal-card {
   border: 1px solid #e4e9ef;
@@ -2459,7 +2497,8 @@ select option,
 }
 .iep-view-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 240px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
+  align-items: start;
   gap: 22px;
   margin-bottom: 18px;
 }
@@ -2469,7 +2508,8 @@ select option,
 }
 .iep-view-controls.has-selected {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 240px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
+  align-items: start;
   gap: 22px;
 }
 .iep-search-group {
@@ -2588,6 +2628,15 @@ select option,
 }
 
 .vsp-card.iep-roster-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
   cursor: pointer;
   outline: none;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -2604,7 +2653,7 @@ select option,
   justify-content: center;
 }
 
-.iep-roster-card {
+.iep-roster-card:not(.vsp-card) {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2616,7 +2665,7 @@ select option,
   transition: all 0.15s ease;
 }
 
-.iep-roster-card:hover {
+.iep-roster-card:not(.vsp-card):hover {
   border-color: #93c5fd;
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
 }
@@ -2770,7 +2819,7 @@ select option,
 
 .iep-small-select {
   font-size: 0.825rem;
-  padding: 6px 10px;
+  padding: 6px 32px 6px 10px;
   min-height: 38px;
 }
 
@@ -2879,9 +2928,16 @@ select option,
 }
 .iep-view-actions {
   display: flex;
+  flex-direction: row;
+  align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+  flex-shrink: 0;
+}
+.iep-view-actions .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .iep-btn-danger {
   background: #d32f2f;
@@ -2902,6 +2958,7 @@ select option,
 
 @media (max-width: 900px) {
   .iep-view-controls,
+  .iep-view-controls.has-selected,
   .iep-ai-goal-toolbar,
   .form-two-col-sections,
   .iep-check-grid {
@@ -2915,6 +2972,9 @@ select option,
   }
   .iep-view-actions {
     justify-content: flex-start;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
   }
 }
 .iep-edit-panel {
@@ -2936,7 +2996,8 @@ select option,
 }
 
 .iep-ai-goal-toolbar.multi {
-  align-items: start;
+  align-items: flex-start;
+  width: 100%;
 }
 .iep-goal-multi-grid {
   display: grid;
@@ -2956,30 +3017,125 @@ select option,
 
 /* Selected student summary for Generate IEP */
 .iep-selected-student-card {
-  min-width: 260px;
-  border: 1px solid #d8e1ea;
-  border-radius: 8px;
-  background: #f8fbff;
-  padding: 14px 16px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 1px solid rgba(130, 199, 255, 0.35);
+  border-radius: 14px;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  align-items: stretch;
+  gap: 12px;
+  box-shadow: 0 2px 10px rgba(37, 137, 199, 0.08);
+  overflow: hidden;
 }
 
-.iep-selected-student-card span {
-  font-size: 12px;
-  color: #7a8795;
+.iep-selected-student-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  width: 100%;
+}
+
+.iep-selected-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #0369a1;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
+  background: rgba(130, 199, 255, 0.15);
+  border: 1px solid rgba(130, 199, 255, 0.35);
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
 }
 
-.iep-selected-student-card strong {
-  color: #1f2d3d;
-  font-size: 16px;
+.iep-selected-student-card .vsp-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
-.iep-selected-student-card small {
-  color: #6b7280;
+.iep-selected-student-card .vsp-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2589c7, #82c7ff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(130, 199, 255, 0.4);
+}
+
+.iep-selected-student-card .vsp-card-info {
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.iep-selected-student-card .vsp-card-name {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a3a4a;
+  margin: 0 0 3px;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iep-selected-student-card .vsp-card-meta {
+  display: block;
+  font-size: 12px;
+  color: #0369a1;
+  font-weight: 500;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iep-selected-student-card .vsp-card-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.iep-selected-student-card .vsp-pill {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: rgba(130, 199, 255, 0.12);
+  color: #1a6fa8;
+  border: 1px solid rgba(130, 199, 255, 0.3);
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iep-selected-student-card .vsp-pill.grade {
+  background: rgba(52, 199, 123, 0.1);
+  color: #1a7a4a;
+  border-color: rgba(52, 199, 123, 0.3);
 }
 
 /* Multi-select dropdown for Generate IEP learner goal areas */
@@ -3715,6 +3871,17 @@ select option,
   border: 1px solid #e2e8f0;
   font-weight: 500;
 }
+.btn.iep-archive-toggle-btn {
+  min-height: 28px;
+  min-width: unset;
+  padding: 3px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  border-radius: 6px;
+  line-height: 1.4;
+  margin-left: 4px;
+}
 .iep-student-version-tag {
   font-size: 11px;
   font-weight: 600;
@@ -3913,3 +4080,32 @@ select option,
     padding-top: 6px;
   }
 }
+
+/* ── Native View Transitions + Inner Form Reveal ────────────────── */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes npInnerReveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.np-inner-reveal {
+  animation: npInnerReveal 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .np-inner-reveal {
+    animation: none;
+  }
+}
+

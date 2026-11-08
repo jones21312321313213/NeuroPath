@@ -8,6 +8,7 @@ from .views import (
     LessonPlanReadOnlyViewSet,
     LessonPlanEditAPIView,
     LessonPlanDeleteAPIView,
+    ExportLessonPlanAPIView,
     VisualAidViewSet,
     GenerateVisualAidAPIView,
     ExportVisualAidAPIView,
@@ -47,6 +48,8 @@ urlpatterns = [
     
     # Delete Lesson Workflow Endpoint (Module 3.1.4)
     path('delete-lesson/<int:pk>/', LessonPlanDeleteAPIView.as_view(), name='delete-lesson-plan'),
+    path('export-lesson-plan/<int:pk>/', ExportLessonPlanAPIView.as_view(), name='export-lesson-plan'),
+    path('view-lessons/<int:pk>/export/', ExportLessonPlanAPIView.as_view(), name='view-lessons-export'),
     
     # Generate Visual Aid Workflow (Module 3.2.1)
     path('generate-visual-aid/', GenerateVisualAidAPIView.as_view(), name='generate-visual-aid'),
