@@ -7,6 +7,26 @@ logger = logging.getLogger(__name__)
 
 
 class RGORICheckerService:
+    RGORI_RESPONSE_SCHEMA = {
+        "type": "OBJECT",
+        "properties": {
+            "total_score": {"type": "INTEGER"},
+            "breakdown": {
+                "type": "OBJECT",
+                "properties": {
+                    "measurability": {"type": "INTEGER"},
+                    "functionality": {"type": "INTEGER"},
+                    "generality": {"type": "INTEGER"},
+                    "instructional_context": {"type": "INTEGER"},
+                },
+                "required": ["measurability", "functionality", "generality", "instructional_context"],
+            },
+            "feedback": {"type": "STRING"},
+            "compliant": {"type": "BOOLEAN"},
+        },
+        "required": ["breakdown", "feedback"],
+    }
+
     APPROVED_VERBS = {
         "answers", "classifies", "communicates", "copies", "counts", "defines",
         "follows", "greets", "identifies", "imitates", "initiates", "labels",
@@ -293,6 +313,7 @@ OUTPUT FORMAT (return this exact JSON, no other text):
                 system_prompt=system_prompt,
                 max_tokens=300,
                 json_mode=True,
+                response_schema=RGORICheckerService.RGORI_RESPONSE_SCHEMA,
             )
         except Exception as e:
             logger.warning("R-GORI evaluation AI call failed: %s", e)
@@ -312,53 +333,43 @@ OUTPUT FORMAT (return this exact JSON, no other text):
             cleaned = re.sub(r"\s*```$", "", cleaned)
             cleaned = cleaned.strip()
 
-        # Extract JSON object substring
-        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
-        if match:
-            cleaned = match.group(0)
+        # Extract first valid JSON object non-greedily using JSONDecoder.raw_decode
+        decoder = json.JSONDecoder()
+        data = None
+        for idx, ch in enumerate(cleaned):
+            if ch == "{":
+                try:
+                    candidate, _ = decoder.raw_decode(cleaned[idx:])
+                    if isinstance(candidate, dict):
+                        data = candidate
+                        break
+                except Exception:
+                    continue
 
         try:
-            data = json.loads(cleaned)
+            if data is None:
+                data = json.loads(cleaned)
             if not isinstance(data, dict):
                 raise RuntimeError("Failed to parse R-GORI evaluation: expected a JSON object.")
 
-            # Ensure we have total_score or can compute it
+            # Compute total_score deterministically from the 4 required criterion scores;
+            # never fall back to trusting top-level LLM total_score or compliant fields.
+            required_keys = ("measurability", "functionality", "generality", "instructional_context")
             breakdown = data.get("breakdown")
-            if isinstance(breakdown, dict) and all(
-                k in breakdown for k in ["measurability", "functionality", "generality", "instructional_context"]
-            ):
-                measurability = max(0, min(25, int(breakdown.get("measurability", 0))))
-                functionality = max(0, min(25, int(breakdown.get("functionality", 0))))
-                generality = max(0, min(25, int(breakdown.get("generality", 0))))
-                instructional_context = max(0, min(25, int(breakdown.get("instructional_context", 0))))
-                total_score = max(
-                    0,
-                    min(
-                        100,
-                        int(data.get("total_score", measurability + functionality + generality + instructional_context)),
-                    ),
-                )
-                clean_breakdown = {
-                    "measurability": measurability,
-                    "functionality": functionality,
-                    "generality": generality,
-                    "instructional_context": instructional_context,
-                }
-            elif "total_score" in data:
-                total_score = max(0, min(100, int(data.get("total_score", 0))))
-                quarter = round(total_score / 4)
-                clean_breakdown = {
-                    "measurability": quarter,
-                    "functionality": quarter,
-                    "generality": quarter,
-                    "instructional_context": total_score - (quarter * 3),
-                }
-            else:
-                raise RuntimeError("Failed to parse R-GORI evaluation: missing score metrics.")
+            if not isinstance(breakdown, dict) or not all(k in breakdown for k in required_keys):
+                raise RuntimeError("Failed to parse R-GORI evaluation: missing or incomplete breakdown score metrics.")
 
-            compliant = data.get("compliant")
-            if not isinstance(compliant, bool):
-                compliant = total_score >= 65
+            clean_breakdown = {}
+            for key in required_keys:
+                raw_val = breakdown.get(key)
+                if raw_val is None or isinstance(raw_val, bool):
+                    raise RuntimeError(f"Failed to parse R-GORI evaluation: invalid score for '{key}'.")
+                clean_breakdown[key] = max(0, min(25, int(raw_val)))
+
+            total_score = max(0, min(100, sum(clean_breakdown.values())))
+
+            # Always compute compliance deterministically in Python; ignore LLM-supplied booleans
+            compliant = total_score >= 65
 
             feedback = data.get("feedback")
             if not feedback or not isinstance(feedback, str):

@@ -133,9 +133,10 @@ class StandaloneIEPGoalSerializer(serializers.ModelSerializer):
     
 
 class IEPGenerationRequestSerializer(serializers.Serializer):
+    student_id = serializers.IntegerField(required=False, allow_null=True)
     student_name = serializers.CharField(max_length=100)
     diagnosis = serializers.CharField(max_length=100)
-    baseline_barriers = serializers.CharField()
+    baseline_barriers = serializers.CharField(max_length=500)
     target_domain = serializers.CharField(max_length=100)
 
     def validate_baseline_barriers(self, value):

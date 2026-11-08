@@ -16,6 +16,7 @@ from .ai_engine import AIEngineService
 from .rgori_service import RGORICheckerService
 from .privacy_utils import (
     anonymize_student_context,
+    extract_student_pii_terms,
     scrub_pii_from_text,
     verify_ra10173_consent,
     ConsentRequiredException,
@@ -37,18 +38,27 @@ class IEPGeneratorService:
             )
 
         profile_context = student.profileDetails if isinstance(student.profileDetails, dict) else {}
+        pii_terms = extract_student_pii_terms(student)
+        student_desc = anonymize_student_context(student)
+        safe_profile_json = scrub_pii_from_text(json.dumps(profile_context), pii_terms)
+        safe_baseline = scrub_pii_from_text(baseline_input, pii_terms)
+        safe_assessment_ctx = scrub_pii_from_text(assessment_context, pii_terms)
+        safe_diagnosis = scrub_pii_from_text(getattr(student, 'diagnosis', ''), pii_terms)
+        safe_assessment_res = scrub_pii_from_text(getattr(student, 'assessmentResult', ''), pii_terms)
+        safe_support = scrub_pii_from_text(getattr(student, 'support_needs', ''), pii_terms)
 
-        formatted_prompt = (
+        formatted_prompt = scrub_pii_from_text(
             'Act as an expert Special Education teacher. Generate a structured IEP draft.\n'
             f'Student Profile Data:\n'
-            f'- Name: {student.name}\n'
-            f'- Diagnosis: {student.diagnosis}\n'
-            f'- Assessment Result: {student.assessmentResult}\n'
-            f'- Support Needs: {student.support_needs}\n'
-            f'- Profile Details: {json.dumps(profile_context)}\n'
-            f'- Teacher Observations: {baseline_input}\n'
-            f'{assessment_context}\n'
-            f'- Target Educational Domains: {target_domains}'
+            f'- Learner: {student_desc}\n'
+            f'- Diagnosis: {safe_diagnosis}\n'
+            f'- Assessment Result: {safe_assessment_res}\n'
+            f'- Support Needs: {safe_support}\n'
+            f'- Profile Details: {safe_profile_json}\n'
+            f'- Teacher Observations: {safe_baseline}\n'
+            f'{safe_assessment_ctx}\n'
+            f'- Target Educational Domains: {target_domains}',
+            pii_terms,
         )
 
         draft_goals = (
@@ -78,7 +88,7 @@ class IEPGeneratorService:
                     teacher=resolved_teacher,
                     prompt_text=formatted_prompt,
                     ai_response=json.dumps({
-                        'draft_goals': draft_goals,
+                        'draft_goals': scrub_pii_from_text(draft_goals, pii_terms),
                         'draft_accommodations': draft_accommodations,
                     }),
                 )
@@ -492,19 +502,49 @@ class GenerateIEPGoalAPIView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         data = serializer.validated_data
-        pii_tokens = [data.get('student_name', '')]
+        student_id = request.data.get('student_id') or request.data.get('studentID') or data.get('student_id')
+        if not student_id:
+            return Response({"student_id": ["This field is required."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        teacher = get_teacher_for_user(request.user)
+        if not teacher:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            student = StudentProfile.objects.select_related('teacher').get(pk=student_id, teacher=teacher)
+        except (StudentProfile.DoesNotExist, ValueError, TypeError):
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            verify_ra10173_consent(student)
+        except ConsentRequiredException as e:
+            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
+
+        pii_tokens = extract_student_pii_terms(student, [data.get('student_name', '')])
         scrubbed_barriers = scrub_pii_from_text(data.get('baseline_barriers', ''), pii_tokens)
-        student_context = f"Learner, Diagnosis: {data['diagnosis']}, Barriers: {scrubbed_barriers}"
+        scrubbed_diagnosis = scrub_pii_from_text(data.get('diagnosis', ''), pii_tokens)
+        nonce = AIEngineService.generate_nonce()
+        spot_diagnosis = AIEngineService.sanitize_and_spotlight(scrubbed_diagnosis, nonce=nonce)
+        spot_barriers = AIEngineService.sanitize_and_spotlight(scrubbed_barriers, nonce=nonce)
+        spot_domain = AIEngineService.sanitize_and_spotlight(data['target_domain'], nonce=nonce)
+        student_context = f"Learner, Diagnosis: {spot_diagnosis}, Barriers: {spot_barriers}"
+        system_prompt = (
+            "You are an expert Special Education teacher writing a single SMART annual IEP goal. "
+            "Follow the ABCD criteria strictly (Actor, Behavior, Condition, Degree). "
+            "Output ONLY the single goal sentence with no preamble or bullet points."
+        )
         generation_prompt = (
             f"Write a specific, measurable IEP goal following ABCD criteria "
             f"(Actor: learner; Behavior: observable skill with targeted brackets; "
             f"Condition: environmental prompt level; Degree: measurable threshold) "
-            f"targeting {data['target_domain']} for {student_context}."
+            f"targeting {spot_domain} for {student_context}."
         )
         
         # 2. Generation via AI Engine
         try:
-            generated_goal, _ = AIEngineService.generate_text(generation_prompt, max_tokens=250)
+            generated_goal, _ = AIEngineService.generate_text(
+                generation_prompt, system_prompt=system_prompt, max_tokens=250
+            )
             if not generated_goal:
                 return Response(
                     {"error": "AI generation service is temporarily unavailable. Please try again shortly.", "details": None},
@@ -603,28 +643,41 @@ class GenerateIEPGoalsFromIEPView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
  
         # --- 2. Extract IEP context fields ---
-        goal_area           = data.get('goal_area', '')          # e.g. "Mathematical Skills"
-        accommodations      = data.get('accommodations', '')
-        difficulties        = data.get('difficulties', '')
-        learning_barriers   = data.get('learning_barriers', '')
-        barrier_qualifiers  = data.get('barrier_qualifiers', '')
-        facilitators        = data.get('learning_facilitators', '')
-        fac_qualifiers      = data.get('facilitator_qualifiers', '')
-        generated_details   = data.get('generatedDetails', {})
-        special_factors     = generated_details.get('special_factors_considerations', [])
-        
-        # Anonymize student descriptor and scrub PII from free-text notes
+        raw_goal_area       = data.get('goal_area', '')          # e.g. "Mathematical Skills"
+        try:
+            goal_area = self._validate_goal_area(raw_goal_area)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        raw_teacher_prompt = data.get('teacher_prompt', '') or ''
+        generated_details  = data.get('generatedDetails', {})
+        raw_special_notes  = data.get('special_factor_notes') or (
+            generated_details.get('specialFactorNotes', '') if isinstance(generated_details, dict) else ''
+        ) or ''
+        if len(str(raw_teacher_prompt)) > 500:
+            return Response(
+                {"error": "teacher_prompt must not exceed 500 characters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if len(str(raw_special_notes)) > 500:
+            return Response(
+                {"error": "special_factor_notes must not exceed 500 characters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Anonymize student descriptor and scrub PII from all free-text fields
         student_desc = anonymize_student_context(student)
-        pii_tokens = [
-            getattr(student, 'name', ''),
-            getattr(student, 'guardian_name', ''),
-            data.get('student_name', '')
-        ]
-        special_factor_notes = scrub_pii_from_text(
-            data.get('special_factor_notes') or generated_details.get('specialFactorNotes', ''),
-            pii_tokens
-        )
-        teacher_prompt = scrub_pii_from_text(data.get('teacher_prompt', ''), pii_tokens)
+        pii_tokens = extract_student_pii_terms(student, [data.get('student_name', '')])
+
+        accommodations      = scrub_pii_from_text(data.get('accommodations', ''), pii_tokens)
+        difficulties        = scrub_pii_from_text(data.get('difficulties', ''), pii_tokens)
+        learning_barriers   = scrub_pii_from_text(data.get('learning_barriers', ''), pii_tokens)
+        barrier_qualifiers  = scrub_pii_from_text(data.get('barrier_qualifiers', ''), pii_tokens)
+        facilitators        = scrub_pii_from_text(data.get('learning_facilitators', ''), pii_tokens)
+        fac_qualifiers      = scrub_pii_from_text(data.get('facilitator_qualifiers', ''), pii_tokens)
+        special_factors     = generated_details.get('special_factors_considerations', []) if isinstance(generated_details, dict) else []
+        special_factor_notes = scrub_pii_from_text(raw_special_notes, pii_tokens)
+        teacher_prompt = scrub_pii_from_text(raw_teacher_prompt, pii_tokens)
  
         if not special_factors:
             return Response(
@@ -645,11 +698,17 @@ class GenerateIEPGoalsFromIEPView(APIView):
         )
  
         # --- 3. Consolidate ALL difficulties into one single goal + table ---
-        all_difficulties = " | ".join(
-            f.get('difficulty', '') for f in special_factors if f.get('difficulty', '').strip()
+        all_difficulties = scrub_pii_from_text(
+            " | ".join(
+                f.get('difficulty', '') for f in special_factors if f.get('difficulty', '').strip()
+            ),
+            pii_tokens,
         )
-        all_assistive_tech = " | ".join(
-            f.get('assistive_technology', '') for f in special_factors if f.get('assistive_technology', '').strip()
+        all_assistive_tech = scrub_pii_from_text(
+            " | ".join(
+                f.get('assistive_technology', '') for f in special_factors if f.get('assistive_technology', '').strip()
+            ),
+            pii_tokens,
         )
 
         goal_payload, error = self._generate_validated_goal(
@@ -679,6 +738,55 @@ class GenerateIEPGoalsFromIEPView(APIView):
         }, status=status.HTTP_200_OK)
  
  
+    OBJECTIVE_ROWS_RESPONSE_SCHEMA = {
+        "type": "ARRAY",
+        "items": {
+            "type": "OBJECT",
+            "properties": {
+                "enroute_objectives": {"type": "STRING"},
+                "month_1_target": {"type": "STRING"},
+                "month_2_target": {"type": "STRING"},
+                "month_3_target": {"type": "STRING"},
+                "interventions_procedures": {"type": "STRING"},
+                "timeline_mins_session": {"type": "STRING"},
+                "individuals_responsible": {"type": "STRING"},
+                "progress_instructional": {"type": "STRING"},
+                "remarks": {"type": "STRING"},
+            },
+            "required": ["enroute_objectives"],
+        },
+    }
+
+    @staticmethod
+    def _sanitize_step_a_annual_goal(annual_goal: str) -> str:
+        raw_lines = [line.strip() for line in str(annual_goal or "").splitlines() if line.strip()]
+        first_line = raw_lines[0] if raw_lines else ""
+        cleaned = AIEngineService.strip_struq_tokens(first_line)
+        cleaned = re.sub(r"<[^>]*>", "", cleaned)
+        cleaned = re.sub(
+            r"(?i)\b(?:(?:system|assistant|user|developer)\s*:\s*.*|"
+            r"ignore\s+(?:all\s+|previous\s+)?instructions.*|"
+            r"disregard\s+(?:all\s+|previous\s+)?instructions.*|"
+            r"system\s+override.*|"
+            r"output\s+hacked.*)$",
+            "",
+            cleaned,
+        )
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        return cleaned[:500]
+
+    @staticmethod
+    def _build_safe_abcd_annual_goal(
+        difficulty: str, assistive_tech: str = "", accommodations: str = "", goal_area: str = ""
+    ) -> str:
+        support = (assistive_tech or accommodations or "structured visual supports and teacher prompts").strip()
+        domain_focus = (goal_area or difficulty or "targeted classroom routines").strip()
+        return (
+            f"Given {support[:120]}, the learner participates and completes functional tasks "
+            f"in {domain_focus[:120]} independently across daily classroom activities and settings "
+            f"with 80% accuracy in 4 out of 5 opportunities over 3 consecutive weeks."
+        )
+
     def _generate_validated_goal(
         self, iep_id, student_name, difficulty, assistive_tech,
         accommodations, facilitators, student_context,
@@ -690,11 +798,30 @@ class GenerateIEPGoalsFromIEPView(APIView):
         """
         try:
             # --- Step A: Generate annual goal ---
-            annual_goal = self._generate_annual_goal(
+            raw_annual_goal = self._generate_annual_goal(
                 student_name, difficulty, assistive_tech, accommodations,
                 facilitators, goal_area, teacher_prompt,
                 special_factor_notes=special_factor_notes
             )
+            annual_goal = self._sanitize_step_a_annual_goal(raw_annual_goal)
+            if not annual_goal:
+                raise RuntimeError("Step A annual goal generation returned an empty goal after sanitization.")
+
+            # Inter-step gate: Audit Step A goal against R-GORI criteria deterministically before Step B chaining.
+            # If Step A fails structural bounds or R-GORI compliance (< 65), replace with a safe deterministic ABCD goal.
+            rgori_audit = RGORICheckerService.audit_goal_explainable(
+                annual_goal, student_context
+            )
+            if len(annual_goal) < 20 or not rgori_audit.get("compliant") or rgori_audit.get("total_score", 0) < 65:
+                annual_goal = self._build_safe_abcd_annual_goal(
+                    difficulty=difficulty,
+                    assistive_tech=assistive_tech,
+                    accommodations=accommodations,
+                    goal_area=goal_area,
+                )
+                rgori_audit = RGORICheckerService.audit_goal_explainable(
+                    annual_goal, student_context
+                )
 
             # --- Step B: Generate objective rows for this goal ---
             objective_rows = self._generate_objective_rows(
@@ -708,11 +835,6 @@ class GenerateIEPGoalsFromIEPView(APIView):
             subject_category = (
                 goal_area if goal_area
                 else self._map_difficulty_to_category(difficulty)
-            )
-
-            # Audit goal against R-GORI criteria deterministically and attach explainable breakdown
-            rgori_audit = RGORICheckerService.audit_goal_explainable(
-                annual_goal, student_context
             )
 
             # Build the full goal payload (ready for POST /api/iep/goals/)
@@ -734,62 +856,108 @@ class GenerateIEPGoalsFromIEPView(APIView):
             return None, str(e)
  
  
+    ALLOWED_GOAL_AREAS = {
+        "care skills",
+        "self-care skills",
+        "daily living skills",
+        "mathematical skills",
+        "mathematics",
+        "math",
+        "communication skills",
+        "communication",
+        "social / interpersonal skills",
+        "social-emotional skills",
+        "social skills",
+        "behavioral skills",
+        "functional academic skills",
+        "functional skills",
+        "literacy skills",
+        "reading and writing",
+        "reading",
+        "motor skills",
+        "fine and gross motor skills",
+        "sensory regulation",
+    }
+
+    @classmethod
+    def _validate_goal_area(cls, goal_area: str) -> str:
+        cleaned = (goal_area or "").strip()
+        if not cleaned:
+            return ""
+        if cleaned.lower() not in cls.ALLOWED_GOAL_AREAS:
+            raise ValueError(f"Unsupported or invalid goal_area: '{cleaned}'.")
+        return cleaned
+
     def _generate_annual_goal(
         self, student_name, difficulty, assistive_tech, accommodations,
         facilitators, goal_area='', teacher_prompt='', special_factor_notes=''
     ):
+        validated_goal_area = self._validate_goal_area(goal_area)
+        nonce = AIEngineService.generate_nonce()
+
+        spot_student = AIEngineService.sanitize_and_spotlight(student_name, nonce=nonce)
+        spot_difficulty = AIEngineService.sanitize_and_spotlight(difficulty, nonce=nonce)
+        spot_tech = AIEngineService.sanitize_and_spotlight(assistive_tech, nonce=nonce)
+        spot_accomm = AIEngineService.sanitize_and_spotlight(accommodations, nonce=nonce)
+        spot_fac = AIEngineService.sanitize_and_spotlight(facilitators, nonce=nonce)
+
         teacher_instructions = (
-            f"Additional teacher instructions: {teacher_prompt}\n"
+            f"Additional teacher instructions: {AIEngineService.sanitize_and_spotlight(teacher_prompt, nonce=nonce)}\n"
             if teacher_prompt else ""
         )
         special_factors_line = (
-            f"Special Factors / Behavioral and Sensory Notes: {special_factor_notes}\n"
+            f"Special Factors / Behavioral and Sensory Notes: {AIEngineService.sanitize_and_spotlight(special_factor_notes, nonce=nonce)}\n"
             if special_factor_notes else ""
         )
         goal_area_line = (
-            f"PRIMARY Goal Area (this MUST be the focus of the goal): {goal_area}\n"
-            if goal_area else ""
+            f"PRIMARY Goal Area (this MUST be the focus of the goal): {validated_goal_area}\n"
+            if validated_goal_area else ""
+        )
+        system_prompt = (
+            "You are an expert Special Education teacher writing IEP goals. "
+            "Write ONE specific, measurable, achievable, relevant, and time-bound (SMART) annual IEP goal. "
+            "The goal MUST follow the ABCD criteria:\n"
+            "- Actor: The individual learner (refer to the student by name or 'the learner').\n"
+            "- Behavior: Specific, observable skill with targeted brackets (e.g., 'count and identify numbers 5–10', 'sort classroom objects into 3 categories').\n"
+            "- Condition: Environmental prompt level and context (e.g., 'given visual counters and physical prompts', 'in a structured classroom setting').\n"
+            "- Degree: Measurable criteria/threshold (e.g., 'with 80% accuracy in 4 out of 5 consecutive trials across 2 consecutive weeks').\n"
+            "The goal MUST directly address the PRIMARY Goal Area specified in the user prompt. "
+            "Do NOT write a goal for a different domain. "
+            "Output ONLY the goal sentence. No explanations, no bullet points, no preamble."
         )
         prompt = (
-            f"☁️system☁️"
-            f"You are an expert Special Education teacher writing IEP goals. "
-            f"Write ONE specific, measurable, achievable, relevant, and time-bound (SMART) annual IEP goal. "
-            f"The goal MUST follow the ABCD criteria:\n"
-            f"- Actor: The individual learner (refer to the student by name or 'the learner').\n"
-            f"- Behavior: Specific, observable skill with targeted brackets (e.g., 'count and identify numbers 5–10', 'sort classroom objects into 3 categories').\n"
-            f"- Condition: Environmental prompt level and context (e.g., 'given visual counters and physical prompts', 'in a structured classroom setting').\n"
-            f"- Degree: Measurable criteria/threshold (e.g., 'with 80% accuracy in 4 out of 5 consecutive trials across 2 consecutive weeks').\n"
-            f"The goal MUST directly address the PRIMARY Goal Area specified below. "
-            f"Do NOT write a goal for a different domain. "
-            f"Output ONLY the goal sentence. No explanations, no bullet points, no preamble."
-            f"☁️/system☁️"
-            f"☁️user☁️"
-            f"Student: {student_name}\n"
+            f"Student: {spot_student}\n"
             f"{goal_area_line}"
-            f"Areas of Difficulty (all Section B rows, consolidated): {difficulty}\n"
-            f"Assistive Technology Available: {assistive_tech}\n"
-            f"Accommodations: {accommodations}\n"
-            f"Support Personnel: {facilitators}\n"
+            f"Areas of Difficulty (all Section B rows, consolidated): {spot_difficulty}\n"
+            f"Assistive Technology Available: {spot_tech}\n"
+            f"Accommodations: {spot_accomm}\n"
+            f"Support Personnel: {spot_fac}\n"
             f"{special_factors_line}"
             f"{teacher_instructions}\n"
-            f"Write the annual IEP goal for this student following the ABCD criteria with targeted skill brackets and targeting the PRIMARY Goal Area above."
-            f"☁️/user☁️"
+            f"Write the annual IEP goal for this student following the ABCD criteria "
+            f"(Actor: The individual learner; Behavior: Specific, observable skill with targeted brackets; "
+            f"Condition: Environmental prompt level and context; Degree: Measurable criteria/threshold) "
+            f"and targeting the PRIMARY Goal Area above."
         )
-        goal_text, _ = AIEngineService.generate_text(prompt, max_tokens=200)
+        goal_text, _ = AIEngineService.generate_text(prompt, system_prompt=system_prompt, max_tokens=200)
         return goal_text.strip()
  
  
     def _generate_objective_rows(
         self, student_name, difficulty, assistive_tech, annual_goal, facilitators, goal_area='', special_factor_notes=''
     ):
+        validated_goal_area = self._validate_goal_area(goal_area)
+        nonce = AIEngineService.generate_nonce()
+
+        spot_student = AIEngineService.sanitize_and_spotlight(student_name, nonce=nonce)
+        spot_difficulty = AIEngineService.sanitize_and_spotlight(difficulty, nonce=nonce)
+        spot_tech = AIEngineService.sanitize_and_spotlight(assistive_tech, nonce=nonce)
+        spot_goal = AIEngineService.sanitize_and_spotlight(annual_goal, nonce=nonce)
+        spot_fac = AIEngineService.sanitize_and_spotlight(facilitators, nonce=nonce)
+
         special_factors_line = (
-            f"Special Factors / Behavioral and Sensory Notes: {special_factor_notes}\n"
+            f"Special Factors / Behavioral and Sensory Notes: {AIEngineService.sanitize_and_spotlight(special_factor_notes, nonce=nonce)}\n"
             if special_factor_notes else ""
-        )
-        goal_area_instruction = (
-            f"ALL objectives MUST be stepping-stone skills toward the PRIMARY Goal Area: {goal_area}. "
-            f"Do NOT write objectives about communication, social behavior, or any other domain. "
-            if goal_area else ""
         )
         system_prompt = (
             "You are an expert Special Education teacher writing IEP objective rows for a 3-month quarterly term. "
@@ -803,16 +971,17 @@ class GenerateIEPGoalsFromIEPView(APIView):
             "- month_1_target: 1st Month milestone (baseline skill acquisition with direct prompts/cues and initial bracket, e.g., 'Given visual counters and direct physical prompts, the learner will count numbers 1-3 with 70% accuracy').\n"
             "- month_2_target: 2nd Month milestone (intermediate skill progression with faded prompts/cues and expanded bracket, e.g., 'Given visual counters and faded verbal cues, the learner will count numbers 1-5 with 75% accuracy').\n"
             "- month_3_target: 3rd Month milestone (independent mastery with target bracket, e.g., 'Given visual counters, the learner will independently count and identify numbers 5-10 with 80% accuracy in 4 of 5 trials').\n"
-            f"{goal_area_instruction}"
+            "ALL objectives MUST be stepping-stone skills toward the PRIMARY Goal Area specified in the user prompt. "
+            "Do NOT write objectives about any other domain. "
             "Do not include markdown, backticks, or any text outside the JSON array."
         )
         user_prompt = (
-            f"Student: {student_name}\n"
-            f"PRIMARY Goal Area: {goal_area}\n"
-            f"Areas of Difficulty (all Section B rows, consolidated): {difficulty}\n"
-            f"Assistive Technology: {assistive_tech}\n"
-            f"Annual Goal: {annual_goal}\n"
-            f"Support Personnel: {facilitators}\n"
+            f"Student: {spot_student}\n"
+            f"PRIMARY Goal Area: {validated_goal_area}\n"
+            f"Areas of Difficulty (all Section B rows, consolidated): {spot_difficulty}\n"
+            f"Assistive Technology: {spot_tech}\n"
+            f"Annual Goal: {spot_goal}\n"
+            f"Support Personnel: {spot_fac}\n"
             f"{special_factors_line}\n"
             f"Generate 2-3 enroute objective rows as a JSON array following ABCD criteria and 3-month quarterly progression. "
             f"Each row must specify targeted skill brackets in enroute_objectives and progression across month_1_target, month_2_target, and month_3_target."
@@ -822,6 +991,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
             system_prompt=system_prompt,
             max_tokens=1000,
             json_mode=True,
+            response_schema=self.OBJECTIVE_ROWS_RESPONSE_SCHEMA,
         )
 
         if not raw or not isinstance(raw, str):
@@ -846,14 +1016,16 @@ class GenerateIEPGoalsFromIEPView(APIView):
                     except Exception:
                         pass
 
-            # 3. Robust substring bracket match
+            # 3. Non-greedy structured JSON decoding via JSONDecoder.raw_decode
             if parsed is None:
-                for pattern in [r'\[\s*\{[\s\S]*\}\s*\]', r'\[[\s\S]*\]', r'\{[\s\S]*\}']:
-                    m = re.search(pattern, clean)
-                    if m:
+                decoder = json.JSONDecoder()
+                for idx, ch in enumerate(clean):
+                    if ch in ("[", "{"):
                         try:
-                            parsed = json.loads(m.group(0))
-                            break
+                            candidate, _ = decoder.raw_decode(clean[idx:])
+                            if isinstance(candidate, (list, dict)):
+                                parsed = candidate
+                                break
                         except Exception:
                             continue
 

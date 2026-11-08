@@ -20,7 +20,25 @@ from iep_management.models import IEPModel, IEPGoal, IEPObjectiveRow
 from .models import LessonPlan,VisualAid,TeachingStrategy
 from .services import TeachingStrategyGenerationService,LessonPlanGenerationService
 from .permissions import UserAuthPermissions
-from iep_management.privacy_utils import verify_ra10173_consent, ConsentRequiredException
+from .serializers import validate_safe_visual_aid_url
+from iep_management.privacy_utils import (
+    ConsentRequiredException,
+    extract_student_pii_terms,
+    scrub_pii_from_text,
+    verify_ra10173_consent,
+)
+import html
+
+
+def escape_reportlab_text(val) -> str:
+    """
+    Strips XML-illegal ASCII control characters and HTML-escapes dynamic text
+    before passing into ReportLab's Paragraph() XML parser.
+    """
+    if val is None:
+        return ""
+    cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", str(val))
+    return html.escape(cleaned)
 
 
 def _goal_owned_by_teacher(iep_goal, teacher):
@@ -777,7 +795,7 @@ class LessonPlanBinaryExportEngine:
         elements.append(Paragraph("REPUBLIC OF THE PHILIPPINES &bull; DEPARTMENT OF EDUCATION", subtitle_style))
         elements.append(Paragraph("REGION VII &bull; SPECIAL EDUCATION (SPED) INSTRUCTIONAL SUPPORT SYSTEM", subtitle_style))
         elements.append(Spacer(1, 2 * mm))
-        elements.append(Paragraph(lesson_record.title or "STANDARDIZED LESSON PLAN / DAILY LESSON LOG", title_style))
+        elements.append(Paragraph(escape_reportlab_text(lesson_record.title or "STANDARDIZED LESSON PLAN / DAILY LESSON LOG"), title_style))
         elements.append(Paragraph("Adaptive Daily Lesson Log (DLL) aligned with Individualized Education Plan (IEP)", subtitle_style))
         elements.append(Spacer(1, 3 * mm))
 
@@ -813,21 +831,21 @@ class LessonPlanBinaryExportEngine:
         meta_rows = [
             [
                 Paragraph("<b>Learner Name:</b>", meta_label),
-                Paragraph(student_name, meta_val),
+                Paragraph(escape_reportlab_text(student_name), meta_val),
                 Paragraph("<b>SPED Teacher:</b>", meta_label),
-                Paragraph(teacher_name, meta_val),
+                Paragraph(escape_reportlab_text(teacher_name), meta_val),
             ],
             [
                 Paragraph("<b>Grade & Age:</b>", meta_label),
-                Paragraph(f"{grade_level} ({age_val})", meta_val),
+                Paragraph(escape_reportlab_text(f"{grade_level} ({age_val})"), meta_val),
                 Paragraph("<b>Date Generated:</b>", meta_label),
-                Paragraph(date_str, meta_val),
+                Paragraph(escape_reportlab_text(date_str), meta_val),
             ],
             [
                 Paragraph("<b>Target Domain:</b>", meta_label),
-                Paragraph(iep_domain, meta_val),
+                Paragraph(escape_reportlab_text(iep_domain), meta_val),
                 Paragraph("<b>Document Status:</b>", meta_label),
-                Paragraph(status_str, meta_val),
+                Paragraph(escape_reportlab_text(status_str), meta_val),
             ],
         ]
 
@@ -851,7 +869,7 @@ class LessonPlanBinaryExportEngine:
         goal_table = Table(
             [[
                 Paragraph("<b>Target Annual Goal:</b>", meta_label),
-                Paragraph(annual_goal, meta_val)
+                Paragraph(escape_reportlab_text(annual_goal), meta_val)
             ]],
             colWidths=[available_w * 0.20, available_w * 0.80]
         )
@@ -885,10 +903,10 @@ class LessonPlanBinaryExportEngine:
 
         if parsed_plans:
             for idx, plan in enumerate(parsed_plans, 1):
-                focus = plan.get("objective_focus") or f"Instructional Target {idx}"
-                intro = plan.get("introduction") or "Introduce task and establish visual schedule."
-                activity = plan.get("core_activity") or "Conduct direct instruction and guided practice."
-                assessment = plan.get("assessment") or "Record student performance on target skill."
+                focus = escape_reportlab_text(plan.get("objective_focus") or f"Instructional Target {idx}")
+                intro = escape_reportlab_text(plan.get("introduction") or "Introduce task and establish visual schedule.")
+                activity = escape_reportlab_text(plan.get("core_activity") or "Conduct direct instruction and guided practice.")
+                assessment = escape_reportlab_text(plan.get("assessment") or "Record student performance on target skill.")
                 materials = plan.get("materials_needed") or []
 
                 # Phase Banner Table
@@ -907,7 +925,8 @@ class LessonPlanBinaryExportEngine:
                 elements.append(Spacer(1, 1.5 * mm))
 
                 # Section I: Objective & Materials
-                materials_text = ", ".join(materials) if isinstance(materials, list) else str(materials)
+                raw_materials_text = ", ".join(str(m) for m in materials) if isinstance(materials, list) else str(materials)
+                materials_text = escape_reportlab_text(raw_materials_text)
                 phase_details = [
                     [Paragraph("<b>I. Targeted Objective:</b>", section_heading)],
                     [Paragraph(focus, bullet_style)],
@@ -943,7 +962,7 @@ class LessonPlanBinaryExportEngine:
             elements.append(Spacer(1, 2 * mm))
             for line in content_raw.splitlines():
                 if line.strip():
-                    elements.append(Paragraph(line.strip(), body_style))
+                    elements.append(Paragraph(escape_reportlab_text(line.strip()), body_style))
                     elements.append(Spacer(1, 1 * mm))
             elements.append(Spacer(1, 4 * mm))
 
@@ -955,7 +974,7 @@ class LessonPlanBinaryExportEngine:
                 Paragraph("<b>______________________________________</b>", sign_label),
             ],
             [
-                Paragraph(f"<b>{teacher_name}</b>", sign_label),
+                Paragraph(f"<b>{escape_reportlab_text(teacher_name)}</b>", sign_label),
                 Paragraph("<b>School Head / SPED Coordinator</b>", sign_label),
             ],
             [
@@ -1050,6 +1069,13 @@ class VisualAidViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """Matches Sequence Diagram: [Tab Option Selected = "Generate Visual Aid"]"""
+        iep_goal_id = request.data.get('iep_goal')
+        if iep_goal_id is not None:
+            teacher = get_teacher_for_user(request.user)
+            target_goal = IEPGoal.objects.select_related('iep__studentID').filter(pk=iep_goal_id).first()
+            if not _goal_owned_by_teacher(target_goal, teacher):
+                return Response({"error": "IEP goal not found."}, status=status.HTTP_404_NOT_FOUND)
+
         serializer = self.get_serializer(data=request.data)
 
         if serializer.is_valid():
@@ -1206,7 +1232,7 @@ class PDFExportEngine:
         story.append(Paragraph("REPUBLIC OF THE PHILIPPINES &bull; DEPARTMENT OF EDUCATION", subtitle_style))
         story.append(Paragraph("REGION VII &bull; SPECIAL EDUCATION (SPED) INSTRUCTIONAL SUPPORT SYSTEM", subtitle_style))
         story.append(Spacer(1, 2 * mm))
-        story.append(Paragraph(visual_aid_record.title or "PRINTABLE VISUAL AID & FLASHCARD STRIP", title_style))
+        story.append(Paragraph(escape_reportlab_text(visual_aid_record.title or "PRINTABLE VISUAL AID & FLASHCARD STRIP"), title_style))
         story.append(Paragraph("Printable Picture Cards & Sequential Task Analysis for ASD Learners", subtitle_style))
         story.append(Spacer(1, 3 * mm))
 
@@ -1234,15 +1260,15 @@ class PDFExportEngine:
             [
                 [
                     Paragraph('<b>Learner Name:</b>', meta_label),
-                    Paragraph(student_name, meta_val),
+                    Paragraph(escape_reportlab_text(student_name), meta_val),
                     Paragraph('<b>SPED Teacher:</b>', meta_label),
-                    Paragraph(teacher_name, meta_val),
+                    Paragraph(escape_reportlab_text(teacher_name), meta_val),
                 ],
                 [
                     Paragraph('<b>Grade & Age:</b>', meta_label),
-                    Paragraph(f"{grade_str} ({age_str})", meta_val),
+                    Paragraph(escape_reportlab_text(f"{grade_str} ({age_str})"), meta_val),
                     Paragraph('<b>Date Generated:</b>', meta_label),
-                    Paragraph(date_str, meta_val),
+                    Paragraph(escape_reportlab_text(date_str), meta_val),
                 ],
             ],
             colWidths=[available_w * 0.18, available_w * 0.32, available_w * 0.20, available_w * 0.30],
@@ -1262,7 +1288,7 @@ class PDFExportEngine:
         goal_table = Table(
             [[
                 Paragraph("<b>Target IEP Goal:</b>", meta_label),
-                Paragraph(goal_text, meta_val)
+                Paragraph(escape_reportlab_text(goal_text), meta_val)
             ]],
             colWidths=[available_w * 0.20, available_w * 0.80]
         )
@@ -1286,9 +1312,9 @@ class PDFExportEngine:
         if steps and isinstance(steps, list) and len(steps) > 0:
             table_cells = []
             for step_item in steps[:3]:
-                step_num = step_item.get("step", 1)
-                title = step_item.get("title", f"Step {step_num}")
-                desc = step_item.get("description", "")
+                step_num = escape_reportlab_text(step_item.get("step", 1))
+                title = escape_reportlab_text(step_item.get("title", f"Step {step_num}"))
+                desc = escape_reportlab_text(step_item.get("description", ""))
                 step_img_url = step_item.get("imageUrl") or visual_aid_record.imageUrl or ""
                 cell_flowables = [
                     Paragraph(f"STEP {step_num} &bull; &#x2702; CUT & LAMINATE", step_badge_style),
@@ -1298,16 +1324,18 @@ class PDFExportEngine:
                 # Embed step image into the flashcard cell
                 if step_img_url:
                     try:
+                        validated_step_url = validate_safe_visual_aid_url(step_img_url)
                         s_tmp_path = None
-                        if step_img_url.startswith("data:image/"):
-                            s_head, s_enc = step_img_url.split(",", 1)
+                        if validated_step_url.startswith("data:image/"):
+                            s_head, s_enc = validated_step_url.split(",", 1)
                             s_raw = base64.b64decode(s_enc)
                             s_suf = ".png" if "png" in s_head else ".jpg"
                             with tempfile.NamedTemporaryFile(delete=False, suffix=s_suf) as s_tmp:
                                 s_tmp.write(s_raw)
                                 s_tmp_path = s_tmp.name
-                        elif step_img_url.startswith("http://") or step_img_url.startswith("https://"):
-                            s_resp = http_client.get(step_img_url, timeout=15, allow_redirects=True)
+                        elif validated_step_url.startswith("https://"):
+                            s_resp = http_client.get(validated_step_url, timeout=15, allow_redirects=False)
+                            s_resp.raise_for_status()
                             s_suf = ".png" if "png" in s_resp.headers.get("Content-Type", "") else ".jpg"
                             with tempfile.NamedTemporaryFile(delete=False, suffix=s_suf) as s_tmp:
                                 s_tmp.write(s_resp.content)
@@ -1348,15 +1376,19 @@ class PDFExportEngine:
             tmp_path = None
             try:
                 image_url = visual_aid_record.imageUrl or ""
-                if image_url.startswith("data:image/"):
-                    header, encoded = image_url.split(",", 1)
+                if image_url:
+                    validated_img_url = validate_safe_visual_aid_url(image_url)
+                else:
+                    validated_img_url = ""
+                if validated_img_url.startswith("data:image/"):
+                    header, encoded = validated_img_url.split(",", 1)
                     img_data = base64.b64decode(encoded)
                     suffix = ".png" if "png" in header else ".jpg"
                     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
                         tmp.write(img_data)
                         tmp_path = tmp.name
-                elif image_url.startswith("http://") or image_url.startswith("https://"):
-                    img_resp = http_client.get(image_url, timeout=30, allow_redirects=True)
+                elif validated_img_url.startswith("https://"):
+                    img_resp = http_client.get(validated_img_url, timeout=30, allow_redirects=False)
                     img_resp.raise_for_status()
                     suffix = ".png" if "png" in img_resp.headers.get("Content-Type", "") else ".jpg"
                     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
@@ -1370,7 +1402,7 @@ class PDFExportEngine:
                     story.append(rl_img)
                     story.append(Spacer(1, 6*mm))
             except Exception as e:
-                story.append(Paragraph(f"Image could not be rendered: {e}", styles['Normal']))
+                story.append(Paragraph(f"Image could not be rendered: {escape_reportlab_text(e)}", styles['Normal']))
                 story.append(Spacer(1, 4*mm))
 
         # Footer notes
@@ -1404,17 +1436,52 @@ class VisualAidGeneratorService:
     POLLINATIONS_BASE = "https://image.pollinations.ai/prompt"
     IMAGEN_MODEL = "imagen-3.0-generate-002"
     IMAGEN_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+    VISUAL_STEPS_RESPONSE_SCHEMA = {
+        "type": "OBJECT",
+        "properties": {
+            "steps": {
+                "type": "ARRAY",
+                "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "step": {"type": "INTEGER"},
+                        "title": {"type": "STRING"},
+                        "description": {"type": "STRING"},
+                        "visual_cue": {"type": "STRING"},
+                    },
+                    "required": ["step", "title", "description", "visual_cue"],
+                },
+            }
+        },
+        "required": ["steps"],
+    }
 
     @staticmethod
-    def decompose_goal_into_steps(goal_text, extra_prompt="", category=""):
+    def decompose_goal_into_steps(goal_text, extra_prompt="", category="", pii_terms=None):
         """
         Decomposes the input learning goal or routine into 3 chronological,
-        numbered micro-steps using Gemini 1.5 Flash (with fallback heuristics).
-        Ensures strict RA 10173 compliance (no student PII in prompt).
+        numbered micro-steps via the centralized AIEngineService.generate_text()
+        chokepoint (with fallback heuristics).
+        Ensures strict RA 10173 compliance (no student PII in prompt) and per-field Spotlighting.
         """
         import logging
         logger = logging.getLogger(__name__)
         from iep_management.ai_engine import AIEngineService
+
+        def _sanitize_step_field(val, max_len=240):
+            cleaned = AIEngineService.strip_struq_tokens(str(val or ""))
+            cleaned = re.sub(r"<[^>]*>", "", cleaned)
+            cleaned = re.sub(r"\s+", " ", cleaned).strip()
+            return cleaned[:max_len]
+
+        scrubbed_goal = scrub_pii_from_text(str(goal_text or ""), pii_terms)
+        scrubbed_category = scrub_pii_from_text(str(category or ""), pii_terms)
+        scrubbed_extra = scrub_pii_from_text(str(extra_prompt or ""), pii_terms)
+
+        nonce = AIEngineService.generate_nonce()
+        spot_goal = AIEngineService.sanitize_and_spotlight(scrubbed_goal, nonce=nonce)
+        spot_category = AIEngineService.sanitize_and_spotlight(scrubbed_category, nonce=nonce)
+        spot_extra = AIEngineService.sanitize_and_spotlight(scrubbed_extra, nonce=nonce)
 
         system_prompt = (
             "You are an expert Special Education (SPED) instructional designer specialized in Autism Spectrum Disorder (ASD). "
@@ -1429,44 +1496,31 @@ class VisualAidGeneratorService:
             "Do not include any student personal names or PII. Return valid JSON only."
         )
 
-        user_prompt = f"Goal/Routine: {goal_text}"
-        if category:
-            user_prompt += f"\nSkill Category: {category}"
-        if extra_prompt:
-            user_prompt += f"\nAdditional Context / Teacher Notes: {extra_prompt}"
+        user_prompt = f"Goal/Routine: {spot_goal}"
+        if scrubbed_category.strip():
+            user_prompt += f"\nSkill Category: {spot_category}"
+        if scrubbed_extra.strip():
+            user_prompt += f"\nAdditional Context / Teacher Notes: {spot_extra}"
 
         steps = None
         try:
-            raw_response = AIEngineService._call_gemini(
+            raw_response, _ = AIEngineService.generate_text(
                 prompt=user_prompt,
                 system_prompt=system_prompt,
                 max_tokens=600,
-                json_mode=True
+                json_mode=True,
+                response_schema=VisualAidGeneratorService.VISUAL_STEPS_RESPONSE_SCHEMA,
             )
             parsed = json.loads(raw_response)
             if isinstance(parsed, dict) and "steps" in parsed and isinstance(parsed["steps"], list) and len(parsed["steps"]) == 3:
                 steps = parsed["steps"]
             elif isinstance(parsed, list) and len(parsed) == 3:
                 steps = parsed
-        except Exception as gemini_err:
-            logger.warning("Gemini step decomposition failed: %s. Attempting Groq fallback.", gemini_err)
-            try:
-                raw_response = AIEngineService._call_groq(
-                    prompt=user_prompt,
-                    system_prompt=system_prompt,
-                    max_tokens=600,
-                    json_mode=True
-                )
-                parsed = json.loads(raw_response)
-                if isinstance(parsed, dict) and "steps" in parsed and isinstance(parsed["steps"], list) and len(parsed["steps"]) == 3:
-                    steps = parsed["steps"]
-                elif isinstance(parsed, list) and len(parsed) == 3:
-                    steps = parsed
-            except Exception as groq_err:
-                logger.warning("Groq step decomposition failed: %s. Using heuristic fallback.", groq_err)
+        except Exception as ai_err:
+            logger.warning("AI step decomposition failed: %s. Using heuristic fallback.", ai_err)
 
         if not steps:
-            goal_clean = (goal_text or "Task").strip()
+            goal_clean = _sanitize_step_field(scrubbed_goal or "Task", max_len=120) or "Task"
             steps = [
                 {
                     "step": 1,
@@ -1490,9 +1544,9 @@ class VisualAidGeneratorService:
 
         standardized_steps = []
         for idx, s in enumerate(steps[:3], start=1):
-            title = str(s.get("title") or f"Step {idx}").strip()
-            desc = str(s.get("description") or s.get("caption") or f"Perform step {idx}.").strip()
-            visual_cue = str(s.get("visual_cue") or desc).strip()
+            title = _sanitize_step_field(s.get("title") or f"Step {idx}", max_len=80) or f"Step {idx}"
+            desc = _sanitize_step_field(s.get("description") or s.get("caption") or f"Perform step {idx}.", max_len=240)
+            visual_cue = _sanitize_step_field(s.get("visual_cue") or desc, max_len=240)
             standardized_steps.append({
                 "step": idx,
                 "title": title,
@@ -1535,8 +1589,10 @@ class VisualAidGeneratorService:
         """Fetch the image bytes from Pollinations AI server-side to avoid CORS."""
         import urllib.parse
         encoded = urllib.parse.quote(prompt)
-        url = f"{VisualAidGeneratorService.POLLINATIONS_BASE}/{encoded}?width=800&height=600&nologo=true&model=flux"
-        resp = http_client.get(url, timeout=60, allow_redirects=True)
+        url = validate_safe_visual_aid_url(
+            f"{VisualAidGeneratorService.POLLINATIONS_BASE}/{encoded}?width=800&height=600&nologo=true&model=flux"
+        )
+        resp = http_client.get(url, timeout=60, allow_redirects=False)
         resp.raise_for_status()
         return resp.content, resp.headers.get("Content-Type", "image/jpeg"), url
 
@@ -1642,11 +1698,13 @@ class VisualAidGeneratorService:
         for step in steps[:3]:
             img_url = step.get('imageUrl') or ''
             try:
-                if img_url.startswith('data:image/'):
-                    _, encoded = img_url.split(',', 1)
+                validated_url = validate_safe_visual_aid_url(img_url)
+                if validated_url.startswith('data:image/'):
+                    _, encoded = validated_url.split(',', 1)
                     raw_bytes = base64.b64decode(encoded)
-                elif img_url.startswith('http://') or img_url.startswith('https://'):
-                    resp = http_client.get(img_url, timeout=20, allow_redirects=True)
+                elif validated_url.startswith('https://'):
+                    resp = http_client.get(validated_url, timeout=20, allow_redirects=False)
+                    resp.raise_for_status()
                     raw_bytes = resp.content
                 else:
                     continue
@@ -1788,12 +1846,22 @@ class GenerateVisualAidAPIView(APIView):
         except ConsentRequiredException as e:
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
+        if len(extra_prompt) > 500:
+            return Response(
+                {"error": "prompt must not exceed 500 characters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        pii_tokens = extract_student_pii_terms(student)
+        scrubbed_goal_text = scrub_pii_from_text(target_goal.annual_goal or "learning and development", pii_tokens)
+        scrubbed_extra_prompt = scrub_pii_from_text(extra_prompt, pii_tokens)
+
         # 1. Sequential Prompt Decomposition (Gemini 1.5 Flash)
         try:
-            goal_text = target_goal.annual_goal or "learning and development"
+            goal_text = scrubbed_goal_text
             steps = VisualAidGeneratorService.decompose_goal_into_steps(
                 goal_text=goal_text,
-                extra_prompt=extra_prompt,
+                extra_prompt=scrubbed_extra_prompt,
                 category=category
             )
         except Exception as e:
@@ -1807,7 +1875,7 @@ class GenerateVisualAidAPIView(APIView):
         # 2. Build the descriptive overall prompt
         try:
             full_prompt = VisualAidGeneratorService.build_prompt(
-                goal_text, extra_prompt, category, None, steps=steps
+                goal_text, scrubbed_extra_prompt, category, None, steps=steps
             )
         except Exception as e:
             return Response({"error": f"Prompt build failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -1815,7 +1883,7 @@ class GenerateVisualAidAPIView(APIView):
         # 3. Generate 3 individual pictures (one for each micro-step)
         try:
             steps = VisualAidGeneratorService.generate_step_images(
-                steps, category=category, extra_prompt=extra_prompt
+                steps, category=category, extra_prompt=scrubbed_extra_prompt
             )
         except Exception as e:
             logger.warning("Step images generation error: %s", e)
@@ -2245,15 +2313,15 @@ class StrategyBinaryExportEngine:
                 top_heading_match = re.match(r'^\*\*(.+?)\*\*\s*$', stripped)
                 if top_heading_match:
                     flush_box()
-                    heading_text = top_heading_match.group(1).rstrip(':')
+                    heading_text = escape_reportlab_text(top_heading_match.group(1).rstrip(':'))
                     flowables.append(Paragraph(heading_text, section_heading))
                     continue
 
                 sub_heading_match = re.match(r'^\*\s+\*\*(.+?)\*\*(.*)$', stripped)
                 if sub_heading_match:
                     flush_box()
-                    sub_title = sub_heading_match.group(1).rstrip(':')
-                    extra = sub_heading_match.group(2).strip()
+                    sub_title = escape_reportlab_text(sub_heading_match.group(1).rstrip(':'))
+                    extra = escape_reportlab_text(sub_heading_match.group(2).strip())
                     if extra:
                         line_html = f'<b>{sub_title}:</b> {extra}'
                     else:
@@ -2263,11 +2331,11 @@ class StrategyBinaryExportEngine:
 
                 detail_match = re.match(r'^\+\s+(.+)$', stripped)
                 if detail_match:
-                    current_box_lines.append(f'&bull; {detail_match.group(1)}')
+                    current_box_lines.append(f'&bull; {escape_reportlab_text(detail_match.group(1))}')
                     continue
 
                 flush_box()
-                flowables.append(Paragraph(stripped, body_style))
+                flowables.append(Paragraph(escape_reportlab_text(stripped), body_style))
 
             flush_box()
             return flowables
@@ -2278,7 +2346,7 @@ class StrategyBinaryExportEngine:
         elements.append(Paragraph("REPUBLIC OF THE PHILIPPINES &bull; DEPARTMENT OF EDUCATION", subtitle_style))
         elements.append(Paragraph("REGION VII &bull; SPECIAL EDUCATION (SPED) INSTRUCTIONAL SUPPORT SYSTEM", subtitle_style))
         elements.append(Spacer(1, 2 * mm))
-        elements.append(Paragraph(strategy_record.title or "TEACHING STRATEGY & BEHAVIORAL INTERVENTION GUIDE", title_style))
+        elements.append(Paragraph(escape_reportlab_text(strategy_record.title or "TEACHING STRATEGY & BEHAVIORAL INTERVENTION GUIDE"), title_style))
         elements.append(Paragraph("Evidence-Based Instructional Strategy & Generalization Sheet for ASD Learners", subtitle_style))
         elements.append(Spacer(1, 3 * mm))
 
@@ -2311,19 +2379,19 @@ class StrategyBinaryExportEngine:
             [
                 [
                     Paragraph('<b>Learner Name:</b>', meta_label),
-                    Paragraph(student_name, meta_val),
+                    Paragraph(escape_reportlab_text(student_name), meta_val),
                     Paragraph('<b>SPED Teacher:</b>', meta_label),
-                    Paragraph(teacher_name, meta_val),
+                    Paragraph(escape_reportlab_text(teacher_name), meta_val),
                 ],
                 [
                     Paragraph('<b>Grade & Age:</b>', meta_label),
-                    Paragraph(f"{grade_val} ({age_val})", meta_val),
+                    Paragraph(escape_reportlab_text(f"{grade_val} ({age_val})"), meta_val),
                     Paragraph('<b>Date Generated:</b>', meta_label),
-                    Paragraph(date_str, meta_val),
+                    Paragraph(escape_reportlab_text(date_str), meta_val),
                 ],
                 [
                     Paragraph('<b>Target Domain:</b>', meta_label),
-                    Paragraph(domain_name, meta_val),
+                    Paragraph(escape_reportlab_text(domain_name), meta_val),
                     Paragraph('<b>Document Type:</b>', meta_label),
                     Paragraph('Strategy Implementation Guide', meta_val),
                 ],
@@ -2345,7 +2413,7 @@ class StrategyBinaryExportEngine:
         goal_table = Table(
             [[
                 Paragraph("<b>Target IEP Goal:</b>", meta_label),
-                Paragraph(iep_goal_text, meta_val)
+                Paragraph(escape_reportlab_text(iep_goal_text), meta_val)
             ]],
             colWidths=[available_w * 0.20, available_w * 0.80]
         )
@@ -2365,7 +2433,7 @@ class StrategyBinaryExportEngine:
         # Section heading & Content
         elements.append(Paragraph('<b>Implementation Guidelines & Strategic Procedures</b>', section_heading))
         elements.append(Spacer(1, 1 * mm))
-        elements.extend(parse_content_to_flowables(strategy_record.strategyContent))
+        elements.extend(parse_content_to_flowables(strategy_record.strategyContent or ""))
 
         # Signatures
         elements.append(Spacer(1, 5 * mm))
@@ -2375,7 +2443,7 @@ class StrategyBinaryExportEngine:
                 Paragraph("<b>______________________________________</b>", sign_label),
             ],
             [
-                Paragraph(f"<b>{teacher_name}</b>", sign_label),
+                Paragraph(f"<b>{escape_reportlab_text(teacher_name)}</b>", sign_label),
                 Paragraph("<b>School Head / SPED Coordinator</b>", sign_label),
             ],
             [

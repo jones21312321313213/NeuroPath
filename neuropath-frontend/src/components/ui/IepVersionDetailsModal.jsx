@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Modal from "./Modal";
 import { iepAPI } from "../../api/client";
-import { CheckIcon, TargetIcon, SparklesIcon, CalendarIcon } from "./icons";
+import { CheckIcon, TargetIcon, SparklesIcon } from "./icons";
 
 /**
  * Parse an objective row item safely, unpacking any JSON strings or DB row objects.
@@ -86,39 +86,31 @@ export default function IepVersionDetailsModal({
   onSelect,
   isSelected = false,
 }) {
-  const [goals, setGoals] = useState([]);
-  const [loadingGoals, setLoadingGoals] = useState(false);
-  const [error, setError] = useState("");
+  const [goalsState, setGoalsState] = useState({ iepID: null, items: [] });
 
   useEffect(() => {
     if (!isOpen || !iep?.iepID) {
-      setGoals([]);
-      setError("");
       return;
     }
 
     let isCancelled = false;
-    setLoadingGoals(true);
-    setError("");
+    const currentIepId = iep.iepID;
 
     iepAPI
-      .listGoalsByIep(iep.iepID)
+      .listGoalsByIep(currentIepId)
       .then((res) => {
         if (isCancelled) return;
         const list = Array.isArray(res) ? res : res?.results || res?.data || [];
-        setGoals(list.map(formatGoal));
+        setGoalsState({ iepID: currentIepId, items: list.map(formatGoal) });
       })
       .catch(() => {
         if (isCancelled) return;
         // Fallback to embedded goals if already present on iep object
-        if (Array.isArray(iep.goals) && iep.goals.length > 0) {
-          setGoals(iep.goals.map(formatGoal));
-        } else {
-          setGoals([]);
-        }
-      })
-      .finally(() => {
-        if (!isCancelled) setLoadingGoals(false);
+        const fallbackItems =
+          Array.isArray(iep.goals) && iep.goals.length > 0
+            ? iep.goals.map(formatGoal)
+            : [];
+        setGoalsState({ iepID: currentIepId, items: fallbackItems });
       });
 
     return () => {
@@ -128,6 +120,8 @@ export default function IepVersionDetailsModal({
 
   if (!isOpen || !iep) return null;
 
+  const loadingGoals = Boolean(iep.iepID && goalsState.iepID !== iep.iepID);
+  const goals = goalsState.iepID === iep.iepID ? goalsState.items : [];
   const versionNum = iep.version || 1;
 
   return (
@@ -188,8 +182,6 @@ export default function IepVersionDetailsModal({
             <div className="inline-block animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mb-2.5" />
             <div className="font-medium">Fetching version goals…</div>
           </div>
-        ) : error ? (
-          <div className="p-4 rounded-xl bg-red-50 text-red-700 text-sm">{error}</div>
         ) : goals.length === 0 ? (
           <div className="p-8 text-center text-sm text-slate-500 bg-slate-50 rounded-2xl border border-slate-100 italic">
             No specific goals saved under this version.

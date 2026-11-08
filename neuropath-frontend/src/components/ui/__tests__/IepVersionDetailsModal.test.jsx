@@ -97,7 +97,7 @@ describe("IepVersionDetailsModal", () => {
     expect(screen.getByText(/Month 1 Target/i)).toBeInTheDocument();
     expect(screen.getByText(/Month 2 Target/i)).toBeInTheDocument();
     expect(screen.getByText(/Month 3 Target/i)).toBeInTheDocument();
-    expect(screen.queryByText(/\"rowID\":39/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/"rowID":39/)).not.toBeInTheDocument();
 
     const selectBtn = screen.getByRole("button", { name: /Select This Version/i });
     fireEvent.click(selectBtn);
@@ -141,7 +141,7 @@ describe("IepVersionDetailsModal", () => {
         screen.getByText(/Given large-print base-ten blocks and auditory cues, the learner will perform single-digit addition without regrouping/i)
       ).toBeInTheDocument();
       expect(screen.getByText(/Solve addition problems \(sums 1-5\)/i)).toBeInTheDocument();
-      expect(screen.queryByText(/\"rowID\":40/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/"rowID":40/)).not.toBeInTheDocument();
     });
   });
 

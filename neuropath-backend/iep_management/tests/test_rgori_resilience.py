@@ -240,6 +240,7 @@ class RGORIResilienceTestCase(TestCase):
         """
         url = '/api/iep/generate-goal/'
         payload = {
+            "student_id": self.student.pk,
             "student_name": "Marcus Aurelius",
             "diagnosis": "ASD",
             "baseline_barriers": "Needs visual cues",
@@ -290,6 +291,7 @@ class RGORIResilienceTestCase(TestCase):
 
         url = '/api/iep/generate-goal/'
         payload = {
+            "student_id": self.student.pk,
             "student_name": "Marcus Aurelius",
             "diagnosis": "ASD",
             "baseline_barriers": "Needs visual cues",

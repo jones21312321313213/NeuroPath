@@ -28,7 +28,6 @@ import {
   ChevronUpIcon,
   StarIcon,
   BookOpenIcon,
-  TargetIcon,
 } from "../components/ui/icons";
 
 const DAILY_LIVING_PRESETS = [
