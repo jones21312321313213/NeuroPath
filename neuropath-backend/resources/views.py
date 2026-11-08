@@ -1788,12 +1788,23 @@ class GenerateVisualAidAPIView(APIView):
         except ConsentRequiredException as e:
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
+        if len(extra_prompt) > 500:
+            return Response(
+                {"error": "prompt must not exceed 500 characters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from iep_management.privacy_utils import extract_student_pii_terms
+        pii_tokens = extract_student_pii_terms(student)
+        scrubbed_goal_text = scrub_pii_from_text(target_goal.annual_goal or "learning and development", pii_tokens)
+        scrubbed_extra_prompt = scrub_pii_from_text(extra_prompt, pii_tokens)
+
         # 1. Sequential Prompt Decomposition (Gemini 1.5 Flash)
         try:
-            goal_text = target_goal.annual_goal or "learning and development"
+            goal_text = scrubbed_goal_text
             steps = VisualAidGeneratorService.decompose_goal_into_steps(
                 goal_text=goal_text,
-                extra_prompt=extra_prompt,
+                extra_prompt=scrubbed_extra_prompt,
                 category=category
             )
         except Exception as e:
@@ -1807,7 +1818,7 @@ class GenerateVisualAidAPIView(APIView):
         # 2. Build the descriptive overall prompt
         try:
             full_prompt = VisualAidGeneratorService.build_prompt(
-                goal_text, extra_prompt, category, None, steps=steps
+                goal_text, scrubbed_extra_prompt, category, None, steps=steps
             )
         except Exception as e:
             return Response({"error": f"Prompt build failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -1815,7 +1826,7 @@ class GenerateVisualAidAPIView(APIView):
         # 3. Generate 3 individual pictures (one for each micro-step)
         try:
             steps = VisualAidGeneratorService.generate_step_images(
-                steps, category=category, extra_prompt=extra_prompt
+                steps, category=category, extra_prompt=scrubbed_extra_prompt
             )
         except Exception as e:
             logger.warning("Step images generation error: %s", e)

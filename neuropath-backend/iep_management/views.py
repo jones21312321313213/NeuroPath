@@ -16,6 +16,7 @@ from .ai_engine import AIEngineService
 from .rgori_service import RGORICheckerService
 from .privacy_utils import (
     anonymize_student_context,
+    extract_student_pii_terms,
     scrub_pii_from_text,
     verify_ra10173_consent,
     ConsentRequiredException,
@@ -37,18 +38,27 @@ class IEPGeneratorService:
             )
 
         profile_context = student.profileDetails if isinstance(student.profileDetails, dict) else {}
+        pii_terms = extract_student_pii_terms(student)
+        student_desc = anonymize_student_context(student)
+        safe_profile_json = scrub_pii_from_text(json.dumps(profile_context), pii_terms)
+        safe_baseline = scrub_pii_from_text(baseline_input, pii_terms)
+        safe_assessment_ctx = scrub_pii_from_text(assessment_context, pii_terms)
+        safe_diagnosis = scrub_pii_from_text(getattr(student, 'diagnosis', ''), pii_terms)
+        safe_assessment_res = scrub_pii_from_text(getattr(student, 'assessmentResult', ''), pii_terms)
+        safe_support = scrub_pii_from_text(getattr(student, 'support_needs', ''), pii_terms)
 
-        formatted_prompt = (
+        formatted_prompt = scrub_pii_from_text(
             'Act as an expert Special Education teacher. Generate a structured IEP draft.\n'
             f'Student Profile Data:\n'
-            f'- Name: {student.name}\n'
-            f'- Diagnosis: {student.diagnosis}\n'
-            f'- Assessment Result: {student.assessmentResult}\n'
-            f'- Support Needs: {student.support_needs}\n'
-            f'- Profile Details: {json.dumps(profile_context)}\n'
-            f'- Teacher Observations: {baseline_input}\n'
-            f'{assessment_context}\n'
-            f'- Target Educational Domains: {target_domains}'
+            f'- Learner: {student_desc}\n'
+            f'- Diagnosis: {safe_diagnosis}\n'
+            f'- Assessment Result: {safe_assessment_res}\n'
+            f'- Support Needs: {safe_support}\n'
+            f'- Profile Details: {safe_profile_json}\n'
+            f'- Teacher Observations: {safe_baseline}\n'
+            f'{safe_assessment_ctx}\n'
+            f'- Target Educational Domains: {target_domains}',
+            pii_terms,
         )
 
         draft_goals = (
@@ -78,7 +88,7 @@ class IEPGeneratorService:
                     teacher=resolved_teacher,
                     prompt_text=formatted_prompt,
                     ai_response=json.dumps({
-                        'draft_goals': draft_goals,
+                        'draft_goals': scrub_pii_from_text(draft_goals, pii_terms),
                         'draft_accommodations': draft_accommodations,
                     }),
                 )
@@ -492,10 +502,36 @@ class GenerateIEPGoalAPIView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         data = serializer.validated_data
-        pii_tokens = [data.get('student_name', '')]
+        teacher = get_teacher_for_user(request.user)
+        student_id = request.data.get('student_id') or request.data.get('studentID') or data.get('student_id')
+        student = None
+
+        if student_id:
+            student = StudentProfile.objects.select_related('teacher').filter(pk=student_id).first()
+            if not student or (teacher and student.teacher != teacher):
+                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        elif teacher:
+            req_name = (data.get('student_name') or '').strip().lower()
+            for s in StudentProfile.objects.filter(teacher=teacher):
+                if (s.name or '').strip().lower() == req_name:
+                    student = s
+                    break
+            if not student and req_name:
+                for s in StudentProfile.objects.exclude(teacher=teacher):
+                    if (s.name or '').strip().lower() == req_name:
+                        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if student:
+            try:
+                verify_ra10173_consent(student)
+            except ConsentRequiredException as e:
+                return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
+
+        pii_tokens = extract_student_pii_terms(student, [data.get('student_name', '')])
         scrubbed_barriers = scrub_pii_from_text(data.get('baseline_barriers', ''), pii_tokens)
+        scrubbed_diagnosis = scrub_pii_from_text(data.get('diagnosis', ''), pii_tokens)
         nonce = AIEngineService.generate_nonce()
-        spot_diagnosis = AIEngineService.sanitize_and_spotlight(data['diagnosis'], nonce=nonce)
+        spot_diagnosis = AIEngineService.sanitize_and_spotlight(scrubbed_diagnosis, nonce=nonce)
         spot_barriers = AIEngineService.sanitize_and_spotlight(scrubbed_barriers, nonce=nonce)
         spot_domain = AIEngineService.sanitize_and_spotlight(data['target_domain'], nonce=nonce)
         student_context = f"Learner, Diagnosis: {spot_diagnosis}, Barriers: {spot_barriers}"
@@ -614,28 +650,41 @@ class GenerateIEPGoalsFromIEPView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
  
         # --- 2. Extract IEP context fields ---
-        goal_area           = data.get('goal_area', '')          # e.g. "Mathematical Skills"
-        accommodations      = data.get('accommodations', '')
-        difficulties        = data.get('difficulties', '')
-        learning_barriers   = data.get('learning_barriers', '')
-        barrier_qualifiers  = data.get('barrier_qualifiers', '')
-        facilitators        = data.get('learning_facilitators', '')
-        fac_qualifiers      = data.get('facilitator_qualifiers', '')
-        generated_details   = data.get('generatedDetails', {})
-        special_factors     = generated_details.get('special_factors_considerations', [])
-        
-        # Anonymize student descriptor and scrub PII from free-text notes
+        raw_goal_area       = data.get('goal_area', '')          # e.g. "Mathematical Skills"
+        try:
+            goal_area = self._validate_goal_area(raw_goal_area)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        raw_teacher_prompt = data.get('teacher_prompt', '') or ''
+        generated_details  = data.get('generatedDetails', {})
+        raw_special_notes  = data.get('special_factor_notes') or (
+            generated_details.get('specialFactorNotes', '') if isinstance(generated_details, dict) else ''
+        ) or ''
+        if len(str(raw_teacher_prompt)) > 500:
+            return Response(
+                {"error": "teacher_prompt must not exceed 500 characters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if len(str(raw_special_notes)) > 500:
+            return Response(
+                {"error": "special_factor_notes must not exceed 500 characters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Anonymize student descriptor and scrub PII from all free-text fields
         student_desc = anonymize_student_context(student)
-        pii_tokens = [
-            getattr(student, 'name', ''),
-            getattr(student, 'guardian_name', ''),
-            data.get('student_name', '')
-        ]
-        special_factor_notes = scrub_pii_from_text(
-            data.get('special_factor_notes') or generated_details.get('specialFactorNotes', ''),
-            pii_tokens
-        )
-        teacher_prompt = scrub_pii_from_text(data.get('teacher_prompt', ''), pii_tokens)
+        pii_tokens = extract_student_pii_terms(student, [data.get('student_name', '')])
+
+        accommodations      = scrub_pii_from_text(data.get('accommodations', ''), pii_tokens)
+        difficulties        = scrub_pii_from_text(data.get('difficulties', ''), pii_tokens)
+        learning_barriers   = scrub_pii_from_text(data.get('learning_barriers', ''), pii_tokens)
+        barrier_qualifiers  = scrub_pii_from_text(data.get('barrier_qualifiers', ''), pii_tokens)
+        facilitators        = scrub_pii_from_text(data.get('learning_facilitators', ''), pii_tokens)
+        fac_qualifiers      = scrub_pii_from_text(data.get('facilitator_qualifiers', ''), pii_tokens)
+        special_factors     = generated_details.get('special_factors_considerations', []) if isinstance(generated_details, dict) else []
+        special_factor_notes = scrub_pii_from_text(raw_special_notes, pii_tokens)
+        teacher_prompt = scrub_pii_from_text(raw_teacher_prompt, pii_tokens)
  
         if not special_factors:
             return Response(
@@ -656,11 +705,17 @@ class GenerateIEPGoalsFromIEPView(APIView):
         )
  
         # --- 3. Consolidate ALL difficulties into one single goal + table ---
-        all_difficulties = " | ".join(
-            f.get('difficulty', '') for f in special_factors if f.get('difficulty', '').strip()
+        all_difficulties = scrub_pii_from_text(
+            " | ".join(
+                f.get('difficulty', '') for f in special_factors if f.get('difficulty', '').strip()
+            ),
+            pii_tokens,
         )
-        all_assistive_tech = " | ".join(
-            f.get('assistive_technology', '') for f in special_factors if f.get('assistive_technology', '').strip()
+        all_assistive_tech = scrub_pii_from_text(
+            " | ".join(
+                f.get('assistive_technology', '') for f in special_factors if f.get('assistive_technology', '').strip()
+            ),
+            pii_tokens,
         )
 
         goal_payload, error = self._generate_validated_goal(

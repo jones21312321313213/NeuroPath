@@ -39,12 +39,12 @@ class LessonGenerationSerializer(serializers.Serializer):
     # 🚀 REWIRED: Streamlined for IEP Goal generation while retaining backward-compatibility
     goalID = serializers.IntegerField(required=True)
     subject = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
-    topic = serializers.CharField(required=False, allow_blank=True, default="")
+    topic = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
     
     gradeLevel = serializers.CharField(max_length=50, required=False, allow_blank=True)
-    specificGoals = serializers.CharField(required=False, allow_blank=True)
+    specificGoals = serializers.CharField(max_length=500, required=False, allow_blank=True)
     goalArea = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
-    teacherPrompt = serializers.CharField(required=False, allow_blank=True, default="")
+    teacherPrompt = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
     studentID = serializers.IntegerField(required=False)
 
     def validate_goalID(self, value):

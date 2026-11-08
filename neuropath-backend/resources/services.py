@@ -5,6 +5,7 @@ from iep_management.models import IEPGoal
 from iep_management.ai_engine import AIEngineService
 from iep_management.privacy_utils import (
     anonymize_student_context,
+    extract_student_pii_terms,
     scrub_pii_from_text,
     verify_ra10173_consent,
 )
@@ -25,10 +26,7 @@ class TeachingStrategyGenerationService:
         verify_ra10173_consent(student)
 
         student_desc = anonymize_student_context(student)
-        pii_tokens = [
-            getattr(student, 'name', ''),
-            getattr(student, 'guardian_name', '')
-        ]
+        pii_tokens = extract_student_pii_terms(student)
 
         # Extract specialFactorNotes from generatedDetails if present
         details = getattr(iep, 'generatedDetails', None) or {}
@@ -48,21 +46,25 @@ class TeachingStrategyGenerationService:
         )
         if not objectives_text.strip():
             objectives_text = "No specific enroute objectives provided. Focus on the annual goal."
+        objectives_text = scrub_pii_from_text(objectives_text, pii_tokens)
 
         # 3. Construct the Spotlighted Context Frame Prompt with native system_prompt separation
         nonce = AIEngineService.generate_nonce()
-        spot_difficulties = AIEngineService.sanitize_and_spotlight(
+        raw_diffs = scrub_pii_from_text(
             f"{getattr(iep, 'difficulties', 'None')} | {getattr(iep, 'learning_barriers', 'None')}",
-            nonce=nonce,
+            pii_tokens,
         )
-        spot_accommodations = AIEngineService.sanitize_and_spotlight(
+        raw_accomms = scrub_pii_from_text(
             f"{getattr(iep, 'accommodations', 'None')} | {getattr(iep, 'learning_facilitators', 'None')}",
-            nonce=nonce,
+            pii_tokens,
         )
-        spot_goal = AIEngineService.sanitize_and_spotlight(
+        raw_goal = scrub_pii_from_text(
             getattr(goal_instance, 'annual_goal', 'Not specified'),
-            nonce=nonce,
+            pii_tokens,
         )
+        spot_difficulties = AIEngineService.sanitize_and_spotlight(raw_diffs, nonce=nonce)
+        spot_accommodations = AIEngineService.sanitize_and_spotlight(raw_accomms, nonce=nonce)
+        spot_goal = AIEngineService.sanitize_and_spotlight(raw_goal, nonce=nonce)
         spot_objectives = AIEngineService.sanitize_and_spotlight(objectives_text, nonce=nonce)
         if special_notes:
             special_notes_line = (
@@ -161,6 +163,7 @@ class LessonPlanGenerationService:
             verify_ra10173_consent(student)
 
             student_desc = anonymize_student_context(student)
+            pii_tokens = extract_student_pii_terms(student)
             
             # 2. Extract all Enroute Objectives for this specific goal
             rows = goal_instance.objective_rows.all()
@@ -169,6 +172,7 @@ class LessonPlanGenerationService:
                 objectives_text += f"Phase {idx}:\n"
                 objectives_text += f"- Objective: {getattr(row, 'enroute_objectives', 'N/A')}\n"
                 objectives_text += f"- Interventions to use: {getattr(row, 'interventions_procedures', 'N/A')}\n\n"
+            objectives_text = scrub_pii_from_text(objectives_text, pii_tokens)
 
         except Exception as e:
             raise Exception(f"Failed to extract IEP parameters: {str(e)}")
@@ -176,15 +180,15 @@ class LessonPlanGenerationService:
         # 3. Construct the Spotlighted Prompt with native system_prompt separation
         nonce = AIEngineService.generate_nonce()
         spot_baseline = AIEngineService.sanitize_and_spotlight(
-            getattr(iep, 'baselineData', 'None specified'),
+            scrub_pii_from_text(getattr(iep, 'baselineData', 'None specified'), pii_tokens),
             nonce=nonce,
         )
         spot_accomm = AIEngineService.sanitize_and_spotlight(
-            getattr(iep, 'accommodations', 'None specified'),
+            scrub_pii_from_text(getattr(iep, 'accommodations', 'None specified'), pii_tokens),
             nonce=nonce,
         )
         spot_goal = AIEngineService.sanitize_and_spotlight(
-            getattr(goal_instance, 'subject_category', 'Target Goal'),
+            scrub_pii_from_text(getattr(goal_instance, 'subject_category', 'Target Goal'), pii_tokens),
             nonce=nonce,
         )
         spot_objectives = AIEngineService.sanitize_and_spotlight(
