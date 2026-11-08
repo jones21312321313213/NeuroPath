@@ -14,9 +14,15 @@ class AIEngineServiceTestCase(TestCase):
         content, provider = AIEngineService.generate_text('Test prompt')
         self.assertEqual(content, 'Gemini generated content')
         self.assertEqual(provider, 'gemini')
-        mock_gemini.assert_called_once_with(
-            'Test prompt', system_prompt='', max_tokens=500, json_mode=False
-        )
+        mock_gemini.assert_called_once()
+        called_prompt = mock_gemini.call_args[0][0]
+        called_kwargs = mock_gemini.call_args[1]
+        self.assertRegex(called_prompt, r"^<untrusted_data_[0-9a-f]{8}>Test prompt</untrusted_data_[0-9a-f]{8}>")
+        self.assertIn("REMEMBER:", called_prompt)
+        self.assertIn(AIEngineService.DEFAULT_SYSTEM_PROMPT, called_kwargs['system_prompt'])
+        self.assertIn("untrusted_data_", called_kwargs['system_prompt'])
+        self.assertEqual(called_kwargs['max_tokens'], 500)
+        self.assertEqual(called_kwargs['json_mode'], False)
 
     @patch('iep_management.ai_engine.AIEngineService._call_gemini', side_effect=Exception('Gemini 503 Service Unavailable'))
     @patch('iep_management.ai_engine.AIEngineService._call_groq')
@@ -126,6 +132,69 @@ class AIEngineServiceTestCase(TestCase):
         payload = mock_post.call_args[1]['json']
         self.assertEqual(payload['generationConfig']['responseMimeType'], 'application/json')
         self.assertNotIn('system_instruction', payload)
+
+    @override_settings(GEMINI_API_KEY='test-gemini-key')
+    @patch('requests.post')
+    def test_call_gemini_passes_response_schema_in_generation_config(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            'candidates': [
+                {
+                    'content': {
+                        'parts': [{'text': '{"total_score": 80}'}]
+                    },
+                    'finishReason': 'STOP'
+                }
+            ]
+        }
+        mock_response.raise_for_status.return_value = None
+        mock_post.return_value = mock_response
+
+        schema = {
+            "type": "OBJECT",
+            "properties": {"total_score": {"type": "INTEGER"}},
+            "required": ["total_score"],
+        }
+        res = AIEngineService._call_gemini(
+            'Evaluate JSON', json_mode=True, response_schema=schema
+        )
+        self.assertEqual(res, '{"total_score": 80}')
+        payload = mock_post.call_args[1]['json']
+        self.assertEqual(payload['generationConfig']['responseMimeType'], 'application/json')
+        self.assertEqual(payload['generationConfig']['responseSchema'], schema)
+
+    @patch('iep_management.ai_engine.AIEngineService._call_gemini', side_effect=Exception('Gemini offline'))
+    @patch('iep_management.ai_engine.AIEngineService._call_groq')
+    @patch('iep_management.ai_engine.AIEngineService._call_openrouter')
+    def test_generate_text_validates_response_schema_across_fallback_providers(
+        self, mock_openrouter, mock_groq, mock_gemini
+    ):
+        schema = {
+            "type": "OBJECT",
+            "properties": {
+                "steps": {
+                    "type": "ARRAY",
+                    "items": {
+                        "type": "OBJECT",
+                        "required": ["step", "title", "description", "visual_cue"],
+                    },
+                }
+            },
+            "required": ["steps"],
+        }
+        # Groq returns JSON that violates required keys -> should fail validation and cascade to OpenRouter
+        mock_groq.return_value = '{"wrong_key": 123}'
+        mock_openrouter.return_value = (
+            '{"steps": [{"step": 1, "title": "T", "description": "D", "visual_cue": "V"}]}'
+        )
+        content, provider = AIEngineService.generate_text(
+            "Decompose goal",
+            system_prompt="Return steps JSON.",
+            json_mode=True,
+            response_schema=schema,
+        )
+        self.assertEqual(provider, "openrouter")
+        self.assertIn('"steps"', content)
 
     @override_settings(GEMINI_API_KEY='test-gemini-key')
     @patch('requests.post')

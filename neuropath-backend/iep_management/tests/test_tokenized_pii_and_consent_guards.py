@@ -86,6 +86,27 @@ class TokenizedPIIAndConsentGuardsTests(TestCase):
         self.assertIn("Mayan", scrubbed)
 
     def test_generate_iep_goal_api_view_blocks_unconsented_and_cross_tenant_student(self):
+        from unittest.mock import patch
+
+        # 0. Omitting student_id -> 400 Bad Request (no cross-tenant name lookup fallback)
+        with patch.object(
+            StudentProfile.objects.__class__,
+            "exclude",
+            wraps=StudentProfile.objects.exclude,
+        ) as mock_exclude:
+            res_missing_id = self.client.post(
+                "/api/iep/generate-goal/",
+                {
+                    "student_name": "Juan Dela Cruz",
+                    "diagnosis": "ASD",
+                    "baseline_barriers": "Needs visual schedule cues during transitions",
+                    "target_domain": "Communication",
+                },
+                format="json",
+            )
+            self.assertEqual(res_missing_id.status_code, 400)
+            self.assertFalse(mock_exclude.called, "Cross-tenant StudentProfile.objects.exclude scan must never occur")
+
         # 1. Unconsented student -> 403 Forbidden
         res_unconsented = self.client.post(
             "/api/iep/generate-goal/",
@@ -113,6 +134,25 @@ class TokenizedPIIAndConsentGuardsTests(TestCase):
             format="json",
         )
         self.assertIn(res_other.status_code, (403, 404))
+
+        # 3. Owned and consented student -> 200 OK
+        with patch("iep_management.ai_engine.AIEngineService.generate_text") as mock_gen:
+            mock_gen.return_value = (
+                "Given visual schedule cards, the learner will transition in 4 of 5 trials.",
+                "gemini",
+            )
+            res_ok = self.client.post(
+                "/api/iep/generate-goal/",
+                {
+                    "student_id": self.consented_student.pk,
+                    "student_name": "Juan Dela Cruz",
+                    "diagnosis": "ASD",
+                    "baseline_barriers": "Needs visual schedule cues during transitions",
+                    "target_domain": "Communication",
+                },
+                format="json",
+            )
+            self.assertEqual(res_ok.status_code, 200)
 
     def test_ai_generation_log_prompt_text_scrubs_student_pii(self):
         IEPGeneratorService.generate_draft(

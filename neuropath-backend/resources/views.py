@@ -1436,17 +1436,52 @@ class VisualAidGeneratorService:
     POLLINATIONS_BASE = "https://image.pollinations.ai/prompt"
     IMAGEN_MODEL = "imagen-3.0-generate-002"
     IMAGEN_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+    VISUAL_STEPS_RESPONSE_SCHEMA = {
+        "type": "OBJECT",
+        "properties": {
+            "steps": {
+                "type": "ARRAY",
+                "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "step": {"type": "INTEGER"},
+                        "title": {"type": "STRING"},
+                        "description": {"type": "STRING"},
+                        "visual_cue": {"type": "STRING"},
+                    },
+                    "required": ["step", "title", "description", "visual_cue"],
+                },
+            }
+        },
+        "required": ["steps"],
+    }
 
     @staticmethod
-    def decompose_goal_into_steps(goal_text, extra_prompt="", category=""):
+    def decompose_goal_into_steps(goal_text, extra_prompt="", category="", pii_terms=None):
         """
         Decomposes the input learning goal or routine into 3 chronological,
-        numbered micro-steps using Gemini 1.5 Flash (with fallback heuristics).
-        Ensures strict RA 10173 compliance (no student PII in prompt).
+        numbered micro-steps via the centralized AIEngineService.generate_text()
+        chokepoint (with fallback heuristics).
+        Ensures strict RA 10173 compliance (no student PII in prompt) and per-field Spotlighting.
         """
         import logging
         logger = logging.getLogger(__name__)
         from iep_management.ai_engine import AIEngineService
+
+        def _sanitize_step_field(val, max_len=240):
+            cleaned = AIEngineService.strip_struq_tokens(str(val or ""))
+            cleaned = re.sub(r"<[^>]*>", "", cleaned)
+            cleaned = re.sub(r"\s+", " ", cleaned).strip()
+            return cleaned[:max_len]
+
+        scrubbed_goal = scrub_pii_from_text(str(goal_text or ""), pii_terms)
+        scrubbed_category = scrub_pii_from_text(str(category or ""), pii_terms)
+        scrubbed_extra = scrub_pii_from_text(str(extra_prompt or ""), pii_terms)
+
+        nonce = AIEngineService.generate_nonce()
+        spot_goal = AIEngineService.sanitize_and_spotlight(scrubbed_goal, nonce=nonce)
+        spot_category = AIEngineService.sanitize_and_spotlight(scrubbed_category, nonce=nonce)
+        spot_extra = AIEngineService.sanitize_and_spotlight(scrubbed_extra, nonce=nonce)
 
         system_prompt = (
             "You are an expert Special Education (SPED) instructional designer specialized in Autism Spectrum Disorder (ASD). "
@@ -1461,44 +1496,31 @@ class VisualAidGeneratorService:
             "Do not include any student personal names or PII. Return valid JSON only."
         )
 
-        user_prompt = f"Goal/Routine: {goal_text}"
-        if category:
-            user_prompt += f"\nSkill Category: {category}"
-        if extra_prompt:
-            user_prompt += f"\nAdditional Context / Teacher Notes: {extra_prompt}"
+        user_prompt = f"Goal/Routine: {spot_goal}"
+        if scrubbed_category.strip():
+            user_prompt += f"\nSkill Category: {spot_category}"
+        if scrubbed_extra.strip():
+            user_prompt += f"\nAdditional Context / Teacher Notes: {spot_extra}"
 
         steps = None
         try:
-            raw_response = AIEngineService._call_gemini(
+            raw_response, _ = AIEngineService.generate_text(
                 prompt=user_prompt,
                 system_prompt=system_prompt,
                 max_tokens=600,
-                json_mode=True
+                json_mode=True,
+                response_schema=VisualAidGeneratorService.VISUAL_STEPS_RESPONSE_SCHEMA,
             )
             parsed = json.loads(raw_response)
             if isinstance(parsed, dict) and "steps" in parsed and isinstance(parsed["steps"], list) and len(parsed["steps"]) == 3:
                 steps = parsed["steps"]
             elif isinstance(parsed, list) and len(parsed) == 3:
                 steps = parsed
-        except Exception as gemini_err:
-            logger.warning("Gemini step decomposition failed: %s. Attempting Groq fallback.", gemini_err)
-            try:
-                raw_response = AIEngineService._call_groq(
-                    prompt=user_prompt,
-                    system_prompt=system_prompt,
-                    max_tokens=600,
-                    json_mode=True
-                )
-                parsed = json.loads(raw_response)
-                if isinstance(parsed, dict) and "steps" in parsed and isinstance(parsed["steps"], list) and len(parsed["steps"]) == 3:
-                    steps = parsed["steps"]
-                elif isinstance(parsed, list) and len(parsed) == 3:
-                    steps = parsed
-            except Exception as groq_err:
-                logger.warning("Groq step decomposition failed: %s. Using heuristic fallback.", groq_err)
+        except Exception as ai_err:
+            logger.warning("AI step decomposition failed: %s. Using heuristic fallback.", ai_err)
 
         if not steps:
-            goal_clean = (goal_text or "Task").strip()
+            goal_clean = _sanitize_step_field(scrubbed_goal or "Task", max_len=120) or "Task"
             steps = [
                 {
                     "step": 1,
@@ -1519,13 +1541,6 @@ class VisualAidGeneratorService:
                     "visual_cue": f"Child happily completing {goal_clean.lower()}"
                 }
             ]
-
-        def _sanitize_step_field(val, max_len=240):
-            from iep_management.ai_engine import AIEngineService
-            cleaned = AIEngineService.strip_struq_tokens(str(val or ""))
-            cleaned = re.sub(r"<[^>]*>", "", cleaned)
-            cleaned = re.sub(r"\s+", " ", cleaned).strip()
-            return cleaned[:max_len]
 
         standardized_steps = []
         for idx, s in enumerate(steps[:3], start=1):

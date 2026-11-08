@@ -502,30 +502,23 @@ class GenerateIEPGoalAPIView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         data = serializer.validated_data
-        teacher = get_teacher_for_user(request.user)
         student_id = request.data.get('student_id') or request.data.get('studentID') or data.get('student_id')
-        student = None
+        if not student_id:
+            return Response({"student_id": ["This field is required."]}, status=status.HTTP_400_BAD_REQUEST)
 
-        if student_id:
-            student = StudentProfile.objects.select_related('teacher').filter(pk=student_id).first()
-            if not student or (teacher and student.teacher != teacher):
-                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        elif teacher:
-            req_name = (data.get('student_name') or '').strip().lower()
-            for s in StudentProfile.objects.filter(teacher=teacher):
-                if (s.name or '').strip().lower() == req_name:
-                    student = s
-                    break
-            if not student and req_name:
-                for s in StudentProfile.objects.exclude(teacher=teacher):
-                    if (s.name or '').strip().lower() == req_name:
-                        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        teacher = get_teacher_for_user(request.user)
+        if not teacher:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if student:
-            try:
-                verify_ra10173_consent(student)
-            except ConsentRequiredException as e:
-                return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            student = StudentProfile.objects.select_related('teacher').get(pk=student_id, teacher=teacher)
+        except (StudentProfile.DoesNotExist, ValueError, TypeError):
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            verify_ra10173_consent(student)
+        except ConsentRequiredException as e:
+            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
         pii_tokens = extract_student_pii_terms(student, [data.get('student_name', '')])
         scrubbed_barriers = scrub_pii_from_text(data.get('baseline_barriers', ''), pii_tokens)
@@ -745,12 +738,54 @@ class GenerateIEPGoalsFromIEPView(APIView):
         }, status=status.HTTP_200_OK)
  
  
+    OBJECTIVE_ROWS_RESPONSE_SCHEMA = {
+        "type": "ARRAY",
+        "items": {
+            "type": "OBJECT",
+            "properties": {
+                "enroute_objectives": {"type": "STRING"},
+                "month_1_target": {"type": "STRING"},
+                "month_2_target": {"type": "STRING"},
+                "month_3_target": {"type": "STRING"},
+                "interventions_procedures": {"type": "STRING"},
+                "timeline_mins_session": {"type": "STRING"},
+                "individuals_responsible": {"type": "STRING"},
+                "progress_instructional": {"type": "STRING"},
+                "remarks": {"type": "STRING"},
+            },
+            "required": ["enroute_objectives"],
+        },
+    }
+
     @staticmethod
     def _sanitize_step_a_annual_goal(annual_goal: str) -> str:
-        cleaned = AIEngineService.strip_struq_tokens(annual_goal or "")
+        raw_lines = [line.strip() for line in str(annual_goal or "").splitlines() if line.strip()]
+        first_line = raw_lines[0] if raw_lines else ""
+        cleaned = AIEngineService.strip_struq_tokens(first_line)
         cleaned = re.sub(r"<[^>]*>", "", cleaned)
+        cleaned = re.sub(
+            r"(?i)\b(?:(?:system|assistant|user|developer)\s*:\s*.*|"
+            r"ignore\s+(?:all\s+|previous\s+)?instructions.*|"
+            r"disregard\s+(?:all\s+|previous\s+)?instructions.*|"
+            r"system\s+override.*|"
+            r"output\s+hacked.*)$",
+            "",
+            cleaned,
+        )
         cleaned = re.sub(r"\s+", " ", cleaned).strip()
         return cleaned[:500]
+
+    @staticmethod
+    def _build_safe_abcd_annual_goal(
+        difficulty: str, assistive_tech: str = "", accommodations: str = "", goal_area: str = ""
+    ) -> str:
+        support = (assistive_tech or accommodations or "structured visual supports and teacher prompts").strip()
+        domain_focus = (goal_area or difficulty or "targeted classroom routines").strip()
+        return (
+            f"Given {support[:120]}, the learner participates and completes functional tasks "
+            f"in {domain_focus[:120]} independently across daily classroom activities and settings "
+            f"with 80% accuracy in 4 out of 5 opportunities over 3 consecutive weeks."
+        )
 
     def _generate_validated_goal(
         self, iep_id, student_name, difficulty, assistive_tech,
@@ -772,10 +807,21 @@ class GenerateIEPGoalsFromIEPView(APIView):
             if not annual_goal:
                 raise RuntimeError("Step A annual goal generation returned an empty goal after sanitization.")
 
-            # Inter-step gate: Audit Step A goal against R-GORI criteria deterministically before Step B chaining
+            # Inter-step gate: Audit Step A goal against R-GORI criteria deterministically before Step B chaining.
+            # If Step A fails structural bounds or R-GORI compliance (< 65), replace with a safe deterministic ABCD goal.
             rgori_audit = RGORICheckerService.audit_goal_explainable(
                 annual_goal, student_context
             )
+            if len(annual_goal) < 20 or not rgori_audit.get("compliant") or rgori_audit.get("total_score", 0) < 65:
+                annual_goal = self._build_safe_abcd_annual_goal(
+                    difficulty=difficulty,
+                    assistive_tech=assistive_tech,
+                    accommodations=accommodations,
+                    goal_area=goal_area,
+                )
+                rgori_audit = RGORICheckerService.audit_goal_explainable(
+                    annual_goal, student_context
+                )
 
             # --- Step B: Generate objective rows for this goal ---
             objective_rows = self._generate_objective_rows(
@@ -945,6 +991,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
             system_prompt=system_prompt,
             max_tokens=1000,
             json_mode=True,
+            response_schema=self.OBJECTIVE_ROWS_RESPONSE_SCHEMA,
         )
 
         if not raw or not isinstance(raw, str):

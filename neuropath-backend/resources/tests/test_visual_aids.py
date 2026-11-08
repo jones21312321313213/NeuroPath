@@ -110,9 +110,10 @@ class VisualAidSequentialTaskAnalysisTests(TestCase):
         self.assertEqual(steps[2]["title"], "Rinse & Dry")
 
     # ── Unit Test 2: Heuristic Fallback when AI fails ─────────────────────────
+    @patch('iep_management.ai_engine.AIEngineService._call_openrouter', side_effect=Exception("OpenRouter Offline"))
     @patch('iep_management.ai_engine.AIEngineService._call_gemini', side_effect=Exception("API Error"))
     @patch('iep_management.ai_engine.AIEngineService._call_groq', side_effect=Exception("Groq Offline"))
-    def test_decompose_goal_fallback_heuristics(self, mock_groq, mock_gemini):
+    def test_decompose_goal_fallback_heuristics(self, mock_groq, mock_gemini, mock_openrouter):
         steps = VisualAidGeneratorService.decompose_goal_into_steps(
             goal_text="Hold spoon and eat",
             extra_prompt="",
