@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { render, screen, fireEvent, act } from "@testing-library/react";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import LandingPage from "./landingPage";
 
@@ -11,6 +11,10 @@ globalThis.IntersectionObserver = class IntersectionObserver {
 };
 
 describe("LandingPage Component", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("renders hero title, feature sections, and authentic Progress Dashboard preview card", () => {
     render(
       <MemoryRouter>
@@ -51,8 +55,34 @@ describe("LandingPage Component", () => {
     expect(screen.getByText("Visual Aid Management")).toBeInTheDocument();
     expect(screen.getByText("Outcome Monitoring")).toBeInTheDocument();
 
-    // Version badge & Release Notes button in top right navbar
+    // Version popup & Release Notes button
     expect(screen.getByRole("button", { name: /view version v1\.2\.0 changelog/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Release Notes" })).toBeInTheDocument();
+  });
+
+  it("shows top-right version popup for 5 seconds and keeps it open while hovered", () => {
+    vi.useFakeTimers();
+    render(
+      <MemoryRouter>
+        <LandingPage />
+      </MemoryRouter>
+    );
+
+    const popup = screen.getByRole("status", { name: /latest version release popup/i });
+    expect(popup).toBeInTheDocument();
+
+    // Hovering pauses the 5-second auto-dismiss
+    fireEvent.mouseEnter(popup);
+    act(() => {
+      vi.advanceTimersByTime(10000);
+    });
+    expect(screen.getByRole("status", { name: /latest version release popup/i })).toBeInTheDocument();
+
+    // Unhovering resumes the 5-second auto-dismiss
+    fireEvent.mouseLeave(popup);
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(screen.queryByRole("status", { name: /latest version release popup/i })).not.toBeInTheDocument();
   });
 });

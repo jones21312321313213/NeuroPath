@@ -131,7 +131,17 @@ function FeatureCard({ feature, index }) {
 export default function LandingPage({ onGetStarted }) {
   const [scrolled, setScrolled] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
+  const [showVersionPopup, setShowVersionPopup] = useState(true);
+  const [isPopupHovered, setIsPopupHovered] = useState(false);
   const heroRef = useRef(null);
+
+  useEffect(() => {
+    if (!showVersionPopup || isPopupHovered) return;
+    const timer = setTimeout(() => {
+      setShowVersionPopup(false);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [showVersionPopup, isPopupHovered]);
 
   useEffect(() => {
     // 1. Intersection Observer for fade-in animations
@@ -228,16 +238,6 @@ export default function LandingPage({ onGetStarted }) {
               Release Notes
             </button>
             <button
-              type="button"
-              onClick={() => setShowChangelog(true)}
-              aria-label="View version v1.2.0 changelog"
-              title="Click to view v1.2.0 Changelog & Release Notes"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-[#e8f5ff] text-[#1a6fa8] border border-[#82C7FF] hover:bg-[#d4eeff] transition-all cursor-pointer"
-            >
-              <SparklesIcon className="w-3.5 h-3.5 text-[#2589c7]" aria-hidden="true" />
-              <span>v1.2.0</span>
-            </button>
-            <button
               href="signin"
               onClick={onGetStarted}
               className={`text-sm font-semibold transition-all active:scale-95 text-[#1a6fa8] border-[1.5px] border-[#82C7FF] bg-white shadow-[0_1px_4px_rgba(130,199,255,0.2)] hover:bg-[#e8f5ff] hover:border-[#2589c7]
@@ -248,6 +248,59 @@ export default function LandingPage({ onGetStarted }) {
           </div>
         </div>
       </nav>
+
+      {/* TOP-RIGHT 5-SECOND VERSION POPUP (STAYS OPEN WHILE HOVERED) */}
+      {showVersionPopup && (
+        <div
+          role="status"
+          aria-label="Latest version release popup"
+          onMouseEnter={() => setIsPopupHovered(true)}
+          onMouseLeave={() => setIsPopupHovered(false)}
+          className="fixed top-20 right-4 sm:right-6 z-[60] max-w-xs w-full bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-[#82C7FF]/60 p-4 transition-all duration-300"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-[#e8f5ff] text-[#1a6fa8]">
+                <SparklesIcon className="w-4 h-4" aria-hidden="true" />
+              </span>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-extrabold text-[#1a6fa8]">
+                    Version v1.2.0
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase bg-emerald-100 text-emerald-700">
+                    New
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">
+                  NeuroPath has been updated with R-GORI inspection &amp; DepEd PDF enhancements.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowVersionPopup(false)}
+              aria-label="Dismiss version popup"
+              className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
+            >
+              <CloseIcon className="w-3.5 h-3.5" aria-hidden="true" />
+            </button>
+          </div>
+          <div className="mt-2.5 pt-2 border-t border-slate-100 flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setShowVersionPopup(false);
+                setShowChangelog(true);
+              }}
+              aria-label="View version v1.2.0 changelog"
+              className="text-xs font-bold text-[#2589c7] hover:text-[#1a6fa8] underline underline-offset-2 cursor-pointer flex items-center gap-1"
+            >
+              View Changelogs →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* HERO */}
       <section
