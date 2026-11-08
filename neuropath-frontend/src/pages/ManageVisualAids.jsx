@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import useUnsavedChanges from "../hooks/useUnsavedChanges";
 import UnsavedChangesModal from "../components/ui/UnsavedChangesModal";
+import IepVersionDetailsModal from "../components/ui/IepVersionDetailsModal";
 import {
   PhotoIcon,
   EyeIcon,
@@ -25,6 +26,9 @@ import {
   InfoIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  StarIcon,
+  BookOpenIcon,
+  TargetIcon,
 } from "../components/ui/icons";
 
 const DAILY_LIVING_PRESETS = [
@@ -580,7 +584,13 @@ function GenerateTab({ setActivePage, onDraftStatusChange, promptNavigation }) {
   const [loadingStudents, setLoadingStudents] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
 
-  // Step 2 — IEP Goals for selected student
+  // Step 2 — IEP Versions for selected student
+  const [availableIEPs, setAvailableIEPs] = useState([]);
+  const [selectedIEP, setSelectedIEP] = useState(null);
+  const [loadingIEPs, setLoadingIEPs] = useState(false);
+  const [detailModalIep, setDetailModalIep] = useState(null);
+
+  // Step 3 — IEP Goals for selected student and IEP version
   const [goals, setGoals] = useState([]);
   const [loadingGoals, setLoadingGoals] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState(null);
@@ -608,42 +618,117 @@ function GenerateTab({ setActivePage, onDraftStatusChange, promptNavigation }) {
       .finally(() => setLoadingStudents(false));
   }, [user?.id]);
 
-  // Load IEP goals when student is selected
-  useEffect(() => {
-    if (!selectedStudent) return;
-    let isCancelled = false;
-    iepAPI
-      .listLatestGoalsByStudent(selectedStudent.studentID)
-      .catch(() => iepAPI.listGoalsByStudent(selectedStudent.studentID))
-      .then((data) => {
-        if (!isCancelled) {
-          setGoals(Array.isArray(data) ? data : data?.results || data?.data || []);
-        }
-      })
-      .catch(() => {
-        if (!isCancelled) {
-          setError("Failed to load IEP goals for this student.");
-        }
-      })
-      .finally(() => {
-        if (!isCancelled) {
-          setLoadingGoals(false);
-        }
-      });
+  const loadGoalsForIEP = async (iep, student = selectedStudent) => {
+    setLoadingGoals(true);
+    setError("");
+    setSelectedGoal(null);
 
-    return () => {
-      isCancelled = true;
-    };
-  }, [selectedStudent]);
+    try {
+      let rawGoals = [];
+      if (typeof iepAPI.listGoalsByIep === "function") {
+        try {
+          rawGoals = await iepAPI.listGoalsByIep(iep.iepID);
+        } catch {
+          rawGoals = [];
+        }
+      }
+      let goalList = Array.isArray(rawGoals) ? rawGoals : rawGoals?.results || rawGoals?.data || [];
+      if (goalList.length === 0) {
+        try {
+          const fallbackGoals = await (iepAPI.listLatestGoalsByStudent?.(student?.studentID) ||
+            iepAPI.listGoalsByStudent?.(student?.studentID));
+          goalList = Array.isArray(fallbackGoals) ? fallbackGoals : fallbackGoals?.results || fallbackGoals?.data || [];
+        } catch {
+          goalList = Array.isArray(iep?.goals) ? iep.goals : [];
+        }
+      }
+      setGoals(goalList);
+      setSelectedGoal(null);
+    } catch {
+      setGoals(Array.isArray(iep?.goals) ? iep.goals : []);
+      setSelectedGoal(null);
+    } finally {
+      setLoadingGoals(false);
+    }
+  };
 
-  const doStudentSelect = (s) => {
+  const handleSelectIEP = async (iep) => {
+    if (selectedIEP?.iepID === iep.iepID) return;
+    setSelectedIEP(iep);
+    await loadGoalsForIEP(iep);
+  };
+
+  const doStudentSelect = async (s) => {
     setSelectedStudent(s);
+    setAvailableIEPs([]);
+    setSelectedIEP(null);
     setGoals([]);
     setSelectedGoal(null);
+    setLoadingIEPs(true);
     setLoadingGoals(true);
     setExtraPrompt("");
     setResult(null);
     setError("");
+
+    let iepList = [];
+    try {
+      if (typeof iepAPI.listByStudent === "function") {
+        const fetchedIeps = await iepAPI.listByStudent(s.studentID);
+        const rawIeps = Array.isArray(fetchedIeps) ? fetchedIeps : fetchedIeps?.results || fetchedIeps?.data || [];
+        iepList = rawIeps.map((iep) => ({
+          ...iep,
+          iepID: iep.iepID || iep.id,
+          version: iep.version || 1,
+          createdDate: iep.formattedDate || (iep.createdDate ? new Date(iep.createdDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : ""),
+          program_type: iep.program_type || "Graded",
+          accommodations: iep.accommodations || "",
+        }));
+      }
+    } catch {
+      // Fallback below
+    }
+
+    iepList.sort((a, b) => (b.version || 0) - (a.version || 0));
+
+    // Fallback if listByStudent didn't return any IEPs
+    if (iepList.length === 0) {
+      try {
+        const fallbackGoals = await (iepAPI.listLatestGoalsByStudent?.(s.studentID) ||
+          iepAPI.listGoalsByStudent?.(s.studentID));
+        const rawGoals = Array.isArray(fallbackGoals) ? fallbackGoals : fallbackGoals?.results || fallbackGoals?.data || [];
+        if (rawGoals.length > 0) {
+          iepList = [
+            {
+              iepID: rawGoals[0]?.iep || rawGoals[0]?.iepID || 1,
+              version: 1,
+              createdDate: "Active IEP Record",
+              program_type: "Graded",
+              accommodations: "",
+              goals: rawGoals,
+            },
+          ];
+          setGoals(rawGoals);
+          setSelectedGoal(null);
+        }
+      } catch {
+        // no goals
+      }
+    }
+
+    setAvailableIEPs(iepList);
+    setLoadingIEPs(false);
+
+    if (iepList.length > 0) {
+      const defaultIEP = iepList[0];
+      setSelectedIEP(defaultIEP);
+      if (goals.length === 0) {
+        await loadGoalsForIEP(defaultIEP, s);
+      } else {
+        setLoadingGoals(false);
+      }
+    } else {
+      setLoadingGoals(false);
+    }
   };
 
   const handleStudentSelect = (s) => {
@@ -722,6 +807,9 @@ function GenerateTab({ setActivePage, onDraftStatusChange, promptNavigation }) {
 
   const doReset = () => {
     setSelectedStudent(null);
+    setAvailableIEPs([]);
+    setSelectedIEP(null);
+    setDetailModalIep(null);
     setGoals([]);
     setSelectedGoal(null);
     setExtraPrompt("");
@@ -750,7 +838,7 @@ function GenerateTab({ setActivePage, onDraftStatusChange, promptNavigation }) {
           {selectedStudent && (
             <span className="va-step-done-chip">
               <CheckIcon className="w-3 h-3 text-emerald-600 inline mr-1" aria-hidden="true" />
-              {selectedStudent.name}
+              {selectedStudent.name || selectedStudent.studentName}
             </span>
           )}
         </div>
@@ -777,11 +865,133 @@ function GenerateTab({ setActivePage, onDraftStatusChange, promptNavigation }) {
         )}
       </div>
 
-      {/* ── Step 2 — Pick IEP Goal + optional extra prompt + Generate ── */}
+      {/* ── Step 2 — Select IEP Version ── */}
       {selectedStudent && !result && !generating && (
         <div className="va-card">
           <div className="va-step-badge">
-            <span className="va-step-num">2</span>IEP Goal &amp; Prompt
+            <span className="va-step-num">2</span>Select an IEP Version
+            {selectedIEP && (
+              <span className="va-step-done-chip">
+                <CheckIcon className="w-3 h-3 text-emerald-600 inline mr-1" aria-hidden="true" />
+                Version {selectedIEP.version}
+              </span>
+            )}
+          </div>
+          <p className="va-form-intro">
+            Choose an IEP version for{" "}
+            <strong style={{ color: "#1a2b40" }}>
+              {selectedStudent.name || selectedStudent.studentName}
+            </strong>{" "}
+            to base visual aids on:
+          </p>
+
+          {loadingIEPs ? (
+            <Loading text="Fetching created IEPs…" />
+          ) : availableIEPs.length === 0 ? (
+            <EmptyState
+              icon={<ClipboardIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
+              message="No IEP records found for this student."
+              description="Visual aids require a created IEP. Generate and save an IEP for this student first."
+              actionLabel="Generate IEP"
+              actionIcon={<SparklesIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />}
+              onAction={() => {
+                navigate("/dashboard/iep/generate");
+                if (setActivePage) setActivePage("iep-generation");
+              }}
+            />
+          ) : (
+            <div className="va-iep-grid">
+              {availableIEPs.map((iep, index) => {
+                const isSelected = selectedIEP?.iepID === iep.iepID;
+                const isLatest = index === 0;
+                return (
+                  <div
+                    key={iep.iepID}
+                    className={`va-iep-item ${isSelected ? "selected" : ""}`}
+                    onClick={() => handleSelectIEP(iep)}
+                  >
+                    <div className="va-iep-header">
+                      <div className="va-iep-title-wrap">
+                        <input
+                          type="radio"
+                          name="selectedIEPVisualAid"
+                          className="va-iep-radio"
+                          checked={isSelected}
+                          onChange={() => handleSelectIEP(iep)}
+                        />
+                        <span className="va-iep-version-title">
+                          {`IEP Version ${iep.version}`}
+                        </span>
+                      </div>
+                      {isLatest && (
+                        <span className="va-iep-badge-latest flex items-center gap-1">
+                          <StarIcon className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
+                          <span>Latest</span>
+                        </span>
+                      )}
+                    </div>
+                    <div className="va-iep-meta">
+                      {iep.createdDate && (
+                        <span className="va-iep-tag flex items-center gap-1">
+                          <CalendarIcon className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+                          <span>{iep.createdDate}</span>
+                        </span>
+                      )}
+                      {iep.program_type && (
+                        <span className="va-iep-tag flex items-center gap-1">
+                          <BookOpenIcon className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+                          <span>{iep.program_type}</span>
+                        </span>
+                      )}
+                    </div>
+                    {iep.accommodations && (
+                      <div
+                        className="va-iep-accommodations"
+                        title={iep.accommodations}
+                      >
+                        <strong>Accommodations:</strong> {iep.accommodations}
+                      </div>
+                    )}
+                    <div className="va-iep-footer">
+                      <button
+                        type="button"
+                        className="va-iep-details-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDetailModalIep(iep);
+                        }}
+                      >
+                        <EyeIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span>View Full Version</span>
+                      </button>
+                      {isSelected && (
+                        <span className="va-iep-selected-pill">
+                          <CheckIcon className="w-3 h-3 text-emerald-600" aria-hidden="true" />
+                          Selected
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <IepVersionDetailsModal
+            isOpen={Boolean(detailModalIep)}
+            onClose={() => setDetailModalIep(null)}
+            iep={detailModalIep}
+            studentName={selectedStudent?.name || selectedStudent?.studentName}
+            onSelect={(iep) => handleSelectIEP(iep)}
+            isSelected={selectedIEP?.iepID === detailModalIep?.iepID}
+          />
+        </div>
+      )}
+
+      {/* ── Step 3 — Select IEP Goal ── */}
+      {selectedStudent && selectedIEP && !result && !generating && (
+        <div className="va-card">
+          <div className="va-step-badge">
+            <span className="va-step-num">3</span>Select an IEP Goal
             {selectedGoal && (
               <span className="va-step-done-chip">
                 <CheckIcon className="w-3 h-3 text-emerald-600 inline mr-1" aria-hidden="true" />
@@ -790,9 +1000,15 @@ function GenerateTab({ setActivePage, onDraftStatusChange, promptNavigation }) {
             )}
           </div>
           <p className="va-form-intro">
-            Select an existing IEP goal for{" "}
-            <strong style={{ color: "#1a2b40" }}>{selectedStudent.name}</strong>
-            , then optionally select a quick template or describe what you'd like the visual to show.
+            Choose a goal from{" "}
+            <strong style={{ color: "#1a2b40" }}>
+              {`IEP Version ${selectedIEP.version}`}
+            </strong>{" "}
+            for{" "}
+            <strong style={{ color: "#1a2b40" }}>
+              {selectedStudent.name || selectedStudent.studentName}
+            </strong>
+            :
           </p>
 
           {loadingGoals ? (
@@ -800,7 +1016,7 @@ function GenerateTab({ setActivePage, onDraftStatusChange, promptNavigation }) {
           ) : goals.length === 0 ? (
             <EmptyState
               icon={<ClipboardIcon className="w-10 h-10 text-slate-400" aria-hidden="true" />}
-              message="No IEP goals found for this student."
+              message="No IEP goals found for this IEP version."
               description="Visual aids are generated directly from saved IEP goals. Generate and save an IEP with goals for this student first."
               actionLabel="Generate IEP"
               actionIcon={<SparklesIcon className="w-4 h-4 mr-1.5" aria-hidden="true" />}
@@ -841,8 +1057,20 @@ function GenerateTab({ setActivePage, onDraftStatusChange, promptNavigation }) {
               </div>
             </div>
           )}
+        </div>
+      )}
 
-          {/* ── Preset Quick Templates for Daily Living Routines ── */}
+      {/* ── Step 4 — Visual Aid Configuration & Daily Living Routines ── */}
+      {selectedStudent && selectedIEP && !result && !generating && (
+        <div className="va-card">
+          <div className="va-step-badge">
+            <span className="va-step-num">4</span>Configure &amp; Generate Visual Aid
+          </div>
+          <p className="va-form-intro">
+            Optionally select a quick preset template for daily routines or describe what you'd like the visual to show:
+          </p>
+
+          {/* Preset Quick Templates for Daily Living Routines */}
           <div className="va-presets-box">
             <div className="va-presets-header">
               <SparklesIcon className="w-4 h-4 text-blue-500" aria-hidden="true" />

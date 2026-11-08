@@ -120,7 +120,7 @@ export default function LoginPage({
         className="hidden lg:flex lg:col-span-5 p-12 flex-col items-center justify-center relative overflow-hidden text-left"
         style={{
           background:
-            "linear-gradient(135deg, #1a6fa8 0%, #2589c7 40%, #82C7FF 100%)",
+            "linear-gradient(135deg, #5aabf0 0%, #3d9de8 50%, #1e6fbf 100%)",
         }}
       >
         {/* Decorative blobs */}

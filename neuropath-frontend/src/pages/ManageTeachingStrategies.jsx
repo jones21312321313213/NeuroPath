@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import useUnsavedChanges from "../hooks/useUnsavedChanges";
 import UnsavedChangesModal from "../components/ui/UnsavedChangesModal";
+import IepVersionDetailsModal from "../components/ui/IepVersionDetailsModal";
 import {
   SparklesIcon,
   FolderIcon,
@@ -28,6 +29,7 @@ import {
   InfoIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  EyeIcon,
 } from "../components/ui/icons";
 
 const TABS = [
@@ -297,6 +299,7 @@ function GenerateTab({ onSave, setActivePage, onDraftStatusChange, promptNavigat
   const [loadingIEPs, setLoadingIEPs] = useState(false);
   const [loadingGoals, setLoadingGoals] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState(null);
+  const [detailModalIep, setDetailModalIep] = useState(null);
   const [generated, setGenerated] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -616,11 +619,38 @@ function GenerateTab({ onSave, setActivePage, onDraftStatusChange, promptNavigat
                         <strong>Accommodations:</strong> {iep.accommodations}
                       </div>
                     )}
+                    <div className="ts-iep-footer">
+                      <button
+                        type="button"
+                        className="ts-iep-details-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDetailModalIep(iep);
+                        }}
+                      >
+                        <EyeIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span>View Full Version</span>
+                      </button>
+                      {isSelected && (
+                        <span className="ts-iep-selected-pill">
+                          <CheckIcon className="w-3 h-3 text-emerald-600" aria-hidden="true" />
+                          Selected
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
               })}
             </div>
           )}
+          <IepVersionDetailsModal
+            isOpen={Boolean(detailModalIep)}
+            onClose={() => setDetailModalIep(null)}
+            iep={detailModalIep}
+            studentName={selectedStudent?.studentName || selectedStudent?.name}
+            onSelect={(iep) => handleSelectIEP(iep)}
+            isSelected={selectedIEP?.iepID === detailModalIep?.iepID}
+          />
         </div>
       )}
 
