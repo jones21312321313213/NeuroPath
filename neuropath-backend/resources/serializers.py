@@ -1,4 +1,76 @@
+import ipaddress
+import re
+import socket
+import urllib.parse
 from rest_framework import serializers
+
+
+ALLOWED_VISUAL_AID_HOSTS = {"image.pollinations.ai"}
+DATA_IMAGE_URI_PATTERN = re.compile(
+    r"^data:image/(?:png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/=\s]+$",
+    re.IGNORECASE,
+)
+
+
+def validate_safe_visual_aid_url(url: str) -> str:
+    """
+    Validates that a VisualAid image URL is either a safe base64 raster data URI
+    or an HTTPS URL pointing strictly to an allowlisted external host whose DNS
+    records do not resolve to loopback, private, link-local, or metadata IPs.
+    """
+    if not url:
+        return url
+
+    cleaned = str(url).strip()
+    if cleaned.startswith("data:"):
+        if not DATA_IMAGE_URI_PATTERN.match(cleaned):
+            raise serializers.ValidationError(
+                "Only base64-encoded PNG, JPEG, GIF, or WEBP data:image/ URIs are permitted."
+            )
+        return cleaned
+
+    parsed = urllib.parse.urlparse(cleaned)
+    if parsed.scheme != "https":
+        raise serializers.ValidationError(
+            "External visual aid URLs must use HTTPS."
+        )
+    if parsed.username or parsed.password:
+        raise serializers.ValidationError(
+            "Credentials in visual aid URLs are not permitted."
+        )
+    hostname = (parsed.hostname or "").lower()
+    if hostname not in ALLOWED_VISUAL_AID_HOSTS:
+        raise serializers.ValidationError(
+            f"Visual aid URL host '{hostname}' is not in the approved allowlist."
+        )
+
+    try:
+        addr_info = socket.getaddrinfo(hostname, parsed.port or 443)
+    except socket.gaierror:
+        addr_info = []
+
+    for entry in addr_info:
+        sockaddr = entry[4]
+        if not sockaddr:
+            continue
+        ip_str = sockaddr[0]
+        try:
+            ip_obj = ipaddress.ip_address(ip_str)
+        except ValueError:
+            raise serializers.ValidationError("Invalid IP address resolved for visual aid host.")
+        if (
+            ip_obj.is_private
+            or ip_obj.is_loopback
+            or ip_obj.is_link_local
+            or ip_obj.is_multicast
+            or ip_obj.is_reserved
+            or ip_obj.is_unspecified
+        ):
+            raise serializers.ValidationError(
+                f"Visual aid host resolved to a restricted or non-routable IP address ({ip_str})."
+            )
+
+    return cleaned
 from users.models import Teacher
 from iep_management.models import IEPGoal
 from .models import LessonPlan, VisualAid, TeachingStrategy
@@ -132,8 +204,19 @@ class VisualAidSerializer(serializers.ModelSerializer):
     def validate_imageUrl(self, value):
         if not value:
             return value
-        if not (value.startswith('http://') or value.startswith('https://') or value.startswith('data:image/')):
-            raise serializers.ValidationError("The visual aid asset must be a valid URL starting with http, https, or data:image/.")
+        return validate_safe_visual_aid_url(value)
+
+    def validate_steps_data(self, value):
+        if not value:
+            return value
+        if not isinstance(value, list):
+            raise serializers.ValidationError("steps_data must be a list of step objects.")
+        for idx, step in enumerate(value):
+            if not isinstance(step, dict):
+                raise serializers.ValidationError(f"Step at index {idx} must be a JSON object.")
+            step_url = step.get("imageUrl")
+            if step_url:
+                step["imageUrl"] = validate_safe_visual_aid_url(step_url)
         return value
     
 # =====================================================================
