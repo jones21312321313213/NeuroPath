@@ -17,7 +17,7 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  background: linear-gradient(135deg, #1e6fbf 0%, #3d9de8 50%, #5aabf0 100%);
+  background: linear-gradient(135deg, #5aabf0 0%, #3d9de8 50%, #1e6fbf 100%);
   border-radius: 14px 14px 0 0;
   border-bottom: none;
   padding: 22px 32px;
@@ -233,7 +233,7 @@
 .va-select-btn {
   flex-shrink: 0;
   padding: 9px 22px;
-  background: linear-gradient(135deg, #1e6fbf 0%, #3d9de8 100%);
+  background: linear-gradient(135deg, #5aabf0 0%, #3d9de8 50%, #1e6fbf 100%);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -292,7 +292,7 @@
   border-radius: 8px;
   cursor: pointer;
   border: none;
-  background: linear-gradient(135deg, #1e6fbf 0%, #3d9de8 100%);
+  background: linear-gradient(135deg, #5aabf0 0%, #3d9de8 50%, #1e6fbf 100%);
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(61, 157, 232, 0.3);
   transition: all 0.2s ease;
@@ -438,7 +438,7 @@
 }
 
 .om-export-btn {
-  background: linear-gradient(135deg, #1e6fbf 0%, #3d9de8 100%);
+  background: linear-gradient(135deg, #5aabf0 0%, #3d9de8 50%, #1e6fbf 100%);
   color: #fff;
   padding: 10px 24px;
   font-size: 14px;

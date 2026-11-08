@@ -438,7 +438,7 @@ export default function LandingPage({ onGetStarted }) {
             <div
               className="px-4 py-3 flex items-center justify-between"
               style={{
-                background: "linear-gradient(135deg, #1a6fa8 0%, #2589c7 50%, #5aabf0 100%)",
+                background: "linear-gradient(135deg, #5aabf0 0%, #3d9de8 50%, #1e6fbf 100%)",
                 borderBottom: "1px solid #93c5fd",
               }}
             >
@@ -691,7 +691,7 @@ export default function LandingPage({ onGetStarted }) {
           className="fade-in-init opacity-0 translate-y-4 transition-all duration-1000 ease-out relative text-white rounded-3xl p-8 sm:p-12 lg:p-16 text-center overflow-hidden shadow-2xl"
           style={{
             background:
-              "linear-gradient(135deg, #1a6fa8 0%, #2589c7 50%, #82C7FF 100%)",
+              "linear-gradient(135deg, #5aabf0 0%, #3d9de8 50%, #1e6fbf 100%)",
           }}
         >
           <div
