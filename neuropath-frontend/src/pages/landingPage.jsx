@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import RotatingText from "../components/ui/RotatingText";
 import {
-  BoltIcon,
   TargetIcon,
   ClipboardIcon,
   LightBulbIcon,
@@ -217,8 +216,8 @@ export default function LandingPage({ onGetStarted }) {
           className={`h-full mx-auto flex items-center justify-between transition-all duration-500
           ${scrolled ? "px-2" : "max-w-7xl px-4 sm:px-6 lg:px-8"}`}
         >
-          <div className="flex items-center gap-2 select-none">
-            <BoltIcon className="w-6 h-6 text-[#2589c7]" aria-hidden="true" />
+          <div className="flex items-center gap-2.5 select-none">
+            <img src="/logo.png" alt="NeuroPath Logo" className="w-8 h-8 object-contain" />
             <span className="text-xl font-bold tracking-tight text-[#1a6fa8]">
               NeuroPath
             </span>
@@ -745,8 +744,8 @@ export default function LandingPage({ onGetStarted }) {
         }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 opacity-80">
-            <BoltIcon className="w-5 h-5 text-[#2589c7]" aria-hidden="true" />
+          <div className="flex items-center gap-2 opacity-90">
+            <img src="/logo.png" alt="NeuroPath Logo" className="w-6 h-6 object-contain" />
             <span
               className="text-md font-bold tracking-tight"
               style={{ color: "#1a6fa8" }}

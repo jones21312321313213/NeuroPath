@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import {
-  BoltIcon,
   WarningIcon,
   EyeIcon,
   EyeSlashIcon,
-  ArrowLeftIcon,
 } from "../components/ui/icons";
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 import { evaluatePasswordRules } from "../utils/password";
@@ -120,7 +118,7 @@ export default function RegisterPage({ onNavigateLogin, onNavigateHome }) {
       className="min-h-screen grid grid-cols-1 lg:grid-cols-12 font-sans relative"
       style={{ background: "#fff" }}
     >
-      {/* Top-Left Back to Landing Page Icon */}
+      {/* Top-Left Back to Landing Page Logo */}
       <a
         href="/"
         onClick={(e) => {
@@ -131,9 +129,9 @@ export default function RegisterPage({ onNavigateLogin, onNavigateHome }) {
         }}
         aria-label="Back to landing page"
         title="Back to landing page"
-        className="fixed top-4 left-4 z-50 flex items-center justify-center w-10 h-10 rounded-full bg-white/90 hover:bg-white text-[#1a6fa8] shadow-md border border-[#82C7FF]/60 transition-all hover:scale-105"
+        className="fixed top-4 left-4 z-50 flex items-center justify-center w-11 h-11 rounded-full bg-white/95 hover:bg-white p-2 shadow-md border border-[#82C7FF]/60 transition-all hover:scale-105"
       >
-        <ArrowLeftIcon className="w-5 h-5" aria-hidden="true" />
+        <img src="/logo.png" alt="NeuroPath Logo" className="w-full h-full object-contain" />
       </a>
       {/* LEFT VISUAL SIDEBAR */}
       <div
@@ -163,8 +161,8 @@ export default function RegisterPage({ onNavigateLogin, onNavigateHome }) {
           }}
         >
           {/* Logo inside card */}
-          <div className="flex items-center gap-2 select-none mb-6">
-            <BoltIcon className="w-6 h-6 text-white" aria-hidden="true" />
+          <div className="flex items-center gap-2.5 select-none mb-6">
+            <img src="/logo.png" alt="NeuroPath Logo" className="w-7 h-7 object-contain" />
             <span className="text-xl font-bold tracking-tight text-white">
               NeuroPath
             </span>

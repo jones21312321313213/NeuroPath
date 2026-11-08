@@ -86,11 +86,26 @@ button.sidebar-header {
 .sidebar-brand {
   display: flex;
   align-items: center;
+  gap: 10px;
   overflow: hidden;
+}
+
+.sidebar-brand-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .sidebar-brand.collapsed {
   justify-content: center;
+}
+
+.sidebar-brand-logo-collapsed {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .sidebar-brand-abbr {

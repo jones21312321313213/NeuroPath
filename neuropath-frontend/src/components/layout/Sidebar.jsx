@@ -170,6 +170,11 @@ export default function Sidebar({
         >
           {!collapsed ? (
             <div className="sidebar-brand">
+              <img
+                src="/logo.png"
+                alt="NeuroPath Logo"
+                className="sidebar-brand-logo"
+              />
               <div className="sidebar-brand-info">
                 <span className="sidebar-brand-name">NeuroPath</span>
                 <span className="sidebar-brand-tag">Special Ed Workspace</span>
@@ -177,7 +182,11 @@ export default function Sidebar({
             </div>
           ) : (
             <div className="sidebar-brand collapsed">
-              <span className="sidebar-brand-abbr">NP</span>
+              <img
+                src="/logo.png"
+                alt="NeuroPath Logo"
+                className="sidebar-brand-logo-collapsed"
+              />
             </div>
           )}
         </button>
