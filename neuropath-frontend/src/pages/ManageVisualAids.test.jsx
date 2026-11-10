@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import ManageVisualAids from "./ManageVisualAids";
@@ -521,6 +521,62 @@ describe("ManageVisualAids - Issue #217 Sequential 3-Step Task Analysis Visual A
     await waitFor(() => {
       expect(screen.queryByRole("heading", { name: /unsaved visual aid/i })).not.toBeInTheDocument();
       expect(screen.queryByText(/Review Generated Draft/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it("opens image in full-screen lightbox modal when clicked and closes with close button and Escape key", async () => {
+    const { container } = renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText("Leo Miller")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Leo Miller"));
+    await waitFor(() => {
+      expect(screen.getByText("Handwashing Routine")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Handwashing Routine"));
+    fireEvent.click(screen.getByRole("button", { name: /generate visual aid/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Review Generated Draft/i)).toBeInTheDocument();
+    });
+
+    // Step 1 card image wrap should be clickable
+    const step1Wrap = screen.getByRole("button", { name: /view step 1 image full screen/i });
+    expect(step1Wrap).toBeInTheDocument();
+    fireEvent.click(step1Wrap);
+
+    // Lightbox modal should open
+    await waitFor(() => {
+      const modal = screen.getByRole("dialog", { name: /full-screen visual aid preview/i });
+      expect(modal).toBeInTheDocument();
+      expect(within(modal).getByRole("heading", { name: "Turn on Water & Apply Soap" })).toBeInTheDocument();
+      expect(container.querySelector(".va-lightbox-caption")).toHaveTextContent("Wet hands and pump soap onto palms.");
+      const lightboxImg = container.querySelector(".va-lightbox-image");
+      expect(lightboxImg).toHaveAttribute("src", "data:image/jpeg;base64,mockstep1image");
+    });
+
+    // Close with close button
+    const closeBtn = screen.getByRole("button", { name: /close full-screen image preview/i });
+    fireEvent.click(closeBtn);
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: /full-screen visual aid preview/i })).not.toBeInTheDocument();
+    });
+
+    // Re-open with Step 2 and test Escape key
+    const step2Wrap = screen.getByRole("button", { name: /view step 2 image full screen/i });
+    fireEvent.click(step2Wrap);
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog", { name: /full-screen visual aid preview/i })).toBeInTheDocument();
+    });
+
+    // Press Escape
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: /full-screen visual aid preview/i })).not.toBeInTheDocument();
     });
   });
 });

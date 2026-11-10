@@ -217,7 +217,9 @@ export default function LandingPage({ onGetStarted }) {
           ${scrolled ? "px-2" : "max-w-7xl px-4 sm:px-6 lg:px-8"}`}
         >
           <div className="flex items-center gap-2.5 select-none">
-            <img src="/logo.png" alt="NeuroPath Logo" className="w-8 h-8 object-contain" />
+            <div className="w-9 h-9 rounded-full bg-white border-2 border-blue-500 flex items-center justify-center p-1 shadow-sm overflow-hidden flex-shrink-0">
+              <img src="/logo-removebg-preview.png" alt="NeuroPath Logo" className="w-full h-full object-contain" />
+            </div>
             <span className="text-xl font-bold tracking-tight text-[#1a6fa8]">
               NeuroPath
             </span>
@@ -744,8 +746,10 @@ export default function LandingPage({ onGetStarted }) {
         }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 opacity-90">
-            <img src="/logo.png" alt="NeuroPath Logo" className="w-6 h-6 object-contain" />
+          <div className="flex items-center gap-2.5 opacity-90">
+            <div className="w-8 h-8 rounded-full bg-white border-2 border-blue-500 flex items-center justify-center p-1 shadow-sm overflow-hidden flex-shrink-0">
+              <img src="/logo-removebg-preview.png" alt="NeuroPath Logo" className="w-full h-full object-contain" />
+            </div>
             <span
               className="text-md font-bold tracking-tight"
               style={{ color: "#1a6fa8" }}

@@ -11,6 +11,7 @@ from .views import (
     ExportLessonPlanAPIView,
     VisualAidViewSet,
     GenerateVisualAidAPIView,
+    GenerateVisualAidStepAPIView,
     ExportVisualAidAPIView,
     TeachingStrategyViewSet,
     TeachingStrategyGenerationController,
@@ -53,6 +54,7 @@ urlpatterns = [
     
     # Generate Visual Aid Workflow (Module 3.2.1)
     path('generate-visual-aid/', GenerateVisualAidAPIView.as_view(), name='generate-visual-aid'),
+    path('generate-visual-aid-step/', GenerateVisualAidStepAPIView.as_view(), name='generate-visual-aid-step'),
     
     # Export Visual Aid Workflow (Module 3.2.1)
     path('export-visual-aid/<int:pk>/', ExportVisualAidAPIView.as_view(), name='export-visual-aid'),
