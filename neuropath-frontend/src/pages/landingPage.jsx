@@ -42,6 +42,11 @@ const RELEASE_NOTES = [
         tagColor: "bg-blue-100 text-blue-800 border-blue-200",
         text: "Streamlined View IEP actions (inline Edit/Delete IEP, Archive Version beside date), 10-second AI regenerate cooldown, and clearer login rate-limit messaging.",
       },
+      {
+        tag: "New Feature",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
+        text: "Sequential Task Analysis Visual Aids with multi-call AI image generation, dedicated step illustrations, and full-screen preview lightbox.",
+      },
     ],
   },
   {
