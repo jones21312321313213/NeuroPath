@@ -111,9 +111,9 @@ export default function LoginPage({
         }}
         aria-label="Back to landing page"
         title="Back to landing page"
-        className="fixed top-4 left-4 z-50 flex items-center justify-center w-11 h-11 rounded-full bg-white/95 hover:bg-white p-2 shadow-md border border-[#82C7FF]/60 transition-all hover:scale-105"
+        className="fixed top-4 left-4 z-50 flex items-center justify-center w-11 h-11 rounded-full bg-white shadow-md border-2 border-blue-500 p-2 transition-all hover:scale-105"
       >
-        <img src="/logo.png" alt="NeuroPath Logo" className="w-full h-full object-contain" />
+        <img src="/logo-removebg-preview.png" alt="NeuroPath Logo" className="w-full h-full object-contain" />
       </a>
       {/* LEFT VISUAL SIDEBAR */}
       <div
@@ -148,7 +148,9 @@ export default function LoginPage({
         >
           {/* Logo inside card */}
           <div className="flex items-center gap-2.5 select-none mb-6">
-            <img src="/logo.png" alt="NeuroPath Logo" className="w-7 h-7 object-contain" />
+            <div className="w-8 h-8 rounded-full bg-white border-2 border-blue-500 flex items-center justify-center p-1 shadow-sm overflow-hidden flex-shrink-0">
+              <img src="/logo-removebg-preview.png" alt="NeuroPath Logo" className="w-full h-full object-contain" />
+            </div>
             <span className="text-xl font-bold tracking-tight text-white">
               NeuroPath
             </span>

@@ -268,6 +268,11 @@ export const visualAidsAPI = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  generateStep: (payload) =>
+    request("/resources/generate-visual-aid-step/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   create: (payload) =>
     request("/resources/visual-aids/", {
       method: "POST",

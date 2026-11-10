@@ -265,6 +265,7 @@ REST_FRAMEWORK = {
 }
 
 # AI SERVICES CONFIGURATION
+POLLINATIONS_API_KEY = env('POLLINATIONS_API_KEY', default='')
 HF_TOKEN = env('HF_TOKEN', default='MISSING_TOKEN')
 HF_IMAGE_MODEL = env('HF_IMAGE_MODEL', default='black-forest-labs/FLUX.1-schnell')
 GROQ_API_KEY = env('GROQ_API_KEY', default='MISSING_KEY')
