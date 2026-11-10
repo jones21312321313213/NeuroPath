@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Modal from "./Modal";
 import { iepAPI } from "../../api/client";
-import { CheckIcon, TargetIcon, SparklesIcon, CalendarIcon } from "./icons";
+import { CheckIcon, TargetIcon, SparklesIcon } from "./icons";
 
 /**
  * Parse an objective row item safely, unpacking any JSON strings or DB row objects.
@@ -92,12 +92,11 @@ export default function IepVersionDetailsModal({
 
   useEffect(() => {
     if (!isOpen || !iep?.iepID) {
-      setGoals([]);
-      setError("");
       return;
     }
 
     let isCancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingGoals(true);
     setError("");
 

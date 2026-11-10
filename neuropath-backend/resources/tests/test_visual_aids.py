@@ -299,6 +299,26 @@ class VisualAidSequentialTaskAnalysisTests(TestCase):
         stitched = VisualAidGeneratorService.stitch_three_panels(steps)
         self.assertTrue(stitched.startswith("data:image/jpeg;base64,"))
 
+    # ── Unit Test 6d: Generate Single Step API View ─────────────────────────
+    @patch('resources.views.VisualAidGeneratorService.fetch_image')
+    def test_generate_visual_aid_step_api_view(self, mock_fetch):
+        mock_fetch.return_value = "https://image.pollinations.ai/prompt/step1-clean"
+        self._auth(self.token1)
+        response = self.client.post('/api/resources/generate-visual-aid-step/', {
+            "step": {
+                "step": 1,
+                "title": "Turn on Water",
+                "description": "Turn on the tap",
+                "visual_cue": "Hands under running faucet"
+            },
+            "category": "Hygiene",
+            "prompt": "Clean background"
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data.get("status"), "success")
+        self.assertEqual(response.data.get("imageUrl"), "https://image.pollinations.ai/prompt/step1-clean")
+        self.assertEqual(response.data.get("step"), 1)
+
     # ── Unit Test 7: PATCH VisualAid to edit step captions ────────────────────
     def test_patch_visual_aid_editable_captions(self):
         aid = VisualAid.objects.create(

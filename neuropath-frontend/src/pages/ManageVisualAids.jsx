@@ -28,7 +28,7 @@ import {
   ChevronUpIcon,
   StarIcon,
   BookOpenIcon,
-  TargetIcon,
+  ArrowsPointingOutIcon,
 } from "../components/ui/icons";
 
 const DAILY_LIVING_PRESETS = [
@@ -180,6 +180,7 @@ function AidRowList({
   actionClass = "va-btn va-btn-primary",
   showDownload = false,
   onDownloadPdf,
+  onPreviewImage,
 }) {
   const { toast } = useToast();
   const [downloadingId, setDownloadingId] = useState(null);
@@ -215,7 +216,20 @@ function AidRowList({
       {aids.map((aid) => (
         <div key={aid.visualAidID} className="va-aid-row">
           {aid.imageUrl && (
-            <div className="va-aid-row-thumb">
+            <div
+              className="va-aid-row-thumb cursor-zoom-in"
+              role="button"
+              tabIndex={0}
+              title="Click to view image full screen"
+              aria-label={`View full screen image for ${aid.title}`}
+              onClick={() => onPreviewImage && onPreviewImage(aid)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onPreviewImage && onPreviewImage(aid);
+                }
+              }}
+            >
               <img
                 src={aid.imageUrl}
                 alt={aid.title}
@@ -260,6 +274,74 @@ function AidRowList({
   );
 }
 
+// ── Image Lightbox Modal (Click-to-Fullscreen) ──────────────────────────────
+function ImageLightboxModal({ isOpen, onClose, imageSrc, title, caption, stepNumber }) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isOpen || !imageSrc) return null;
+
+  return (
+    <div
+      className="va-lightbox-backdrop"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Full-screen visual aid preview"
+    >
+      <div className="va-lightbox-container" onClick={(e) => e.stopPropagation()}>
+        {/* Lightbox Header Bar */}
+        <div className="va-lightbox-header">
+          <div className="va-lightbox-header-info">
+            {stepNumber && (
+              <span className="va-lightbox-step-badge">
+                Step {stepNumber}
+              </span>
+            )}
+            <h3 className="va-lightbox-title">{title || "Visual Aid Preview"}</h3>
+          </div>
+          <div className="va-lightbox-header-actions">
+            <button
+              type="button"
+              className="va-lightbox-close-btn"
+              onClick={onClose}
+              aria-label="Close full-screen image preview"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        {/* Lightbox Image Body */}
+        <div className="va-lightbox-body">
+          <img
+            src={imageSrc}
+            alt={title || "Full-screen visual aid"}
+            className="va-lightbox-image"
+          />
+        </div>
+
+        {/* Caption / Pedagogical Instruction Footer */}
+        {caption && (
+          <div className="va-lightbox-footer">
+            <p className="va-lightbox-caption">
+              <strong>Learner Instruction:</strong> {caption}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Sequential Sequence Viewer (Bundle 5: Issue #217) ────────────────────────
 function SequentialSequenceViewer({
   aid,
@@ -275,6 +357,7 @@ function SequentialSequenceViewer({
   const [speakingStep, setSpeakingStep] = useState(null);
   const [saving, setSaving] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [lightboxData, setLightboxData] = useState(null);
 
   const handleDownloadPdf = async () => {
     if (downloadingPdf || !aid?.visualAidID) return;
@@ -417,6 +500,35 @@ function SequentialSequenceViewer({
         })}
       </div>
 
+      {/* Optional Full Strip Overview Banner */}
+      {aid?.imageUrl && (
+        <div className="va-strip-overview-bar va-no-print">
+          <div className="va-strip-overview-info">
+            <PhotoIcon className="w-4 h-4 text-blue-600" aria-hidden="true" />
+            <span className="text-xs font-semibold text-slate-700">
+              Task Analysis Strip Overview:
+            </span>
+            <span className="text-xs text-slate-500">
+              {aid.title || "Full 3-Step Sequence"}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="va-btn va-btn-ghost text-xs py-1 px-2.5 flex items-center gap-1"
+            onClick={() =>
+              setLightboxData({
+                src: aid.imageUrl,
+                title: aid.title || "Full Visual Aid Strip",
+                caption: aid.prompt_used || "Task Analysis Visual Aid Sequence Strip",
+              })
+            }
+          >
+            <ArrowsPointingOutIcon className="w-3.5 h-3.5 text-slate-600" aria-hidden="true" />
+            <span>Expand Full Strip</span>
+          </button>
+        </div>
+      )}
+
       {/* 3-Step Cards Grid with Dedicated Images, Editable Captions & Audio Narration */}
       <div className="va-step-cards-grid">
         {steps.map((s, idx) => {
@@ -449,7 +561,33 @@ function SequentialSequenceViewer({
               </div>
 
               {(s.imageUrl || aid.imageUrl) && (
-                <div className="va-step-card-img-wrap">
+                <div
+                  className="va-step-card-img-wrap cursor-zoom-in"
+                  role="button"
+                  tabIndex={0}
+                  title="Click to view image full screen"
+                  aria-label={`View Step ${stepNum} image full screen`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxData({
+                      src: s.imageUrl || aid.imageUrl,
+                      title: s.title || `Step ${stepNum}`,
+                      caption: s.description,
+                      stepNumber: stepNum,
+                    });
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setLightboxData({
+                        src: s.imageUrl || aid.imageUrl,
+                        title: s.title || `Step ${stepNum}`,
+                        caption: s.description,
+                        stepNumber: stepNum,
+                      });
+                    }
+                  }}
+                >
                   <img
                     src={s.imageUrl || aid.imageUrl}
                     alt={s.title || `Step ${stepNum}`}
@@ -458,6 +596,10 @@ function SequentialSequenceViewer({
                       e.target.style.display = "none";
                     }}
                   />
+                  <div className="va-step-img-overlay">
+                    <ArrowsPointingOutIcon className="w-4 h-4 text-white" aria-hidden="true" />
+                    <span>View Full Screen</span>
+                  </div>
                 </div>
               )}
 
@@ -570,6 +712,16 @@ function SequentialSequenceViewer({
           )}
         </div>
       </div>
+
+      {/* Fullscreen Lightbox Modal */}
+      <ImageLightboxModal
+        isOpen={Boolean(lightboxData)}
+        onClose={() => setLightboxData(null)}
+        imageSrc={lightboxData?.src}
+        title={lightboxData?.title}
+        caption={lightboxData?.caption}
+        stepNumber={lightboxData?.stepNumber}
+      />
     </div>
   );
 }
@@ -1200,6 +1352,7 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [inspectingAid, setInspectingAid] = useState(null);
+  const [lightboxData, setLightboxData] = useState(null);
 
   useEffect(() => {
     studentsAPI
@@ -1303,6 +1456,13 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
               onAction={(aid) => setInspectingAid(aid)}
               actionClass="va-btn va-btn-primary"
               showDownload={true}
+              onPreviewImage={(aid) =>
+                setLightboxData({
+                  src: aid.imageUrl,
+                  title: aid.title,
+                  caption: aid.prompt_used,
+                })
+              }
             />
           )}
         </div>
@@ -1350,6 +1510,15 @@ function ViewTab({ setActivePage, onGoToGenerate }) {
           </div>
         </div>
       )}
+
+      {/* Fullscreen Lightbox Modal for View Tab */}
+      <ImageLightboxModal
+        isOpen={Boolean(lightboxData)}
+        onClose={() => setLightboxData(null)}
+        imageSrc={lightboxData?.src}
+        title={lightboxData?.title}
+        caption={lightboxData?.caption}
+      />
     </div>
   );
 }
