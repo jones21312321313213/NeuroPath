@@ -134,6 +134,7 @@ function FeatureCard({ feature, index }) {
 
 export default function LandingPage({ onGetStarted }) {
   const [scrolled, setScrolled] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [showVersionPopup, setShowVersionPopup] = useState(true);
   const [isPopupHovered, setIsPopupHovered] = useState(false);
@@ -230,9 +231,10 @@ export default function LandingPage({ onGetStarted }) {
             </span>
           </div>
 
-          <div className="flex items-center gap-4 sm:gap-6">
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center gap-6">
             <a
-              href="features"
+              href="#features"
               onClick={(e) => {
                 e.preventDefault();
                 document
@@ -244,7 +246,7 @@ export default function LandingPage({ onGetStarted }) {
               Features
             </a>
             <a
-              href="about"
+              href="#about"
               onClick={(e) => {
                 e.preventDefault();
                 document
@@ -263,7 +265,7 @@ export default function LandingPage({ onGetStarted }) {
               Release Notes
             </button>
             <button
-              href="signin"
+              type="button"
               onClick={handleNavigateLogin}
               className={`text-sm font-semibold transition-all active:scale-95 text-[#1a6fa8] border-[1.5px] border-[#82C7FF] bg-white shadow-[0_1px_4px_rgba(130,199,255,0.2)] hover:bg-[#e8f5ff] hover:border-[#2589c7]
                 ${scrolled ? "px-3.5 py-1.5 rounded-full text-xs" : "px-4 py-2 rounded-xl"}`}
@@ -271,8 +273,110 @@ export default function LandingPage({ onGetStarted }) {
               Sign In
             </button>
           </div>
+
+          {/* Mobile Hamburger Toggle */}
+          <div className="flex md:hidden items-center gap-2">
+            <button
+              type="button"
+              onClick={handleNavigateLogin}
+              className="text-xs font-semibold px-3 py-1.5 rounded-full text-[#1a6fa8] border border-[#82C7FF] bg-white shadow-2xs hover:bg-[#e8f5ff] transition-all cursor-pointer"
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+              aria-label={isMobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={isMobileMenuOpen}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-[#1a6fa8] bg-white/90 border border-[#82C7FF]/50 hover:bg-[#e8f5ff] shadow-2xs cursor-pointer transition-colors"
+              data-testid="mobile-menu-toggle-btn"
+            >
+              <i className={`ti ${isMobileMenuOpen ? "ti-x" : "ti-menu-2"} text-lg`} aria-hidden="true" />
+            </button>
+          </div>
         </div>
+
+        {/* Mobile Navigation Dropdown Drawer */}
+        {isMobileMenuOpen && (
+          <div
+            className="md:hidden absolute top-full left-0 right-0 px-4 pt-2 pb-4 pointer-events-auto"
+            data-testid="mobile-menu-drawer"
+          >
+            <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-[#82C7FF]/40 shadow-xl p-3.5 flex flex-col gap-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
+              <a
+                href="#features"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIsMobileMenuOpen(false);
+                  document
+                    .getElementById("features")
+                    ?.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-semibold text-[#1a3a4a] hover:bg-[#f0f8ff] hover:text-[#1a6fa8] transition-colors"
+              >
+                <i className="ti ti-layout-grid text-base text-[#1a6fa8]" aria-hidden="true" />
+                <span>Features</span>
+              </a>
+              <a
+                href="#about"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIsMobileMenuOpen(false);
+                  document
+                    .getElementById("about")
+                    ?.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-semibold text-[#1a3a4a] hover:bg-[#f0f8ff] hover:text-[#1a6fa8] transition-colors"
+              >
+                <i className="ti ti-info-circle text-base text-[#1a6fa8]" aria-hidden="true" />
+                <span>About</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setShowChangelog(true);
+                }}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-semibold text-[#1a3a4a] hover:bg-[#f0f8ff] hover:text-[#1a6fa8] transition-colors text-left cursor-pointer"
+              >
+                <i className="ti ti-notes text-base text-[#1a6fa8]" aria-hidden="true" />
+                <span>Release Notes</span>
+              </button>
+              <div className="pt-2 mt-1 border-t border-slate-100 flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    handleNavigateLogin();
+                  }}
+                  className="w-full text-center py-2 px-4 rounded-xl text-xs font-bold text-[#1a6fa8] border border-[#82C7FF] bg-[#f0f8ff] hover:bg-[#e8f5ff] transition-all cursor-pointer"
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    handleNavigateRegister();
+                  }}
+                  className="w-full text-center py-2 px-4 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#2589c7] to-[#82C7FF] shadow-xs hover:opacity-95 transition-all cursor-pointer"
+                >
+                  Create Free Account
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </nav>
+
+      {/* Backdrop for mobile drawer */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-2xs md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
 
       {/* TOP-RIGHT 5-SECOND VERSION POPUP (STAYS OPEN WHILE HOVERED) */}
       {showVersionPopup && (
@@ -331,7 +435,7 @@ export default function LandingPage({ onGetStarted }) {
       {/* HERO */}
       <section
         ref={heroRef}
-        className="relative pt-32 pb-20 lg:pt-40 lg:pb-28 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center"
+        className="relative pt-24 pb-14 sm:pt-32 sm:pb-20 lg:pt-40 lg:pb-28 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-12 lg:gap-8 items-center"
       >
         {/* Background blobs */}
         <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
@@ -353,7 +457,7 @@ export default function LandingPage({ onGetStarted }) {
         {/* Hero left */}
         <div className="lg:col-span-7 flex flex-col items-start text-left">
           <div
-            className="fade-in-init opacity-0 translate-y-4 transition-all duration-700 ease-out inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-6"
+            className="fade-in-init opacity-0 translate-y-4 transition-all duration-700 ease-out inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-4 sm:mb-6"
             style={{
               background: "rgba(130,199,255,0.15)",
               border: "1px solid rgba(130,199,255,0.4)",
@@ -368,7 +472,7 @@ export default function LandingPage({ onGetStarted }) {
           </div>
 
           <h1
-            className="fade-in-init opacity-0 translate-y-4 transition-all duration-700 ease-out delay-75 text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.15] mb-6"
+            className="fade-in-init opacity-0 translate-y-4 transition-all duration-700 ease-out delay-75 text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight sm:leading-[1.15] mb-4 sm:mb-6"
             style={{ color: "#1a3a4a" }}
           >
             Every student
@@ -398,7 +502,7 @@ export default function LandingPage({ onGetStarted }) {
           </h1>
 
           <p
-            className="fade-in-init opacity-0 translate-y-4 transition-all duration-700 ease-out delay-150 text-base sm:text-lg max-w-xl leading-relaxed mb-8"
+            className="fade-in-init opacity-0 translate-y-4 transition-all duration-700 ease-out delay-150 text-sm sm:text-base lg:text-lg max-w-xl leading-relaxed mb-6 sm:mb-8"
             style={{ color: "#4a7a94" }}
           >
             NeuroPath empowers special education teachers to build, manage, and
@@ -409,7 +513,7 @@ export default function LandingPage({ onGetStarted }) {
           <div className="fade-in-init opacity-0 translate-y-4 transition-all duration-700 ease-out delay-200 flex items-center gap-4 w-full sm:w-auto">
             <button
               onClick={handleNavigateLogin}
-              className="group flex items-center justify-center gap-2 text-white font-semibold px-6 py-3.5 rounded-xl transition-all active:scale-[0.98] w-full sm:w-auto"
+              className="group flex items-center justify-center gap-2 text-white font-semibold px-6 py-3 sm:py-3.5 rounded-xl transition-all active:scale-[0.98] w-full sm:w-auto text-sm sm:text-base cursor-pointer"
               style={{
                 background: "linear-gradient(135deg, #2589c7 0%, #82C7FF 100%)",
                 boxShadow: "0 4px 16px rgba(130,199,255,0.45)",
@@ -467,7 +571,7 @@ export default function LandingPage({ onGetStarted }) {
               </span>
             </div>
 
-            <div className="p-4 sm:p-5 space-y-4">
+            <div className="p-3.5 sm:p-5 space-y-3 sm:space-y-4">
               {/* Student Header */}
               <div
                 className="flex items-center gap-3 p-3 rounded-xl transition-colors"
@@ -653,7 +757,7 @@ export default function LandingPage({ onGetStarted }) {
 
       {/* FEATURES */}
       <section
-        className="py-20 lg:py-28"
+        className="py-14 sm:py-20 lg:py-28"
         id="features"
         style={{
           background: "#fff",
@@ -662,7 +766,7 @@ export default function LandingPage({ onGetStarted }) {
         }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="fade-in-init opacity-0 translate-y-4 transition-all duration-700 ease-out max-w-2xl mx-auto text-center mb-16 lg:mb-20">
+          <div className="fade-in-init opacity-0 translate-y-4 transition-all duration-700 ease-out max-w-2xl mx-auto text-center mb-10 sm:mb-16 lg:mb-20">
             <span
               className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full"
               style={{ color: "#1a6fa8", background: "rgba(130,199,255,0.15)" }}
@@ -670,12 +774,12 @@ export default function LandingPage({ onGetStarted }) {
               Features
             </span>
             <h2
-              className="text-3xl sm:text-4xl font-bold tracking-tight mt-4 mb-4"
+              className="text-2xl sm:text-4xl font-bold tracking-tight mt-3 sm:mt-4 mb-3 sm:mb-4"
               style={{ color: "#1a3a4a" }}
             >
               Everything your IEP team needs
             </h2>
-            <p className="text-base sm:text-lg" style={{ color: "#4a7a94" }}>
+            <p className="text-sm sm:text-lg" style={{ color: "#4a7a94" }}>
               One platform to write, manage, track, and report — built
               specifically for special education.
             </p>
@@ -691,11 +795,11 @@ export default function LandingPage({ onGetStarted }) {
 
       {/* CTA */}
       <section
-        className="py-20 lg:py-28 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+        className="py-14 sm:py-20 lg:py-28 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
         id="about"
       >
         <div
-          className="fade-in-init opacity-0 translate-y-4 transition-all duration-1000 ease-out relative text-white rounded-3xl p-8 sm:p-12 lg:p-16 text-center overflow-hidden shadow-2xl"
+          className="fade-in-init opacity-0 translate-y-4 transition-all duration-1000 ease-out relative text-white rounded-3xl p-6 sm:p-12 lg:p-16 text-center overflow-hidden shadow-2xl"
           style={{
             background:
               "linear-gradient(135deg, #5aabf0 0%, #3d9de8 50%, #1e6fbf 100%)",
@@ -711,11 +815,11 @@ export default function LandingPage({ onGetStarted }) {
           />
 
           <div className="relative z-10 max-w-2xl mx-auto flex flex-col items-center">
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-4">
+            <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-3 sm:mb-4">
               Start building better IEPs today.
             </h2>
             <p
-              className="text-sm sm:text-base max-w-md mb-8 leading-relaxed"
+              className="text-xs sm:text-base max-w-md mb-6 sm:mb-8 leading-relaxed"
               style={{ color: "rgba(255,255,255,0.8)" }}
             >
               Built for special education teachers who believe every student

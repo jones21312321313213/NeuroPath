@@ -202,6 +202,13 @@ class IEPGenerationAPIView(APIView):
                                         defaults={'performanceScore': 40}
                                     )
 
+                            # Auto-populate DepEd Order No. 44, s. 2021 milestone schedules
+                            try:
+                                from tracking.scheduling_service import create_iep_milestone_events
+                                create_iep_milestone_events(iep_instance=iep_instance, teacher=teacher)
+                            except Exception as sched_err:
+                                logger.warning("Failed to auto-schedule milestone events for IEP %s: %s", getattr(iep_instance, 'pk', None), sched_err)
+
                             return Response({
                                 'message': 'IEP Created Successfully.',
                                 'data': IEPListDetailSerializer(iep_instance).data,
@@ -307,6 +314,13 @@ class IEPEditAPIView(generics.UpdateAPIView):
                     existing_prefs['difficultyMarkers'] = updated_markers
                     student.preferences = json.dumps(existing_prefs)
                     student.save(update_fields=['profileDetails', 'preferences'])
+
+            if iep.is_archived:
+                try:
+                    from tracking.models import ScheduleEvent, ScheduleEventStatus
+                    ScheduleEvent.objects.filter(iep=iep, status=ScheduleEventStatus.PENDING).update(status=ScheduleEventStatus.DISMISSED)
+                except Exception:
+                    pass
 
 
 class IEPDeleteAPIView(generics.DestroyAPIView):

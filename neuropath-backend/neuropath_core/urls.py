@@ -34,6 +34,9 @@ urlpatterns = [
     # Module 4: Map the tracking application endpoints
     path('api/tracking/', include('tracking.urls')),
     
+    # Module 5: IEP Schedule & Progress Monitoring Calendar
+    path('api/schedule/', include('tracking.schedule_urls')),
+    
     # Optional: Built-in login screen for direct browser testing
     path('api-auth/', include('rest_framework.urls')),
 ]
