@@ -66,7 +66,7 @@ describe("Ra10173ConsentModal", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("calls onConfirm and onClose when 'I Have Read & Understood the Terms' is clicked", async () => {
+  it("calls onConfirm and onClose when terms are agreed and 'I Have Read & Understood the Terms' is clicked", async () => {
     const user = userEvent.setup();
     render(
       <Ra10173ConsentModal
@@ -80,7 +80,13 @@ describe("Ra10173ConsentModal", () => {
       name: /i have read & understood the terms/i,
     });
     expect(confirmBtn).toBeInTheDocument();
+    expect(confirmBtn).toBeDisabled();
 
+    const agreeCheckbox = screen.getByTestId("consent-terms-checkbox");
+    expect(agreeCheckbox).toBeInTheDocument();
+    await user.click(agreeCheckbox);
+
+    expect(confirmBtn).not.toBeDisabled();
     await user.click(confirmBtn);
     expect(handleConfirm).toHaveBeenCalledTimes(1);
     expect(handleClose).toHaveBeenCalledTimes(1);

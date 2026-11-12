@@ -51,6 +51,13 @@ const navItems = [
       { label: "View Progress Dashboard", path: "/dashboard/monitoring" },
     ],
   },
+  {
+    label: "Calendar & Schedules",
+    path: "/dashboard/schedule",
+    icon: "ti-calendar-event",
+    exact: true,
+    children: [],
+  },
 ];
 
 export default function Sidebar({
@@ -285,6 +292,9 @@ export default function Sidebar({
             className="sidebar-logout-btn"
             onClick={(e) => {
               e.stopPropagation();
+              if (onToggleCollapse && !collapsed && typeof window !== "undefined" && window.innerWidth <= 768) {
+                onToggleCollapse();
+              }
               setIsModalOpen(true);
             }}
             aria-label="Log Out"

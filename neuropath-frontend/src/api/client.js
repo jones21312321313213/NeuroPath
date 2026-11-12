@@ -608,3 +608,40 @@ export const resourcesAPI = {
   stats: () => request("/resources/dashboard-stats/"),
 };
 
+// ── Schedule & Calendar API (Module 5) ────────────────────────────────────────
+export const scheduleAPI = {
+  list: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([key, val]) => {
+      if (val !== undefined && val !== null && val !== "") {
+        qs.append(key, val);
+      }
+    });
+    const queryString = qs.toString();
+    return request(`/schedule/${queryString ? `?${queryString}` : ""}`);
+  },
+  getUpcoming: (days = 14) => request(`/schedule/upcoming/?days=${days}`),
+  create: (data) =>
+    request("/schedule/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (id, data) =>
+    request(`/schedule/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  complete: (id) =>
+    request(`/schedule/${id}/complete/`, {
+      method: "POST",
+    }),
+  reopen: (id) =>
+    request(`/schedule/${id}/reopen/`, {
+      method: "POST",
+    }),
+  delete: (id) =>
+    request(`/schedule/${id}/`, {
+      method: "DELETE",
+    }),
+};
+

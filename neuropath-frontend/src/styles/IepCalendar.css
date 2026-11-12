@@ -1,0 +1,64 @@
+/* ── IEP Schedule & Calendar Styling (Module 5) ───────────────────────── */
+.iep-calendar-container {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* Day cell transitions and touch optimizations */
+.calendar-cell {
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 110px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+  .calendar-cell {
+    min-height: 135px;
+  }
+}
+
+.calendar-month-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+/* Agenda card subtle hover and focus */
+.agenda-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.agenda-card:hover {
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .iep-calendar-container {
+    padding: 14px 12px;
+  }
+
+  /* Force minimum touch targets for buttons on mobile */
+  .iep-calendar-container button {
+    min-height: 40px;
+  }
+
+  .iep-calendar-container input[type="date"],
+  .iep-calendar-container input[type="time"],
+  .iep-calendar-container select {
+    min-height: 44px;
+    font-size: 14px; /* prevents iOS Safari zoom */
+  }
+}
+
+@media (max-width: 640px) {
+  .calendar-day-header {
+    font-size: 11px;
+    padding: 6px 2px;
+  }
+}

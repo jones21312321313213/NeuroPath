@@ -280,6 +280,10 @@ describe("UpdateStudentProfile Help Text & Difficulty Validation", () => {
       })
     ).toBeInTheDocument();
 
+    // Check agreement terms checkbox
+    const termsCheckbox = screen.getByTestId("consent-terms-checkbox");
+    fireEvent.click(termsCheckbox);
+
     // Confirm reading
     const confirmBtn = screen.getByRole("button", {
       name: /i have read & understood the terms/i,
