@@ -177,31 +177,18 @@ export function Ra10173ConsentModal({
                   Close
                 </Button>
               ) : (
-                <>
-                  <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-700 font-medium">
-                    <input
-                      type="checkbox"
-                      checked={isAgreed}
-                      onChange={(e) => setIsAgreed(e.target.checked)}
-                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
-                      data-testid="consent-terms-checkbox"
-                      aria-label="I agree to the terms of the RA 10173 Data Privacy Act"
-                    />
-                    <span>I have reviewed and agree to the statutory consent terms</span>
-                  </label>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    disabled={!isAgreed}
-                    onClick={handleConfirm}
-                    className="flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                    data-testid="consent-confirm-btn"
-                  >
-                    <CheckIcon className="w-4 h-4" aria-hidden="true" />
-                    I Have Read &amp; Understood the Terms
-                  </Button>
-                </>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  disabled={!isAgreed}
+                  onClick={handleConfirm}
+                  className="flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  data-testid="consent-confirm-btn"
+                >
+                  <CheckIcon className="w-4 h-4" aria-hidden="true" />
+                  I Have Read &amp; Understood the Terms
+                </Button>
               )}
             </div>
           </div>
@@ -356,6 +343,25 @@ export function Ra10173ConsentModal({
               <li><strong>Right to File a Complaint:</strong> Lodge formal inquiries or complaints with the National Privacy Commission (NPC) regarding any data handling concerns.</li>
             </ul>
           </section>
+
+          {/* Lower Consent Agreement Checkbox */}
+          {!readOnly && (
+            <div className="p-3.5 bg-blue-50/90 rounded-xl border border-blue-200 text-xs text-blue-950">
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={isAgreed}
+                  onChange={(e) => setIsAgreed(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer shrink-0"
+                  data-testid="consent-terms-checkbox"
+                  aria-label="I agree to the terms of the RA 10173 Data Privacy Act"
+                />
+                <span className="font-semibold leading-relaxed">
+                  I have read, reviewed, and agree to the statutory consent terms and safeguards under Republic Act No. 10173 (Data Privacy Act of 2012).
+                </span>
+              </label>
+            </div>
+          )}
 
           {/* Confirmation Sign-off notice */}
           <div className="p-3 bg-slate-100 rounded-lg text-xs text-slate-600 border border-slate-200">

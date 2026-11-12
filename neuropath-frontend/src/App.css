@@ -884,14 +884,14 @@ select option,
 
 /* ── Overview Hero Mini Calendar Grid ── */
 .overview-mini-cal-widget {
-  background: rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 14px;
-  padding: 10px 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-  width: 250px;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 32px rgba(2, 132, 199, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  width: 290px;
   max-width: 100%;
   box-sizing: border-box;
 }
@@ -900,64 +900,67 @@ select option,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
 .mini-cal-title-wrap {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 8px;
 }
 
 .mini-cal-month-title {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 800;
   color: #ffffff;
-  letter-spacing: 0.2px;
+  letter-spacing: -0.01em;
 }
 
 .mini-cal-time-sub {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.88);
   font-weight: 600;
 }
 
 .mini-cal-schedule-link {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 10.5px;
+  gap: 5px;
+  font-size: 11px;
   font-weight: 700;
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  padding: 2.5px 8px;
-  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  padding: 3.5px 10px;
+  border-radius: 999px;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
 }
 
 .mini-cal-schedule-link:hover {
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.38);
   transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .mini-cal-weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   text-align: center;
-  font-size: 9.5px;
+  font-size: 10.5px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.75);
-  margin-bottom: 3px;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 4px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .mini-cal-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
+  gap: 3px;
 }
 
 .mini-cal-cell {
@@ -966,20 +969,21 @@ select option,
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 23px;
-  font-size: 11px;
-  font-weight: 500;
+  height: 26px;
+  font-size: 11.5px;
+  font-weight: 600;
   color: rgba(255, 255, 255, 0.95);
   background: transparent;
   border: none;
-  border-radius: 5px;
+  border-radius: 6px;
   cursor: pointer;
   padding: 0;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, transform 0.1s ease;
 }
 
 .mini-cal-cell:hover:not(.empty) {
   background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.08);
 }
 
 .mini-cal-cell.empty {
@@ -991,7 +995,7 @@ select option,
   background: #ffffff;
   color: #0284c7;
   font-weight: 800;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
 }
 
 .mini-cal-cell.today:hover {
@@ -1005,14 +1009,16 @@ select option,
 .mini-cal-event-dot {
   position: absolute;
   bottom: 2px;
-  width: 4px;
-  height: 4px;
+  width: 4.5px;
+  height: 4.5px;
   border-radius: 50%;
   background: #38bdf8;
+  box-shadow: 0 0 4px rgba(56, 189, 248, 0.6);
 }
 
 .mini-cal-cell.today .mini-cal-event-dot {
   background: #0284c7;
+  box-shadow: none;
 }
 
 .overview-mini-calendar-card {
@@ -1941,6 +1947,12 @@ select option,
     width: 100%;
     max-width: 100%;
     justify-content: flex-start;
+    padding: 10px 12px;
+  }
+
+  .overview-mini-cal-widget .mini-cal-cell {
+    height: 24px;
+    font-size: 11px;
   }
 
   .hero-time-text {

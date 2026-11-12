@@ -131,66 +131,115 @@ function normalizeGoal(goal) {
 }
 
 function GoalTable({ rows = [] }) {
+  const [isFullscreen, setIsFullscreen] = useState(false);
   if (!rows.length) return null;
+
+  const renderTable = () => (
+    <table className="vsr-table vsr-goal-table">
+      <thead>
+        <tr>
+          <th rowSpan={2} className="iep-col-objective">Enroute Objectives / Procedure</th>
+          <th colSpan={3} className="vsr-th-grouped iep-col-quarter-group">Quarterly Milestone Progression (3 Months)</th>
+          <th rowSpan={2} className="iep-col-interventions">Interventions / Activities / Procedure</th>
+          <th rowSpan={2} className="iep-col-timeline">Timeline / Session</th>
+          <th rowSpan={2} className="iep-col-responsible">Individuals Responsible</th>
+          <th rowSpan={2} className="iep-col-evaluation">Progress / Instructional Evaluation</th>
+          <th rowSpan={2} className="iep-col-remarks">Remarks</th>
+        </tr>
+        <tr>
+          <th className="vsr-th-sub iep-col-month">Month 1 Milestone (1st Month)</th>
+          <th className="vsr-th-sub iep-col-month">Month 2 Milestone (2nd Month)</th>
+          <th className="vsr-th-sub iep-col-month">Month 3 Milestone (3rd Month)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.id}>
+            <td className="iep-col-objective">
+              {row.objective || "—"}
+            </td>
+            <td className="iep-col-month">
+              {row.month1 || row.month_1_target || "—"}
+            </td>
+            <td className="iep-col-month">
+              {row.month2 || row.month_2_target || "—"}
+            </td>
+            <td className="iep-col-month">
+              {row.month3 || row.month_3_target || "—"}
+            </td>
+            <td className="iep-col-interventions">
+              {row.interventions || "—"}
+            </td>
+            <td className="iep-col-timeline">
+              {row.timeline || "—"}
+            </td>
+            <td className="iep-col-responsible">
+              {row.responsible || "—"}
+            </td>
+            <td className="iep-col-evaluation">
+              {row.evaluation || "—"}
+            </td>
+            <td className="iep-col-remarks">
+              {row.remarks || "—"}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
   return (
-    <div className="vsr-table-scroll">
-      <div className="iep-scroll-hint">
-        <span className="iep-scroll-hint-pill">
-          ↔ Scroll horizontally for full 3-month milestones &amp; details
-        </span>
+    <>
+      <div className="vsr-table-scroll">
+        <div className="iep-scroll-hint flex items-center justify-between gap-2">
+          <span className="iep-scroll-hint-pill">
+            ↔ Scroll horizontally for full 3-month milestones &amp; details
+          </span>
+          <button
+            type="button"
+            className="vsr-fullscreen-btn inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 transition-colors cursor-pointer"
+            onClick={() => setIsFullscreen(true)}
+            aria-label="View Section C table in fullscreen mode"
+          >
+            <i className="ti ti-maximize" aria-hidden="true" />
+            <span>Fullscreen View</span>
+          </button>
+        </div>
+        {renderTable()}
       </div>
-      <table className="vsr-table vsr-goal-table">
-        <thead>
-          <tr>
-            <th rowSpan={2} className="vsr-sticky-col iep-col-objective">Enroute Objectives / Procedure</th>
-            <th colSpan={3} className="vsr-th-grouped iep-col-quarter-group">Quarterly Milestone Progression (3 Months)</th>
-            <th rowSpan={2} className="iep-col-interventions">Interventions / Activities / Procedure</th>
-            <th rowSpan={2} className="iep-col-timeline">Timeline / Session</th>
-            <th rowSpan={2} className="iep-col-responsible">Individuals Responsible</th>
-            <th rowSpan={2} className="iep-col-evaluation">Progress / Instructional Evaluation</th>
-            <th rowSpan={2} className="iep-col-remarks">Remarks</th>
-          </tr>
-          <tr>
-            <th className="vsr-th-sub iep-col-month">Month 1 Milestone (1st Month)</th>
-            <th className="vsr-th-sub iep-col-month">Month 2 Milestone (2nd Month)</th>
-            <th className="vsr-th-sub iep-col-month">Month 3 Milestone (3rd Month)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id}>
-              <td className="vsr-sticky-col iep-col-objective">
-                {row.objective || "—"}
-              </td>
-              <td className="iep-col-month">
-                {row.month1 || row.month_1_target || "—"}
-              </td>
-              <td className="iep-col-month">
-                {row.month2 || row.month_2_target || "—"}
-              </td>
-              <td className="iep-col-month">
-                {row.month3 || row.month_3_target || "—"}
-              </td>
-              <td className="iep-col-interventions">
-                {row.interventions || "—"}
-              </td>
-              <td className="iep-col-timeline">
-                {row.timeline || "—"}
-              </td>
-              <td className="iep-col-responsible">
-                {row.responsible || "—"}
-              </td>
-              <td className="iep-col-evaluation">
-                {row.evaluation || "—"}
-              </td>
-              <td className="iep-col-remarks">
-                {row.remarks || "—"}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+
+      {isFullscreen && (
+        <div
+          className="fixed inset-0 z-[1050] bg-slate-900/80 backdrop-blur-sm flex flex-col p-2 sm:p-5 animate-fadeIn"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Section C Learner Goals Fullscreen View"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl flex-1 flex flex-col overflow-hidden border border-slate-200">
+            <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <i className="ti ti-table text-sky-400 text-lg" aria-hidden="true" />
+                <span className="font-bold text-sm tracking-wide">Section C: Learner's Goal — Fullscreen View</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFullscreen(false)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold cursor-pointer transition-colors"
+                aria-label="Exit fullscreen"
+              >
+                <i className="ti ti-x text-sm" aria-hidden="true" />
+                <span>Exit Fullscreen</span>
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-3 sm:p-5 bg-slate-50">
+              <div className="vsr-table-scroll bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                {renderTable()}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -229,14 +278,20 @@ function PageSectionA({ d, onNext, onBack }) {
     <div className="vsr-page">
       <h3 className="vsr-section-title">Section A: Personal Information</h3>
 
-      <div className="vsr-grid-2">
+      <div className="vsr-form-stack">
         <RecordField label="Student Name" value={d.name} />
-        <RecordField label="Age" value={d.age} />
-        <RecordField label="Grade Level" value={d.grade} />
-        <RecordField label="Gender" value={d.gender} />
-        <RecordField label="School" value={d.school} />
-        <RecordField label="School Year" value={d.schoolYear} />
-        <RecordField label="Birthdate" value={d.birthdate} />
+        <div className="vsr-grid-2-compact">
+          <RecordField label="Age" value={d.age} />
+          <RecordField label="Grade Level" value={d.grade} />
+        </div>
+        <div className="vsr-grid-2-compact">
+          <RecordField label="School Year" value={d.schoolYear} />
+          <RecordField label="Birthdate" value={d.birthdate} />
+        </div>
+        <div className="vsr-grid-2-compact">
+          <RecordField label="Gender" value={d.gender} />
+          <RecordField label="School" value={d.school} />
+        </div>
         <RecordField label="Diagnosis" value={d.disabilityCategory} />
       </div>
 
