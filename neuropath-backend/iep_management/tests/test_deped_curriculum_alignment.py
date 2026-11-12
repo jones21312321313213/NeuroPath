@@ -71,3 +71,129 @@ class DepEdCurriculumCatalogUnitTests(SimpleTestCase):
             self.assertIn("-NG-", block)
             defaults = get_default_competencies_for_area(area, count=3)
             self.assertEqual(len(defaults), 3)
+
+
+import json
+from unittest.mock import patch
+from django.test import TestCase
+from django.contrib.auth.models import User
+from rest_framework.test import APIClient
+from users.models import Teacher, StudentProfile
+from iep_management.models import IEPModel, IEPGoal
+from iep_management.views import GenerateIEPGoalsFromIEPView
+
+
+class DepEdObjectiveGenerationAndFallbackTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="sped_deped@test.com",
+            email="sped_deped@test.com",
+            password="Password123!",
+        )
+        self.teacher = Teacher.objects.create(
+            name="Teacher DepEd",
+            email="sped_deped@test.com",
+            passwordHash="hash",
+        )
+        self.student = StudentProfile.objects.create(
+            name="Mateo Cruz",
+            age=9,
+            grade=3,
+            teacher=self.teacher,
+            diagnosis="Autism Spectrum Disorder",
+            support_needs="Visual counters and structured routine",
+            parental_consent_obtained=True,
+            guardian_name="Elena Cruz",
+            consent_date="2026-10-01",
+        )
+        self.iep = IEPModel.objects.create(
+            studentID=self.student,
+            version=1,
+            accommodations="Visual number line, tactile counters",
+            difficulties="Difficulty in counting and recognizing numbers",
+            learning_barriers="Moderate barrier",
+            learning_facilitators="SPED Teacher, Parents/Guardians",
+        )
+        self.client.force_authenticate(user=self.user)
+
+    @patch("iep_management.ai_engine.AIEngineService.generate_text")
+    def test_step_b_system_prompt_includes_deped_catalog_and_normalizes_uncoded_llm_rows(self, mock_gen):
+        mock_gen.return_value = (
+            json.dumps([
+                {
+                    "enroute_objectives": "Recognizing numbers from 0-10 using tactile counters",
+                    "month_1_target": "Given tactile counters, recognize numbers 0-3 with 70% accuracy.",
+                    "month_2_target": "Given tactile counters, recognize numbers 0-6 with 75% accuracy.",
+                    "month_3_target": "Independently recognize numbers 0-10 with 80% accuracy.",
+                },
+                {
+                    "enroute_objectives": "Performing single-digit addition with concrete objects\n(TP_FAKE-00)",
+                    "month_1_target": "Add sums up to 5 with 70% accuracy.",
+                    "month_2_target": "Add sums up to 8 with 75% accuracy.",
+                    "month_3_target": "Add sums up to 10 with 80% accuracy.",
+                },
+            ]),
+            "gemini",
+        )
+        view = GenerateIEPGoalsFromIEPView()
+        rows = view._generate_objective_rows(
+            student_name="Learner (Grade 3)",
+            difficulty="Difficulty in counting",
+            assistive_tech="Tactile counters",
+            annual_goal="Given tactile counters, the learner will count numbers 0-10 with 80% accuracy in 4 of 5 trials.",
+            facilitators="SPED Teacher",
+            goal_area="Mathematical Skills",
+        )
+        called_sys = mock_gen.call_args.kwargs.get("system_prompt", "")
+        self.assertIn("DepEd Order No. 021, s. 2020", called_sys)
+        self.assertIn("TP_MFP-nv-NG-1", called_sys)
+        self.assertNotIn("Mathematical Skills", called_sys)
+
+        self.assertEqual(len(rows), 2)
+        for row in rows:
+            code = extract_deped_code(row["enroute_objectives"])
+            self.assertIsNotNone(code)
+            self.assertTrue(row["enroute_objectives"].endswith(f"\n({code})"))
+            self.assertIn("based on learner's ability", row["timeline_mins_session"])
+
+    def test_build_safe_objective_rows_returns_coded_deped_rows_for_all_five_goal_areas(self):
+        view = GenerateIEPGoalsFromIEPView()
+        for area in CANONICAL_GOAL_AREAS:
+            rows = view._build_safe_objective_rows(
+                goal_area=area,
+                difficulty="Targeted skill need",
+                assistive_tech="Visual supports",
+                facilitators="SPED Teacher, Parents/Guardians",
+            )
+            self.assertEqual(len(rows), 3)
+            for row in rows:
+                code = extract_deped_code(row["enroute_objectives"])
+                self.assertIsNotNone(code, f"Missing valid DepEd code in safe fallback row for {area}")
+                self.assertIn("\n(", row["enroute_objectives"])
+
+    def test_custom_manual_goal_saved_via_api_preserves_teacher_free_text_without_ai_overwrite(self):
+        goal_payload = {
+            "iep": self.iep.pk,
+            "subject_category": "Custom Teacher Goal",
+            "goalName": "Custom Teacher Goal",
+            "annual_goal": "The learner will organize personal art supplies after class.",
+            "target_metric": "Teacher observation",
+            "objective_rows": [
+                {
+                    "enroute_objectives": "Place crayons inside the labeled pouch",
+                    "month_1_target": "With hand-over-hand prompt",
+                    "month_2_target": "With verbal reminder",
+                    "month_3_target": "Independently after art activity",
+                    "interventions_procedures": "Labeled storage bins",
+                    "timeline_mins_session": "10 mins daily",
+                    "individuals_responsible": "SPED Teacher",
+                    "progress_instructional": "Checklist",
+                    "remarks": "Custom manual entry",
+                }
+            ],
+        }
+        res = self.client.post("/api/iep/goals/", goal_payload, format="json")
+        self.assertEqual(res.status_code, 201)
+        saved_obj = res.json()["objective_rows"][0]["enroute_objectives"]
+        self.assertEqual(saved_obj, "Place crayons inside the labeled pouch")

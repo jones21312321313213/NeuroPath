@@ -136,7 +136,10 @@ class RGORIResilienceTestCase(TestCase):
             goal_area='Literacy Skills'
         )
         self.assertEqual(len(rows), 2)
-        self.assertEqual(rows[0]["enroute_objectives"], "Marcus will match 5 sight words with 80% accuracy.")
+        self.assertTrue(
+            rows[0]["enroute_objectives"].startswith("Marcus will match 5 sight words with 80% accuracy.")
+        )
+        self.assertIn("(TP_", rows[0]["enroute_objectives"])
 
     @patch('iep_management.ai_engine.AIEngineService.generate_text')
     def test_generate_objective_rows_unparsable_raises_error(self, mock_ai):
