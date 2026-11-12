@@ -85,4 +85,21 @@ describe("LandingPage Component", () => {
     });
     expect(screen.queryByRole("status", { name: /latest version release popup/i })).not.toBeInTheDocument();
   });
+
+  it("toggles mobile navigation drawer when hamburger button is clicked", () => {
+    render(
+      <MemoryRouter>
+        <LandingPage />
+      </MemoryRouter>
+    );
+
+    const toggleBtn = screen.getByTestId("mobile-menu-toggle-btn");
+    expect(screen.queryByTestId("mobile-menu-drawer")).not.toBeInTheDocument();
+
+    fireEvent.click(toggleBtn);
+    expect(screen.getByTestId("mobile-menu-drawer")).toBeInTheDocument();
+
+    fireEvent.click(toggleBtn);
+    expect(screen.queryByTestId("mobile-menu-drawer")).not.toBeInTheDocument();
+  });
 });

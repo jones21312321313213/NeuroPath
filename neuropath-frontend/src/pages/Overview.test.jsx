@@ -12,6 +12,7 @@ import {
   visualAidsAPI,
   resourcesAPI,
   trackingAPI,
+  scheduleAPI,
 } from "../api/client";
 
 const mockNavigate = vi.fn();
@@ -46,6 +47,10 @@ vi.mock("../api/client", () => ({
   trackingAPI: {
     getRecentActivity: vi.fn(),
   },
+  scheduleAPI: {
+    list: vi.fn(),
+    getUpcoming: vi.fn(),
+  },
 }));
 
 
@@ -76,6 +81,8 @@ describe("Overview - Getting Started 3-Step Path", () => {
       visual_aids: 0,
     });
     trackingAPI.getRecentActivity.mockResolvedValue([]);
+    scheduleAPI.list.mockResolvedValue([]);
+    scheduleAPI.getUpcoming.mockResolvedValue([]);
   });
 
 
@@ -572,6 +579,62 @@ describe("Overview - At a Glance Stats (Option 2: Classroom & Resource Readiness
       expect(screen.getByText("Activity item 11")).toBeInTheDocument();
       expect(screen.getByText("Activity item 12")).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /show more/i })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Mini Calendar Widget in Hero Banner", () => {
+    it("renders mini calendar with current date and navigates to Calendar & Schedules on click", async () => {
+      studentsAPI.list.mockResolvedValue([]);
+      iepAPI.dashboardStats.mockResolvedValue({ active_ieps: 0, ai_insights: 0 });
+      const user = userEvent.setup();
+
+      renderWithQueryClient(
+        <MemoryRouter>
+          <Overview setActivePage={vi.fn()} />
+        </MemoryRouter>,
+      );
+
+      const miniCalendar = screen.getByTestId("overview-mini-calendar");
+      expect(miniCalendar).toBeInTheDocument();
+
+      const scheduleBtn = screen.getByRole("button", { name: /view calendar & schedules/i });
+      expect(scheduleBtn).toBeInTheDocument();
+      await user.click(scheduleBtn);
+
+      expect(mockNavigate).toHaveBeenCalledWith("/dashboard/schedule");
+    });
+
+    it("displays mini monthly grid with event dots for scheduled days", async () => {
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = String(today.getMonth() + 1).padStart(2, "0");
+      const eventDateStr = `${currentYear}-${currentMonth}-15`;
+
+      studentsAPI.list.mockResolvedValue([]);
+      iepAPI.dashboardStats.mockResolvedValue({ active_ieps: 0, ai_insights: 0 });
+      scheduleAPI.list.mockResolvedValue([
+        {
+          id: 1,
+          title: "IEP Annual Review",
+          scheduled_date: eventDateStr,
+          status: "pending",
+        },
+      ]);
+
+      renderWithQueryClient(
+        <MemoryRouter>
+          <Overview setActivePage={vi.fn()} />
+        </MemoryRouter>,
+      );
+
+      // Check weekdays are rendered
+      expect(screen.getAllByText("S", { selector: ".mini-cal-weekdays span" }).length).toBe(2);
+      expect(screen.getByText("M", { selector: ".mini-cal-weekdays span" })).toBeInTheDocument();
+
+      // Check event dot exists for the scheduled date
+      await waitFor(() => {
+        expect(screen.getAllByTestId("mini-cal-event-dot").length).toBeGreaterThan(0);
+      });
     });
   });
 });
