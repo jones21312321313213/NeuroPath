@@ -17,9 +17,42 @@ import {
 
 const RELEASE_NOTES = [
   {
-    version: "v1.2.0",
+    version: "v1.2.1",
     date: "November 2026",
     isLatest: true,
+    summary: "Calendar & Schedules with automated milestone tracking, iPhone & mobile UX optimizations, notification persistence, and visual aid frame expansion.",
+    changes: [
+      {
+        tag: "New Feature",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
+        text: "Interactive Calendar & Schedules module with monthly grid navigation, DepEd Order No. 44 s. 2021 milestone tracking, student filtering, and custom event scheduling.",
+      },
+      {
+        tag: "Automation",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
+        text: "Automated time-bound IEP milestone reminders (+30d Month 1, +60d Month 2, +90d Quarterly Review, and +365d Annual Renewal) generated upon saving IEPs, with active version supersede logic.",
+      },
+      {
+        tag: "Mobile UX",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
+        text: "Comprehensive mobile UX refinements (tested on iPhone 12 Pro 390x844): responsive landing page hamburger menu, non-clashing elevated z-index modals, 2-column quick actions, and Section C table horizontal scrolling with 80% default fullscreen zoom.",
+      },
+      {
+        tag: "Notifications",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
+        text: "Top bar notification bell with real-time unread counter, seen-state persistence across logins in localStorage, and one-click deadline completion.",
+      },
+      {
+        tag: "Visual Aids",
+        tagColor: "bg-blue-100 text-blue-800 border-blue-200",
+        text: "Expanded task analysis visual aid image frames to 240px with centered framing, perfectly presenting 800x600 AI-generated sequential illustrations without vertical clipping.",
+      },
+    ],
+  },
+  {
+    version: "v1.2.0",
+    date: "November 2026",
+    isLatest: false,
     summary: "Outcome Monitoring alignment, R-GORI pedagogical inspection, DepEd PDF export updates, and AI rate-limit resilience.",
     changes: [
       {
@@ -396,14 +429,14 @@ export default function LandingPage({ onGetStarted }) {
               <div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-extrabold text-[#1a6fa8]">
-                    Version v1.2.0
+                    Version v1.2.1
                   </span>
                   <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase bg-[#e8f5ff] text-[#1a6fa8]">
                     New
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">
-                  NeuroPath has been updated with R-GORI inspection &amp; DepEd PDF enhancements.
+                  NeuroPath has been updated with Calendar &amp; Schedules, milestone reminders &amp; mobile UX polish.
                 </p>
               </div>
             </div>
@@ -423,7 +456,7 @@ export default function LandingPage({ onGetStarted }) {
                 setShowVersionPopup(false);
                 setShowChangelog(true);
               }}
-              aria-label="View version v1.2.0 changelog"
+              aria-label="View version v1.2.1 changelog"
               className="text-xs font-bold text-[#2589c7] hover:text-[#1a6fa8] underline underline-offset-2 cursor-pointer flex items-center gap-1"
             >
               View Changelogs →
@@ -872,7 +905,7 @@ export default function LandingPage({ onGetStarted }) {
               onClick={() => setShowChangelog(true)}
               className="text-xs font-semibold text-[#2589c7] hover:text-[#1a6fa8] underline underline-offset-2 cursor-pointer"
             >
-              Changelog &amp; Release Notes (v1.2.0)
+              Changelog &amp; Release Notes (v1.2.1)
             </button>
             <span className="text-xs text-slate-300">•</span>
             <p className="text-xs" style={{ color: "#82C7FF" }}>

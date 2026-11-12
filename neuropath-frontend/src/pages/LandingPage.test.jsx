@@ -56,7 +56,7 @@ describe("LandingPage Component", () => {
     expect(screen.getByText("Outcome Monitoring")).toBeInTheDocument();
 
     // Version popup & Release Notes button
-    expect(screen.getByRole("button", { name: /view version v1\.2\.0 changelog/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /view version v1\.2\.1 changelog/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Release Notes" })).toBeInTheDocument();
   });
 
