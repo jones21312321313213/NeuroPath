@@ -574,5 +574,28 @@ describe("Overview - At a Glance Stats (Option 2: Classroom & Resource Readiness
       expect(screen.queryByRole("button", { name: /show more/i })).not.toBeInTheDocument();
     });
   });
+
+  describe("Mini Calendar Widget in Hero Banner", () => {
+    it("renders mini calendar with current date and navigates to Calendar & Schedules on click", async () => {
+      studentsAPI.list.mockResolvedValue([]);
+      iepAPI.dashboardStats.mockResolvedValue({ active_ieps: 0, ai_insights: 0 });
+      const user = userEvent.setup();
+
+      renderWithQueryClient(
+        <MemoryRouter>
+          <Overview setActivePage={vi.fn()} />
+        </MemoryRouter>,
+      );
+
+      const miniCalendar = screen.getByTestId("overview-mini-calendar");
+      expect(miniCalendar).toBeInTheDocument();
+
+      const scheduleBtn = screen.getByRole("button", { name: /view calendar & schedules/i });
+      expect(scheduleBtn).toBeInTheDocument();
+      await user.click(scheduleBtn);
+
+      expect(mockNavigate).toHaveBeenCalledWith("/dashboard/schedule");
+    });
+  });
 });
 

@@ -3,6 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useUnsavedChangesContext } from "../../context/UnsavedChangesContext";
 import { UserIcon } from "../ui/icons";
 import Breadcrumbs from "./Breadcrumbs";
+import TopbarNotificationBell from "./TopbarNotificationBell";
 import "../../styles/Topbar.css";
 
 export default function Topbar({
@@ -44,6 +45,7 @@ export default function Topbar({
         <Breadcrumbs items={breadcrumb} />
       </div>
       <div className="topbar-user">
+        <TopbarNotificationBell />
         <button
           type="button"
           className="topbar-pill"

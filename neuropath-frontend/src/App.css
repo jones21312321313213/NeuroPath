@@ -882,8 +882,80 @@ select option,
   text-align: right;
 }
 
+.overview-mini-calendar-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 14px;
+  padding: 10px 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.mini-cal-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 48px;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.mini-cal-month {
+  width: 100%;
+  background: #e11d48;
+  color: #ffffff;
+  font-size: 9.5px;
+  font-weight: 800;
+  text-align: center;
+  padding: 2px 0;
+  letter-spacing: 0.5px;
+}
+
+.mini-cal-day {
+  color: #1e293b;
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.mini-cal-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.mini-cal-schedule-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: 2.5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mini-cal-schedule-link:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
 .hero-time-text {
-  font-size: 32px;
+  font-size: 24px;
   font-weight: 800;
   color: #ffffff;
   line-height: 1.1;
@@ -891,10 +963,10 @@ select option,
 }
 
 .hero-date-text {
-  font-size: 13.5px;
+  font-size: 12px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.9);
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 /* ── Stats Strip (White card with 3 columns & vertical dividers matching reference) ── */
@@ -1572,25 +1644,40 @@ select option,
   }
 
   .overview-glance-strip {
-    grid-template-columns: 1fr;
-    gap: 16px;
-    padding: 18px 20px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    padding: 12px 6px;
   }
 
   .glance-stat-col {
-    padding: 0;
-    min-height: auto;
+    padding: 0 8px;
+    min-height: 56px;
   }
 
   .glance-stat-col:not(:last-child) {
-    border-right: none;
-    border-bottom: 1px solid #e2e8f0;
-    padding-bottom: 14px;
+    border-right: 1px solid #e2e8f0;
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .glance-stat-label {
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .glance-stat-value {
+    font-size: 20px;
+  }
+
+  .glance-stat-icon {
+    font-size: 18px;
   }
 
   .getting-started-steps {
     grid-template-columns: 1fr;
-    gap: 28px;
+    gap: 16px;
   }
 
   .workflow-timeline-connector-line {
@@ -1604,7 +1691,11 @@ select option,
 
   .quick-actions {
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 10px;
+  }
+
+  .quick-action-card {
+    padding: 12px 14px;
   }
 
   .form-grid-2,
@@ -1681,37 +1772,43 @@ select option,
   /* Overview Hero */
   .overview-welcome {
     flex-direction: column;
-    align-items: flex-start;
-    padding: 22px 18px;
-    gap: 16px;
+    align-items: stretch;
+    padding: 18px 16px;
+    gap: 14px;
   }
 
   .hero-datetime-block {
-    align-items: flex-start;
+    align-items: stretch;
     text-align: left;
+    width: 100%;
+  }
+
+  .overview-mini-calendar-card {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .hero-time-text {
-    font-size: 26px;
+    font-size: 22px;
   }
 
   .hero-date-text {
-    font-size: 13px;
+    font-size: 12px;
     margin-top: 2px;
   }
 
   .overview-title {
-    font-size: 22px;
-    margin-bottom: 6px;
+    font-size: 19px;
+    margin-bottom: 4px;
   }
 
   .overview-subtitle {
-    font-size: 14px;
-    line-height: 1.5;
+    font-size: 12.5px;
+    line-height: 1.45;
   }
 
   .workflow-timeline-card {
-    padding: 24px 18px 20px;
+    padding: 20px 16px 16px;
   }
 
   .overview-about-strip {

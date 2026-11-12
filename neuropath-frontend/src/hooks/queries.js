@@ -6,6 +6,7 @@ import {
   visualAidsAPI,
   resourcesAPI,
   trackingAPI,
+  scheduleAPI,
 } from "../api/client";
 
 export const queryKeys = {
@@ -17,6 +18,8 @@ export const queryKeys = {
   visualAids: (params) => ["visual-aids", params ?? "all"],
   resourceStats: () => ["resources", "dashboard-stats"],
   recentActivity: () => ["recent-activity"],
+  scheduleEvents: (params) => ["schedule-events", params ?? "all"],
+  upcomingDeadlines: (days) => ["upcoming-deadlines", days ?? 14],
 };
 
 
@@ -150,5 +153,120 @@ export function useRecentActivity(options = {}) {
     ...options,
   });
 }
+
+// ── Schedule & Calendar Queries & Mutations (Module 5) ────────────────────────
+export function useScheduleEvents(params = {}, options = {}) {
+  return useQuery({
+    queryKey: queryKeys.scheduleEvents(params),
+    queryFn: () => scheduleAPI.list(params),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (previousData) => previousData,
+    ...options,
+  });
+}
+
+export function useUpcomingDeadlines(days = 14, options = {}) {
+  return useQuery({
+    queryKey: queryKeys.upcomingDeadlines(days),
+    queryFn: () => scheduleAPI.getUpcoming(days),
+    ...options,
+  });
+}
+
+export function useCreateScheduleEvent(options = {}) {
+  const queryClient = useQueryClient();
+  const { onSuccess, ...restOptions } = options;
+
+  return useMutation({
+    mutationFn: (data) => scheduleAPI.create(data),
+    onSuccess: async (data, variables, context) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["schedule-events"] }),
+        queryClient.invalidateQueries({ queryKey: ["upcoming-deadlines"] }),
+      ]);
+      if (onSuccess) {
+        await onSuccess(data, variables, context);
+      }
+    },
+    ...restOptions,
+  });
+}
+
+export function useUpdateScheduleEvent(options = {}) {
+  const queryClient = useQueryClient();
+  const { onSuccess, ...restOptions } = options;
+
+  return useMutation({
+    mutationFn: ({ id, data }) => scheduleAPI.update(id, data),
+    onSuccess: async (data, variables, context) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["schedule-events"] }),
+        queryClient.invalidateQueries({ queryKey: ["upcoming-deadlines"] }),
+      ]);
+      if (onSuccess) {
+        await onSuccess(data, variables, context);
+      }
+    },
+    ...restOptions,
+  });
+}
+
+export function useCompleteScheduleEvent(options = {}) {
+  const queryClient = useQueryClient();
+  const { onSuccess, ...restOptions } = options;
+
+  return useMutation({
+    mutationFn: (id) => scheduleAPI.complete(id),
+    onSuccess: async (data, variables, context) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["schedule-events"] }),
+        queryClient.invalidateQueries({ queryKey: ["upcoming-deadlines"] }),
+      ]);
+      if (onSuccess) {
+        await onSuccess(data, variables, context);
+      }
+    },
+    ...restOptions,
+  });
+}
+
+export function useReopenScheduleEvent(options = {}) {
+  const queryClient = useQueryClient();
+  const { onSuccess, ...restOptions } = options;
+
+  return useMutation({
+    mutationFn: (id) => scheduleAPI.reopen(id),
+    onSuccess: async (data, variables, context) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["schedule-events"] }),
+        queryClient.invalidateQueries({ queryKey: ["upcoming-deadlines"] }),
+      ]);
+      if (onSuccess) {
+        await onSuccess(data, variables, context);
+      }
+    },
+    ...restOptions,
+  });
+}
+
+export function useDeleteScheduleEvent(options = {}) {
+  const queryClient = useQueryClient();
+  const { onSuccess, ...restOptions } = options;
+
+  return useMutation({
+    mutationFn: (id) => scheduleAPI.delete(id),
+    onSuccess: async (data, variables, context) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["schedule-events"] }),
+        queryClient.invalidateQueries({ queryKey: ["upcoming-deadlines"] }),
+      ]);
+      if (onSuccess) {
+        await onSuccess(data, variables, context);
+      }
+    },
+    ...restOptions,
+  });
+}
+
 
 

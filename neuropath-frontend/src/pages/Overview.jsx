@@ -9,6 +9,7 @@ import {
 } from "../hooks/queries";
 import { Card, CountUp } from "../components/ui";
 import { formatRelativeTime } from "../utils/dateUtils";
+import UpcomingDeadlinesWidget from "../components/schedule/UpcomingDeadlinesWidget";
 
 
 const stats = [
@@ -203,9 +204,29 @@ export default function Overview({ setActivePage }) {
               review recent IEP progress, or prepare your instructional materials below.
             </p>
           </div>
-          <div className="hero-datetime-block">
-            <span className="hero-time-text">{currentTime}</span>
-            <span className="hero-date-text">{todayFormatted}</span>
+          <div className="hero-datetime-block" data-testid="overview-mini-calendar">
+            <div className="overview-mini-calendar-card">
+              <div className="mini-cal-badge">
+                <span className="mini-cal-month">
+                  {new Intl.DateTimeFormat("en-US", { month: "short" }).format(new Date()).toUpperCase()}
+                </span>
+                <span className="mini-cal-day">{new Date().getDate()}</span>
+              </div>
+              <div className="mini-cal-info">
+                <span className="hero-time-text">{currentTime}</span>
+                <span className="hero-date-text">{todayFormatted}</span>
+                <button
+                  type="button"
+                  onClick={() => navigate("/dashboard/schedule")}
+                  className="mini-cal-schedule-link cursor-pointer"
+                  aria-label="View Calendar & Schedules"
+                >
+                  <i className="ti ti-calendar-event" aria-hidden="true" />
+                  <span>Calendar &amp; Schedules</span>
+                  <i className="ti ti-arrow-right text-[11px]" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
           </div>
         </header>
 
@@ -398,6 +419,9 @@ export default function Overview({ setActivePage }) {
             </div>
           </div>
         </div>
+
+        {/* Section: IEP Milestone Deadlines & Schedules (Module 5) */}
+        <UpcomingDeadlinesWidget onNavigateCalendar={() => handleNavigate("/dashboard/schedule", "schedule")} />
 
         {/* Section: Recent Activity (ENH30) */}
         <section

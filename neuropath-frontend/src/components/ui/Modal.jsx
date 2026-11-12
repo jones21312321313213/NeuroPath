@@ -50,7 +50,7 @@ export function Modal({
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? "modal-dialog-title" : undefined}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs transition-opacity duration-200 animate-fadeIn"
+      className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs transition-opacity duration-200 animate-fadeIn"
       onClick={handleBackdropClick}
       {...props}
     >
