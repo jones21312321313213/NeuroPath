@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import LandingPage from "./landingPage";
 
@@ -11,6 +11,10 @@ globalThis.IntersectionObserver = class IntersectionObserver {
 };
 
 describe("LandingPage Component", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   afterEach(() => {
     vi.useRealTimers();
   });
@@ -56,7 +60,7 @@ describe("LandingPage Component", () => {
     expect(screen.getByText("Outcome Monitoring")).toBeInTheDocument();
 
     // Version popup & Release Notes button
-    expect(screen.getByRole("button", { name: /view version v1\.2\.0 changelog/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /view version v1\.2\.1 changelog/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Release Notes" })).toBeInTheDocument();
   });
 
@@ -101,5 +105,32 @@ describe("LandingPage Component", () => {
 
     fireEvent.click(toggleBtn);
     expect(screen.queryByTestId("mobile-menu-drawer")).not.toBeInTheDocument();
+  });
+
+  it("does not show version popup if user has already seen the current release version in localStorage", () => {
+    localStorage.setItem("neuropath_last_seen_release", "v1.2.1");
+    render(
+      <MemoryRouter>
+        <LandingPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByRole("status", { name: /latest version release popup/i })).not.toBeInTheDocument();
+  });
+
+  it("records current release version in localStorage upon dismissal", () => {
+    render(
+      <MemoryRouter>
+        <LandingPage />
+      </MemoryRouter>
+    );
+
+    const dismissBtn = screen.getByRole("button", { name: /dismiss version popup/i });
+    expect(screen.getByRole("status", { name: /latest version release popup/i })).toBeInTheDocument();
+
+    fireEvent.click(dismissBtn);
+
+    expect(screen.queryByRole("status", { name: /latest version release popup/i })).not.toBeInTheDocument();
+    expect(localStorage.getItem("neuropath_last_seen_release")).toBe("v1.2.1");
   });
 });

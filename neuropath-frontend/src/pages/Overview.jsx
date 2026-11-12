@@ -9,6 +9,8 @@ import {
   useScheduleEvents,
 } from "../hooks/queries";
 import { Card, CountUp } from "../components/ui";
+import ChangelogModal from "../components/ui/ChangelogModal";
+import { CURRENT_RELEASE_VERSION } from "../constants/releaseNotes";
 import { formatRelativeTime } from "../utils/dateUtils";
 import UpcomingDeadlinesWidget from "../components/schedule/UpcomingDeadlinesWidget";
 
@@ -115,6 +117,38 @@ export default function Overview({ setActivePage }) {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const DASHBOARD_SEEN_RELEASE_KEY = "neuropath_dashboard_seen_release";
+  const [showChangelogModal, setShowChangelogModal] = useState(false);
+  const [showDashboardToast, setShowDashboardToast] = useState(() => {
+    try {
+      if (typeof window === "undefined" || !window.localStorage) return true;
+      const seen = window.localStorage.getItem(DASHBOARD_SEEN_RELEASE_KEY);
+      return seen !== CURRENT_RELEASE_VERSION;
+    } catch {
+      return true;
+    }
+  });
+  const [isToastHovered, setIsToastHovered] = useState(false);
+
+  const dismissDashboardToast = () => {
+    setShowDashboardToast(false);
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.setItem(DASHBOARD_SEEN_RELEASE_KEY, CURRENT_RELEASE_VERSION);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    if (!showDashboardToast || isToastHovered) return;
+    const timer = setTimeout(() => {
+      dismissDashboardToast();
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [showDashboardToast, isToastHovered]);
 
   const { data: students = [] } = useStudents(user?.id);
   const { data: iepStats } = useIepDashboardStats();
@@ -256,6 +290,21 @@ export default function Overview({ setActivePage }) {
               Ready to support your learners today? Check on your students' individual learning goals,
               review recent IEP progress, or prepare your instructional materials below.
             </p>
+            <div className="overview-whats-new-wrap">
+              <button
+                type="button"
+                onClick={() => setShowChangelogModal(true)}
+                className="overview-whats-new-chip cursor-pointer"
+                aria-label={`View What's New in NeuroPath ${CURRENT_RELEASE_VERSION}`}
+                data-testid="overview-whats-new-chip"
+              >
+                <span className="overview-whats-new-dot" aria-hidden="true" />
+                <span className="overview-whats-new-text">
+                  What's New in {CURRENT_RELEASE_VERSION}: Calendar &amp; Schedules, Milestone Reminders &amp; Mobile UX
+                </span>
+                <i className="ti ti-arrow-right text-[11px]" aria-hidden="true" />
+              </button>
+            </div>
           </div>
           <div className="hero-datetime-block" data-testid="overview-mini-calendar">
             <div className="overview-mini-cal-widget">
@@ -620,6 +669,59 @@ export default function Overview({ setActivePage }) {
           </div>
         </div>
       </div>
+
+      {/* Release Announcement Toast */}
+      {showDashboardToast && (
+        <aside
+          role="status"
+          aria-live="polite"
+          data-testid="overview-release-toast"
+          className="overview-release-toast"
+          onMouseEnter={() => setIsToastHovered(true)}
+          onMouseLeave={() => setIsToastHovered(false)}
+        >
+          <div className="overview-toast-top">
+            <div className="overview-toast-icon">
+              <i className="ti ti-sparkles" aria-hidden="true" />
+            </div>
+            <div className="overview-toast-content">
+              <div className="overview-toast-badge-row">
+                <span className="overview-toast-title">What&apos;s New</span>
+                <span className="overview-toast-badge">{CURRENT_RELEASE_VERSION}</span>
+              </div>
+              <p className="overview-toast-desc">
+                Calendar &amp; Schedules widget, IEP milestone reminders, mobile notification dropdown enhancements, and bug fixes.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="overview-toast-close-btn cursor-pointer"
+              onClick={dismissDashboardToast}
+              aria-label="Dismiss release notification"
+            >
+              <i className="ti ti-x text-[14px]" aria-hidden="true" />
+            </button>
+          </div>
+          <div className="overview-toast-footer">
+            <button
+              type="button"
+              className="overview-toast-action-btn cursor-pointer"
+              onClick={() => {
+                setShowChangelogModal(true);
+                dismissDashboardToast();
+              }}
+            >
+              Read release notes &rarr;
+            </button>
+          </div>
+        </aside>
+      )}
+
+      {/* Changelog Modal */}
+      <ChangelogModal
+        isOpen={showChangelogModal}
+        onClose={() => setShowChangelogModal(false)}
+      />
     </div>
   );
 }

@@ -117,13 +117,20 @@ function TopbarNotificationBellInner() {
 
       {isOpen && (
         <div
-          className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
+          className="fixed left-3 right-3 top-[58px] sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
           role="dialog"
           aria-label="Upcoming Deadlines Notifications"
           data-testid="notifications-dropdown"
         >
-          {/* Header */}
-          <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+          {/* Top Pointer Arrow aiming toward the Notification Bell */}
+          <div
+            className="absolute -top-2 right-14 sm:right-3.5 w-4 h-4 bg-slate-50 border-t border-l border-slate-200 rotate-45 z-20 pointer-events-none"
+            aria-hidden="true"
+          />
+
+          <div className="rounded-2xl overflow-hidden">
+            {/* Header */}
+            <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <i className="ti ti-calendar-event text-blue-600" aria-hidden="true" />
               <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
@@ -199,8 +206,9 @@ function TopbarNotificationBellInner() {
             </button>
           </div>
         </div>
-      )}
-    </div>
+      </div>
+    )}
+  </div>
   );
 }
 

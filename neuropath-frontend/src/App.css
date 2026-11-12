@@ -391,6 +391,7 @@ button.sidebar-header {
 }
 
 .sidebar.collapsed .sidebar-nav-item:hover .sidebar-tooltip,
+.sidebar.collapsed .sidebar-whats-new-btn:hover .sidebar-tooltip,
 .sidebar.collapsed .sidebar-logout-btn:hover .sidebar-tooltip {
   opacity: 1;
   transform: translateY(-50%) translateX(0);
@@ -408,12 +409,57 @@ button.sidebar-header {
   margin-top: auto;
   padding: 8px 8px 0;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .sidebar.collapsed .sidebar-footer {
   padding: 8px 0 0;
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   justify-content: center;
+}
+
+.sidebar-whats-new-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: calc(100% - 16px);
+  margin: 0 8px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+  position: relative;
+}
+
+.sidebar.collapsed .sidebar-whats-new-btn {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.sidebar-whats-new-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: #ffffff;
+}
+
+.sidebar-whats-new-btn:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
 }
 
 .sidebar-logout-btn {
@@ -870,6 +916,186 @@ select option,
   line-height: 1.6;
   margin: 0;
   max-width: 680px;
+}
+
+/* ── Overview Hero What's New Badge ── */
+.overview-whats-new-wrap {
+  margin-top: 14px;
+}
+
+.overview-whats-new-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.overview-whats-new-chip:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.overview-whats-new-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fde047;
+  box-shadow: 0 0 8px #fde047;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.overview-whats-new-text {
+  letter-spacing: -0.01em;
+}
+
+/* ── Dashboard Release Toast Notification ── */
+.overview-release-toast {
+  position: fixed;
+  top: 72px;
+  right: 24px;
+  z-index: 1050;
+  max-width: 360px;
+  width: calc(100vw - 48px);
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 12px 36px -4px rgba(15, 23, 42, 0.2), 0 4px 12px rgba(15, 23, 42, 0.08);
+  border: 1px solid #bfdbfe;
+  animation: toastSlideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes toastSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .overview-release-toast {
+    top: 64px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-width: none;
+  }
+}
+
+.overview-toast-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.overview-toast-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.overview-toast-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.overview-toast-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+
+.overview-toast-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
+.overview-toast-badge {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: #dbeafe;
+  color: #1d4ed8;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  letter-spacing: 0.5px;
+}
+
+.overview-toast-desc {
+  font-size: 11.5px;
+  color: #475569;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.overview-toast-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  padding: 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.overview-toast-close-btn:hover {
+  color: #334155;
+  background: #f1f5f9;
+}
+
+.overview-toast-footer {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.overview-toast-action-btn {
+  background: transparent;
+  border: none;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.overview-toast-action-btn:hover {
+  color: #1d4ed8;
 }
 
 /* Hero datetime stacked block matching reference */
@@ -2325,23 +2551,38 @@ select option,
   min-width: 1560px;
 }
 
-/* Sticky first column (Objective) */
+/* First column (Objective) - position static to scroll naturally on horizontal slide */
 .iep-table th.iep-sticky-col {
-  position: sticky;
-  left: 0;
-  z-index: 10;
+  position: static;
   background: #5aabf0;
-  box-shadow: 3px 0 6px -2px rgba(0, 0, 0, 0.16);
+  box-shadow: none;
 }
 .iep-table td.iep-sticky-col {
-  position: sticky;
-  left: 0;
-  z-index: 5;
+  position: static;
   background: #ffffff;
-  box-shadow: 3px 0 6px -2px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 .iep-table tr:hover td.iep-sticky-col {
   background: #f8fafc;
+}
+
+/* ── Fullscreen Section C Table Styles ── */
+.iep-fullscreen-btn {
+  flex-shrink: 0;
+}
+
+.iep-table-fullscreen-content .iep-section-c-table {
+  font-size: 12px;
+}
+
+.iep-table-fullscreen-content .iep-section-c-table th {
+  padding: 8px 12px;
+  font-size: 11px;
+}
+
+.iep-table-fullscreen-content .iep-section-c-table td {
+  padding: 8px 12px;
+  font-size: 12px;
 }
 
 /* Grouped 2-tier headers */

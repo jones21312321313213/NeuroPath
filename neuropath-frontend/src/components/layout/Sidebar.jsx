@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useUnsavedChangesContext } from "../../context/UnsavedChangesContext";
 import LogoutModal from "./LogoutModal";
+import ChangelogModal from "../ui/ChangelogModal";
+import { CURRENT_RELEASE_VERSION } from "../../constants/releaseNotes";
 
 const navItems = [
   {
@@ -94,6 +96,7 @@ export default function Sidebar({
     "outcome-monitoring": false,
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isChangelogOpen, setIsChangelogOpen] = useState(false);
 
   // Auto-expand group if current path is under that group
   useEffect(() => {
@@ -289,6 +292,26 @@ export default function Sidebar({
         <div className="sidebar-footer">
           <button
             type="button"
+            className="sidebar-whats-new-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsChangelogOpen(true);
+            }}
+            aria-label={`What's New in NeuroPath ${CURRENT_RELEASE_VERSION}`}
+            title={collapsed ? `What's New (${CURRENT_RELEASE_VERSION})` : undefined}
+            data-testid="sidebar-whats-new-btn"
+          >
+            <i className="ti ti-sparkles" aria-hidden="true" />
+            {!collapsed && <span>What's New ({CURRENT_RELEASE_VERSION})</span>}
+            {collapsed && (
+              <span className="sidebar-tooltip" aria-hidden="true">
+                What's New ({CURRENT_RELEASE_VERSION})
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
             className="sidebar-logout-btn"
             onClick={(e) => {
               e.stopPropagation();
@@ -311,6 +334,11 @@ export default function Sidebar({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onConfirm={handleConfirmLogout}
+      />
+
+      <ChangelogModal
+        isOpen={isChangelogOpen}
+        onClose={() => setIsChangelogOpen(false)}
       />
     </>
   );
