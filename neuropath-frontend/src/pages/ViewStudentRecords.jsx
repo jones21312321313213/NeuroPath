@@ -156,7 +156,7 @@ function GoalTable({ rows = [] }) {
       <tbody>
         {rows.map((row) => (
           <tr key={row.id}>
-            <td className="iep-col-objective">
+            <td className="iep-col-objective whitespace-pre-line">
               {row.objective || "—"}
             </td>
             <td className="iep-col-month">

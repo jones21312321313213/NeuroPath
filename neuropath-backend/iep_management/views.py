@@ -19,6 +19,13 @@ from .privacy_utils import (
     scrub_pii_from_text,
     verify_ra10173_consent,
     ConsentRequiredException,
+    escape_reportlab_text,
+)
+from .deped_curriculum import (
+    ensure_valid_deped_enroute_objective,
+    get_curriculum_prompt_block,
+    get_default_competencies_for_area,
+    resolve_canonical_goal_area,
 )
 import json
 import re
@@ -748,6 +755,72 @@ class GenerateIEPGoalsFromIEPView(APIView):
             return None, str(e)
  
  
+    @classmethod
+    def _validate_goal_area(cls, goal_area: str) -> str:
+        return resolve_canonical_goal_area(goal_area)
+
+    @classmethod
+    def _build_safe_objective_rows(
+        cls,
+        goal_area: str = "",
+        difficulty: str = "",
+        assistive_tech: str = "",
+        facilitators: str = "",
+    ) -> list[dict]:
+        validated_area = cls._validate_goal_area(goal_area) if goal_area else ""
+        competencies = get_default_competencies_for_area(validated_area or difficulty, count=3)
+        support_label = (assistive_tech or "Visual Support / Concrete Manipulatives").strip()
+        responsible_label = (facilitators or "SPED Teacher, Parents/Guardians").strip()
+        rows = []
+        for idx, item in enumerate(competencies):
+            comp_text = item["competency"]
+            enroute_val = ensure_valid_deped_enroute_objective(
+                f"{comp_text}\n({item['code']})",
+                validated_area or difficulty,
+                row_index=idx,
+            )
+            m1 = (
+                f"Given {support_label} and direct physical/visual prompts, the learner will demonstrate "
+                f"initial acquisition of {comp_text.lower()} with 70% accuracy."
+            )
+            m2 = (
+                f"Given {support_label} and faded verbal/gestural cues, the learner will demonstrate "
+                f"expanding mastery of {comp_text.lower()} with 75% accuracy."
+            )
+            m3 = (
+                f"Given {support_label}, the learner will independently master {comp_text.lower()} "
+                f"with 80% accuracy in 4 out of 5 trials."
+            )
+            int_text = (
+                f"(Mother Tongue / Visual Support) Guided modeling and structured practice using "
+                f"{support_label} (based on learner's ability)."
+            )
+            time_text = "15-20 minutes every day (based on learner's ability)"
+            prog_text = "Weekly skill mastery checklist and work sample portfolio."
+            rem_text = "Targeted for ongoing observation."
+            rows.append({
+                "enroute_objectives": enroute_val,
+                "objective": enroute_val,
+                "month_1_target": m1,
+                "month_1": m1,
+                "month1": m1,
+                "month_2_target": m2,
+                "month_2": m2,
+                "month2": m2,
+                "month_3_target": m3,
+                "month_3": m3,
+                "month3": m3,
+                "interventions_procedures": int_text,
+                "interventions": int_text,
+                "intervention": int_text,
+                "timeline_mins_session": time_text,
+                "timeline": time_text,
+                "individuals_responsible": responsible_label,
+                "progress_instructional": prog_text,
+                "remarks": rem_text,
+            })
+        return rows
+
     def _generate_annual_goal(
         self, student_name, difficulty, assistive_tech, accommodations,
         facilitators, goal_area='', teacher_prompt='', special_factor_notes=''
@@ -800,24 +873,29 @@ class GenerateIEPGoalsFromIEPView(APIView):
             f"Special Factors / Behavioral and Sensory Notes: {special_factor_notes}\n"
             if special_factor_notes else ""
         )
-        goal_area_instruction = (
-            f"ALL objectives MUST be stepping-stone skills toward the PRIMARY Goal Area: {goal_area}. "
-            f"Do NOT write objectives about communication, social behavior, or any other domain. "
-            if goal_area else ""
-        )
+        validated_goal_area = self._validate_goal_area(goal_area) if goal_area else ""
+        curriculum_block = get_curriculum_prompt_block(validated_goal_area or difficulty)
         system_prompt = (
-            "You are an expert Special Education teacher writing IEP objective rows for a 3-month quarterly term. "
+            "You are an expert Special Education teacher writing IEP objective rows for a 3-month quarterly term "
+            "aligned with DepEd Order No. 021, s. 2020 (K to 12 Transition Curriculum for Learners with Disabilities). "
             "Output ONLY a valid JSON array of 2-3 objective row objects. "
             "Each object must have exactly these keys: "
             "enroute_objectives, month_1_target, month_2_target, month_3_target, "
             "interventions_procedures, timeline_mins_session, "
             "individuals_responsible, progress_instructional, remarks. "
-            "The enroute_objectives must be concrete, sequential sub-skills following ABCD criteria with targeted skill brackets (e.g. counting 5-10). "
+            "For each row, harvest a developmentally sequential competency from the official DepEd Transition "
+            "Curriculum catalog below and format enroute_objectives as '<Contextualized Competency>\\n(<Official DepEd Code>)' "
+            "(for example: 'Recognizing numbers from 0-10\\n(TP_MFP-nv-NG-1)').\n"
+            f"{curriculum_block}\n"
             "Milestones must map incremental progression across the 3-month quarter:\n"
-            "- month_1_target: 1st Month milestone (baseline skill acquisition with direct prompts/cues and initial bracket, e.g., 'Given visual counters and direct physical prompts, the learner will count numbers 1-3 with 70% accuracy').\n"
-            "- month_2_target: 2nd Month milestone (intermediate skill progression with faded prompts/cues and expanded bracket, e.g., 'Given visual counters and faded verbal cues, the learner will count numbers 1-5 with 75% accuracy').\n"
-            "- month_3_target: 3rd Month milestone (independent mastery with target bracket, e.g., 'Given visual counters, the learner will independently count and identify numbers 5-10 with 80% accuracy in 4 of 5 trials').\n"
-            f"{goal_area_instruction}"
+            "- month_1_target: 1st Month milestone (baseline skill acquisition with direct prompts/cues and 70% accuracy).\n"
+            "- month_2_target: 2nd Month milestone (intermediate skill progression with faded prompts/cues and 75% accuracy).\n"
+            "- month_3_target: 3rd Month milestone (independent mastery with target bracket and 80% accuracy in 4 of 5 trials).\n"
+            "Format interventions_procedures with instructional modality/language such as '(Mother Tongue / Visual Support) ... (based on learner\\'s ability)', "
+            "timeline_mins_session such as '15-20 minutes every day (based on learner\\'s ability)', and "
+            "individuals_responsible such as 'SPED Teacher, Parents/Guardians'. "
+            "ALL objectives MUST be stepping-stone skills toward the PRIMARY Goal Area specified in the user prompt. "
+            "Do NOT write objectives about any other domain. "
             "Do not include markdown, backticks, or any text outside the JSON array."
         )
         user_prompt = (
@@ -884,9 +962,14 @@ class GenerateIEPGoalsFromIEPView(APIView):
 
             if isinstance(parsed, list) and len(parsed) > 0:
                 validated_rows = []
-                for row in parsed:
+                for idx, row in enumerate(parsed):
                     if isinstance(row, dict) and (row.get("enroute_objectives") or row.get("objective")):
-                        obj_text = str(row.get("enroute_objectives") or row.get("objective", "")).strip()
+                        raw_obj_text = str(row.get("enroute_objectives") or row.get("objective", "")).strip()
+                        obj_text = ensure_valid_deped_enroute_objective(
+                            raw_obj_text,
+                            validated_goal_area or difficulty,
+                            row_index=idx,
+                        )
                         m1_text = str(
                             row.get("month_1_target") or row.get("month_1") or row.get("month1") or row.get("first_month") or ""
                         ).strip()
@@ -905,9 +988,25 @@ class GenerateIEPGoalsFromIEPView(APIView):
                         if not m3_text:
                             m3_text = "Month 3: Independent mastery with 80% accuracy across consecutive trials."
 
-                        int_text = str(row.get("interventions_procedures") or row.get("interventions") or row.get("intervention", f"Use {assistive_tech or 'visual supports'}")).strip()
-                        time_text = str(row.get("timeline_mins_session") or row.get("timeline", "15-20 minutes every day")).strip()
-                        resp_text = str(row.get("individuals_responsible") or row.get("responsible", facilitators or "SNED Teacher")).strip()
+                        int_text = str(
+                            row.get("interventions_procedures")
+                            or row.get("interventions")
+                            or row.get("intervention")
+                            or f"(Mother Tongue / Visual Support) Use {assistive_tech or 'visual supports'} (based on learner's ability)"
+                        ).strip()
+                        time_text = str(
+                            row.get("timeline_mins_session")
+                            or row.get("timeline")
+                            or "15-20 minutes every day (based on learner's ability)"
+                        ).strip()
+                        if "based on learner's ability" not in time_text.lower():
+                            time_text = f"{time_text} (based on learner's ability)"
+                        resp_text = str(
+                            row.get("individuals_responsible")
+                            or row.get("responsible")
+                            or facilitators
+                            or "SPED Teacher, Parents/Guardians"
+                        ).strip()
                         prog_text = str(row.get("progress_instructional") or row.get("progress", "Weekly skill mastery checklist.")).strip()
                         rem_text = str(row.get("remarks", "Targeted for ongoing observation.")).strip()
                         validated_rows.append({
@@ -992,6 +1091,16 @@ class GenerateIEPGoalsFromIEPView(APIView):
 #              of an IEP document using ReportLab.
 # =====================================================================
 class IEPBinaryReportRenderEngine:
+    @staticmethod
+    def _format_enroute_for_reportlab(raw_text: str) -> str:
+        escaped = escape_reportlab_text(raw_text or "—")
+        escaped = escaped.replace("\r\n", "\n").replace("\n", "<br/>")
+        return re.sub(
+            r"(\(TP(?:CS|LS|EP|_EFP|_MFP|_SFP)[A-Za-z0-9_.-]+-NG-[0-9.]+\))",
+            r"<b>\1</b>",
+            escaped,
+        )
+
     @staticmethod
     def generate_iep_pdf_stream(iep):
         import html
@@ -1220,7 +1329,7 @@ class IEPBinaryReportRenderEngine:
                     ]]
                     for r in rows:
                         g_data.append([
-                            Paragraph(esc(r.enroute_objectives or '—'), style_cell_value),
+                            Paragraph(IEPBinaryReportRenderEngine._format_enroute_for_reportlab(r.enroute_objectives or '—'), style_cell_value),
                             Paragraph(esc(r.month_1_target or '—'), style_cell_value),
                             Paragraph(esc(r.month_2_target or '—'), style_cell_value),
                             Paragraph(esc(r.month_3_target or '—'), style_cell_value),
