@@ -224,7 +224,7 @@ export default function MyProfile() {
                 {isEditing ? (
                   <div className="up-avatar-info">
                     <p className="up-avatar-storage-note">
-                      Profile photo is stored locally on this device.
+                      Profile photo is saved securely to your NeuroPath account.
                     </p>
                     {avatarPreview && (
                       <button
@@ -245,11 +245,6 @@ export default function MyProfile() {
                       {user?.first_name} {user?.last_name}
                     </p>
                     <p className="up-role">Special Education Teacher</p>
-                    {avatarPreview && (
-                      <p className="up-avatar-storage-note-subtle">
-                        Stored locally on this device
-                      </p>
-                    )}
                   </div>
                 )}
               </div>

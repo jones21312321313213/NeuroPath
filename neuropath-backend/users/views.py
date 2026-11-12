@@ -298,6 +298,7 @@ class TeacherLoginController(APIView):
                     "first_name": user.first_name,
                     "last_name": user.last_name,
                     "has_completed_tutorial": teacher.has_completed_tutorial if teacher else False,
+                    "profile_picture": teacher.profile_picture if teacher else "",
                 }
             }, status=status.HTTP_200_OK)
         else:
@@ -373,6 +374,23 @@ class TeacherProfileUpdateController(APIView):
             )
 
         teacher = get_teacher_for_user(user)
+        if teacher:
+            remove_pic = request.data.get("remove_profile_picture")
+            if remove_pic in ("true", True, "1"):
+                teacher.profile_picture = ""
+                teacher.save(update_fields=["profile_picture"])
+            elif "profile_picture" in request.data:
+                pic_val = request.data.get("profile_picture")
+                if hasattr(pic_val, "read"):
+                    import base64
+                    content = pic_val.read()
+                    mime = getattr(pic_val, "content_type", "image/png")
+                    b64 = base64.b64encode(content).decode("utf-8")
+                    teacher.profile_picture = f"data:{mime};base64,{b64}"
+                    teacher.save(update_fields=["profile_picture"])
+                elif isinstance(pic_val, str) and pic_val.strip():
+                    teacher.profile_picture = pic_val.strip()
+                    teacher.save(update_fields=["profile_picture"])
 
         response_data = {
             "id":                     user.id,
@@ -380,6 +398,7 @@ class TeacherProfileUpdateController(APIView):
             "last_name":              user.last_name,
             "email":                  user.email,
             "has_completed_tutorial": teacher.has_completed_tutorial if teacher else False,
+            "profile_picture":        teacher.profile_picture if teacher else "",
         }
         if new_token_key:
             response_data["token"] = new_token_key

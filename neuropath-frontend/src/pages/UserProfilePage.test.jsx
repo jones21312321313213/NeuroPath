@@ -40,15 +40,15 @@ describe("UserProfilePage - Profile Picture Honesty & Clarification", () => {
     });
   });
 
-  it("clarifies that profile photo is stored locally on device in view mode when photo exists", () => {
+  it("clarifies that profile photo is saved to account in view mode when photo exists", () => {
     render(<UserProfilePage />);
 
     expect(screen.getByText("Jane Doe")).toBeInTheDocument();
     expect(screen.getAllByText("Special Education Teacher").length).toBeGreaterThan(0);
-    expect(screen.getByText(/stored locally on this device/i)).toBeInTheDocument();
+    expect(screen.getByAltText("Profile")).toBeInTheDocument();
   });
 
-  it("shows local storage note and Remove Photo button in edit mode", async () => {
+  it("shows account storage note and Remove Photo button in edit mode", async () => {
     const user = userEvent.setup();
     render(<UserProfilePage />);
 
@@ -56,7 +56,7 @@ describe("UserProfilePage - Profile Picture Honesty & Clarification", () => {
     await user.click(editBtn);
 
     expect(
-      screen.getByText(/profile photo is stored locally on this device\./i)
+      screen.getByText(/profile photo is saved securely to your neuropath account\./i)
     ).toBeInTheDocument();
 
     const removePhotoBtn = screen.getByRole("button", { name: /remove photo/i });

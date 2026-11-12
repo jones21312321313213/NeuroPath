@@ -22,6 +22,7 @@ import IEPGenerationPage from "./pages/IepGenerationPage";
 import ViewStudentProfile from "./pages/StudentProfiling/ViewStudentProfile";
 import ViewSelectedStudentProfile from "./pages/StudentProfiling/ViewSelectedStudentProfile";
 import UpdateStudentProfile from "./pages/StudentProfiling/UpdateStudentProfile";
+import IepCalendarPage from "./pages/IepCalendarPage";
 import LoginSplash from "./components/LoginSplash";
 import TeacherTutorialModal from "./components/TeacherTutorialModal";
 import NotFoundPage from "./pages/NotFoundPage";
@@ -33,6 +34,7 @@ function getBreadcrumb(pathname) {
 
   if (pathname === "/dashboard" || pathname === "/dashboard/") return [{ label: "Dashboard" }];
   if (pathname === "/dashboard/profile") return [home, { label: "My Profile" }];
+  if (pathname === "/dashboard/schedule") return [home, { label: "Calendar & Schedules" }];
   if (pathname === "/dashboard/students") {
     return [home, { label: "Student Profiling", to: "/dashboard/students" }, { label: "View Profiles" }];
   }
@@ -240,6 +242,7 @@ function AppRoutes() {
             <Route path="strategies" element={<ManageTeachingStrategies />} />
             <Route path="records" element={<ViewStudentRecords />} />
             <Route path="monitoring" element={<ViewProgressDashboard />} />
+            <Route path="schedule" element={<IepCalendarPage />} />
           </Route>
 
           {/* Catch-all */}
