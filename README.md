@@ -67,7 +67,7 @@ NeuroPath is deployed across cloud hosting providers with automated continuous i
 | Component | Platform | Environment / Target | URL / Access |
 | :--- | :--- | :--- | :--- |
 | **Frontend Web Client** | **Vercel** | Production (`main` branch) | [neuro-path-rho.vercel.app](https://neuro-path-rho.vercel.app/) |
-| **Backend REST API** | **Render** | Production/Staging (`staging` branch) | Active Cloud Web Service (`/api/`) |
+| **Backend REST API** | **Render** | Production/Staging (`main` branch) | [neuropath-api.onrender.com (`/api/`](https://neuropath-api.onrender.com)) |
 | **Database & Auth Storage** | **Supabase** | Managed PostgreSQL 15 | Cloud PostgreSQL Instance |
 | **System Keepalive Cron** | **Cron Monitor** | HTTP `HEAD` / `GET` (`/api/health/`) | 10-min keepalive prevents Render cold-starts |
 
