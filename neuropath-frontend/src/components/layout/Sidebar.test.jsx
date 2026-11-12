@@ -321,5 +321,23 @@ describe("Sidebar component", () => {
 
     expect(mockGuardPrompt).not.toHaveBeenCalled();
   });
+
+  it("opens ChangelogModal when What's New button is clicked in the sidebar footer", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <Sidebar collapsed={false} onToggleCollapse={mockOnToggleCollapse} />
+      </MemoryRouter>
+    );
+
+    const whatsNewBtn = screen.getByTestId("sidebar-whats-new-btn");
+    expect(whatsNewBtn).toBeInTheDocument();
+    expect(screen.queryByTestId("changelog-modal")).not.toBeInTheDocument();
+
+    await user.click(whatsNewBtn);
+
+    expect(screen.getByTestId("changelog-modal")).toBeInTheDocument();
+    expect(screen.getByText(/Changelog & Release Notes/i)).toBeInTheDocument();
+  });
 });
 
