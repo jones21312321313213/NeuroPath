@@ -19,6 +19,7 @@ from .privacy_utils import (
     scrub_pii_from_text,
     verify_ra10173_consent,
     ConsentRequiredException,
+    escape_reportlab_text,
 )
 from .deped_curriculum import (
     ensure_valid_deped_enroute_objective,
@@ -1077,6 +1078,16 @@ class GenerateIEPGoalsFromIEPView(APIView):
 # =====================================================================
 class IEPBinaryReportRenderEngine:
     @staticmethod
+    def _format_enroute_for_reportlab(raw_text: str) -> str:
+        escaped = escape_reportlab_text(raw_text or "—")
+        escaped = escaped.replace("\r\n", "\n").replace("\n", "<br/>")
+        return re.sub(
+            r"(\(TP(?:CS|LS|EP|_EFP|_MFP|_SFP)[A-Za-z0-9_.-]+-NG-[0-9.]+\))",
+            r"<b>\1</b>",
+            escaped,
+        )
+
+    @staticmethod
     def generate_iep_pdf_stream(iep):
         import html
         import io
@@ -1304,7 +1315,7 @@ class IEPBinaryReportRenderEngine:
                     ]]
                     for r in rows:
                         g_data.append([
-                            Paragraph(esc(r.enroute_objectives or '—'), style_cell_value),
+                            Paragraph(IEPBinaryReportRenderEngine._format_enroute_for_reportlab(r.enroute_objectives or '—'), style_cell_value),
                             Paragraph(esc(r.month_1_target or '—'), style_cell_value),
                             Paragraph(esc(r.month_2_target or '—'), style_cell_value),
                             Paragraph(esc(r.month_3_target or '—'), style_cell_value),

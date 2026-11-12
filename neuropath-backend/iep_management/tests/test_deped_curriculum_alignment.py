@@ -197,3 +197,67 @@ class DepEdObjectiveGenerationAndFallbackTests(TestCase):
         self.assertEqual(res.status_code, 201)
         saved_obj = res.json()["objective_rows"][0]["enroute_objectives"]
         self.assertEqual(saved_obj, "Place crayons inside the labeled pouch")
+
+
+from iep_management.models import IEPObjectiveRow
+from iep_management.views import IEPBinaryReportRenderEngine
+from iep_management.privacy_utils import escape_reportlab_text
+
+
+class DepEdPDFExportRenderingTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="pdf_deped@test.com",
+            email="pdf_deped@test.com",
+            password="Password123!",
+        )
+        self.teacher = Teacher.objects.create(
+            name="Teacher PDF",
+            email="pdf_deped@test.com",
+            passwordHash="hash",
+        )
+        self.student = StudentProfile.objects.create(
+            name="Lucas Santos",
+            age=10,
+            grade=4,
+            teacher=self.teacher,
+            diagnosis="Autism Spectrum Disorder",
+            parental_consent_obtained=True,
+        )
+        self.iep = IEPModel.objects.create(
+            studentID=self.student,
+            version=1,
+            program_type="Non-Graded",
+            difficulties="Difficulty in counting",
+        )
+        self.goal = IEPGoal.objects.create(
+            iep=self.iep,
+            subject_category="Mathematical Skills",
+            annual_goal="Given visual counters, the learner will count numbers 0-10 with 80% accuracy.",
+        )
+
+    def test_format_enroute_for_reportlab_escapes_xml_and_bolds_deped_code(self):
+        malicious_enroute = "Recognizing <para><script>evil</script></para> numbers 0-10\n(TP_MFP-nv-NG-1)"
+        formatted = IEPBinaryReportRenderEngine._format_enroute_for_reportlab(malicious_enroute)
+        self.assertNotIn("<script>", formatted)
+        self.assertIn("&lt;script&gt;", formatted)
+        self.assertIn("<br/><b>(TP_MFP-nv-NG-1)</b>", formatted)
+
+    def test_generate_iep_pdf_stream_succeeds_with_deped_coded_and_xml_payload_rows(self):
+        IEPObjectiveRow.objects.create(
+            parent_goal=self.goal,
+            enroute_objectives="Recognizing numbers <0-10> & symbols\n(TP_MFP-nv-NG-1)",
+            month_1_target="70% accuracy",
+            month_2_target="75% accuracy",
+            month_3_target="80% accuracy",
+            interventions_procedures="(Mother Tongue / Visual Support) Tactile counters",
+            timeline_mins_session="15-20 minutes every day (based on learner's ability)",
+            individuals_responsible="SPED Teacher, Parents/Guardians",
+            progress_instructional="Weekly checklist",
+            remarks="On track",
+        )
+        stream = IEPBinaryReportRenderEngine.generate_iep_pdf_stream(self.iep)
+        pdf_bytes = stream.getvalue()
+        self.assertTrue(pdf_bytes.startswith(b"%PDF-"))
+        self.assertGreater(len(pdf_bytes), 1000)
+
