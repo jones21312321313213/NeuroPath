@@ -64,7 +64,7 @@ def create_iep_milestone_events(iep_instance, teacher):
     m1_notes = "\n".join(m1_targets) if m1_targets else "Initial 30-day milestone progress review."
     m2_notes = "\n".join(m2_targets) if m2_targets else "Mid-quarter 60-day milestone progress review."
     m3_notes = "\n".join(m3_targets) if m3_targets else "Quarterly review and regression check (DepEd Order No. 44, s. 2021)."
-    annual_notes = "Annual IEP evaluation, multidisciplinary conference, and synthesis of next IEP cycle."
+    annual_notes = "Annual IEP evaluation, multidisciplinary team review, and synthesis of next IEP cycle."
 
     student_name = student.name or "Student"
     version_str = f" (IEP v{iep_instance.version})" if getattr(iep_instance, 'version', None) else ""

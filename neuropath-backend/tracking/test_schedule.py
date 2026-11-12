@@ -168,7 +168,7 @@ class ScheduleEventTests(APITestCase):
         ScheduleEvent.objects.create(
             teacher=self.teacher1,
             student=self.student1,
-            title='Future Conference',
+            title='Future Meeting',
             event_type=ScheduleEventType.ANNUAL_RENEWAL,
             due_date=timezone.now().date() + timedelta(days=60),
             status=ScheduleEventStatus.PENDING,
@@ -185,7 +185,7 @@ class ScheduleEventTests(APITestCase):
         self.assertEqual(len(response.data), 2)
 
     def test_create_custom_meeting_event(self):
-        """Teacher can manually create a parent conference or assessment event."""
+        """Teacher can manually create a parent meeting or assessment event."""
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
         payload = {
             'student': self.student1.studentID,

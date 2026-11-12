@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -6,6 +6,7 @@ import {
   useIepDashboardStats,
   useResourceDashboardStats,
   useRecentActivity,
+  useScheduleEvents,
 } from "../hooks/queries";
 import { Card, CountUp } from "../components/ui";
 import { formatRelativeTime } from "../utils/dateUtils";
@@ -93,12 +94,6 @@ export default function Overview({ setActivePage }) {
     if (h < 17) return "Good afternoon";
     return "Good evening";
   });
-  const todayFormatted = new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date());
 
   const [currentTime, setCurrentTime] = useState(() => {
     return new Intl.DateTimeFormat("en-US", {
@@ -125,6 +120,64 @@ export default function Overview({ setActivePage }) {
   const { data: iepStats } = useIepDashboardStats();
   const { data: resourceStats } = useResourceDashboardStats();
   const { data: recentActivities = [], isLoading: isLoadingActivities } = useRecentActivity();
+
+  // Mini Calendar calculations for current month
+  const now = useMemo(() => new Date(), []);
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth(); // 0-indexed
+  const monthName = useMemo(() => {
+    return new Intl.DateTimeFormat("en-US", { month: "short" }).format(now);
+  }, [now]);
+
+  const { data: scheduleEventsData = [] } = useScheduleEvents({
+    year: currentYear,
+    month: currentMonth + 1,
+  });
+
+  const eventDaysSet = useMemo(() => {
+    const list = Array.isArray(scheduleEventsData)
+      ? scheduleEventsData
+      : scheduleEventsData?.results || [];
+    const set = new Set();
+    list.forEach((evt) => {
+      if (evt?.scheduled_date) {
+        const parts = evt.scheduled_date.split("-");
+        if (parts.length === 3) {
+          const yr = parseInt(parts[0], 10);
+          const mo = parseInt(parts[1], 10) - 1;
+          const dy = parseInt(parts[2], 10);
+          if (yr === currentYear && mo === currentMonth) {
+            set.add(dy);
+          }
+        }
+      }
+    });
+    return set;
+  }, [scheduleEventsData, currentYear, currentMonth]);
+
+  const miniCalDays = useMemo(() => {
+    const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay(); // 0 = Sun
+    const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const todayDate = now.getDate();
+    const cells = [];
+
+    // Leading empty cells
+    for (let i = 0; i < firstDayIndex; i++) {
+      cells.push({ key: `empty-${i}`, day: null });
+    }
+
+    // Days 1..totalDays
+    for (let d = 1; d <= totalDays; d++) {
+      cells.push({
+        key: `day-${d}`,
+        day: d,
+        isToday: d === todayDate,
+        hasEvent: eventDaysSet.has(d),
+      });
+    }
+
+    return cells;
+  }, [currentYear, currentMonth, now, eventDaysSet]);
 
   const studentList = Array.isArray(students) ? students : (students?.results || []);
   const activities = Array.isArray(recentActivities) ? recentActivities : [];
@@ -205,26 +258,54 @@ export default function Overview({ setActivePage }) {
             </p>
           </div>
           <div className="hero-datetime-block" data-testid="overview-mini-calendar">
-            <div className="overview-mini-calendar-card">
-              <div className="mini-cal-badge">
-                <span className="mini-cal-month">
-                  {new Intl.DateTimeFormat("en-US", { month: "short" }).format(new Date()).toUpperCase()}
-                </span>
-                <span className="mini-cal-day">{new Date().getDate()}</span>
-              </div>
-              <div className="mini-cal-info">
-                <span className="hero-time-text">{currentTime}</span>
-                <span className="hero-date-text">{todayFormatted}</span>
+            <div className="overview-mini-cal-widget">
+              <div className="mini-cal-top-row">
+                <div className="mini-cal-title-wrap">
+                  <span className="mini-cal-month-title">
+                    {monthName} {currentYear}
+                  </span>
+                  <span className="mini-cal-time-sub">{currentTime}</span>
+                </div>
                 <button
                   type="button"
                   onClick={() => navigate("/dashboard/schedule")}
                   className="mini-cal-schedule-link cursor-pointer"
                   aria-label="View Calendar & Schedules"
                 >
-                  <i className="ti ti-calendar-event" aria-hidden="true" />
+                  <i className="ti ti-calendar-event text-[12px]" aria-hidden="true" />
                   <span>Calendar &amp; Schedules</span>
                   <i className="ti ti-arrow-right text-[11px]" aria-hidden="true" />
                 </button>
+              </div>
+
+              <div className="mini-cal-weekdays" aria-hidden="true">
+                <span>S</span>
+                <span>M</span>
+                <span>T</span>
+                <span>W</span>
+                <span>T</span>
+                <span>F</span>
+                <span>S</span>
+              </div>
+
+              <div className="mini-cal-grid" role="grid" aria-label={`Calendar grid for ${monthName} ${currentYear}`}>
+                {miniCalDays.map((cell) =>
+                  cell.day === null ? (
+                    <div key={cell.key} className="mini-cal-cell empty" aria-hidden="true" />
+                  ) : (
+                    <button
+                      key={cell.key}
+                      type="button"
+                      onClick={() => navigate("/dashboard/schedule")}
+                      className={`mini-cal-cell ${cell.isToday ? "today" : ""} ${cell.hasEvent ? "has-event" : ""}`}
+                      title={cell.hasEvent ? `Day ${cell.day}: has scheduled events` : `Day ${cell.day}`}
+                      aria-label={`${monthName} ${cell.day}${cell.isToday ? " (Today)" : ""}${cell.hasEvent ? " (Has events)" : ""}`}
+                    >
+                      <span className="mini-cal-cell-num">{cell.day}</span>
+                      {cell.hasEvent && <span className="mini-cal-event-dot" data-testid="mini-cal-event-dot" />}
+                    </button>
+                  ),
+                )}
               </div>
             </div>
           </div>

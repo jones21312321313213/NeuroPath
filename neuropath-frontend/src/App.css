@@ -882,6 +882,139 @@ select option,
   text-align: right;
 }
 
+/* ── Overview Hero Mini Calendar Grid ── */
+.overview-mini-cal-widget {
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  width: 250px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.mini-cal-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.mini-cal-title-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.mini-cal-month-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.2px;
+}
+
+.mini-cal-time-sub {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+}
+
+.mini-cal-schedule-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: 2.5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.mini-cal-schedule-link:hover {
+  background: rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+.mini-cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 3px;
+}
+
+.mini-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.mini-cal-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 23px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.95);
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease;
+}
+
+.mini-cal-cell:hover:not(.empty) {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.mini-cal-cell.empty {
+  cursor: default;
+  pointer-events: none;
+}
+
+.mini-cal-cell.today {
+  background: #ffffff;
+  color: #0284c7;
+  font-weight: 800;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.mini-cal-cell.today:hover {
+  background: #f0f9ff;
+}
+
+.mini-cal-cell-num {
+  line-height: 1;
+}
+
+.mini-cal-event-dot {
+  position: absolute;
+  bottom: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #38bdf8;
+}
+
+.mini-cal-cell.today .mini-cal-event-dot {
+  background: #0284c7;
+}
+
 .overview-mini-calendar-card {
   display: flex;
   align-items: center;
@@ -1518,15 +1651,8 @@ select option,
 /* ── Quick Actions ───────────────────────────────────── */
 .quick-actions {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
-}
-
-@media (max-width: 1024px) and (min-width: 641px) {
-  .quick-actions {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
-  }
 }
 
 .quick-action-card {
@@ -1690,12 +1816,39 @@ select option,
   }
 
   .quick-actions {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
   }
 
   .quick-action-card {
-    padding: 12px 14px;
+    padding: 10px 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .quick-action-icon-wrap {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+  }
+
+  .quick-action-icon {
+    font-size: 18px;
+  }
+
+  .quick-action-label {
+    font-size: 13px;
+    line-height: 1.25;
+  }
+
+  .quick-action-desc {
+    font-size: 11px;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .form-grid-2,
@@ -1783,8 +1936,10 @@ select option,
     width: 100%;
   }
 
-  .overview-mini-calendar-card {
+  .overview-mini-calendar-card,
+  .overview-mini-cal-widget {
     width: 100%;
+    max-width: 100%;
     justify-content: flex-start;
   }
 

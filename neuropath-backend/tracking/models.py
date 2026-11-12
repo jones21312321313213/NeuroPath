@@ -60,7 +60,7 @@ class ScheduleEventType(models.TextChoices):
     QUARTERLY_REVIEW = 'quarterly_review', 'Quarterly Review & Regression Check'
     ANNUAL_RENEWAL = 'annual_renewal', 'Annual IEP Renewal'
     PROGRESS_RECORDING = 'progress_recording', 'Progress Score Recording'
-    CUSTOM_MEETING = 'custom_meeting', 'Parent / Multi-Disciplinary Conference'
+    CUSTOM_MEETING = 'custom_meeting', 'Parent / Multi-Disciplinary Meeting'
 
 
 class ScheduleEventPriority(models.TextChoices):

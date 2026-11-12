@@ -77,7 +77,7 @@ const TUTORIAL_STEPS = [
     highlights: [
       "Ongoing mastery tracking for each active IEP goal",
       "Visual progress charts and trends across subjects",
-      "Exportable summary records for team and parent conferences",
+      "Exportable summary records for team and parent reviews",
     ],
   },
 ];

@@ -104,6 +104,7 @@ describe("CreateStudentProfile Help Text & Difficulty Validation", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /read full consent agreement/i }),
     );
+    fireEvent.click(screen.getByTestId("consent-terms-checkbox"));
     fireEvent.click(
       screen.getByRole("button", {
         name: /i have read & understood the terms/i,
@@ -153,6 +154,7 @@ describe("CreateStudentProfile next-step actions", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /read full consent agreement/i }),
     );
+    fireEvent.click(screen.getByTestId("consent-terms-checkbox"));
     fireEvent.click(
       screen.getByRole("button", {
         name: /i have read & understood the terms/i,
@@ -360,6 +362,7 @@ describe("CreateStudentProfile next-step actions", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /read full consent agreement/i }),
     );
+    fireEvent.click(screen.getByTestId("consent-terms-checkbox"));
     fireEvent.click(
       screen.getByRole("button", {
         name: /i have read & understood the terms/i,
@@ -562,6 +565,9 @@ describe("CreateStudentProfile next-step actions", () => {
     const confirmBtn = screen.getByRole("button", {
       name: /i have read & understood the terms/i,
     });
+    expect(confirmBtn).toBeDisabled();
+    fireEvent.click(screen.getByTestId("consent-terms-checkbox"));
+    expect(confirmBtn).not.toBeDisabled();
     fireEvent.click(confirmBtn);
 
     // Modal closes, icon flips to checkmark (reviewed), and checkbox is enabled
@@ -620,6 +626,7 @@ describe("CreateStudentProfile next-step actions", () => {
 
     // Review agreement to unlock consent
     fireEvent.click(screen.getByRole("button", { name: /read full consent agreement/i }));
+    fireEvent.click(screen.getByTestId("consent-terms-checkbox"));
     fireEvent.click(screen.getByRole("button", { name: /i have read & understood the terms/i }));
 
     // Click NEXT
@@ -751,6 +758,7 @@ describe("Issue #204: Input bounds, accessible validation feedback, and save con
     fireEvent.click(screen.getByLabelText(/Difficulty in Seeing/i));
     fireEvent.change(screen.getByPlaceholderText(/Enter parent or guardian name/i), { target: { value: "Jane Clara" } });
     fireEvent.click(screen.getByRole("button", { name: /read full consent agreement/i }));
+    fireEvent.click(screen.getByTestId("consent-terms-checkbox"));
     fireEvent.click(screen.getByRole("button", { name: /i have read & understood the terms/i }));
     fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
 
@@ -822,6 +830,7 @@ describe("Issue #204: Input bounds, accessible validation feedback, and save con
     fireEvent.click(screen.getByLabelText(/Difficulty in Hearing/i));
     fireEvent.change(screen.getByPlaceholderText(/Enter parent or guardian name/i), { target: { value: "Leonora Luna" } });
     fireEvent.click(screen.getByRole("button", { name: /read full consent agreement/i }));
+    fireEvent.click(screen.getByTestId("consent-terms-checkbox"));
     fireEvent.click(screen.getByRole("button", { name: /i have read & understood the terms/i }));
     fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
 

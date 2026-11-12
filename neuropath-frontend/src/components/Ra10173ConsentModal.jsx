@@ -37,6 +37,14 @@ export function Ra10173ConsentModal({
 }) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
+  const [isAgreed, setIsAgreed] = useState(false);
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (prevIsOpen !== isOpen) {
+    setPrevIsOpen(isOpen);
+    if (!isOpen) {
+      setIsAgreed(false);
+    }
+  }
   const { toast } = useToast();
 
   const effectiveLearnerName =
@@ -158,26 +166,42 @@ export function Ra10173ConsentModal({
               )}
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant={readOnly ? "primary" : "ghost"}
-                size="sm"
-                onClick={onClose}
-              >
-                Close
-              </Button>
-              {!readOnly && (
+            <div className="flex items-center gap-3">
+              {readOnly ? (
                 <Button
                   type="button"
                   variant="primary"
                   size="sm"
-                  onClick={handleConfirm}
-                  className="flex items-center gap-1.5"
+                  onClick={onClose}
                 >
-                  <CheckIcon className="w-4 h-4" aria-hidden="true" />
-                  I Have Read &amp; Understood the Terms
+                  Close
                 </Button>
+              ) : (
+                <>
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-700 font-medium">
+                    <input
+                      type="checkbox"
+                      checked={isAgreed}
+                      onChange={(e) => setIsAgreed(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                      data-testid="consent-terms-checkbox"
+                      aria-label="I agree to the terms of the RA 10173 Data Privacy Act"
+                    />
+                    <span>I have reviewed and agree to the statutory consent terms</span>
+                  </label>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    disabled={!isAgreed}
+                    onClick={handleConfirm}
+                    className="flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    data-testid="consent-confirm-btn"
+                  >
+                    <CheckIcon className="w-4 h-4" aria-hidden="true" />
+                    I Have Read &amp; Understood the Terms
+                  </Button>
+                </>
               )}
             </div>
           </div>
