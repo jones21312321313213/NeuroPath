@@ -963,11 +963,11 @@ select option,
 /* ── Dashboard Release Toast Notification ── */
 .overview-release-toast {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
+  top: 72px;
+  right: 24px;
   z-index: 1050;
   max-width: 360px;
-  width: calc(100vw - 40px);
+  width: calc(100vw - 48px);
   background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -975,17 +975,27 @@ select option,
   padding: 16px;
   box-shadow: 0 12px 36px -4px rgba(15, 23, 42, 0.2), 0 4px 12px rgba(15, 23, 42, 0.08);
   border: 1px solid #bfdbfe;
-  animation: toastSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: toastSlideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes toastSlideUp {
+@keyframes toastSlideDown {
   from {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(-16px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .overview-release-toast {
+    top: 64px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-width: none;
   }
 }
 
