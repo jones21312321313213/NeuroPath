@@ -12,19 +12,21 @@ export default function ToastContainer({ position = "top-right" }) {
   if (!toasts || toasts.length === 0) return null;
 
   const isTop = position.startsWith("top");
-  const positionClass =
+  const desktopPositionClass =
     position === "bottom-right"
-      ? "bottom-5 right-5"
+      ? "sm:bottom-5 sm:right-5 sm:left-auto sm:translate-x-0"
       : position === "bottom-left"
-      ? "bottom-5 left-5"
+      ? "sm:bottom-5 sm:left-5 sm:right-auto sm:translate-x-0"
       : position === "top-left"
-      ? "top-5 left-5"
-      : "top-5 right-5";
+      ? "sm:top-5 sm:left-5 sm:right-auto sm:translate-x-0"
+      : "sm:top-5 sm:right-5 sm:left-auto sm:translate-x-0";
+
+  const mobilePositionClass = isTop ? "top-4" : "bottom-4";
 
   return (
     <div
       aria-label="Notifications"
-      className={`fixed ${positionClass} z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0`}
+      className={`fixed ${mobilePositionClass} left-1/2 -translate-x-1/2 ${desktopPositionClass} z-[9999] flex flex-col gap-2.5 w-[calc(100vw-24px)] max-w-sm pointer-events-none px-0`}
     >
       {toasts.map((toast) => {
         const isSuccess = toast.type === "success";
