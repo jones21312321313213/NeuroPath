@@ -201,7 +201,6 @@ class DepEdObjectiveGenerationAndFallbackTests(TestCase):
 
 from iep_management.models import IEPObjectiveRow
 from iep_management.views import IEPBinaryReportRenderEngine
-from iep_management.privacy_utils import escape_reportlab_text
 
 
 class DepEdPDFExportRenderingTests(TestCase):
