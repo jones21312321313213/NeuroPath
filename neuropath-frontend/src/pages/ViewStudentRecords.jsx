@@ -132,6 +132,7 @@ function normalizeGoal(goal) {
 
 function GoalTable({ rows = [] }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(80);
   if (!rows.length) return null;
 
   const renderTable = () => (
@@ -216,23 +217,59 @@ function GoalTable({ rows = [] }) {
           aria-label="Section C Learner Goals Fullscreen View"
         >
           <div className="bg-white rounded-2xl shadow-2xl flex-1 flex flex-col overflow-hidden border border-slate-200">
-            <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
+            <div className="px-4 py-3 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-2">
                 <i className="ti ti-table text-sky-400 text-lg" aria-hidden="true" />
                 <span className="font-bold text-sm tracking-wide">Section C: Learner's Goal — Fullscreen View</span>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsFullscreen(false)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold cursor-pointer transition-colors"
-                aria-label="Exit fullscreen"
-              >
-                <i className="ti ti-x text-sm" aria-hidden="true" />
-                <span>Exit Fullscreen</span>
-              </button>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center bg-white/10 rounded-lg p-0.5 border border-white/15" role="group" aria-label="Zoom controls">
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel((prev) => Math.max(prev - 10, 50))}
+                    className="p-1 px-2 text-white/90 hover:text-white hover:bg-white/10 rounded text-xs font-bold transition-colors cursor-pointer"
+                    aria-label="Zoom out"
+                    title="Zoom out"
+                  >
+                    <i className="ti ti-minus" aria-hidden="true" />
+                  </button>
+                  <span className="px-2 text-xs font-semibold text-white/90 select-none min-w-[42px] text-center">
+                    {zoomLevel}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel((prev) => Math.min(prev + 10, 130))}
+                    className="p-1 px-2 text-white/90 hover:text-white hover:bg-white/10 rounded text-xs font-bold transition-colors cursor-pointer"
+                    aria-label="Zoom in"
+                    title="Zoom in"
+                  >
+                    <i className="ti ti-plus" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel(80)}
+                    className="px-2 py-0.5 ml-1 text-[11px] font-semibold text-sky-300 hover:text-sky-200 hover:bg-white/10 rounded transition-colors cursor-pointer"
+                    title="Reset to default zoomed-out view (80%)"
+                  >
+                    80% (Default)
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsFullscreen(false)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold cursor-pointer transition-colors"
+                  aria-label="Exit fullscreen"
+                >
+                  <i className="ti ti-x text-sm" aria-hidden="true" />
+                  <span>Exit Fullscreen</span>
+                </button>
+              </div>
             </div>
             <div className="flex-1 overflow-auto p-3 sm:p-5 bg-slate-50">
-              <div className="vsr-table-scroll bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+              <div
+                className="vsr-table-scroll vsr-table-fullscreen-content bg-white p-3 rounded-xl border border-slate-200 shadow-sm transition-all"
+                style={{ zoom: `${zoomLevel}%` }}
+              >
                 {renderTable()}
               </div>
             </div>

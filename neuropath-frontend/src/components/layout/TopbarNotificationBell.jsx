@@ -141,7 +141,7 @@ function TopbarNotificationBellInner() {
           <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
             {deadlines.length === 0 ? (
               <div className="p-6 text-center text-slate-500">
-                <i className="ti ti-calendar-check text-2xl text-emerald-500 mb-1" aria-hidden="true" />
+                <i className="ti ti-calendar-check text-2xl text-blue-500 mb-1" aria-hidden="true" />
                 <p className="text-xs font-medium text-slate-700">No approaching deadlines</p>
                 <p className="text-[11px] text-slate-400">All IEP progress reviews are up to date.</p>
               </div>

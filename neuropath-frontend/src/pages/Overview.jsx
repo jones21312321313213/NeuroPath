@@ -126,7 +126,7 @@ export default function Overview({ setActivePage }) {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth(); // 0-indexed
   const monthName = useMemo(() => {
-    return new Intl.DateTimeFormat("en-US", { month: "short" }).format(now);
+    return new Intl.DateTimeFormat("en-US", { month: "long" }).format(now);
   }, [now]);
 
   const { data: scheduleEventsData = [] } = useScheduleEvents({
