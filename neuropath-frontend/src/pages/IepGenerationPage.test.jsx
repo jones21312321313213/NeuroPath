@@ -2280,6 +2280,50 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       expect(saveGoalPayload.objective_rows[0].month_2_target).toBe("Identify 1-5 counters with verbal cues");
       expect(saveGoalPayload.objective_rows[0].month_3_target).toBe("Identify 5-10 counters independently");
     });
+
+    it("renders DepEd Transition Curriculum competency and parenthesized SPED code with preserved line breaks in Section C", async () => {
+      const mockGoal = {
+        goalID: 102,
+        subject_category: "Mathematical Skills",
+        annual_goal: "Given tactile counters, the learner will recognize numbers 0-10 with 80% accuracy.",
+        objective_rows: [
+          {
+            rowID: 202,
+            enroute_objectives: "Recognizing numbers from 0-10\n(TP_MFP-nv-NG-1)",
+            month_1_target: "Recognize 0-3 with 70% accuracy",
+            month_2_target: "Recognize 0-6 with 75% accuracy",
+            month_3_target: "Recognize 0-10 with 80% accuracy",
+            interventions_procedures: "(Mother Tongue / Visual Support) Tactile counters",
+            timeline_mins_session: "15-20 minutes every day (based on learner's ability)",
+            individuals_responsible: "SPED Teacher, Parents/Guardians",
+            progress_instructional: "Checklist",
+            remarks: "On track",
+          },
+        ],
+      };
+
+      iepAPI.listByStudent.mockResolvedValue([
+        {
+          iepID: 10,
+          studentID: 1,
+          studentName: "Alex Doe",
+          version: 1,
+          goals: "Improve numeracy",
+        },
+      ]);
+      iepAPI.listGoalsByIep.mockResolvedValue([mockGoal]);
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Recognizing numbers from 0-10/)).toBeInTheDocument();
+        expect(screen.getByText("(TP_MFP-nv-NG-1)")).toBeInTheDocument();
+      });
+    });
   });
 
   describe("IEP UX Refinements (Issue #215 / Section B check / View IEP archives / search icon)", () => {
