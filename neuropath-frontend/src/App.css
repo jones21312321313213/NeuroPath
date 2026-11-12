@@ -2551,23 +2551,38 @@ select option,
   min-width: 1560px;
 }
 
-/* Sticky first column (Objective) */
+/* First column (Objective) - position static to scroll naturally on horizontal slide */
 .iep-table th.iep-sticky-col {
-  position: sticky;
-  left: 0;
-  z-index: 10;
+  position: static;
   background: #5aabf0;
-  box-shadow: 3px 0 6px -2px rgba(0, 0, 0, 0.16);
+  box-shadow: none;
 }
 .iep-table td.iep-sticky-col {
-  position: sticky;
-  left: 0;
-  z-index: 5;
+  position: static;
   background: #ffffff;
-  box-shadow: 3px 0 6px -2px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 .iep-table tr:hover td.iep-sticky-col {
   background: #f8fafc;
+}
+
+/* ── Fullscreen Section C Table Styles ── */
+.iep-fullscreen-btn {
+  flex-shrink: 0;
+}
+
+.iep-table-fullscreen-content .iep-section-c-table {
+  font-size: 12px;
+}
+
+.iep-table-fullscreen-content .iep-section-c-table th {
+  padding: 8px 12px;
+  font-size: 11px;
+}
+
+.iep-table-fullscreen-content .iep-section-c-table td {
+  padding: 8px 12px;
+  font-size: 12px;
 }
 
 /* Grouped 2-tier headers */

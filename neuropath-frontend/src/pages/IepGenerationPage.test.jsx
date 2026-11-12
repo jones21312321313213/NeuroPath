@@ -2175,6 +2175,66 @@ describe("IEPGenerationPage - Special Factor Notes and Manual Goal Add", () => {
       expect(screen.getByText("Count 1-5 independently")).toBeInTheDocument();
     });
 
+    it("renders Fullscreen View button and toggles fullscreen mode with zoom controls in Section C", async () => {
+      const user = userEvent.setup();
+      const mockGoal = {
+        goalID: 102,
+        subject_category: "Communication",
+        annual_goal: "Express wants and needs verbally",
+        objective_rows: [
+          {
+            rowID: 202,
+            enroute_objectives: "Point to communication card",
+            month_1_target: "Point with hand over hand",
+            month_2_target: "Point with verbal cue",
+            month_3_target: "Point independently",
+            interventions_procedures: "Visual schedule",
+            timeline_mins_session: "20 mins",
+            individuals_responsible: "SLP",
+            progress_instructional: "Data sheet",
+            remarks: "Steady progress",
+          },
+        ],
+      };
+
+      iepAPI.listByStudent.mockResolvedValue([
+        {
+          iepID: 11,
+          studentID: 1,
+          studentName: "Alex Doe",
+          version: 1,
+        },
+      ]);
+      iepAPI.listGoalsByIep.mockResolvedValue([mockGoal]);
+
+      render(
+        <MemoryRouter>
+          <IEPGenerationPage mode="view" initialStudentId={1} />
+        </MemoryRouter>,
+      );
+
+      const fullscreenBtn = await screen.findByRole("button", {
+        name: /view section c table in fullscreen mode/i,
+      });
+      expect(fullscreenBtn).toBeInTheDocument();
+
+      // Open fullscreen
+      await user.click(fullscreenBtn);
+
+      const fullscreenDialog = screen.getByRole("dialog", {
+        name: /section c learner goals fullscreen view/i,
+      });
+      expect(fullscreenDialog).toBeInTheDocument();
+      expect(screen.getByRole("group", { name: /zoom controls/i })).toBeInTheDocument();
+      expect(screen.getByText("80%")).toBeInTheDocument();
+
+      // Exit fullscreen
+      const exitBtn = screen.getByRole("button", { name: /exit fullscreen/i });
+      await user.click(exitBtn);
+
+      expect(screen.queryByRole("dialog", { name: /section c learner goals fullscreen view/i })).not.toBeInTheDocument();
+    });
+
     it("renders 3 monthly milestone columns and textareas in Edit Section C mode", async () => {
       const user = userEvent.setup();
       const mockGoal = {
