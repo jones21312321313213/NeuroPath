@@ -105,7 +105,7 @@ class ScheduleEventTests(APITestCase):
     def test_supersede_stale_milestones_on_new_iep_version(self):
         """When IEP v2 is created, previous pending milestone events from v1 are dismissed."""
         # Create initial milestone events for v1
-        v1_events = create_iep_milestone_events(self.iep1, self.teacher1)
+        create_iep_milestone_events(self.iep1, self.teacher1)
         self.assertEqual(ScheduleEvent.objects.filter(student=self.student1, status=ScheduleEventStatus.PENDING).count(), 4)
 
         # Create IEP v2

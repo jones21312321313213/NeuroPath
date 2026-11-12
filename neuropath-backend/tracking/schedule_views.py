@@ -7,7 +7,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from users.utils import get_teacher_for_user
-from users.models import StudentProfile
 from .models import ScheduleEvent, ScheduleEventStatus
 from .serializers import ScheduleEventSerializer
 
