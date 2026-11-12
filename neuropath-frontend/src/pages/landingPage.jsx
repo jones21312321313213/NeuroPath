@@ -165,18 +165,40 @@ function FeatureCard({ feature, index }) {
   );
 }
 
+const CURRENT_VERSION = RELEASE_NOTES[0]?.version || "v1.2.1";
+const SEEN_RELEASE_STORAGE_KEY = "neuropath_last_seen_release";
+
 export default function LandingPage({ onGetStarted }) {
   const [scrolled, setScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
-  const [showVersionPopup, setShowVersionPopup] = useState(true);
+  const [showVersionPopup, setShowVersionPopup] = useState(() => {
+    try {
+      if (typeof window === "undefined" || !window.localStorage) return true;
+      const seen = window.localStorage.getItem(SEEN_RELEASE_STORAGE_KEY);
+      return seen !== CURRENT_VERSION;
+    } catch {
+      return true;
+    }
+  });
   const [isPopupHovered, setIsPopupHovered] = useState(false);
   const heroRef = useRef(null);
+
+  const dismissVersionPopup = () => {
+    setShowVersionPopup(false);
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.setItem(SEEN_RELEASE_STORAGE_KEY, CURRENT_VERSION);
+      }
+    } catch {
+      // ignore storage write errors
+    }
+  };
 
   useEffect(() => {
     if (!showVersionPopup || isPopupHovered) return;
     const timer = setTimeout(() => {
-      setShowVersionPopup(false);
+      dismissVersionPopup();
     }, 5000);
     return () => clearTimeout(timer);
   }, [showVersionPopup, isPopupHovered]);
@@ -442,7 +464,7 @@ export default function LandingPage({ onGetStarted }) {
             </div>
             <button
               type="button"
-              onClick={() => setShowVersionPopup(false)}
+              onClick={dismissVersionPopup}
               aria-label="Dismiss version popup"
               className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
             >
@@ -453,7 +475,7 @@ export default function LandingPage({ onGetStarted }) {
             <button
               type="button"
               onClick={() => {
-                setShowVersionPopup(false);
+                dismissVersionPopup();
                 setShowChangelog(true);
               }}
               aria-label="View version v1.2.1 changelog"
