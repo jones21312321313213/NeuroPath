@@ -637,5 +637,86 @@ describe("Overview - At a Glance Stats (Option 2: Classroom & Resource Readiness
       });
     });
   });
+
+  describe("Release Notes & Changelog on Dashboard", () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    it("renders What's New chip in hero banner and opens ChangelogModal on click", async () => {
+      studentsAPI.list.mockResolvedValue([]);
+      iepAPI.dashboardStats.mockResolvedValue({ active_ieps: 0, ai_insights: 0 });
+      const user = userEvent.setup();
+
+      renderWithQueryClient(
+        <MemoryRouter>
+          <Overview setActivePage={vi.fn()} />
+        </MemoryRouter>,
+      );
+
+      const whatsNewChip = screen.getByTestId("overview-whats-new-chip");
+      expect(whatsNewChip).toBeInTheDocument();
+      expect(screen.queryByTestId("changelog-modal")).not.toBeInTheDocument();
+
+      await user.click(whatsNewChip);
+
+      expect(screen.getByTestId("changelog-modal")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /changelog & release notes/i })).toBeInTheDocument();
+    });
+
+    it("renders release announcement toast when not yet dismissed, and persists dismissal", async () => {
+      studentsAPI.list.mockResolvedValue([]);
+      iepAPI.dashboardStats.mockResolvedValue({ active_ieps: 0, ai_insights: 0 });
+      const user = userEvent.setup();
+
+      renderWithQueryClient(
+        <MemoryRouter>
+          <Overview setActivePage={vi.fn()} />
+        </MemoryRouter>,
+      );
+
+      const toast = screen.getByTestId("overview-release-toast");
+      expect(toast).toBeInTheDocument();
+
+      const closeBtn = screen.getByRole("button", { name: /dismiss release notification/i });
+      await user.click(closeBtn);
+
+      expect(screen.queryByTestId("overview-release-toast")).not.toBeInTheDocument();
+      expect(localStorage.getItem("neuropath_dashboard_seen_release")).toBe("v1.2.1");
+    });
+
+    it("opens ChangelogModal when clicking 'Read release notes' action on toast", async () => {
+      studentsAPI.list.mockResolvedValue([]);
+      iepAPI.dashboardStats.mockResolvedValue({ active_ieps: 0, ai_insights: 0 });
+      const user = userEvent.setup();
+
+      renderWithQueryClient(
+        <MemoryRouter>
+          <Overview setActivePage={vi.fn()} />
+        </MemoryRouter>,
+      );
+
+      const readNotesBtn = screen.getByRole("button", { name: /read release notes/i });
+      await user.click(readNotesBtn);
+
+      expect(screen.getByTestId("changelog-modal")).toBeInTheDocument();
+      expect(screen.queryByTestId("overview-release-toast")).not.toBeInTheDocument();
+      expect(localStorage.getItem("neuropath_dashboard_seen_release")).toBe("v1.2.1");
+    });
+
+    it("does not render release toast if user already dismissed current version", () => {
+      localStorage.setItem("neuropath_dashboard_seen_release", "v1.2.1");
+      studentsAPI.list.mockResolvedValue([]);
+      iepAPI.dashboardStats.mockResolvedValue({ active_ieps: 0, ai_insights: 0 });
+
+      renderWithQueryClient(
+        <MemoryRouter>
+          <Overview setActivePage={vi.fn()} />
+        </MemoryRouter>,
+      );
+
+      expect(screen.queryByTestId("overview-release-toast")).not.toBeInTheDocument();
+    });
+  });
 });
 
