@@ -408,3 +408,104 @@ class RGORI10IndicatorRubricTests(TestCase):
         self.assertLess(audit["total_score"], 65)
         self.assertFalse(audit["compliant"])
         self.assertEqual(audit["status"], "Review Advised")
+
+
+class RGORISureAndDeterministicTests(TestCase):
+    def test_parse_evaluation_ignores_spoofed_llm_total_and_compliant(self):
+        spoofed_raw = json.dumps({
+            "total_score": 99,
+            "compliant": True,
+            "breakdown": {
+                "measurability": 10,
+                "functionality": 10,
+                "generality": 10,
+                "instructional_context": 10,
+            },
+            "feedback": "Looks great!",
+        })
+        parsed = RGORICheckerService._parse_evaluation(spoofed_raw)
+        self.assertEqual(parsed["total_score"], 40)
+        self.assertFalse(parsed["compliant"])
+        self.assertEqual(parsed["status"], "Review Advised")
+
+    def test_sure_gate_flags_discrepancy_over_15_points(self):
+        # Vague goal scores low structurally (< 45), but LLM gives 90
+        vague_goal = "Alex will understand and appreciate reading."
+        high_llm_raw = json.dumps({
+            "indicators": {
+                "observable_verb": 9,
+                "baseline_calibrated_criterion": 9,
+                "evaluation_schedule_timeline": 9,
+                "stimulus_prompt_condition": 14,
+                "naturalistic_routine_context": 9,
+                "plaafp_baseline_traceability": 14,
+                "functional_daily_academic_utility": 9,
+                "cross_setting_material_person": 8,
+                "maintenance_generality_criterion": 5,
+                "sequential_milestone_alignment": 4,
+            },
+            "feedback": "Strong goal.",
+        })
+        parsed = RGORICheckerService._parse_evaluation(
+            high_llm_raw, goal_text=vague_goal, student_context=""
+        )
+        self.assertEqual(parsed["total_score"], 90)
+        self.assertTrue(parsed["uncertainty_review_advised"])
+        self.assertIn("uncertainty", parsed["feedback"].lower())
+
+    def test_sure_gate_flags_borderline_60_to_68_score(self):
+        goal = (
+            "During morning circle, given visual cues, Alex will follow 2-step directions "
+            "across 2 classroom settings for 2 consecutive weeks."
+        )
+        borderline_raw = json.dumps({
+            "breakdown": {
+                "measurability": 16,
+                "functionality": 17,
+                "generality": 16,
+                "instructional_context": 16,
+            },
+            "feedback": "Borderline goal.",
+        })
+        parsed = RGORICheckerService._parse_evaluation(
+            borderline_raw, goal_text=goal, student_context="Difficulties: following directions."
+        )
+        self.assertEqual(parsed["total_score"], 65)
+        self.assertTrue(parsed["uncertainty_review_advised"])
+
+    @patch('iep_management.ai_engine.AIEngineService.generate_text')
+    def test_evaluate_goal_uses_response_schema_and_deterministic_scoring(self, mock_ai):
+        mock_ai.return_value = (
+            json.dumps({
+                "indicators": {
+                    "observable_verb": 10,
+                    "baseline_calibrated_criterion": 10,
+                    "evaluation_schedule_timeline": 10,
+                    "stimulus_prompt_condition": 15,
+                    "naturalistic_routine_context": 10,
+                    "plaafp_baseline_traceability": 15,
+                    "functional_daily_academic_utility": 10,
+                    "cross_setting_material_person": 10,
+                    "maintenance_generality_criterion": 5,
+                    "sequential_milestone_alignment": 5,
+                },
+                "feedback": "Comprehensive exemplary goal.",
+            }),
+            "gemini",
+        )
+        goal = (
+            "During morning circle and small-group literacy stations, given visual schedule strips "
+            "and peer models, Alex will independently initiate and respond to 2-step classroom "
+            "directions across 2 classroom settings and 2 communicative partners (teacher and peer) "
+            "with 85% accuracy across 4 consecutive weeks."
+        )
+        result = RGORICheckerService.evaluate_goal(
+            goal, "Difficulties: following directions. Accommodations: visual schedule strips."
+        )
+        self.assertEqual(result["total_score"], 100)
+        self.assertEqual(result["status"], "Exemplary")
+        self.assertFalse(result["uncertainty_review_advised"])
+        self.assertEqual(
+            mock_ai.call_args.kwargs.get("response_schema"),
+            RGORICheckerService.RGORI_EVALUATION_SCHEMA,
+        )

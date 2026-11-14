@@ -424,32 +424,39 @@ A score of 65–74 is Acceptable. 75–86 is Good. 87–100 is IEP Worthy.
 
 OUTPUT FORMAT (return this exact JSON, no other text):
 {{
-  "total_score": <integer 0–100>,
-  "breakdown": {{
-    "measurability":          <integer 0–25>,
-    "functionality":          <integer 0–25>,
-    "generality":             <integer 0–25>,
-    "instructional_context":  <integer 0–25>
+  "indicators": {{
+    "observable_verb": <integer 0–10>,
+    "baseline_calibrated_criterion": <integer 0–10>,
+    "evaluation_schedule_timeline": <integer 0–10>,
+    "stimulus_prompt_condition": <integer 0–15>,
+    "naturalistic_routine_context": <integer 0–10>,
+    "plaafp_baseline_traceability": <integer 0–15>,
+    "functional_daily_academic_utility": <integer 0–10>,
+    "cross_setting_material_person": <integer 0–10>,
+    "maintenance_generality_criterion": <integer 0–5>,
+    "sequential_milestone_alignment": <integer 0–5>
   }},
-  "feedback": "<One concise sentence naming the strongest area and the most critical gap.>",
-  "compliant": <true or false>
+  "feedback": "<One concise sentence naming the strongest area and the most critical gap.>"
 }}"""
 
         try:
             raw_evaluation, _ = AIEngineService.generate_text(
                 prompt=user_prompt,
                 system_prompt=system_prompt,
-                max_tokens=300,
+                max_tokens=400,
                 json_mode=True,
+                response_schema=RGORICheckerService.RGORI_EVALUATION_SCHEMA,
             )
         except Exception as e:
             logger.warning("R-GORI evaluation AI call failed: %s", e)
             raise RuntimeError(f"AI generation service is temporarily unavailable for R-GORI evaluation: {e}")
 
-        return RGORICheckerService._parse_evaluation(raw_evaluation)
+        return RGORICheckerService._parse_evaluation(
+            raw_evaluation, goal_text=goal_text, student_context=student_context
+        )
 
     @classmethod
-    def _parse_evaluation(cls, raw_text):
+    def _parse_evaluation(cls, raw_text, goal_text="", student_context=""):
         if not raw_text or not isinstance(raw_text, str):
             raise RuntimeError("AI generation service returned empty or invalid response for R-GORI evaluation.")
 
@@ -470,21 +477,53 @@ OUTPUT FORMAT (return this exact JSON, no other text):
             if not isinstance(data, dict):
                 raise RuntimeError("Failed to parse R-GORI evaluation: expected a JSON object.")
 
-            # Ensure we have total_score or can compute it
+            parsed_indicators = None
+            raw_indicators = data.get("indicators")
             breakdown = data.get("breakdown")
-            if isinstance(breakdown, dict) and all(
+
+            if isinstance(raw_indicators, dict) and any(k in raw_indicators for k in cls.INDICATOR_SPECS):
+                parsed_indicators = {}
+                for key, spec in cls.INDICATOR_SPECS.items():
+                    max_s = spec["max_score"]
+                    val = max(0, min(max_s, int(raw_indicators.get(key, 0))))
+                    parsed_indicators[key] = {"score": val, "max_score": max_s}
+
+                raw_total = sum(item["score"] for item in parsed_indicators.values())
+                meas_30 = (
+                    parsed_indicators["observable_verb"]["score"]
+                    + parsed_indicators["baseline_calibrated_criterion"]["score"]
+                    + parsed_indicators["evaluation_schedule_timeline"]["score"]
+                )
+                inst_25 = (
+                    parsed_indicators["stimulus_prompt_condition"]["score"]
+                    + parsed_indicators["naturalistic_routine_context"]["score"]
+                )
+                func_25 = (
+                    parsed_indicators["plaafp_baseline_traceability"]["score"]
+                    + parsed_indicators["functional_daily_academic_utility"]["score"]
+                )
+                gen_20 = (
+                    parsed_indicators["cross_setting_material_person"]["score"]
+                    + parsed_indicators["maintenance_generality_criterion"]["score"]
+                    + parsed_indicators["sequential_milestone_alignment"]["score"]
+                )
+                clean_breakdown = {
+                    "measurability": max(0, min(25, round(meas_30 * 25 / 30))),
+                    "functionality": max(0, min(25, func_25)),
+                    "generality": max(0, min(25, round(gen_20 * 25 / 20))),
+                    "instructional_context": max(0, min(25, inst_25)),
+                }
+            elif isinstance(breakdown, dict) and all(
                 k in breakdown for k in ["measurability", "functionality", "generality", "instructional_context"]
             ):
                 measurability = max(0, min(25, int(breakdown.get("measurability", 0))))
                 functionality = max(0, min(25, int(breakdown.get("functionality", 0))))
                 generality = max(0, min(25, int(breakdown.get("generality", 0))))
                 instructional_context = max(0, min(25, int(breakdown.get("instructional_context", 0))))
-                total_score = max(
+                # Deterministic Python sum: strictly ignore any spoofed LLM total_score
+                raw_total = max(
                     0,
-                    min(
-                        100,
-                        int(data.get("total_score", measurability + functionality + generality + instructional_context)),
-                    ),
+                    min(100, measurability + functionality + generality + instructional_context),
                 )
                 clean_breakdown = {
                     "measurability": measurability,
@@ -493,20 +532,41 @@ OUTPUT FORMAT (return this exact JSON, no other text):
                     "instructional_context": instructional_context,
                 }
             elif "total_score" in data:
-                total_score = max(0, min(100, int(data.get("total_score", 0))))
-                quarter = round(total_score / 4)
+                raw_total = max(0, min(100, int(data.get("total_score", 0))))
+                quarter = round(raw_total / 4)
                 clean_breakdown = {
                     "measurability": quarter,
                     "functionality": quarter,
                     "generality": quarter,
-                    "instructional_context": total_score - (quarter * 3),
+                    "instructional_context": raw_total - (quarter * 3),
                 }
             else:
                 raise RuntimeError("Failed to parse R-GORI evaluation: missing score metrics.")
 
-            compliant = data.get("compliant")
-            if not isinstance(compliant, bool):
-                compliant = total_score >= 65
+            structural_audit = cls.audit_goal_explainable(goal_text, student_context) if goal_text else None
+            effective_indicators = parsed_indicators or (structural_audit["indicators"] if structural_audit else {})
+            total_score, boilerplate_capped = cls._apply_boilerplate_cap(
+                goal_text, effective_indicators, raw_total
+            )
+
+            # Deterministic Python compliance & tier status (ignore spoofed LLM booleans)
+            compliant = total_score >= 65
+            status = cls._compute_tier_status(total_score)
+
+            uncertainty_review_advised = False
+            uncertainty_reasons = []
+            if structural_audit is not None:
+                discrepancy = abs(total_score - structural_audit["total_score"])
+                if discrepancy > 15:
+                    uncertainty_review_advised = True
+                    uncertainty_reasons.append(
+                        f"SURE uncertainty flag: {discrepancy}-pt discrepancy between AI rubric and structural ABCD check"
+                    )
+            if 60 <= total_score <= 68:
+                uncertainty_review_advised = True
+                uncertainty_reasons.append(
+                    f"SURE uncertainty flag: borderline score ({total_score}%) near 65% compliance cutoff"
+                )
 
             feedback = data.get("feedback")
             if not feedback or not isinstance(feedback, str):
@@ -515,13 +575,22 @@ OUTPUT FORMAT (return this exact JSON, no other text):
                     if compliant
                     else "Goal requires further specificity across target criteria."
                 )
+            feedback = feedback.strip()
+            if uncertainty_reasons:
+                feedback = f"{feedback} [{'; '.join(uncertainty_reasons)} — teacher review advised.]"
 
-            return {
+            result = {
                 "total_score": total_score,
+                "status": status,
                 "breakdown": clean_breakdown,
-                "feedback": feedback.strip(),
+                "feedback": feedback,
                 "compliant": compliant,
+                "boilerplate_capped": boilerplate_capped,
+                "uncertainty_review_advised": uncertainty_review_advised,
             }
+            if parsed_indicators is not None:
+                result["indicators"] = parsed_indicators
+            return result
         except Exception as e:
             if isinstance(e, RuntimeError):
                 raise
