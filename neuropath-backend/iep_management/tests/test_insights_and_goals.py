@@ -219,4 +219,50 @@ class GenerateIEPGoalsDraftingTestCase(TestCase):
         response = self.client.post('/api/iep/generate-goals-from-iep/', payload, format='json')
         self.assertEqual(response.status_code, 400)
 
+    @patch('iep_management.ai_engine.AIEngineService.generate_text')
+    def test_generate_annual_goal_prompt_enforces_naturalistic_context_and_generality(self, mock_ai):
+        mock_ai.return_value = (
+            "During morning circle and small-group stations, given visual schedule strips, "
+            "Leo will follow 2-step directions across 2 classroom settings and 2 partners "
+            "with 85% accuracy across 4 consecutive weeks.",
+            "gemini",
+        )
+        view = GenerateIEPGoalsFromIEPView()
+        view._generate_annual_goal(
+            student_name=self.student.name,
+            difficulty='Communication difficulties',
+            assistive_tech='Visual schedule strips',
+            accommodations='Visual charts',
+            facilitators='SNED Teacher',
+            goal_area='Communication Skills',
+        )
+        called_prompt = mock_ai.call_args[0][0].lower()
+        self.assertIn('naturalistic', called_prompt)
+        self.assertIn('at least 2', called_prompt)
+        self.assertIn('plaafp', called_prompt)
+
+    @patch('iep_management.ai_engine.AIEngineService.generate_text')
+    def test_generate_objective_rows_prompt_requires_cross_setting_month_3_mastery(self, mock_ai):
+        mock_ai.return_value = (
+            '[{"enroute_objectives": "Listening attentively to short stories\\n(TPLS_CS-li-NG-4)", '
+            '"month_1_target": "Month 1 guided", "month_2_target": "Month 2 faded", '
+            '"month_3_target": "Month 3 generalized", "interventions_procedures": "(Mother Tongue / Visual Support) ...", '
+            '"timeline_mins_session": "15 mins", "individuals_responsible": "SNED Teacher", '
+            '"progress_instructional": "Checklist", "remarks": "On track"}]',
+            "gemini",
+        )
+        view = GenerateIEPGoalsFromIEPView()
+        rows = view._generate_objective_rows(
+            student_name=self.student.name,
+            difficulty='Communication difficulties',
+            assistive_tech='Visual charts',
+            annual_goal='Leo will follow directions across 2 settings.',
+            facilitators='SNED Teacher',
+            goal_area='Communication Skills',
+        )
+        self.assertEqual(len(rows), 1)
+        sys_prompt = mock_ai.call_args.kwargs.get('system_prompt', '').lower()
+        self.assertIn('generalized', sys_prompt)
+        self.assertIn('plaafp', sys_prompt)
+
 
