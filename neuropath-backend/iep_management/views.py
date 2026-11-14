@@ -712,15 +712,49 @@ class GenerateIEPGoalsFromIEPView(APIView):
     ):
         """
         Generates annual goal and structured objective rows adhering to SMART ABCD criteria.
+        Runs an inter-step 10-indicator R-GORI audit immediately after Step A and triggers
+        at most one bounded self-correction pass (_attempts <= 2) before Step B if needed.
         Returns (goal_payload_dict, None) on success or (None, error_string) on failure.
         """
         try:
             # --- Step A: Generate annual goal ---
+            attempts = 1
             annual_goal = self._generate_annual_goal(
                 student_name, difficulty, assistive_tech, accommodations,
                 facilitators, goal_area, teacher_prompt,
                 special_factor_notes=special_factor_notes
             )
+
+            # Audit Step A immediately against 10-indicator R-GORI rubric before Step B
+            rgori_audit = RGORICheckerService.audit_goal_explainable(
+                annual_goal, student_context
+            )
+            indicators = rgori_audit.get("indicators", {})
+            needs_correction = (
+                rgori_audit.get("total_score", 0) < 65
+                or indicators.get("cross_setting_material_person", {}).get("score", 0) == 0
+                or indicators.get("naturalistic_routine_context", {}).get("score", 0) == 0
+            )
+            if needs_correction:
+                failed_rationales = [
+                    f"{name}: {meta.get('rationale', '')}"
+                    for name, meta in indicators.items()
+                    if meta.get("score", 0) < meta.get("max_score", 0)
+                ]
+                correction_guidance = (
+                    f"{teacher_prompt + ' ' if teacher_prompt else ''}"
+                    f"R-GORI self-correction required (initial score {rgori_audit.get('total_score', 0)}%). "
+                    f"Fix these gaps: {'; '.join(failed_rationales[:4])}"
+                )
+                attempts = 2
+                annual_goal = self._generate_annual_goal(
+                    student_name, difficulty, assistive_tech, accommodations,
+                    facilitators, goal_area, teacher_prompt=correction_guidance,
+                    special_factor_notes=special_factor_notes
+                )
+                rgori_audit = RGORICheckerService.audit_goal_explainable(
+                    annual_goal, student_context
+                )
 
             # --- Step B: Generate objective rows for this goal ---
             objective_rows = self._generate_objective_rows(
@@ -736,11 +770,6 @@ class GenerateIEPGoalsFromIEPView(APIView):
                 else self._map_difficulty_to_category(difficulty)
             )
 
-            # Audit goal against R-GORI criteria deterministically and attach explainable breakdown
-            rgori_audit = RGORICheckerService.audit_goal_explainable(
-                annual_goal, student_context
-            )
-
             # Build the full goal payload (ready for POST /api/iep/goals/)
             payload = {
                 "iep": iep_id,
@@ -750,7 +779,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
                 "target_metric": self._derive_target_metric(difficulty, assistive_tech),
                 "objective_rows": objective_rows,
                 "rgori_audit": rgori_audit,
-                "_attempts": 1,
+                "_attempts": attempts,
             }
 
             return payload, None

@@ -284,12 +284,13 @@ class AIEngineService:
     @classmethod
     def generate_text(cls, prompt, system_prompt='', max_tokens=500, json_mode=False, response_schema=None):
         errors = []
+        extra_kwargs = {'response_schema': response_schema} if response_schema is not None else {}
 
         # Tier 1 (Primary Cloud): Google Gemini
         try:
             content = cls._call_gemini(
                 prompt, system_prompt=system_prompt, max_tokens=max_tokens,
-                json_mode=json_mode, response_schema=response_schema
+                json_mode=json_mode, **extra_kwargs
             )
             if content:
                 return content, 'gemini'
@@ -301,7 +302,7 @@ class AIEngineService:
         try:
             content = cls._call_groq(
                 prompt, system_prompt=system_prompt, max_tokens=max_tokens,
-                json_mode=json_mode, response_schema=response_schema
+                json_mode=json_mode, **extra_kwargs
             )
             if content:
                 return content, 'groq'
@@ -313,7 +314,7 @@ class AIEngineService:
         try:
             content = cls._call_openrouter(
                 prompt, system_prompt=system_prompt, max_tokens=max_tokens,
-                json_mode=json_mode, response_schema=response_schema
+                json_mode=json_mode, **extra_kwargs
             )
             if content:
                 return content, 'openrouter'

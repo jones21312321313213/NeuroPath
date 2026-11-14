@@ -200,7 +200,8 @@ class RGORIResilienceTestCase(TestCase):
         When Groq is online, POST /api/iep/generate-goals-from-iep/ succeeds with LLM output.
         """
         mock_groq.side_effect = [
-            "Marcus will initiate a greeting with peers in 4 out of 5 opportunities.", # annual goal
+            "Marcus will initiate a greeting with peers in 4 out of 5 opportunities.", # annual goal attempt 1
+            "During morning circle and snack transition, given visual social stories, Marcus will initiate a greeting with peers across 2 classroom settings and 2 communicative partners in 4 out of 5 opportunities across 3 consecutive weeks.", # attempt 2 after R-GORI self-correction
             json.dumps([{
                 "enroute_objectives": "Marcus will wave hello when greeted.",
                 "interventions_procedures": "Teacher modeling and gesture prompts.",
@@ -509,3 +510,89 @@ class RGORISureAndDeterministicTests(TestCase):
             mock_ai.call_args.kwargs.get("response_schema"),
             RGORICheckerService.RGORI_EVALUATION_SCHEMA,
         )
+
+
+class RGORISelfCorrectionGateTests(TestCase):
+    @patch.object(GenerateIEPGoalsFromIEPView, '_generate_objective_rows')
+    @patch.object(GenerateIEPGoalsFromIEPView, '_generate_annual_goal')
+    def test_self_correction_triggers_once_when_initial_goal_lacks_generality_or_context(self, mock_goal, mock_rows):
+        vague_draft = "Alex will understand and appreciate reading."
+        improved_goal = (
+            "During morning circle and small-group literacy stations, given visual schedule strips, "
+            "Alex will independently identify 10 sight words across 2 classroom settings and 2 partners "
+            "with 85% accuracy across 4 consecutive weeks."
+        )
+        mock_goal.side_effect = [vague_draft, improved_goal]
+        mock_rows.return_value = [{"enroute_objectives": "Matching sight words\n(TP_EFP-rw-NG-1)"}]
+
+        view = GenerateIEPGoalsFromIEPView()
+        payload, err = view._generate_validated_goal(
+            iep_id=1,
+            student_name="Alex",
+            difficulty="Reading comprehension",
+            assistive_tech="Visual schedule strips",
+            accommodations="Visual cues",
+            facilitators="SPED Teacher",
+            student_context="Difficulties: reading comprehension. Accommodations: visual schedule strips.",
+            goal_area="Functional Academic Skills",
+        )
+        self.assertIsNone(err)
+        self.assertEqual(mock_goal.call_count, 2)
+        self.assertEqual(mock_rows.call_count, 1)
+        self.assertEqual(payload["_attempts"], 2)
+        self.assertEqual(payload["annual_goal"], improved_goal)
+        self.assertGreaterEqual(payload["rgori_audit"]["total_score"], 85)
+        second_call_prompt = mock_goal.call_args_list[1].kwargs.get("teacher_prompt", "")
+        self.assertIn("R-GORI", second_call_prompt)
+
+    @patch.object(GenerateIEPGoalsFromIEPView, '_generate_objective_rows')
+    @patch.object(GenerateIEPGoalsFromIEPView, '_generate_annual_goal')
+    def test_self_correction_stops_at_max_two_attempts_when_both_fail(self, mock_goal, mock_rows):
+        mock_goal.side_effect = [
+            "Alex will understand reading.",
+            "Alex will appreciate math.",
+        ]
+        mock_rows.return_value = [{"enroute_objectives": "Counting\n(TP_MFP-nv-NG-1)"}]
+
+        view = GenerateIEPGoalsFromIEPView()
+        payload, err = view._generate_validated_goal(
+            iep_id=1,
+            student_name="Alex",
+            difficulty="Reading",
+            assistive_tech="Visuals",
+            accommodations="Visuals",
+            facilitators="SPED Teacher",
+            student_context="Difficulties: reading.",
+            goal_area="Functional Academic Skills",
+        )
+        self.assertIsNone(err)
+        self.assertEqual(mock_goal.call_count, 2)
+        self.assertEqual(mock_rows.call_count, 1)
+        self.assertEqual(payload["_attempts"], 2)
+
+    @patch.object(GenerateIEPGoalsFromIEPView, '_generate_objective_rows')
+    @patch.object(GenerateIEPGoalsFromIEPView, '_generate_annual_goal')
+    def test_strong_initial_goal_takes_single_attempt(self, mock_goal, mock_rows):
+        strong_goal = (
+            "During morning circle and small-group literacy stations, given visual schedule strips, "
+            "Alex will independently identify 10 sight words across 2 classroom settings and 2 partners "
+            "with 85% accuracy across 4 consecutive weeks."
+        )
+        mock_goal.return_value = strong_goal
+        mock_rows.return_value = [{"enroute_objectives": "Matching sight words\n(TP_EFP-rw-NG-1)"}]
+
+        view = GenerateIEPGoalsFromIEPView()
+        payload, err = view._generate_validated_goal(
+            iep_id=1,
+            student_name="Alex",
+            difficulty="Reading",
+            assistive_tech="Visual schedule strips",
+            accommodations="Visual cues",
+            facilitators="SPED Teacher",
+            student_context="Difficulties: reading. Accommodations: visual schedule strips.",
+            goal_area="Functional Academic Skills",
+        )
+        self.assertIsNone(err)
+        self.assertEqual(mock_goal.call_count, 1)
+        self.assertEqual(mock_rows.call_count, 1)
+        self.assertEqual(payload["_attempts"], 1)
