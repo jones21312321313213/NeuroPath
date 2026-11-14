@@ -300,6 +300,21 @@ function SpecialFactorNotesField({
 
 // ─── Read-only goal table ─────────────────────────────────────────────────────
 
+function renderEnrouteObjectiveContent(rawObjective) {
+  const text = String(rawObjective || "").trim();
+  if (!text) return "—";
+  const match = text.match(/^([\s\S]*?)\r?\n(\(TP[A-Za-z0-9_.-]+-NG-[0-9.]+\))$/i);
+  if (!match) {
+    return <span className="whitespace-pre-line">{text}</span>;
+  }
+  return (
+    <div className="whitespace-pre-line">
+      <div>{match[1].trim()}</div>
+      <div className="font-semibold text-slate-700 mt-0.5">{match[2]}</div>
+    </div>
+  );
+}
+
 function ReadOnlyGoalTable({ rows = [], goalTitle = "" }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(80);
@@ -342,8 +357,8 @@ function ReadOnlyGoalTable({ rows = [], goalTitle = "" }) {
       <tbody>
         {rows.map((row, i) => (
           <tr key={row.id || i}>
-            <td className="iep-readonly-cell iep-col-objective">
-              {row.objective || "—"}
+            <td className="iep-readonly-cell iep-col-objective whitespace-pre-line">
+              {renderEnrouteObjectiveContent(row.objective)}
             </td>
             <td className="iep-readonly-cell iep-col-month">
               {row.month1 || row.month_1_target || "—"}

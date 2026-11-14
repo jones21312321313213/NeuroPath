@@ -44,8 +44,10 @@ class BundledRGORIGenerationTests(TestCase):
     @patch('iep_management.ai_engine.AIEngineService._call_groq')
     def test_generate_goals_attaches_rgori_audit_payload(self, mock_groq, mock_gemini):
         mock_groq.side_effect = [
-            # Annual goal
+            # Annual goal (attempt 1)
             "Given visual schedule cards, Sammy will independently remain on task for 15 minutes across 4 consecutive days.",
+            # Annual goal (attempt 2 after R-GORI self-correction)
+            "During morning circle and small-group stations, given visual schedule cards, Sammy will independently remain on task for 15 minutes across 2 classroom settings and 4 consecutive days.",
             # Objectives JSON
             json.dumps([{
                 "enroute_objectives": "Sammy will check off the visual schedule strip.",

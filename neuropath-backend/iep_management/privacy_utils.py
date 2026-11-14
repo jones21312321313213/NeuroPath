@@ -1,3 +1,4 @@
+import html
 import re
 from typing import Iterable, Optional
 
@@ -62,3 +63,15 @@ def verify_ra10173_consent(student_instance):
             "Automated AI processing and external data transmission are prohibited until consent is verified."
         )
     return True
+
+
+def escape_reportlab_text(val) -> str:
+    """
+    Strips XML-illegal ASCII control characters and HTML-escapes dynamic text
+    before passing into ReportLab's Paragraph() XML parser (DEF-05).
+    """
+    if val is None:
+        return ""
+    cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", str(val))
+    return html.escape(cleaned)
+
