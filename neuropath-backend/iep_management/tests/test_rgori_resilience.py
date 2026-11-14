@@ -353,3 +353,58 @@ class AIEngineSchemaDecodingTests(TestCase):
                 AIEngineService._call_groq(
                     "Return JSON", json_mode=True, response_schema=schema
                 )
+
+
+class RGORI10IndicatorRubricTests(TestCase):
+    EXPECTED_INDICATORS = (
+        "observable_verb",
+        "baseline_calibrated_criterion",
+        "evaluation_schedule_timeline",
+        "stimulus_prompt_condition",
+        "naturalistic_routine_context",
+        "plaafp_baseline_traceability",
+        "functional_daily_academic_utility",
+        "cross_setting_material_person",
+        "maintenance_generality_criterion",
+        "sequential_milestone_alignment",
+    )
+
+    def test_audit_goal_explainable_returns_10_indicators_and_25pt_breakdown(self):
+        goal = (
+            "During morning circle and small-group literacy stations, given visual schedule strips "
+            "and peer models, Alex will independently initiate and respond to 2-step classroom "
+            "directions across 2 classroom settings and 2 communicative partners (teacher and peer) "
+            "with 85% accuracy across 4 consecutive weeks."
+        )
+        context = "Difficulties: following directions, communication. Accommodations: visual schedule strips."
+        audit = RGORICheckerService.audit_goal_explainable(goal, context)
+
+        self.assertIn("indicators", audit)
+        indicators = audit["indicators"]
+        self.assertEqual(set(indicators.keys()), set(self.EXPECTED_INDICATORS))
+        self.assertEqual(sum(ind["max_score"] for ind in indicators.values()), 100)
+        self.assertGreaterEqual(audit["total_score"], 85)
+        self.assertEqual(audit["status"], "Exemplary")
+        self.assertFalse(audit.get("boilerplate_capped", False))
+        for dim in ("measurability", "functionality", "generality", "instructional_context"):
+            self.assertLessEqual(audit["breakdown"][dim]["score"], 25)
+            self.assertGreaterEqual(audit["breakdown"][dim]["score"], 0)
+
+    def test_boilerplate_goal_is_deterministically_capped_at_80_or_below(self):
+        boilerplate_goal = (
+            "Given visual cues, Alex will independently identify 10 sight words "
+            "with 80% accuracy in 4 of 5 trials."
+        )
+        audit = RGORICheckerService.audit_goal_explainable(
+            boilerplate_goal, "Difficulties: sight word recognition. Accommodations: visual cues."
+        )
+        self.assertLessEqual(audit["total_score"], 80)
+        self.assertNotEqual(audit["status"], "Exemplary")
+        self.assertTrue(audit["boilerplate_capped"])
+
+    def test_vague_goal_remains_review_advised(self):
+        vague_goal = "Alex will understand and appreciate reading."
+        audit = RGORICheckerService.audit_goal_explainable(vague_goal, "")
+        self.assertLess(audit["total_score"], 65)
+        self.assertFalse(audit["compliant"])
+        self.assertEqual(audit["status"], "Review Advised")
