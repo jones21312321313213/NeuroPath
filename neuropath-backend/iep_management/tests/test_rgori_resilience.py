@@ -303,3 +303,53 @@ class RGORIResilienceTestCase(TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertIn("error", response.json())
         self.assertIsNone(response.json()["details"])
+
+
+class AIEngineSchemaDecodingTests(TestCase):
+    @patch('iep_management.ai_engine.AIEngineService._post_with_retry')
+    def test_call_gemini_attaches_response_schema_when_json_mode(self, mock_post):
+        from iep_management.ai_engine import AIEngineService
+
+        class FakeResp:
+            status_code = 200
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"candidates": [{"content": {"parts": [{"text": '{"ok": true}'}]}}]}
+
+        mock_post.return_value = FakeResp()
+        schema = {
+            "type": "object",
+            "properties": {"ok": {"type": "boolean"}},
+            "required": ["ok"],
+        }
+        with self.settings(GEMINI_API_KEY="test-key"):
+            out = AIEngineService._call_gemini(
+                "Return JSON", json_mode=True, response_schema=schema
+            )
+        self.assertEqual(out, '{"ok": true}')
+        sent_payload = mock_post.call_args.kwargs["json"]
+        self.assertEqual(sent_payload["generationConfig"]["responseSchema"], schema)
+
+    @patch('iep_management.ai_engine.AIEngineService._post_with_retry')
+    def test_call_groq_rejects_json_missing_required_schema_keys(self, mock_post):
+        from iep_management.ai_engine import AIEngineService
+
+        class FakeResp:
+            status_code = 200
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": '{"wrong": 1}'}}]}
+
+        mock_post.return_value = FakeResp()
+        schema = {
+            "type": "object",
+            "properties": {"indicators": {"type": "object"}},
+            "required": ["indicators"],
+        }
+        with self.settings(GROQ_API_KEY="test-key"):
+            with self.assertRaises(ValueError):
+                AIEngineService._call_groq(
+                    "Return JSON", json_mode=True, response_schema=schema
+                )

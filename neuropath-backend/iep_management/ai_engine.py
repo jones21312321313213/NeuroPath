@@ -40,7 +40,47 @@ class AIEngineService:
         return res
 
     @classmethod
-    def _call_gemini(cls, prompt, system_prompt='', max_tokens=500, json_mode=False):
+    def _validate_json_against_schema(cls, raw_text, response_schema):
+        """
+        Validate decoded JSON text against a lightweight JSON schema dict
+        (checking object type, required keys, and nested property types).
+        """
+        if not response_schema or not isinstance(response_schema, dict):
+            return
+        try:
+            parsed = json.loads(raw_text)
+        except Exception as exc:
+            raise ValueError(f"Response is not valid JSON for schema validation: {exc}") from exc
+
+        if not isinstance(parsed, dict):
+            raise ValueError("Schema validation failed: expected top-level JSON object.")
+
+        required = response_schema.get("required") or []
+        for key in required:
+            if key not in parsed:
+                raise ValueError(f"Schema validation failed: missing required key '{key}'.")
+
+        properties = response_schema.get("properties") or {}
+        type_map = {
+            "object": dict,
+            "array": list,
+            "string": str,
+            "integer": int,
+            "number": (int, float),
+            "boolean": bool,
+        }
+        for key, prop_spec in properties.items():
+            if key not in parsed or not isinstance(prop_spec, dict):
+                continue
+            expected_type = str(prop_spec.get("type", "")).lower()
+            py_type = type_map.get(expected_type)
+            if py_type and not isinstance(parsed[key], py_type):
+                raise ValueError(
+                    f"Schema validation failed: key '{key}' expected {expected_type}."
+                )
+
+    @classmethod
+    def _call_gemini(cls, prompt, system_prompt='', max_tokens=500, json_mode=False, response_schema=None):
         api_key = getattr(settings, 'GEMINI_API_KEY', '')
         if not api_key or api_key in ('MISSING_KEY', ''):
             raise ValueError('Valid GEMINI_API_KEY not configured.')
@@ -63,6 +103,8 @@ class AIEngineService:
 
         if json_mode:
             generation_config["responseMimeType"] = "application/json"
+            if response_schema:
+                generation_config["responseSchema"] = response_schema
 
         payload = {
             "contents": [
@@ -112,12 +154,14 @@ class AIEngineService:
                 finish_reason = first_candidate.get("finishReason", "UNKNOWN")
                 raise ValueError(f"Gemini response contained no text parts (finishReason: {finish_reason}).")
             content = parts[0]["text"].strip()
+            if json_mode and response_schema:
+                cls._validate_json_against_schema(content, response_schema)
             return content
         except (KeyError, IndexError, TypeError) as e:
             raise ValueError(f"Malformed response structure from Gemini: {e}")
 
     @classmethod
-    def _call_groq(cls, prompt, system_prompt='', max_tokens=500, json_mode=False):
+    def _call_groq(cls, prompt, system_prompt='', max_tokens=500, json_mode=False, response_schema=None):
         api_key = getattr(settings, 'GROQ_API_KEY', '')
         if not api_key or api_key in ('MISSING_KEY', ''):
             raise ValueError('Valid GROQ_API_KEY not configured.')
@@ -163,10 +207,13 @@ class AIEngineService:
             raise ValueError("No valid Groq model available.")
 
         data = last_res.json()
-        return data['choices'][0]['message']['content'].strip()
+        content = data['choices'][0]['message']['content'].strip()
+        if json_mode and response_schema:
+            cls._validate_json_against_schema(content, response_schema)
+        return content
 
     @classmethod
-    def _call_openrouter(cls, prompt, system_prompt='', max_tokens=500, json_mode=False):
+    def _call_openrouter(cls, prompt, system_prompt='', max_tokens=500, json_mode=False, response_schema=None):
         api_key = getattr(settings, 'OPENROUTER_API_KEY', '')
         if not api_key or api_key in ('MISSING_KEY', ''):
             raise ValueError('Valid OPENROUTER_API_KEY not configured.')
@@ -214,7 +261,10 @@ class AIEngineService:
             raise ValueError("No valid OpenRouter model available.")
 
         data = last_res.json()
-        return data['choices'][0]['message']['content'].strip()
+        content = data['choices'][0]['message']['content'].strip()
+        if json_mode and response_schema:
+            cls._validate_json_against_schema(content, response_schema)
+        return content
 
     @classmethod
     def _call_ollama(cls, prompt, system_prompt='', max_tokens=500, json_mode=False):
@@ -232,13 +282,14 @@ class AIEngineService:
         return response['message']['content'].strip()
 
     @classmethod
-    def generate_text(cls, prompt, system_prompt='', max_tokens=500, json_mode=False):
+    def generate_text(cls, prompt, system_prompt='', max_tokens=500, json_mode=False, response_schema=None):
         errors = []
 
         # Tier 1 (Primary Cloud): Google Gemini
         try:
             content = cls._call_gemini(
-                prompt, system_prompt=system_prompt, max_tokens=max_tokens, json_mode=json_mode
+                prompt, system_prompt=system_prompt, max_tokens=max_tokens,
+                json_mode=json_mode, response_schema=response_schema
             )
             if content:
                 return content, 'gemini'
@@ -249,7 +300,8 @@ class AIEngineService:
         # Tier 2 (Fast Cloud Fallback): Groq
         try:
             content = cls._call_groq(
-                prompt, system_prompt=system_prompt, max_tokens=max_tokens, json_mode=json_mode
+                prompt, system_prompt=system_prompt, max_tokens=max_tokens,
+                json_mode=json_mode, response_schema=response_schema
             )
             if content:
                 return content, 'groq'
@@ -260,7 +312,8 @@ class AIEngineService:
         # Tier 3 (Universal Gateway Fallback): OpenRouter
         try:
             content = cls._call_openrouter(
-                prompt, system_prompt=system_prompt, max_tokens=max_tokens, json_mode=json_mode
+                prompt, system_prompt=system_prompt, max_tokens=max_tokens,
+                json_mode=json_mode, response_schema=response_schema
             )
             if content:
                 return content, 'openrouter'
