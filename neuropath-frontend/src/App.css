@@ -1358,15 +1358,15 @@ select option,
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  padding: 18px 24px;
+  padding: 6px 12px;
 }
 
 .glance-stat-col {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 0 18px;
-  min-height: 76px;
+  padding: 16px 20px;
+  min-height: 86px;
 }
 
 .glance-stat-col:not(:last-child) {
@@ -2020,18 +2020,18 @@ select option,
   .overview-glance-strip {
     grid-template-columns: repeat(3, 1fr);
     gap: 0;
-    padding: 12px 6px;
+    padding: 6px;
   }
 
   .glance-stat-col {
-    padding: 0 8px;
-    min-height: 56px;
+    padding: 12px 14px;
+    min-height: 70px;
   }
 
   .glance-stat-col:not(:last-child) {
     border-right: 1px solid #e2e8f0;
     border-bottom: none;
-    padding-bottom: 0;
+    padding-bottom: 12px;
   }
 
   .glance-stat-label {
@@ -2235,6 +2235,53 @@ select option,
 @media (max-width: 640px) {
   .page-content {
     padding: 14px 10px;
+  }
+
+  /* Dashboard Stats Strip: 2-Row Format (Row 1: Total Students + Active IEPs; Row 2: Classroom Resources) */
+  .overview-glance-strip {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0;
+    padding: 0;
+  }
+
+  .glance-stat-col {
+    padding: 14px 16px;
+    min-height: 76px;
+  }
+
+  /* Row 1, Col 1: Total Students */
+  .glance-stat-col:nth-child(1) {
+    border-right: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 14px;
+  }
+
+  /* Row 1, Col 2: Active IEPs */
+  .glance-stat-col:nth-child(2) {
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 14px;
+  }
+
+  /* Row 2: Classroom Resources (Full width) */
+  .glance-stat-col:nth-child(3) {
+    grid-column: 1 / span 2;
+    border-right: none;
+    border-bottom: none;
+    padding: 14px 16px;
+  }
+
+  .glance-stat-label {
+    font-size: 12.5px;
+    white-space: normal;
+  }
+
+  .glance-stat-value {
+    font-size: 24px;
+  }
+
+  .glance-stat-icon {
+    font-size: 22px;
   }
 
   .form-card {

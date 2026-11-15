@@ -53,3 +53,32 @@
   margin: 0;
   padding: 0;
 }
+
+.topbar-tour-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.topbar-tour-btn:hover {
+  background: #e2e8f0;
+  color: #0284c7;
+}
+
+.topbar-tour-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #0284c7;
+}
+
+.topbar-tour-btn i {
+  font-size: 1.15rem;
+}

@@ -152,8 +152,8 @@ describe("App First-Login Tutorial Modal Integration", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(window.localStorage.getItem("neuropath_tour_dismissed_budskie")).toBe("true");
 
-    // Can be re-triggered on demand via Sidebar "App Walkthrough" button
-    const tourBtn = screen.getByTestId("sidebar-tour-btn");
+    // Can be re-triggered on demand via Topbar "App Walkthrough" info button
+    const tourBtn = screen.getByTestId("topbar-tour-btn");
     await user.click(tourBtn);
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(window.localStorage.getItem("neuropath_tour_dismissed_budskie")).toBeNull();

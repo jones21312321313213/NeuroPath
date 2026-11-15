@@ -11,6 +11,7 @@ export default function Topbar({
   setActivePage,
   collapsed = false,
   onToggleCollapse,
+  onStartTour,
 }) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -45,6 +46,18 @@ export default function Topbar({
         <Breadcrumbs items={breadcrumb} />
       </div>
       <div className="topbar-user">
+        {onStartTour && (
+          <button
+            type="button"
+            className="topbar-tour-btn"
+            onClick={onStartTour}
+            aria-label="Start interactive dashboard walkthrough tour"
+            title="App Walkthrough Tour"
+            data-testid="topbar-tour-btn"
+          >
+            <i className="ti ti-info-circle text-lg" aria-hidden="true" />
+          </button>
+        )}
         <TopbarNotificationBell />
         <button
           type="button"
