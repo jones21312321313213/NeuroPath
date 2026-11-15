@@ -136,7 +136,10 @@ class RGORIResilienceTestCase(TestCase):
             goal_area='Literacy Skills'
         )
         self.assertEqual(len(rows), 2)
-        self.assertEqual(rows[0]["enroute_objectives"], "Marcus will match 5 sight words with 80% accuracy.")
+        self.assertTrue(
+            rows[0]["enroute_objectives"].startswith("Marcus will match 5 sight words with 80% accuracy.")
+        )
+        self.assertIn("(TP_", rows[0]["enroute_objectives"])
 
     @patch('iep_management.ai_engine.AIEngineService.generate_text')
     def test_generate_objective_rows_unparsable_raises_error(self, mock_ai):
@@ -197,7 +200,8 @@ class RGORIResilienceTestCase(TestCase):
         When Groq is online, POST /api/iep/generate-goals-from-iep/ succeeds with LLM output.
         """
         mock_groq.side_effect = [
-            "Marcus will initiate a greeting with peers in 4 out of 5 opportunities.", # annual goal
+            "Marcus will initiate a greeting with peers in 4 out of 5 opportunities.", # annual goal attempt 1
+            "During morning circle and snack transition, given visual social stories, Marcus will initiate a greeting with peers across 2 classroom settings and 2 communicative partners in 4 out of 5 opportunities across 3 consecutive weeks.", # attempt 2 after R-GORI self-correction
             json.dumps([{
                 "enroute_objectives": "Marcus will wave hello when greeted.",
                 "interventions_procedures": "Teacher modeling and gesture prompts.",
@@ -300,3 +304,295 @@ class RGORIResilienceTestCase(TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertIn("error", response.json())
         self.assertIsNone(response.json()["details"])
+
+
+class AIEngineSchemaDecodingTests(TestCase):
+    @patch('iep_management.ai_engine.AIEngineService._post_with_retry')
+    def test_call_gemini_attaches_response_schema_when_json_mode(self, mock_post):
+        from iep_management.ai_engine import AIEngineService
+
+        class FakeResp:
+            status_code = 200
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"candidates": [{"content": {"parts": [{"text": '{"ok": true}'}]}}]}
+
+        mock_post.return_value = FakeResp()
+        schema = {
+            "type": "object",
+            "properties": {"ok": {"type": "boolean"}},
+            "required": ["ok"],
+        }
+        with self.settings(GEMINI_API_KEY="test-key"):
+            out = AIEngineService._call_gemini(
+                "Return JSON", json_mode=True, response_schema=schema
+            )
+        self.assertEqual(out, '{"ok": true}')
+        sent_payload = mock_post.call_args.kwargs["json"]
+        self.assertEqual(sent_payload["generationConfig"]["responseSchema"], schema)
+
+    @patch('iep_management.ai_engine.AIEngineService._post_with_retry')
+    def test_call_groq_rejects_json_missing_required_schema_keys(self, mock_post):
+        from iep_management.ai_engine import AIEngineService
+
+        class FakeResp:
+            status_code = 200
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": '{"wrong": 1}'}}]}
+
+        mock_post.return_value = FakeResp()
+        schema = {
+            "type": "object",
+            "properties": {"indicators": {"type": "object"}},
+            "required": ["indicators"],
+        }
+        with self.settings(GROQ_API_KEY="test-key"):
+            with self.assertRaises(ValueError):
+                AIEngineService._call_groq(
+                    "Return JSON", json_mode=True, response_schema=schema
+                )
+
+
+class RGORI10IndicatorRubricTests(TestCase):
+    EXPECTED_INDICATORS = (
+        "observable_verb",
+        "baseline_calibrated_criterion",
+        "evaluation_schedule_timeline",
+        "stimulus_prompt_condition",
+        "naturalistic_routine_context",
+        "plaafp_baseline_traceability",
+        "functional_daily_academic_utility",
+        "cross_setting_material_person",
+        "maintenance_generality_criterion",
+        "sequential_milestone_alignment",
+    )
+
+    def test_audit_goal_explainable_returns_10_indicators_and_25pt_breakdown(self):
+        goal = (
+            "During morning circle and small-group literacy stations, given visual schedule strips "
+            "and peer models, Alex will independently initiate and respond to 2-step classroom "
+            "directions across 2 classroom settings and 2 communicative partners (teacher and peer) "
+            "with 85% accuracy across 4 consecutive weeks."
+        )
+        context = "Difficulties: following directions, communication. Accommodations: visual schedule strips."
+        audit = RGORICheckerService.audit_goal_explainable(goal, context)
+
+        self.assertIn("indicators", audit)
+        indicators = audit["indicators"]
+        self.assertEqual(set(indicators.keys()), set(self.EXPECTED_INDICATORS))
+        self.assertEqual(sum(ind["max_score"] for ind in indicators.values()), 100)
+        self.assertGreaterEqual(audit["total_score"], 85)
+        self.assertEqual(audit["status"], "Exemplary")
+        self.assertFalse(audit.get("boilerplate_capped", False))
+        for dim in ("measurability", "functionality", "generality", "instructional_context"):
+            self.assertLessEqual(audit["breakdown"][dim]["score"], 25)
+            self.assertGreaterEqual(audit["breakdown"][dim]["score"], 0)
+
+    def test_boilerplate_goal_is_deterministically_capped_at_80_or_below(self):
+        boilerplate_goal = (
+            "Given visual cues, Alex will independently identify 10 sight words "
+            "with 80% accuracy in 4 of 5 trials."
+        )
+        audit = RGORICheckerService.audit_goal_explainable(
+            boilerplate_goal, "Difficulties: sight word recognition. Accommodations: visual cues."
+        )
+        self.assertLessEqual(audit["total_score"], 80)
+        self.assertNotEqual(audit["status"], "Exemplary")
+        self.assertTrue(audit["boilerplate_capped"])
+
+    def test_vague_goal_remains_review_advised(self):
+        vague_goal = "Alex will understand and appreciate reading."
+        audit = RGORICheckerService.audit_goal_explainable(vague_goal, "")
+        self.assertLess(audit["total_score"], 65)
+        self.assertFalse(audit["compliant"])
+        self.assertEqual(audit["status"], "Review Advised")
+
+
+class RGORISureAndDeterministicTests(TestCase):
+    def test_parse_evaluation_ignores_spoofed_llm_total_and_compliant(self):
+        spoofed_raw = json.dumps({
+            "total_score": 99,
+            "compliant": True,
+            "breakdown": {
+                "measurability": 10,
+                "functionality": 10,
+                "generality": 10,
+                "instructional_context": 10,
+            },
+            "feedback": "Looks great!",
+        })
+        parsed = RGORICheckerService._parse_evaluation(spoofed_raw)
+        self.assertEqual(parsed["total_score"], 40)
+        self.assertFalse(parsed["compliant"])
+        self.assertEqual(parsed["status"], "Review Advised")
+
+    def test_sure_gate_flags_discrepancy_over_15_points(self):
+        # Vague goal scores low structurally (< 45), but LLM gives 90
+        vague_goal = "Alex will understand and appreciate reading."
+        high_llm_raw = json.dumps({
+            "indicators": {
+                "observable_verb": 9,
+                "baseline_calibrated_criterion": 9,
+                "evaluation_schedule_timeline": 9,
+                "stimulus_prompt_condition": 14,
+                "naturalistic_routine_context": 9,
+                "plaafp_baseline_traceability": 14,
+                "functional_daily_academic_utility": 9,
+                "cross_setting_material_person": 8,
+                "maintenance_generality_criterion": 5,
+                "sequential_milestone_alignment": 4,
+            },
+            "feedback": "Strong goal.",
+        })
+        parsed = RGORICheckerService._parse_evaluation(
+            high_llm_raw, goal_text=vague_goal, student_context=""
+        )
+        self.assertEqual(parsed["total_score"], 90)
+        self.assertTrue(parsed["uncertainty_review_advised"])
+        self.assertIn("uncertainty", parsed["feedback"].lower())
+
+    def test_sure_gate_flags_borderline_60_to_68_score(self):
+        goal = (
+            "During morning circle, given visual cues, Alex will follow 2-step directions "
+            "across 2 classroom settings for 2 consecutive weeks."
+        )
+        borderline_raw = json.dumps({
+            "breakdown": {
+                "measurability": 16,
+                "functionality": 17,
+                "generality": 16,
+                "instructional_context": 16,
+            },
+            "feedback": "Borderline goal.",
+        })
+        parsed = RGORICheckerService._parse_evaluation(
+            borderline_raw, goal_text=goal, student_context="Difficulties: following directions."
+        )
+        self.assertEqual(parsed["total_score"], 65)
+        self.assertTrue(parsed["uncertainty_review_advised"])
+
+    @patch('iep_management.ai_engine.AIEngineService.generate_text')
+    def test_evaluate_goal_uses_response_schema_and_deterministic_scoring(self, mock_ai):
+        mock_ai.return_value = (
+            json.dumps({
+                "indicators": {
+                    "observable_verb": 10,
+                    "baseline_calibrated_criterion": 10,
+                    "evaluation_schedule_timeline": 10,
+                    "stimulus_prompt_condition": 15,
+                    "naturalistic_routine_context": 10,
+                    "plaafp_baseline_traceability": 15,
+                    "functional_daily_academic_utility": 10,
+                    "cross_setting_material_person": 10,
+                    "maintenance_generality_criterion": 5,
+                    "sequential_milestone_alignment": 5,
+                },
+                "feedback": "Comprehensive exemplary goal.",
+            }),
+            "gemini",
+        )
+        goal = (
+            "During morning circle and small-group literacy stations, given visual schedule strips "
+            "and peer models, Alex will independently initiate and respond to 2-step classroom "
+            "directions across 2 classroom settings and 2 communicative partners (teacher and peer) "
+            "with 85% accuracy across 4 consecutive weeks."
+        )
+        result = RGORICheckerService.evaluate_goal(
+            goal, "Difficulties: following directions. Accommodations: visual schedule strips."
+        )
+        self.assertEqual(result["total_score"], 100)
+        self.assertEqual(result["status"], "Exemplary")
+        self.assertFalse(result["uncertainty_review_advised"])
+        self.assertEqual(
+            mock_ai.call_args.kwargs.get("response_schema"),
+            RGORICheckerService.RGORI_EVALUATION_SCHEMA,
+        )
+
+
+class RGORISelfCorrectionGateTests(TestCase):
+    @patch.object(GenerateIEPGoalsFromIEPView, '_generate_objective_rows')
+    @patch.object(GenerateIEPGoalsFromIEPView, '_generate_annual_goal')
+    def test_self_correction_triggers_once_when_initial_goal_lacks_generality_or_context(self, mock_goal, mock_rows):
+        vague_draft = "Alex will understand and appreciate reading."
+        improved_goal = (
+            "During morning circle and small-group literacy stations, given visual schedule strips, "
+            "Alex will independently identify 10 sight words across 2 classroom settings and 2 partners "
+            "with 85% accuracy across 4 consecutive weeks."
+        )
+        mock_goal.side_effect = [vague_draft, improved_goal]
+        mock_rows.return_value = [{"enroute_objectives": "Matching sight words\n(TP_EFP-rw-NG-1)"}]
+
+        view = GenerateIEPGoalsFromIEPView()
+        payload, err = view._generate_validated_goal(
+            iep_id=1,
+            student_name="Alex",
+            difficulty="Reading comprehension",
+            assistive_tech="Visual schedule strips",
+            accommodations="Visual cues",
+            facilitators="SPED Teacher",
+            student_context="Difficulties: reading comprehension. Accommodations: visual schedule strips.",
+            goal_area="Functional Academic Skills",
+        )
+        self.assertIsNone(err)
+        self.assertEqual(mock_goal.call_count, 2)
+        self.assertEqual(mock_rows.call_count, 1)
+        self.assertEqual(payload["_attempts"], 2)
+        self.assertEqual(payload["annual_goal"], improved_goal)
+        self.assertGreaterEqual(payload["rgori_audit"]["total_score"], 85)
+        second_call_prompt = mock_goal.call_args_list[1].kwargs.get("teacher_prompt", "")
+        self.assertIn("R-GORI", second_call_prompt)
+
+    @patch.object(GenerateIEPGoalsFromIEPView, '_generate_objective_rows')
+    @patch.object(GenerateIEPGoalsFromIEPView, '_generate_annual_goal')
+    def test_self_correction_stops_at_max_two_attempts_when_both_fail(self, mock_goal, mock_rows):
+        mock_goal.side_effect = [
+            "Alex will understand reading.",
+            "Alex will appreciate math.",
+        ]
+        mock_rows.return_value = [{"enroute_objectives": "Counting\n(TP_MFP-nv-NG-1)"}]
+
+        view = GenerateIEPGoalsFromIEPView()
+        payload, err = view._generate_validated_goal(
+            iep_id=1,
+            student_name="Alex",
+            difficulty="Reading",
+            assistive_tech="Visuals",
+            accommodations="Visuals",
+            facilitators="SPED Teacher",
+            student_context="Difficulties: reading.",
+            goal_area="Functional Academic Skills",
+        )
+        self.assertIsNone(err)
+        self.assertEqual(mock_goal.call_count, 2)
+        self.assertEqual(mock_rows.call_count, 1)
+        self.assertEqual(payload["_attempts"], 2)
+
+    @patch.object(GenerateIEPGoalsFromIEPView, '_generate_objective_rows')
+    @patch.object(GenerateIEPGoalsFromIEPView, '_generate_annual_goal')
+    def test_strong_initial_goal_takes_single_attempt(self, mock_goal, mock_rows):
+        strong_goal = (
+            "During morning circle and small-group literacy stations, given visual schedule strips, "
+            "Alex will independently identify 10 sight words across 2 classroom settings and 2 partners "
+            "with 85% accuracy across 4 consecutive weeks."
+        )
+        mock_goal.return_value = strong_goal
+        mock_rows.return_value = [{"enroute_objectives": "Matching sight words\n(TP_EFP-rw-NG-1)"}]
+
+        view = GenerateIEPGoalsFromIEPView()
+        payload, err = view._generate_validated_goal(
+            iep_id=1,
+            student_name="Alex",
+            difficulty="Reading",
+            assistive_tech="Visual schedule strips",
+            accommodations="Visual cues",
+            facilitators="SPED Teacher",
+            student_context="Difficulties: reading. Accommodations: visual schedule strips.",
+            goal_area="Functional Academic Skills",
+        )
+        self.assertIsNone(err)
+        self.assertEqual(mock_goal.call_count, 1)
+        self.assertEqual(mock_rows.call_count, 1)
+        self.assertEqual(payload["_attempts"], 1)
