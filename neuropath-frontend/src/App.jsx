@@ -100,13 +100,60 @@ function DashboardLayout() {
   }, [location.pathname]);
 
   const breadcrumb = useMemo(() => getBreadcrumb(location.pathname), [location.pathname]);
-  const showTutorial = user && user.has_completed_tutorial === false;
+
+  const isBudskieTestUser = user?.email?.toLowerCase() === "budskie@gmail.com";
+  const [budskieDismissed, setBudskieDismissed] = useState(() => {
+    try {
+      if (typeof window === "undefined" || !window.localStorage) return false;
+      return window.localStorage.getItem("neuropath_tour_dismissed_budskie") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const [manualTourRequested, setManualTourRequested] = useState(false);
+
+  const showTutorial = Boolean(
+    user && (
+      manualTourRequested ||
+      user.has_completed_tutorial === false ||
+      (isBudskieTestUser && !budskieDismissed)
+    ),
+  );
+
+  const handleTutorialComplete = () => {
+    setManualTourRequested(false);
+    if (isBudskieTestUser) {
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.setItem("neuropath_tour_dismissed_budskie", "true");
+        }
+      } catch {
+        // ignore
+      }
+      setBudskieDismissed(true);
+    }
+    markTutorialComplete();
+  };
+
+  const handleStartTour = () => {
+    if (isBudskieTestUser) {
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.removeItem("neuropath_tour_dismissed_budskie");
+        }
+      } catch {
+        // ignore
+      }
+      setBudskieDismissed(false);
+    }
+    setManualTourRequested(true);
+  };
 
   return (
     <div className={`app-layout ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <SkipLink targetId="main-content" />
       {showTutorial && (
-        <TeacherTutorialModal onComplete={markTutorialComplete} />
+        <TeacherTutorialModal onComplete={handleTutorialComplete} />
       )}
       {!isSidebarCollapsed && (
         <div
@@ -118,6 +165,7 @@ function DashboardLayout() {
       <Sidebar
         collapsed={isSidebarCollapsed}
         onToggleCollapse={toggleSidebar}
+        onStartTour={handleStartTour}
       />
       <div className="main-area">
         <Topbar

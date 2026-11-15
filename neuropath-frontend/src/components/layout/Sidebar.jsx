@@ -18,6 +18,7 @@ const navItems = [
     label: "Student Profiling",
     key: "student-profiling",
     pathPrefix: "/dashboard/students",
+    tourId: "tour-student-profiling",
     icon: "ti-users",
     children: [
       { label: "Create Student Profile", path: "/dashboard/students/create" },
@@ -28,6 +29,7 @@ const navItems = [
     label: "AI-Based IEP Generation",
     key: "iep-generation",
     pathPrefix: "/dashboard/iep",
+    tourId: "tour-iep-generation",
     icon: "ti-sparkles",
     children: [
       { label: "Generate IEP", path: "/dashboard/iep/generate" },
@@ -37,6 +39,7 @@ const navItems = [
   {
     label: "Instructional Support",
     key: "instructional-support",
+    tourId: "tour-instructional-support",
     icon: "ti-books",
     children: [
       { label: "Manage Lesson Plans", path: "/dashboard/lessons" },
@@ -47,6 +50,7 @@ const navItems = [
   {
     label: "Outcome Monitoring",
     key: "outcome-monitoring",
+    tourId: "tour-outcome-monitoring",
     icon: "ti-chart-bar",
     children: [
       { label: "View Student Records", path: "/dashboard/records" },
@@ -56,6 +60,7 @@ const navItems = [
   {
     label: "Calendar & Schedules",
     path: "/dashboard/schedule",
+    tourId: "tour-schedule",
     icon: "ti-calendar-event",
     exact: true,
     children: [],
@@ -67,6 +72,7 @@ export default function Sidebar({
   setActivePage,
   collapsed = false,
   onToggleCollapse,
+  onStartTour,
 }) {
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -219,6 +225,7 @@ export default function Sidebar({
                   className={`sidebar-nav-item ${active ? "active" : ""}`}
                   onClick={(e) => handleNavClick(e, item)}
                   title={collapsed ? item.label : undefined}
+                  data-tour-id={item.tourId}
                   aria-expanded={item.children.length > 0 ? isCategoryExpanded : undefined}
                   aria-controls={item.children.length > 0 ? `subnav-${item.key}` : undefined}
                   aria-current={item.children.length === 0 && active ? "page" : undefined}
@@ -290,6 +297,28 @@ export default function Sidebar({
         />
 
         <div className="sidebar-footer">
+          {onStartTour && (
+            <button
+              type="button"
+              className="sidebar-whats-new-btn sidebar-tour-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onStartTour();
+              }}
+              aria-label="Start interactive dashboard walkthrough tour"
+              title={collapsed ? "App Walkthrough Tour" : undefined}
+              data-testid="sidebar-tour-btn"
+            >
+              <i className="ti ti-compass" aria-hidden="true" />
+              {!collapsed && <span>App Walkthrough</span>}
+              {collapsed && (
+                <span className="sidebar-tooltip" aria-hidden="true">
+                  App Walkthrough
+                </span>
+              )}
+            </button>
+          )}
+
           <button
             type="button"
             className="sidebar-whats-new-btn"
