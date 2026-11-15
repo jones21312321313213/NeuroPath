@@ -139,4 +139,17 @@ describe("TeacherTutorialModal", () => {
 
     document.body.removeChild(targetElement);
   });
+
+  it("locks body scrolling while mounted and restores it upon unmount", () => {
+    document.body.style.overflow = "visible";
+    const { unmount } = render(<TeacherTutorialModal onComplete={vi.fn()} />);
+
+    expect(document.body.style.overflow).toBe("hidden");
+    expect(document.body.classList.contains("tour-open")).toBe(true);
+
+    unmount();
+
+    expect(document.body.style.overflow).toBe("visible");
+    expect(document.body.classList.contains("tour-open")).toBe(false);
+  });
 });
