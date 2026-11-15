@@ -154,4 +154,23 @@ describe("Topbar component", () => {
     expect(mockNavigate).not.toHaveBeenCalled();
     expect(mockSetActivePage).not.toHaveBeenCalled();
   });
+
+  it("renders info circle App Walkthrough button beside notification bell and triggers onStartTour", async () => {
+    const user = userEvent.setup();
+    const mockOnStartTour = vi.fn();
+
+    render(
+      <MemoryRouter>
+        <Topbar breadcrumb="DASHBOARD / Home" onStartTour={mockOnStartTour} />
+      </MemoryRouter>
+    );
+
+    const tourBtn = screen.getByTestId("topbar-tour-btn");
+    expect(tourBtn).toBeInTheDocument();
+    expect(tourBtn).toHaveAttribute("aria-label", "Start interactive dashboard walkthrough tour");
+    expect(tourBtn.querySelector(".ti-info-circle")).toBeInTheDocument();
+
+    await user.click(tourBtn);
+    expect(mockOnStartTour).toHaveBeenCalledTimes(1);
+  });
 });

@@ -165,13 +165,13 @@ function DashboardLayout() {
       <Sidebar
         collapsed={isSidebarCollapsed}
         onToggleCollapse={toggleSidebar}
-        onStartTour={handleStartTour}
       />
       <div className="main-area">
         <Topbar
           breadcrumb={breadcrumb}
           collapsed={isSidebarCollapsed}
           onToggleCollapse={toggleSidebar}
+          onStartTour={handleStartTour}
         />
         <main
           id="main-content"

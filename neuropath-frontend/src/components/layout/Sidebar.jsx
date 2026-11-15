@@ -72,7 +72,6 @@ export default function Sidebar({
   setActivePage,
   collapsed = false,
   onToggleCollapse,
-  onStartTour,
 }) {
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -297,28 +296,6 @@ export default function Sidebar({
         />
 
         <div className="sidebar-footer">
-          {onStartTour && (
-            <button
-              type="button"
-              className="sidebar-whats-new-btn sidebar-tour-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStartTour();
-              }}
-              aria-label="Start interactive dashboard walkthrough tour"
-              title={collapsed ? "App Walkthrough Tour" : undefined}
-              data-testid="sidebar-tour-btn"
-            >
-              <i className="ti ti-compass" aria-hidden="true" />
-              {!collapsed && <span>App Walkthrough</span>}
-              {collapsed && (
-                <span className="sidebar-tooltip" aria-hidden="true">
-                  App Walkthrough
-                </span>
-              )}
-            </button>
-          )}
-
           <button
             type="button"
             className="sidebar-whats-new-btn"
