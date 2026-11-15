@@ -463,13 +463,13 @@ button.sidebar-header {
 }
 
 .sidebar-tour-btn {
-  border-color: rgba(56, 189, 248, 0.4);
-  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .sidebar-tour-btn:hover {
-  background: rgba(56, 189, 248, 0.25);
-  border-color: #38bdf8;
+  background: rgba(255, 255, 255, 0.28);
+  border-color: #ffffff;
 }
 
 .sidebar-logout-btn {
@@ -3978,19 +3978,26 @@ select option,
 /* =====================================================================
    TEACHER TUTORIAL WALKTHROUGH MODAL & DIMMED SPOTLIGHT TOUR
    ===================================================================== */
+body.tour-open {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+}
+
 .tour-spotlight-wrapper {
   position: fixed;
   inset: 0;
   z-index: 9990;
   pointer-events: auto;
+  overscroll-behavior: contain;
+  touch-action: none;
 }
 
 .tour-spotlight-cutout {
   position: fixed;
   z-index: 9998;
   border-radius: 10px;
-  border: 2px solid #38bdf8;
-  box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.72), 0 0 24px rgba(56, 189, 248, 0.5);
+  border: 2px solid #5aabf0;
+  box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.72), 0 0 22px rgba(90, 171, 240, 0.6);
   background: transparent;
   pointer-events: none;
   transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
@@ -4006,7 +4013,7 @@ select option,
 }
 
 .tour-anchored-card {
-  box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(130, 199, 255, 0.35) !important;
+  box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(90, 171, 240, 0.45) !important;
   animation: tourCardSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -4043,14 +4050,14 @@ select option,
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
+  padding: 1.25rem;
 }
 
 .tutorial-modal-container {
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  max-width: 600px;
+  max-width: 480px;
   width: 100%;
   overflow: hidden;
   display: flex;
@@ -4061,15 +4068,16 @@ select option,
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.25rem 1.75rem 0.75rem;
+  padding: 1rem 1.25rem 0.375rem;
 }
 
 .tutorial-badge {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #4338ca;
-  background: #eef2ff;
-  padding: 0.25rem 0.75rem;
+  color: #0284c7;
+  background: #e0f2fe;
+  border: 1px solid #bae0fb;
+  padding: 0.2rem 0.65rem;
   border-radius: 9999px;
   letter-spacing: 0.025em;
 }
@@ -4085,15 +4093,15 @@ select option,
 }
 
 .tutorial-skip-btn:hover {
-  color: #0f172a;
+  color: #0284c7;
   text-decoration: underline;
 }
 
 .tutorial-progress-bar {
   display: flex;
   gap: 6px;
-  padding: 0 1.75rem;
-  margin-top: 0.5rem;
+  padding: 0 1.25rem;
+  margin-top: 0.25rem;
 }
 
 .tutorial-progress-segment {
@@ -4105,11 +4113,11 @@ select option,
 }
 
 .tutorial-progress-segment.active {
-  background-color: #4f46e5;
+  background: linear-gradient(135deg, #5aabf0, #3d9de8);
 }
 
 .tutorial-modal-body {
-  padding: 1.5rem 1.75rem;
+  padding: 0.875rem 1.25rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -4117,40 +4125,40 @@ select option,
 }
 
 .tutorial-icon-wrapper {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  background: #f8fafc;
-  border: 2px solid #e2e8f0;
+  background: #f0f7fe;
+  border: 2px solid #bae0fb;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0.625rem;
 }
 
 .tutorial-icon {
-  font-size: 2rem;
+  font-size: 1.5rem;
 }
 
 .tutorial-title {
-  font-size: 1.375rem;
+  font-size: 1.175rem;
   font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 0.25rem;
+  color: #0f172a;
+  margin: 0 0 0.15rem;
 }
 
 .tutorial-subtitle {
-  font-size: 0.9375rem;
-  font-weight: 500;
-  color: #6366f1;
-  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0284c7;
+  margin: 0 0 0.5rem;
 }
 
 .tutorial-description {
-  font-size: 0.9375rem;
-  line-height: 1.55;
+  font-size: 0.875rem;
+  line-height: 1.45;
   color: #475569;
-  margin-bottom: 1.25rem;
+  margin-bottom: 0.75rem;
   text-align: left;
 }
 
@@ -4158,18 +4166,18 @@ select option,
   width: 100%;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 0.875rem 1rem;
+  border-radius: 8px;
+  padding: 0.625rem 0.875rem;
   text-align: left;
 }
 
 .tutorial-highlights-heading {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 700;
-  color: #64748b;
-  margin: 0 0 0.5rem;
+  color: #0284c7;
+  margin: 0 0 0.375rem;
 }
 
 .tutorial-highlights-list {
@@ -4178,19 +4186,20 @@ select option,
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: 0.35rem;
 }
 
 .tutorial-highlight-item {
   display: flex;
   align-items: flex-start;
-  gap: 0.5rem;
-  font-size: 0.875rem;
+  gap: 0.45rem;
+  font-size: 0.8125rem;
   color: #334155;
+  line-height: 1.35;
 }
 
 .tutorial-check-icon {
-  color: #16a34a;
+  color: #0284c7;
   font-weight: bold;
 }
 
@@ -4198,18 +4207,18 @@ select option,
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.75rem 1.5rem;
+  padding: 0.75rem 1.25rem 1rem;
   border-top: 1px solid #f1f5f9;
 }
 
 .btn-tutorial-secondary {
-  padding: 0.625rem 1.25rem;
+  padding: 0.5rem 1rem;
   border-radius: 8px;
   border: 1px solid #cbd5e1;
   background: #ffffff;
   color: #475569;
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -4225,19 +4234,21 @@ select option,
 }
 
 .btn-tutorial-primary {
-  padding: 0.625rem 1.5rem;
+  padding: 0.5rem 1.25rem;
   border-radius: 8px;
   border: none;
-  background: #4f46e5;
+  background: linear-gradient(135deg, #5aabf0, #3d9de8);
   color: #ffffff;
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 4px rgba(90, 171, 240, 0.25);
 }
 
 .btn-tutorial-primary:hover {
-  background: #4338ca;
+  background: #3d9de8;
+  box-shadow: 0 4px 8px rgba(90, 171, 240, 0.35);
 }
 
 /* ── Post-IEP Next Steps / Classroom Tools ──────────── */

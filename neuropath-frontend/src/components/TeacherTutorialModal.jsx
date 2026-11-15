@@ -15,14 +15,13 @@ const TUTORIAL_STEPS = [
     badge: "Step 1 of 5",
     targetId: "tour-student-profiling",
     title: "1. Comprehensive Student Profiling",
-    subtitle: "Capture learning strengths, sensory needs, and accommodations",
+    subtitle: "Learner Profiles & Accommodations",
     description:
-      "Begin by creating or reviewing student profiles. Record foundational assessment data, functional strengths, behavioral needs, and parental input. This rich profile serves as the single source of truth for all downstream tools.",
+      "Record student assessment baselines, functional strengths, behavioral needs, and accommodations as the foundation for all downstream tools.",
     icon: UserIcon,
     highlights: [
-      "Document present levels of academic & functional performance",
-      "Detail environmental and sensory accommodations",
-      "Directly informs AI-assisted IEP goals and lesson materials",
+      "Document academic & functional performance levels",
+      "Directly informs AI-drafted IEP goals and lesson materials",
     ],
   },
   {
@@ -30,14 +29,13 @@ const TUTORIAL_STEPS = [
     badge: "Step 2 of 5",
     targetId: "tour-iep-generation",
     title: "2. Intelligent IEP Goal Generation",
-    subtitle: "Draft SMART goals aligned with student present levels",
+    subtitle: "SMART Goals & DepEd Matrix Alignment",
     description:
-      "Transform profile data into targeted, measurable IEP goals and objective benchmarks. Review and refine AI-drafted goals to match each student's specific curriculum grade standards and individualized needs.",
+      "Transform profile data into targeted SMART goals, quarterly benchmarks, and Section C procedures with complete teacher review control.",
     icon: ClipboardIcon,
     highlights: [
-      "Generates SMART (Specific, Measurable, Attainable, Relevant, Time-bound) goals",
-      "Aligned with Section A profile data and present performance levels",
-      "Full teacher control to review, edit, or regenerate goals",
+      "AI-drafted SMART goals aligned with student present levels",
+      "Full control to review, edit, or regenerate goals anytime",
     ],
   },
   {
@@ -45,14 +43,13 @@ const TUTORIAL_STEPS = [
     badge: "Step 3 of 5",
     targetId: "tour-instructional-support",
     title: "3. Classroom Instructional Support",
-    subtitle: "Generate differentiated lesson plans, visual aids, & strategies",
+    subtitle: "Differentiated Plans & Visual Schedules",
     description:
-      "Put IEP accommodations into practice immediately. Generate adapted lesson plans, visual schedules, communication boards, and evidence-based teaching strategies tailored to your students.",
+      "Put accommodations into practice with adapted lesson plans, visual task schedules, communication boards, and evidence-based teaching strategies.",
     icon: PhotoIcon,
     highlights: [
-      "Customized lesson plans with accommodations built in",
-      "Visual schedules and choice boards ready to export",
-      "Specialized behavioral and pedagogical strategies",
+      "Differentiated lesson plans with accommodations built in",
+      "Printable visual aids, schedules, and behavioral strategies",
     ],
   },
   {
@@ -60,13 +57,12 @@ const TUTORIAL_STEPS = [
     badge: "Step 4 of 5",
     targetId: "tour-outcome-monitoring",
     title: "4. Outcome & Progress Monitoring",
-    subtitle: "Track goal mastery and celebrate student growth",
+    subtitle: "Trial Mastery & Longitudinal Trends",
     description:
-      "Log observations, trial data, and assessment results over time. Visualize progress toward annual IEP goals to make data-informed instructional adjustments and prepare for review meetings.",
+      "Log trial evaluations and observations over time to monitor progress against the 70% benchmark mastery line and generate review summaries.",
     icon: ChartBarIcon,
     highlights: [
-      "Ongoing mastery tracking for each active IEP goal",
-      "Visual progress charts and trends across subjects",
+      "Ongoing mastery tracking for active IEP goals",
       "Exportable summary records for team and parent reviews",
     ],
   },
@@ -75,14 +71,13 @@ const TUTORIAL_STEPS = [
     badge: "Step 5 of 5",
     targetId: "tour-schedule",
     title: "5. Calendar & Schedules",
-    subtitle: "Milestone reminders & classroom schedule planning",
+    subtitle: "Milestone Reminders & Event Planning",
     description:
-      "Track automated time-bound IEP milestone reminders (+30d Month 1, +60d Month 2, +90d Quarterly Review, and +365d Annual Renewal) generated upon saving IEPs, with active version supersede logic.",
+      "Track automated time-bound IEP milestone deadlines (+30d Month 1, +60d Month 2, +90d Review, +365d Renewal) and schedule school events.",
     icon: CalendarIcon,
     highlights: [
-      "Automated time-bound IEP milestone deadline tracking",
-      "Interactive monthly calendar and mobile-friendly agenda view",
-      "Top bar notification bell reminders and custom event scheduling",
+      "Automated time-bound IEP milestone reminder schedule",
+      "Interactive calendar and top-bar reminder bell alerts",
     ],
   },
 ];
@@ -91,6 +86,7 @@ export default function TeacherTutorialModal({ onComplete }) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState(null);
   const containerRef = useRef(null);
+  const wrapperRef = useRef(null);
 
   useFocusTrap({
     isActive: true,
@@ -102,6 +98,39 @@ export default function TeacherTutorialModal({ onComplete }) {
   const currentStep = TUTORIAL_STEPS[currentStepIndex];
   const isFirstStep = currentStepIndex === 0;
   const isLastStep = currentStepIndex === TUTORIAL_STEPS.length - 1;
+
+  // Lock body/window scrolling while walkthrough tour is active
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    document.body.classList.add("tour-open");
+
+    const preventScroll = (e) => {
+      // Allow internal scrolling only if the tooltip card itself needs to scroll
+      if (containerRef.current && containerRef.current.contains(e.target)) {
+        const el = containerRef.current;
+        if (el.scrollHeight > el.clientHeight) {
+          return;
+        }
+      }
+      e.preventDefault();
+    };
+
+    window.addEventListener("wheel", preventScroll, { passive: false });
+    window.addEventListener("touchmove", preventScroll, { passive: false });
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.classList.remove("tour-open");
+      window.removeEventListener("wheel", preventScroll);
+      window.removeEventListener("touchmove", preventScroll);
+    };
+  }, []);
 
   const updateTargetRect = useCallback(() => {
     if (typeof document === "undefined") return;
@@ -165,10 +194,10 @@ export default function TeacherTutorialModal({ onComplete }) {
 
   if (targetRect) {
     if (!isMobile) {
-      const cardWidth = 460;
-      const cardHeight = 440;
-      const left = Math.min(targetRect.right + 18, window.innerWidth - cardWidth - 20);
-      const top = Math.max(16, Math.min(targetRect.top - 20, window.innerHeight - cardHeight - 16));
+      const cardWidth = 430;
+      const cardHeight = 350;
+      const left = Math.min(targetRect.right + 16, window.innerWidth - cardWidth - 20);
+      const top = Math.max(16, Math.min(targetRect.top - 14, window.innerHeight - cardHeight - 16));
       cardStyle = {
         position: "fixed",
         left: `${left}px`,
@@ -182,7 +211,7 @@ export default function TeacherTutorialModal({ onComplete }) {
         top: `${caretTop}px`,
       };
     } else {
-      const top = Math.min(targetRect.bottom + 14, window.innerHeight - 380);
+      const top = Math.min(targetRect.bottom + 12, window.innerHeight - 340);
       cardStyle = {
         position: "fixed",
         left: "16px",
@@ -197,6 +226,7 @@ export default function TeacherTutorialModal({ onComplete }) {
 
   return (
     <div
+      ref={wrapperRef}
       className={targetRect ? "tour-spotlight-wrapper" : "tutorial-modal-overlay"}
       role="dialog"
       aria-modal="true"
@@ -265,7 +295,7 @@ export default function TeacherTutorialModal({ onComplete }) {
         <div className="tutorial-modal-body">
           <div className="tutorial-icon-wrapper" aria-hidden="true">
             {typeof currentStep.icon === "function" ? (
-              <currentStep.icon className="w-8 h-8 text-blue-600" aria-hidden="true" />
+              <currentStep.icon className="w-6 h-6 text-[#3d9de8]" aria-hidden="true" />
             ) : (
               <span className="tutorial-icon">{currentStep.icon}</span>
             )}
@@ -283,7 +313,7 @@ export default function TeacherTutorialModal({ onComplete }) {
             <ul className="tutorial-highlights-list">
               {currentStep.highlights.map((highlight, idx) => (
                 <li key={idx} className="tutorial-highlight-item">
-                  <CheckIcon className="tutorial-check-icon w-4 h-4 text-emerald-600 inline shrink-0" aria-hidden="true" />
+                  <CheckIcon className="tutorial-check-icon w-3.5 h-3.5 text-[#3d9de8] inline shrink-0" aria-hidden="true" />
                   <span>{highlight}</span>
                 </li>
               ))}
