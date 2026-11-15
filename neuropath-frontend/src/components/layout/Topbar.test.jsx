@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect } from "react";
 import { MemoryRouter } from "react-router-dom";
@@ -52,6 +52,54 @@ describe("Topbar component", () => {
     expect(
       screen.getByRole("button", { name: "View user profile for Teacher Jane" })
     ).toBeInTheDocument();
+  });
+
+  it("renders profile picture when user.profile_picture is provided", () => {
+    useAuth.mockReturnValue({
+      user: {
+        first_name: "Jane",
+        last_name: "Doe",
+        profile_picture: "data:image/png;base64,samplebase64",
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <Topbar breadcrumb="DASHBOARD / Home" />
+      </MemoryRouter>
+    );
+
+    const pill = screen.getByRole("button", { name: "View user profile for Teacher Jane" });
+    const img = pill.querySelector("img");
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute("src", "data:image/png;base64,samplebase64");
+    expect(img).toHaveClass("topbar-pill-avatar-img");
+    expect(screen.queryByText("JD")).not.toBeInTheDocument();
+  });
+
+  it("falls back to initials when profile picture fails to load", () => {
+    useAuth.mockReturnValue({
+      user: {
+        first_name: "Jane",
+        last_name: "Doe",
+        profile_picture: "https://example.com/broken.png",
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <Topbar breadcrumb="DASHBOARD / Home" />
+      </MemoryRouter>
+    );
+
+    const pill = screen.getByRole("button", { name: "View user profile for Teacher Jane" });
+    const img = pill.querySelector("img");
+    expect(img).toBeInTheDocument();
+
+    fireEvent.error(img);
+
+    expect(pill.querySelector("img")).not.toBeInTheDocument();
+    expect(screen.getByText("JD")).toBeInTheDocument();
   });
 
   it("navigates to user profile when pill is clicked", async () => {

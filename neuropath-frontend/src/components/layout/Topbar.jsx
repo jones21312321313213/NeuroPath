@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useUnsavedChangesContext } from "../../context/UnsavedChangesContext";
@@ -17,9 +18,14 @@ export default function Topbar({
   const navigate = useNavigate();
   const location = useLocation();
   const { promptNavigation } = useUnsavedChangesContext();
+  const [failedAvatarSrc, setFailedAvatarSrc] = useState(null);
+
   const teacherName = `Teacher ${user?.first_name || ""}`;
   const initials =
     `${user?.first_name?.[0] || ""}${user?.last_name?.[0] || ""}`.toUpperCase();
+  const hasValidAvatar = Boolean(
+    user?.profile_picture && failedAvatarSrc !== user.profile_picture
+  );
 
   const handleProfileClick = () => {
     if (location?.pathname === "/dashboard/profile") return;
@@ -66,7 +72,16 @@ export default function Topbar({
           aria-label={`View user profile for ${teacherName}`}
         >
           <div className="topbar-pill-avatar" aria-hidden="true">
-            {initials || <UserIcon className="w-4 h-4 text-slate-500" aria-hidden="true" />}
+            {hasValidAvatar ? (
+              <img
+                src={user.profile_picture}
+                alt=""
+                className="topbar-pill-avatar-img"
+                onError={() => setFailedAvatarSrc(user.profile_picture)}
+              />
+            ) : (
+              initials || <UserIcon className="w-4 h-4 text-slate-500" aria-hidden="true" />
+            )}
           </div>
           <span className="topbar-pill-name">{teacherName}</span>
         </button>
