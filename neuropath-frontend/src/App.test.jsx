@@ -58,6 +58,7 @@ describe("App First-Login Tutorial Modal Integration", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
   });
 
   it("renders TeacherTutorialModal when user has_completed_tutorial is false", () => {
@@ -78,7 +79,7 @@ describe("App First-Login Tutorial Modal Integration", () => {
     );
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByText(/welcome to neuropath/i)).toBeInTheDocument();
+    expect(screen.getByText(/comprehensive student profiling/i)).toBeInTheDocument();
   });
 
   it("does NOT render TeacherTutorialModal when user has_completed_tutorial is true", () => {
@@ -122,6 +123,40 @@ describe("App First-Login Tutorial Modal Integration", () => {
 
     await user.click(screen.getByRole("button", { name: /skip walkthrough/i }));
     expect(mockMarkTutorialComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders walkthrough tour for tester budskie@gmail.com even if has_completed_tutorial is true", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({
+      user: {
+        id: 99,
+        email: "budskie@gmail.com",
+        has_completed_tutorial: true,
+      },
+      isAuthenticated: true,
+      markTutorialComplete: mockMarkTutorialComplete,
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <App />
+      </MemoryRouter>
+    );
+
+    // Tour is shown for budskie@gmail.com initially
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText(/1\. comprehensive student profiling/i)).toBeInTheDocument();
+
+    // Dismiss tour
+    await user.click(screen.getByRole("button", { name: /skip walkthrough/i }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(window.localStorage.getItem("neuropath_tour_dismissed_budskie")).toBe("true");
+
+    // Can be re-triggered on demand via Sidebar "App Walkthrough" button
+    const tourBtn = screen.getByTestId("sidebar-tour-btn");
+    await user.click(tourBtn);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(window.localStorage.getItem("neuropath_tour_dismissed_budskie")).toBeNull();
   });
 });
 

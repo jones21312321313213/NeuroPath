@@ -339,5 +339,41 @@ describe("Sidebar component", () => {
     expect(screen.getByTestId("changelog-modal")).toBeInTheDocument();
     expect(screen.getByText(/Changelog & Release Notes/i)).toBeInTheDocument();
   });
+
+  it("renders data-tour-id attributes on tourable navigation items", () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <Sidebar collapsed={false} onToggleCollapse={mockOnToggleCollapse} />
+      </MemoryRouter>
+    );
+
+    expect(container.querySelector('[data-tour-id="tour-student-profiling"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-tour-id="tour-iep-generation"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-tour-id="tour-instructional-support"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-tour-id="tour-outcome-monitoring"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-tour-id="tour-schedule"]')).toBeInTheDocument();
+  });
+
+  it("calls onStartTour when App Walkthrough button is clicked in the sidebar footer", async () => {
+    const user = userEvent.setup();
+    const mockOnStartTour = vi.fn();
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <Sidebar
+          collapsed={false}
+          onToggleCollapse={mockOnToggleCollapse}
+          onStartTour={mockOnStartTour}
+        />
+      </MemoryRouter>
+    );
+
+    const tourBtn = screen.getByTestId("sidebar-tour-btn");
+    expect(tourBtn).toBeInTheDocument();
+    expect(tourBtn).toHaveTextContent(/App Walkthrough/i);
+
+    await user.click(tourBtn);
+    expect(mockOnStartTour).toHaveBeenCalledTimes(1);
+  });
 });
 

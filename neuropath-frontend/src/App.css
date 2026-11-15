@@ -462,6 +462,16 @@ button.sidebar-header {
   outline-offset: 2px;
 }
 
+.sidebar-tour-btn {
+  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.sidebar-tour-btn:hover {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: #38bdf8;
+}
+
 .sidebar-logout-btn {
   display: flex;
   align-items: center;
@@ -3966,8 +3976,64 @@ select option,
 }
 
 /* =====================================================================
-   TEACHER TUTORIAL WALKTHROUGH MODAL
+   TEACHER TUTORIAL WALKTHROUGH MODAL & DIMMED SPOTLIGHT TOUR
    ===================================================================== */
+.tour-spotlight-wrapper {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  pointer-events: auto;
+}
+
+.tour-spotlight-cutout {
+  position: fixed;
+  z-index: 9998;
+  border-radius: 10px;
+  border: 2px solid #38bdf8;
+  box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.72), 0 0 24px rgba(56, 189, 248, 0.5);
+  background: transparent;
+  pointer-events: none;
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tour-fallback-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+
+.tour-anchored-card {
+  box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(130, 199, 255, 0.35) !important;
+  animation: tourCardSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes tourCardSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.tutorial-caret-arrow {
+  position: absolute;
+  left: -7px;
+  width: 14px;
+  height: 14px;
+  background: #ffffff;
+  border-bottom: 1px solid #cbd5e1;
+  border-left: 1px solid #cbd5e1;
+  transform: rotate(45deg);
+  border-bottom-left-radius: 2px;
+  z-index: 10;
+}
+
 .tutorial-modal-overlay {
   position: fixed;
   inset: 0;
