@@ -34,6 +34,15 @@
   color: #fff;
   flex-shrink: 0;
   letter-spacing: 0.5px;
+  overflow: hidden;
+}
+
+.topbar-pill-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
 }
 
 .topbar-pill-name {
