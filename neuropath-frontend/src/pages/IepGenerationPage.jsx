@@ -27,6 +27,12 @@ import {
   CheckIcon,
 } from "../components/ui/icons";
 import { Pagination } from "../components/ui/Pagination";
+import {
+  MilestonePriorityBadge,
+  MilestonePrioritySelect,
+} from "../components/ui/MilestonePriorityControl";
+import { SectionCFullscreenModal } from "../components/ui/SectionCFullscreenModal";
+import { normalizeMilestonePriority } from "../utils/milestonePriorityUtils";
 import { formatRelativeTime } from "../utils/dateUtils";
 import "../styles/ViewStudentProfile.css";
 
@@ -302,7 +308,6 @@ function SpecialFactorNotesField({
 
 function ReadOnlyGoalTable({ rows = [], goalTitle = "" }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(80);
 
   if (!rows.length)
     return <p className="iep-muted">No learner goal rows available.</p>;
@@ -346,13 +351,16 @@ function ReadOnlyGoalTable({ rows = [], goalTitle = "" }) {
               {row.objective || "—"}
             </td>
             <td className="iep-readonly-cell iep-col-month">
-              {row.month1 || row.month_1_target || "—"}
+              <div>{row.month1 || row.month_1_target || "—"}</div>
+              <MilestonePriorityBadge priority={row.month_1_priority || row.month1Priority || "medium"} />
             </td>
             <td className="iep-readonly-cell iep-col-month">
-              {row.month2 || row.month_2_target || "—"}
+              <div>{row.month2 || row.month_2_target || "—"}</div>
+              <MilestonePriorityBadge priority={row.month_2_priority || row.month2Priority || "medium"} />
             </td>
             <td className="iep-readonly-cell iep-col-month">
-              {row.month3 || row.month_3_target || "—"}
+              <div>{row.month3 || row.month_3_target || "—"}</div>
+              <MilestonePriorityBadge priority={row.month_3_priority || row.month3Priority || "high"} />
             </td>
             <td className="iep-readonly-cell iep-col-interventions">
               {row.interventions || "—"}
@@ -395,79 +403,14 @@ function ReadOnlyGoalTable({ rows = [], goalTitle = "" }) {
         {renderTable()}
       </div>
 
-      {isFullscreen && (
-        <div
-          className="fixed inset-0 z-[1050] bg-slate-900/80 backdrop-blur-sm flex flex-col p-2 sm:p-5 animate-fadeIn"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Section C Learner Goals Fullscreen View"
-        >
-          <div className="bg-white rounded-2xl shadow-2xl flex-1 flex flex-col overflow-hidden border border-slate-200">
-            <div className="px-4 py-3 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3 shrink-0">
-              <div className="flex items-center gap-2">
-                <i className="ti ti-table text-sky-400 text-lg" aria-hidden="true" />
-                <span className="font-bold text-sm tracking-wide">
-                  Section C: Learner's Goal{goalTitle ? ` (${goalTitle})` : ""} — Fullscreen View
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div
-                  className="flex items-center bg-white/10 rounded-lg p-0.5 border border-white/15"
-                  role="group"
-                  aria-label="Zoom controls"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setZoomLevel((prev) => Math.max(prev - 10, 50))}
-                    className="p-1 px-2 text-white/90 hover:text-white hover:bg-white/10 rounded text-xs font-bold transition-colors cursor-pointer"
-                    aria-label="Zoom out"
-                    title="Zoom out"
-                  >
-                    <i className="ti ti-minus" aria-hidden="true" />
-                  </button>
-                  <span className="px-2 text-xs font-semibold text-white/90 select-none min-w-[42px] text-center">
-                    {zoomLevel}%
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setZoomLevel((prev) => Math.min(prev + 10, 130))}
-                    className="p-1 px-2 text-white/90 hover:text-white hover:bg-white/10 rounded text-xs font-bold transition-colors cursor-pointer"
-                    aria-label="Zoom in"
-                    title="Zoom in"
-                  >
-                    <i className="ti ti-plus" aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setZoomLevel(80)}
-                    className="px-2 py-0.5 ml-1 text-[11px] font-semibold text-sky-300 hover:text-sky-200 hover:bg-white/10 rounded transition-colors cursor-pointer"
-                    title="Reset to default zoomed-out view (80%)"
-                  >
-                    80% (Default)
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsFullscreen(false)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold cursor-pointer transition-colors"
-                  aria-label="Exit fullscreen"
-                >
-                  <i className="ti ti-x text-sm" aria-hidden="true" />
-                  <span>Exit Fullscreen</span>
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-auto p-3 sm:p-5 bg-slate-50">
-              <div
-                className="iep-table-wrap iep-table-fullscreen-content bg-white p-3 rounded-xl border border-slate-200 shadow-sm transition-all"
-                style={{ zoom: `${zoomLevel}%` }}
-              >
-                {renderTable()}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <SectionCFullscreenModal
+        isOpen={isFullscreen}
+        onClose={() => setIsFullscreen(false)}
+        title={`Section C: Learner's Goal${goalTitle ? ` (${goalTitle})` : ""} — Fullscreen View`}
+        contentClassName="iep-table-wrap iep-table-fullscreen-content"
+      >
+        {renderTable()}
+      </SectionCFullscreenModal>
     </>
   );
 }
@@ -601,6 +544,18 @@ function normalizeDbGoal(dbGoal) {
       month_1_target: row.month_1_target || row.month1 || "",
       month_2_target: row.month_2_target || row.month2 || "",
       month_3_target: row.month_3_target || row.month3 || "",
+      month_1_priority: normalizeMilestonePriority(
+        row.month_1_priority || row.month1Priority,
+        "medium",
+      ),
+      month_2_priority: normalizeMilestonePriority(
+        row.month_2_priority || row.month2Priority,
+        "medium",
+      ),
+      month_3_priority: normalizeMilestonePriority(
+        row.month_3_priority || row.month3Priority,
+        "high",
+      ),
       interventions: row.interventions_procedures || row.interventions || "",
       timeline: row.timeline_mins_session || row.timeline || "",
       responsible: row.individuals_responsible || row.responsible || "",
@@ -622,6 +577,18 @@ function goalToApiPayload(goal, iepID) {
       month_1_target: row.month_1_target || row.month1 || "",
       month_2_target: row.month_2_target || row.month2 || "",
       month_3_target: row.month_3_target || row.month3 || "",
+      month_1_priority: normalizeMilestonePriority(
+        row.month_1_priority || row.month1Priority,
+        "medium",
+      ),
+      month_2_priority: normalizeMilestonePriority(
+        row.month_2_priority || row.month2Priority,
+        "medium",
+      ),
+      month_3_priority: normalizeMilestonePriority(
+        row.month_3_priority || row.month3Priority,
+        "high",
+      ),
       interventions_procedures: row.interventions || "",
       timeline_mins_session: row.timeline || "",
       individuals_responsible: row.responsible || "",
@@ -631,28 +598,31 @@ function goalToApiPayload(goal, iepID) {
   };
 }
 
+const emptyObjectiveRow = () => ({
+  objective: "",
+  month1: "",
+  month2: "",
+  month3: "",
+  month_1_target: "",
+  month_2_target: "",
+  month_3_target: "",
+  month_1_priority: "medium",
+  month_2_priority: "medium",
+  month_3_priority: "high",
+  interventions: "",
+  timeline: "",
+  responsible: "",
+  evaluation: "",
+  remarks: "",
+});
+
 const emptyEditableGoal = () => ({
   goalID: null,
   type: "",
   annualGoal: "",
   goalName: "",
   targetMetric: "Standard IEP Metric",
-  rows: [
-    {
-      objective: "",
-      month1: "",
-      month2: "",
-      month3: "",
-      month_1_target: "",
-      month_2_target: "",
-      month_3_target: "",
-      interventions: "",
-      timeline: "",
-      responsible: "",
-      evaluation: "",
-      remarks: "",
-    },
-  ],
+  rows: [emptyObjectiveRow()],
 });
 
 function buildBarrierRowsFromFlat(iep) {
@@ -1226,23 +1196,7 @@ function ViewIEPPanel({
         idx === goalIndex
           ? {
               ...goal,
-              rows: [
-                ...(goal.rows || []),
-                {
-                  objective: "",
-                  month1: "",
-                  month2: "",
-                  month3: "",
-                  month_1_target: "",
-                  month_2_target: "",
-                  month_3_target: "",
-                  interventions: "",
-                  timeline: "",
-                  responsible: "",
-                  evaluation: "",
-                  remarks: "",
-                },
-              ],
+              rows: [...(goal.rows || []), emptyObjectiveRow()],
             }
           : goal,
       ),
@@ -1759,36 +1713,61 @@ function ViewIEPPanel({
                                 ["responsible", "Responsible", "iep-col-responsible"],
                                 ["evaluation", "Evaluation", "iep-col-evaluation"],
                                 ["remarks", "Remarks", "iep-col-remarks"],
-                              ].map(([field, placeholder, colClass]) => (
-                                <td key={field} className={colClass}>
-                                  <textarea
-                                    className="form-textarea iep-small-textarea"
-                                    rows={2}
-                                    value={
-                                      row[field] ||
-                                      row[
-                                        field === "month1"
-                                          ? "month_1_target"
-                                          : field === "month2"
-                                            ? "month_2_target"
-                                            : field === "month3"
-                                              ? "month_3_target"
-                                              : field
-                                      ] ||
-                                      ""
-                                    }
-                                    placeholder={placeholder}
-                                    onChange={(e) =>
-                                      updateEditGoalRow(
-                                        goalIndex,
-                                        rowIndex,
-                                        field,
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                </td>
-                              ))}
+                              ].map(([field, placeholder, colClass]) => {
+                                const prioField =
+                                  field === "month1"
+                                    ? "month_1_priority"
+                                    : field === "month2"
+                                      ? "month_2_priority"
+                                      : field === "month3"
+                                        ? "month_3_priority"
+                                        : null;
+                                const defaultPrio = field === "month3" ? "high" : "medium";
+                                return (
+                                  <td key={field} className={colClass}>
+                                    <textarea
+                                      className="form-textarea iep-small-textarea"
+                                      rows={2}
+                                      value={
+                                        row[field] ||
+                                        row[
+                                          field === "month1"
+                                            ? "month_1_target"
+                                            : field === "month2"
+                                              ? "month_2_target"
+                                              : field === "month3"
+                                                ? "month_3_target"
+                                                : field
+                                        ] ||
+                                        ""
+                                      }
+                                      placeholder={placeholder}
+                                      onChange={(e) =>
+                                        updateEditGoalRow(
+                                          goalIndex,
+                                          rowIndex,
+                                          field,
+                                          e.target.value,
+                                        )
+                                      }
+                                    />
+                                    {prioField && (
+                                      <MilestonePrioritySelect
+                                        value={row[prioField] || defaultPrio}
+                                        ariaLabel={`${placeholder} priority`}
+                                        onChange={(nextPrio) =>
+                                          updateEditGoalRow(
+                                            goalIndex,
+                                            rowIndex,
+                                            prioField,
+                                            nextPrio,
+                                          )
+                                        }
+                                      />
+                                    )}
+                                  </td>
+                                );
+                              })}
                               <td className="iep-action-cell">
                                 <button
                                   type="button"
@@ -1826,7 +1805,7 @@ function ViewIEPPanel({
               <div className="iep-edit-actions">
                 <button
                   type="button"
-                  className="btn btn-back"
+                  className="btn btn-back btn-back-cancel"
                   onClick={handleCancelClick}
                 >
                   CANCEL
@@ -2293,22 +2272,7 @@ export default function IEPGenerationPage({
     type: "",
     annualGoal: "",
     targetMetric: "Standard IEP Metric",
-    rows: [
-      {
-        objective: "",
-        month1: "",
-        month2: "",
-        month3: "",
-        month_1_target: "",
-        month_2_target: "",
-        month_3_target: "",
-        interventions: "",
-        timeline: "",
-        responsible: "",
-        evaluation: "",
-        remarks: "",
-      },
-    ],
+    rows: [emptyObjectiveRow()],
   });
 
   const [form, setForm] = useState({
@@ -2762,23 +2726,7 @@ export default function IEPGenerationPage({
   const addManualGoalObjectiveRow = () =>
     setManualGoal((prev) => ({
       ...prev,
-      rows: [
-        ...prev.rows,
-        {
-          objective: "",
-          month1: "",
-          month2: "",
-          month3: "",
-          month_1_target: "",
-          month_2_target: "",
-          month_3_target: "",
-          interventions: "",
-          timeline: "",
-          responsible: "",
-          evaluation: "",
-          remarks: "",
-        },
-      ],
+      rows: [...prev.rows, emptyObjectiveRow()],
     }));
 
   const updateManualGoalObjectiveRow = (rowIndex, field, value) =>
@@ -2960,6 +2908,9 @@ export default function IEPGenerationPage({
           month_1_target: row.month_1_target || row.month1 || "",
           month_2_target: row.month_2_target || row.month2 || "",
           month_3_target: row.month_3_target || row.month3 || "",
+          month_1_priority: normalizeMilestonePriority(row.month_1_priority, "medium"),
+          month_2_priority: normalizeMilestonePriority(row.month_2_priority, "medium"),
+          month_3_priority: normalizeMilestonePriority(row.month_3_priority, "high"),
           month1: row.month_1_target || row.month1 || "",
           month2: row.month_2_target || row.month2 || "",
           month3: row.month_3_target || row.month3 || "",
@@ -2977,22 +2928,7 @@ export default function IEPGenerationPage({
         type: "",
         annualGoal: "",
         targetMetric: "Standard IEP Metric",
-        rows: [
-          {
-            objective: "",
-            month1: "",
-            month2: "",
-            month3: "",
-            month_1_target: "",
-            month_2_target: "",
-            month_3_target: "",
-            interventions: "",
-            timeline: "",
-            responsible: "",
-            evaluation: "",
-            remarks: "",
-          },
-        ],
+        rows: [emptyObjectiveRow()],
       });
       setShowManualGoal(false);
       if (queryClient) {
@@ -4174,35 +4110,59 @@ export default function IEPGenerationPage({
                                     ["responsible", "Responsible", "iep-col-responsible"],
                                     ["evaluation", "Evaluation", "iep-col-evaluation"],
                                     ["remarks", "Remarks", "iep-col-remarks"],
-                                  ].map(([field, placeholder, colClass]) => (
-                                    <td key={field} className={colClass}>
-                                      <textarea
-                                        className="form-textarea iep-small-textarea"
-                                        rows={2}
-                                        value={
-                                          row[field] ||
-                                          row[
-                                            field === "month1"
-                                              ? "month_1_target"
-                                              : field === "month2"
-                                                ? "month_2_target"
-                                                : field === "month3"
-                                                  ? "month_3_target"
-                                                  : field
-                                          ] ||
-                                          ""
-                                        }
-                                        placeholder={placeholder}
-                                        onChange={(e) =>
-                                          updateManualGoalObjectiveRow(
-                                            rowIndex,
-                                            field,
-                                            e.target.value,
-                                          )
-                                        }
-                                      />
-                                    </td>
-                                  ))}
+                                  ].map(([field, placeholder, colClass]) => {
+                                    const prioField =
+                                      field === "month1"
+                                        ? "month_1_priority"
+                                        : field === "month2"
+                                          ? "month_2_priority"
+                                          : field === "month3"
+                                            ? "month_3_priority"
+                                            : null;
+                                    const defaultPrio = field === "month3" ? "high" : "medium";
+                                    return (
+                                      <td key={field} className={colClass}>
+                                        <textarea
+                                          className="form-textarea iep-small-textarea"
+                                          rows={2}
+                                          value={
+                                            row[field] ||
+                                            row[
+                                              field === "month1"
+                                                ? "month_1_target"
+                                                : field === "month2"
+                                                  ? "month_2_target"
+                                                  : field === "month3"
+                                                    ? "month_3_target"
+                                                    : field
+                                            ] ||
+                                            ""
+                                          }
+                                          placeholder={placeholder}
+                                          onChange={(e) =>
+                                            updateManualGoalObjectiveRow(
+                                              rowIndex,
+                                              field,
+                                              e.target.value,
+                                            )
+                                          }
+                                        />
+                                        {prioField && (
+                                          <MilestonePrioritySelect
+                                            value={row[prioField] || defaultPrio}
+                                            ariaLabel={`Manual goal ${placeholder} priority`}
+                                            onChange={(nextPrio) =>
+                                              updateManualGoalObjectiveRow(
+                                                rowIndex,
+                                                prioField,
+                                                nextPrio,
+                                              )
+                                            }
+                                          />
+                                        )}
+                                      </td>
+                                    );
+                                  })}
                                   <td className="iep-action-cell">
                                     <button
                                       type="button"
@@ -4305,6 +4265,20 @@ export default function IEPGenerationPage({
         goalArea={selectedGoalCategory || ""}
         onAcceptAndSave={handleAcceptAndSaveGoals}
         onRegenerate={handleRegenerateFromModal}
+        onUpdateMilestonePriority={(goalIdx, rowIdx, prioField, nextPrio) => {
+          setPendingGeneratedGoals((prev) =>
+            prev.map((goal, gIdx) =>
+              gIdx === goalIdx
+                ? {
+                    ...goal,
+                    objective_rows: (goal.objective_rows || []).map((row, rIdx) =>
+                      rIdx === rowIdx ? { ...row, [prioField]: nextPrio } : row,
+                    ),
+                  }
+                : goal,
+            ),
+          );
+        }}
         isSaving={isSavingPendingGoals}
         isRegenerating={generatingFinalIep}
         cooldownSeconds={cooldownSeconds}

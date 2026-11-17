@@ -387,8 +387,23 @@ class StandaloneIEPGoalViewSet(viewsets.ModelViewSet):
             return Response({'error': 'IEP not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         self.perform_create(serializer)
+        try:
+            from tracking.scheduling_service import sync_iep_milestone_event_priorities
+            sync_iep_milestone_event_priorities(iep, teacher)
+        except Exception as sched_err:
+            logger.warning("Failed to sync milestone priorities for IEP %s: %s", getattr(iep, 'pk', None), sched_err)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        try:
+            teacher = get_teacher_for_user(self.request.user)
+            if teacher and instance.iep:
+                from tracking.scheduling_service import sync_iep_milestone_event_priorities
+                sync_iep_milestone_event_priorities(instance.iep, teacher)
+        except Exception as sched_err:
+            logger.warning("Failed to sync milestone priorities on update for IEP %s: %s", getattr(instance.iep, 'pk', None), sched_err)
     
     
 # 1. GENERATE INSIGHT ENDPOINT
@@ -810,6 +825,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
             "Output ONLY a valid JSON array of 2-3 objective row objects. "
             "Each object must have exactly these keys: "
             "enroute_objectives, month_1_target, month_2_target, month_3_target, "
+            "month_1_priority, month_2_priority, month_3_priority, "
             "interventions_procedures, timeline_mins_session, "
             "individuals_responsible, progress_instructional, remarks. "
             "The enroute_objectives must be concrete, sequential sub-skills following ABCD criteria with targeted skill brackets (e.g. counting 5-10). "
@@ -817,6 +833,7 @@ class GenerateIEPGoalsFromIEPView(APIView):
             "- month_1_target: 1st Month milestone (baseline skill acquisition with direct prompts/cues and initial bracket, e.g., 'Given visual counters and direct physical prompts, the learner will count numbers 1-3 with 70% accuracy').\n"
             "- month_2_target: 2nd Month milestone (intermediate skill progression with faded prompts/cues and expanded bracket, e.g., 'Given visual counters and faded verbal cues, the learner will count numbers 1-5 with 75% accuracy').\n"
             "- month_3_target: 3rd Month milestone (independent mastery with target bracket, e.g., 'Given visual counters, the learner will independently count and identify numbers 5-10 with 80% accuracy in 4 of 5 trials').\n"
+            "- month_1_priority, month_2_priority, month_3_priority: Assign 'low', 'medium', or 'high' for each month based on how crucial that monthly milestone is for the learner's progression and barriers (e.g., 'high' for critical foundational breakthroughs or quarterly mastery checks, 'medium' for steady scaffolded practice, 'low' for maintenance/reinforcement).\n"
             f"{goal_area_instruction}"
             "Do not include markdown, backticks, or any text outside the JSON array."
         )
@@ -905,6 +922,27 @@ class GenerateIEPGoalsFromIEPView(APIView):
                         if not m3_text:
                             m3_text = "Month 3: Independent mastery with 80% accuracy across consecutive trials."
 
+                        def _parse_milestone_priority(val, default="medium"):
+                            s = str(val or "").strip().lower()
+                            if s in ("med", "medium"):
+                                return "medium"
+                            if s in ("low", "high"):
+                                return s
+                            return default
+
+                        m1_prio = _parse_milestone_priority(
+                            row.get("month_1_priority") or row.get("month1_priority") or row.get("month1Priority"),
+                            default="medium",
+                        )
+                        m2_prio = _parse_milestone_priority(
+                            row.get("month_2_priority") or row.get("month2_priority") or row.get("month2Priority"),
+                            default="medium",
+                        )
+                        m3_prio = _parse_milestone_priority(
+                            row.get("month_3_priority") or row.get("month3_priority") or row.get("month3Priority"),
+                            default="high",
+                        )
+
                         int_text = str(row.get("interventions_procedures") or row.get("interventions") or row.get("intervention", f"Use {assistive_tech or 'visual supports'}")).strip()
                         time_text = str(row.get("timeline_mins_session") or row.get("timeline", "15-20 minutes every day")).strip()
                         resp_text = str(row.get("individuals_responsible") or row.get("responsible", facilitators or "SNED Teacher")).strip()
@@ -922,6 +960,9 @@ class GenerateIEPGoalsFromIEPView(APIView):
                             "month_3_target": m3_text,
                             "month_3": m3_text,
                             "month3": m3_text,
+                            "month_1_priority": m1_prio,
+                            "month_2_priority": m2_prio,
+                            "month_3_priority": m3_prio,
                             "interventions_procedures": int_text,
                             "interventions": int_text,
                             "intervention": int_text,

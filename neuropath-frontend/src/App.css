@@ -869,6 +869,9 @@ select option,
   background: #5aabf0;
   color: #fff;
 }
+.btn-back-cancel{
+  background-color: #F83535;
+}
 .btn-submit {
   background: #3d9de8;
   color: #fff;
@@ -2640,6 +2643,28 @@ select option,
 .iep-table-fullscreen-content .iep-section-c-table td {
   padding: 8px 12px;
   font-size: 12px;
+}
+
+/* Mobile Portrait Auto-Landscape Rotation for Section C Fullscreen Modal (e.g. 390x844) */
+.iep-fullscreen-landscape-rotated {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 100vh;
+  width: 100dvh;
+  height: 100vw;
+  transform: translate(-50%, -50%) rotate(90deg);
+  transform-origin: center center;
+  padding: 6px;
+}
+
+.iep-fullscreen-landscape-rotated .iep-fullscreen-header {
+  padding: 6px 10px;
+}
+
+.iep-fullscreen-landscape-rotated .iep-fullscreen-body {
+  padding: 6px;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Grouped 2-tier headers */

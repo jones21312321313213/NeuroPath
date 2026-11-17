@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IepPostGenerationModal } from "../IepPostGenerationModal";
 
@@ -410,5 +410,43 @@ describe("IepPostGenerationModal", () => {
 
       vi.useRealTimers();
     });
+  });
+
+  it("renders monthly milestone priority selectors and invokes onUpdateMilestonePriority when adjusted", () => {
+    const handlePriorityChange = vi.fn();
+    const goalsWithPriorities = [
+      {
+        subject_category: "Mathematics",
+        annual_goal: "Count 1-10 independently",
+        objective_rows: [
+          {
+            enroute_objectives: "Identify numbers 1-5",
+            month_1_target: "Count 1-2",
+            month_2_target: "Count 1-4",
+            month_3_target: "Count 1-5",
+            month_1_priority: "high",
+            month_2_priority: "medium",
+            month_3_priority: "low",
+          },
+        ],
+      },
+    ];
+
+    render(
+      <IepPostGenerationModal
+        isOpen={true}
+        goals={goalsWithPriorities}
+        onClose={vi.fn()}
+        onAcceptAndSave={vi.fn()}
+        onRegenerate={vi.fn()}
+        onUpdateMilestonePriority={handlePriorityChange}
+      />,
+    );
+
+    const m1Select = screen.getByLabelText("Month 1 milestone priority for objective 1");
+    expect(m1Select).toHaveValue("high");
+
+    fireEvent.change(m1Select, { target: { value: "low" } });
+    expect(handlePriorityChange).toHaveBeenCalledWith(0, 0, "month_1_priority", "low");
   });
 });
