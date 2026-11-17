@@ -9,6 +9,10 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from users.utils import get_teacher_for_user
 from .models import ScheduleEvent, ScheduleEventStatus
 from .serializers import ScheduleEventSerializer
+from .scheduling_service import (
+    is_event_within_notification_window,
+    sync_teacher_notifications,
+)
 
 
 class ScheduleEventViewSet(viewsets.ModelViewSet):
@@ -97,16 +101,19 @@ class ScheduleEventViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def upcoming(self, request):
         """
-        Lightweight, fast endpoint for the Overview Deadline Reminder Widget.
-        Returns:
+        Lightweight, fast endpoint for the Overview Deadline Reminder Widget & Notification Bell.
+        Syncs priority-based Notification history records and returns:
           - Overdue pending events (due_date < today)
-          - Approaching events in the next horizon days (default 14 days)
+          - Approaching events within horizon days (or strictly within priority lead-time window
+            when priority_window=true: Low=1d, Medium=2d, High=3d)
         """
         teacher = get_teacher_for_user(request.user)
         if not teacher:
             return Response([], status=status.HTTP_200_OK)
 
         today = timezone.now().date()
+        sync_teacher_notifications(teacher, today=today)
+
         days_param = request.query_params.get('days', '14')
         try:
             horizon_days = max(1, min(int(days_param), 90))
@@ -114,6 +121,7 @@ class ScheduleEventViewSet(viewsets.ModelViewSet):
             horizon_days = 14
 
         horizon_date = today + timedelta(days=horizon_days)
+        priority_window_only = str(request.query_params.get('priority_window', '')).lower() in ('true', '1', 'yes')
 
         # Events that are either overdue OR due within the horizon date and pending
         qs = (
@@ -126,7 +134,12 @@ class ScheduleEventViewSet(viewsets.ModelViewSet):
             .order_by('due_date', 'due_time', '-priority')
         )
 
-        serializer = self.get_serializer(qs, many=True)
+        if priority_window_only:
+            events = [ev for ev in qs if is_event_within_notification_window(ev, today=today)]
+        else:
+            events = qs
+
+        serializer = self.get_serializer(events, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])

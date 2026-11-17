@@ -12,7 +12,7 @@ function TopbarNotificationBellInner() {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
 
-  const { data: deadlinesData = [] } = useUpcomingDeadlines(14);
+  const { data: deadlinesData = [] } = useUpcomingDeadlines(3, { priorityWindow: true });
   const deadlines = Array.isArray(deadlinesData) ? deadlinesData : (deadlinesData?.results || []);
 
   const totalCount = deadlines.length;
@@ -78,9 +78,9 @@ function TopbarNotificationBellInner() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
 
-  const handleOpenCalendar = () => {
+  const handleOpenNotifications = () => {
     setIsOpen(false);
-    navigate("/dashboard/schedule");
+    navigate("/dashboard/notifications");
   };
 
   const handleRecordProgress = (studentId) => {
@@ -171,12 +171,34 @@ function TopbarNotificationBellInner() {
                     />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-slate-800 truncate">
-                      {item.title}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-semibold text-slate-800 truncate flex-1">
+                        {item.title}
+                      </p>
+                      {item.priority && (
+                        <span
+                          className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                            item.priority === "high" || item.priority === "urgent"
+                              ? "bg-red-100 text-red-700"
+                              : item.priority === "low"
+                                ? "bg-slate-100 text-slate-600"
+                                : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          {item.priority}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
                       {item.student_name && <span>👤 {item.student_name}</span>}
-                      <span>• Due {item.due_date}</span>
+                      <span>
+                        •{" "}
+                        {item.days_remaining === 0
+                          ? "Due today"
+                          : item.is_overdue
+                            ? `Overdue (${item.due_date})`
+                            : `Due ${item.due_date}`}
+                      </span>
                     </p>
                   </div>
                   {item.student_id && (
@@ -198,10 +220,10 @@ function TopbarNotificationBellInner() {
           <div className="p-2.5 bg-slate-50 border-t border-slate-100 text-center">
             <button
               type="button"
-              onClick={handleOpenCalendar}
+              onClick={handleOpenNotifications}
               className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 cursor-pointer"
             >
-              <span>Open Full Schedule &amp; Calendar</span>
+              <span>View All Notifications</span>
               <i className="ti ti-arrow-right text-xs" aria-hidden="true" />
             </button>
           </div>
