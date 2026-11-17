@@ -66,9 +66,9 @@ describe("TopbarNotificationBell", () => {
     expect(badge.className).toContain("animate-pulse");
   });
 
-  it("opens dropdown on bell click and navigates to calendar on footer click", () => {
+  it("opens dropdown on bell click and navigates to notifications page on footer click", () => {
     queries.useUpcomingDeadlines.mockReturnValue({
-      data: [{ eventID: 1, title: "Quarterly Review", is_overdue: false }],
+      data: [{ eventID: 1, title: "Quarterly Review", is_overdue: false, priority: "high" }],
     });
     renderBell();
 
@@ -78,10 +78,11 @@ describe("TopbarNotificationBell", () => {
     const dropdown = screen.getByTestId("notifications-dropdown");
     expect(dropdown).toBeInTheDocument();
     expect(screen.getByText("Quarterly Review")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Open Full Schedule/i })).not.toBeInTheDocument();
 
-    const calendarLinkBtn = screen.getByRole("button", { name: /Open Full Schedule/i });
-    fireEvent.click(calendarLinkBtn);
-    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/schedule");
+    const notificationsLinkBtn = screen.getByRole("button", { name: /View All Notifications/i });
+    fireEvent.click(notificationsLinkBtn);
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard/notifications");
   });
 
   it("removes the badge when the bell is clicked indicating notifications have been seen", () => {

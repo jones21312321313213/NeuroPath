@@ -4,6 +4,10 @@ import { Button } from "./Button";
 import { Badge } from "./Badge";
 import { RgoriComplianceModal } from "./RgoriComplianceModal";
 import {
+  MilestonePriorityBadge,
+  MilestonePrioritySelect,
+} from "./MilestonePriorityControl";
+import {
   ArrowPathIcon,
   ClockIcon,
   DiskIcon,
@@ -44,6 +48,7 @@ export function IepPostGenerationModal({
   goalArea = "",
   onAcceptAndSave,
   onRegenerate,
+  onUpdateMilestonePriority,
   isSaving = false,
   isRegenerating = false,
   cooldownSeconds = 10,
@@ -309,15 +314,37 @@ export function IepPostGenerationModal({
                                 <td className="px-4 py-3 align-top font-semibold text-slate-900 text-sm leading-relaxed">
                                   {row.enroute_objectives || row.objective || row.procedure || "—"}
                                 </td>
-                                <td className="px-3.5 py-3 align-top text-slate-700 text-sm leading-relaxed">
-                                  {row.month_1_target || row.month_1 || row.month1 || "—"}
-                                </td>
-                                <td className="px-3.5 py-3 align-top text-slate-700 text-sm leading-relaxed">
-                                  {row.month_2_target || row.month_2 || row.month2 || "—"}
-                                </td>
-                                <td className="px-3.5 py-3 align-top text-slate-700 text-sm leading-relaxed">
-                                  {row.month_3_target || row.month_3 || row.month3 || "—"}
-                                </td>
+                                {[1, 2, 3].map((m) => {
+                                  const targetText =
+                                    row[`month_${m}_target`] ||
+                                    row[`month_${m}`] ||
+                                    row[`month${m}`] ||
+                                    "—";
+                                  const prioField = `month_${m}_priority`;
+                                  const prioVal =
+                                    row[prioField] ||
+                                    row[`month${m}Priority`] ||
+                                    (m === 3 ? "high" : "medium");
+                                  return (
+                                    <td
+                                      key={m}
+                                      className="px-3.5 py-3 align-top text-slate-700 text-sm leading-relaxed"
+                                    >
+                                      <div>{targetText}</div>
+                                      {onUpdateMilestonePriority ? (
+                                        <MilestonePrioritySelect
+                                          value={prioVal}
+                                          ariaLabel={`Month ${m} milestone priority for objective ${rIdx + 1}`}
+                                          onChange={(nextPrio) =>
+                                            onUpdateMilestonePriority(idx, rIdx, prioField, nextPrio)
+                                          }
+                                        />
+                                      ) : (
+                                        <MilestonePriorityBadge priority={prioVal} />
+                                      )}
+                                    </td>
+                                  );
+                                })}
                                 <td className="px-3.5 py-3 align-top text-slate-700 text-sm leading-relaxed">
                                   {row.interventions_procedures || row.interventions || row.intervention || "—"}
                                 </td>

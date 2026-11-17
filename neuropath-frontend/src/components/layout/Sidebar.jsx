@@ -65,6 +65,14 @@ const navItems = [
     exact: true,
     children: [],
   },
+  {
+    label: "Notifications",
+    path: "/dashboard/notifications",
+    tourId: "tour-notifications",
+    icon: "ti-bell",
+    exact: true,
+    children: [],
+  },
 ];
 
 export default function Sidebar({

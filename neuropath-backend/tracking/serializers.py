@@ -51,7 +51,20 @@ class ProgressAnalyticsSerializer(serializers.ModelSerializer):
 #              and custom teacher-scheduled educational calendar events.
 # =====================================================================
 from django.utils import timezone
-from .models import ScheduleEvent
+from .models import ScheduleEvent, Notification
+from .scheduling_service import get_lead_days_for_priority
+
+
+def _resolve_student_display_name(student):
+    if not student:
+        return ""
+    raw_name = student.name or ""
+    pd = student.profileDetails if isinstance(student.profileDetails, dict) else {}
+    student_id = getattr(student, 'pk', None) or getattr(student, 'studentID', None)
+    id_suffix = f" #{student_id}" if student_id else ""
+    if not raw_name or raw_name.startswith('gAAAAA') or raw_name.startswith('[Encrypted'):
+        return pd.get('studentName') or pd.get('learnerName') or f"[Encrypted Student{id_suffix}]"
+    return raw_name
 
 
 class ScheduleEventSerializer(serializers.ModelSerializer):
@@ -61,6 +74,7 @@ class ScheduleEventSerializer(serializers.ModelSerializer):
     iep_version = serializers.SerializerMethodField()
     is_overdue = serializers.SerializerMethodField()
     days_remaining = serializers.SerializerMethodField()
+    lead_days = serializers.SerializerMethodField()
     timeline_mins_session = serializers.SerializerMethodField()
 
     class Meta:
@@ -80,6 +94,7 @@ class ScheduleEventSerializer(serializers.ModelSerializer):
             'due_time',
             'status',
             'priority',
+            'lead_days',
             'notes',
             'timeline_mins_session',
             'is_overdue',
@@ -91,15 +106,7 @@ class ScheduleEventSerializer(serializers.ModelSerializer):
         read_only_fields = ['eventID', 'teacher', 'completed_at', 'created_at', 'updated_at']
 
     def get_student_name(self, obj):
-        if not obj.student:
-            return ""
-        raw_name = obj.student.name or ""
-        pd = obj.student.profileDetails if isinstance(obj.student.profileDetails, dict) else {}
-        student_id = getattr(obj.student, 'pk', None) or getattr(obj.student, 'studentID', None)
-        id_suffix = f" #{student_id}" if student_id else ""
-        if not raw_name or raw_name.startswith('gAAAAA') or raw_name.startswith('[Encrypted'):
-            return pd.get('studentName') or pd.get('learnerName') or f"[Encrypted Student{id_suffix}]"
-        return raw_name
+        return _resolve_student_display_name(obj.student)
 
     def get_student_grade(self, obj):
         return obj.student.grade if obj.student else None
@@ -109,6 +116,9 @@ class ScheduleEventSerializer(serializers.ModelSerializer):
 
     def get_iep_version(self, obj):
         return obj.iep.version if obj.iep else None
+
+    def get_lead_days(self, obj):
+        return get_lead_days_for_priority(obj.priority)
 
     def get_is_overdue(self, obj):
         if obj.status == 'completed' or obj.status == 'dismissed':
@@ -132,3 +142,59 @@ class ScheduleEventSerializer(serializers.ModelSerializer):
         except Exception:
             pass
         return ""
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    student_name = serializers.SerializerMethodField()
+    student_id = serializers.SerializerMethodField()
+    schedule_event_id = serializers.SerializerMethodField()
+    event_status = serializers.SerializerMethodField()
+    days_remaining = serializers.SerializerMethodField()
+    is_overdue = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Notification
+        fields = [
+            'notificationID',
+            'schedule_event_id',
+            'event_status',
+            'student_id',
+            'student_name',
+            'iep',
+            'title',
+            'message',
+            'priority',
+            'trigger_type',
+            'lead_days',
+            'due_date',
+            'days_remaining',
+            'is_overdue',
+            'is_read',
+            'read_at',
+            'created_at',
+        ]
+        read_only_fields = fields
+
+    def get_student_name(self, obj):
+        return _resolve_student_display_name(obj.student)
+
+    def get_student_id(self, obj):
+        return obj.student.studentID if obj.student else None
+
+    def get_schedule_event_id(self, obj):
+        return obj.schedule_event.eventID if obj.schedule_event else None
+
+    def get_event_status(self, obj):
+        return obj.schedule_event.status if obj.schedule_event else None
+
+    def get_days_remaining(self, obj):
+        if not obj.due_date:
+            return None
+        return (obj.due_date - timezone.now().date()).days
+
+    def get_is_overdue(self, obj):
+        if obj.schedule_event and obj.schedule_event.status in ('completed', 'dismissed'):
+            return False
+        if not obj.due_date:
+            return False
+        return obj.due_date < timezone.now().date()

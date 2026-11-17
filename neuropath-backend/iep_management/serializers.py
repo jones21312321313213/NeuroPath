@@ -83,9 +83,38 @@ class IEPObjectiveRowSerializer(serializers.ModelSerializer):
         fields = [
             'rowID', 'enroute_objectives', 
             'month_1_target', 'month_2_target', 'month_3_target',
+            'month_1_priority', 'month_2_priority', 'month_3_priority',
             'interventions_procedures', 'timeline_mins_session', 
             'individuals_responsible', 'progress_instructional', 'remarks'
         ]
+        extra_kwargs = {
+            'month_1_priority': {'required': False},
+            'month_2_priority': {'required': False},
+            'month_3_priority': {'required': False},
+        }
+
+    def to_internal_value(self, data):
+        if isinstance(data, dict):
+            normalized = data.copy()
+            defaults = {
+                'month_1_priority': 'medium',
+                'month_2_priority': 'medium',
+                'month_3_priority': 'high',
+            }
+            for field, default_val in defaults.items():
+                val = normalized.get(field)
+                if isinstance(val, str):
+                    v = val.strip().lower()
+                    if v in ('med', 'medium'):
+                        normalized[field] = 'medium'
+                    elif v in ('low', 'high'):
+                        normalized[field] = v
+                    else:
+                        normalized[field] = default_val
+                elif val is None and field in normalized:
+                    normalized[field] = default_val
+            data = normalized
+        return super().to_internal_value(data)
 
 class StandaloneIEPGoalSerializer(serializers.ModelSerializer):
     studentName = serializers.CharField(source='iep.studentID.name', read_only=True)

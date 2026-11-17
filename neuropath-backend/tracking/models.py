@@ -106,3 +106,51 @@ class ScheduleEvent(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.due_date} ({self.status})"
+
+
+# =====================================================================
+# SUBSYSTEM 6: PERSISTENT NOTIFICATION HISTORY (ISSUE #311)
+# Description: Stores historical milestone alerts triggered by priority
+#              lead-time rules (Low=1d, Medium=2d, High=3d + Day-Of).
+# =====================================================================
+class NotificationTriggerType(models.TextChoices):
+    ADVANCE_NOTICE = 'advance_notice', 'Advance Reminder'
+    DUE_TODAY = 'due_today', 'Due Today'
+    OVERDUE = 'overdue', 'Overdue Alert'
+
+
+class Notification(models.Model):
+    notificationID = models.AutoField(primary_key=True)
+    teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='notifications', db_column='teacherID')
+    schedule_event = models.ForeignKey(ScheduleEvent, on_delete=models.SET_NULL, related_name='notifications', db_column='eventID', null=True, blank=True)
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='notifications', db_column='studentID', null=True, blank=True)
+    iep = models.ForeignKey(IEPModel, on_delete=models.CASCADE, related_name='notifications', db_column='iepID', null=True, blank=True)
+
+    title = models.CharField(max_length=255)
+    message = models.TextField(blank=True, default='')
+    priority = models.CharField(max_length=20, choices=ScheduleEventPriority.choices, default=ScheduleEventPriority.MEDIUM)
+    trigger_type = models.CharField(max_length=20, choices=NotificationTriggerType.choices, default=NotificationTriggerType.ADVANCE_NOTICE)
+    lead_days = models.PositiveSmallIntegerField(default=2)
+    due_date = models.DateField(null=True, blank=True)
+
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-notificationID']
+        indexes = [
+            models.Index(fields=['teacher', '-created_at']),
+            models.Index(fields=['teacher', 'is_read']),
+            models.Index(fields=['teacher', 'priority']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['teacher', 'schedule_event', 'trigger_type'],
+                condition=models.Q(schedule_event__isnull=False),
+                name='unique_notification_per_event_trigger',
+            )
+        ]
+
+    def __str__(self):
+        return f"[{self.priority.upper()}] {self.title} ({self.trigger_type})"

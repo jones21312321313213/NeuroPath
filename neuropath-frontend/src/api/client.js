@@ -620,7 +620,8 @@ export const scheduleAPI = {
     const queryString = qs.toString();
     return request(`/schedule/${queryString ? `?${queryString}` : ""}`);
   },
-  getUpcoming: (days = 14) => request(`/schedule/upcoming/?days=${days}`),
+  getUpcoming: (days = 14, { priorityWindow = false } = {}) =>
+    request(`/schedule/upcoming/?days=${days}${priorityWindow ? "&priority_window=true" : ""}`),
   create: (data) =>
     request("/schedule/", {
       method: "POST",
@@ -642,6 +643,28 @@ export const scheduleAPI = {
   delete: (id) =>
     request(`/schedule/${id}/`, {
       method: "DELETE",
+    }),
+};
+
+// ── Notifications History API (Issue #311) ────────────────────────────────────
+export const notificationsAPI = {
+  list: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([key, val]) => {
+      if (val !== undefined && val !== null && val !== "" && val !== "all") {
+        qs.append(key, val);
+      }
+    });
+    const queryString = qs.toString();
+    return request(`/notifications/${queryString ? `?${queryString}` : ""}`);
+  },
+  markRead: (id) =>
+    request(`/notifications/${id}/mark-read/`, {
+      method: "POST",
+    }),
+  markAllRead: () =>
+    request("/notifications/mark-all-read/", {
+      method: "POST",
     }),
 };
 
