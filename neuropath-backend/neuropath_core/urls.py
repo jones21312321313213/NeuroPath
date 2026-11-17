@@ -36,6 +36,9 @@ urlpatterns = [
     
     # Module 5: IEP Schedule & Progress Monitoring Calendar
     path('api/schedule/', include('tracking.schedule_urls')),
+
+    # Module 6: Persistent Notification History (Issue #311)
+    path('api/notifications/', include('tracking.notification_urls')),
     
     # Optional: Built-in login screen for direct browser testing
     path('api-auth/', include('rest_framework.urls')),

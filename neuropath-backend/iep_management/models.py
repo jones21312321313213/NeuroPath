@@ -77,6 +77,12 @@ class IEPGoal(models.Model):
     def __str__(self):
         return f"[{self.subject_category or 'General'}] Goal for IEP #{self.iep.iepID}" 
 
+class MilestonePriority(models.TextChoices):
+    LOW = 'low', 'Low'
+    MEDIUM = 'medium', 'Medium'
+    HIGH = 'high', 'High'
+
+
 class IEPObjectiveRow(models.Model):
     rowID = models.AutoField(primary_key=True)
     # 🔗 Connects this specific row directly to its parent table header!
@@ -87,6 +93,24 @@ class IEPObjectiveRow(models.Model):
     month_1_target = models.TextField(help_text="Month 1 Milestone (1st Month)", blank=True, null=True)
     month_2_target = models.TextField(help_text="Month 2 Milestone (2nd Month)", blank=True, null=True)
     month_3_target = models.TextField(help_text="Month 3 Milestone (3rd Month)", blank=True, null=True)
+    month_1_priority = models.CharField(
+        max_length=10,
+        choices=MilestonePriority.choices,
+        default=MilestonePriority.MEDIUM,
+        help_text="Priority level for Month 1 Milestone",
+    )
+    month_2_priority = models.CharField(
+        max_length=10,
+        choices=MilestonePriority.choices,
+        default=MilestonePriority.MEDIUM,
+        help_text="Priority level for Month 2 Milestone",
+    )
+    month_3_priority = models.CharField(
+        max_length=10,
+        choices=MilestonePriority.choices,
+        default=MilestonePriority.HIGH,
+        help_text="Priority level for Month 3 Milestone",
+    )
     interventions_procedures = models.TextField(help_text="Interventions/Activities/Procedure", blank=True, null=True) 
     timeline_mins_session = models.CharField(max_length=255, help_text="e.g., 15 to 20 minutes every day", blank=True, null=True) 
     individuals_responsible = models.CharField(max_length=255, help_text="e.g., SNED Teacher, Parents", blank=True, null=True) 

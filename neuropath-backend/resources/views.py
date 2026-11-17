@@ -111,9 +111,19 @@ def _sync_goals_from_generated_details(iep):
         for row in rows:
             if not isinstance(row, dict):
                 continue
+            def _norm_prio(val):
+                s = str(val or '').strip().lower()
+                return 'medium' if s == 'med' else (s if s in ('low', 'medium', 'high') else 'medium')
+
             IEPObjectiveRow.objects.create(
                 parent_goal=parent_goal,
                 enroute_objectives=_first_non_empty(row.get('enroute_objectives'), row.get('objective'), row.get('enrouteObjectives')),
+                month_1_target=_first_non_empty(row.get('month_1_target'), row.get('month1'), row.get('month_1')),
+                month_2_target=_first_non_empty(row.get('month_2_target'), row.get('month2'), row.get('month_2')),
+                month_3_target=_first_non_empty(row.get('month_3_target'), row.get('month3'), row.get('month_3')),
+                month_1_priority=_norm_prio(row.get('month_1_priority') or row.get('month1Priority')),
+                month_2_priority=_norm_prio(row.get('month_2_priority') or row.get('month2Priority')),
+                month_3_priority=_norm_prio(row.get('month_3_priority') or row.get('month3Priority')),
                 interventions_procedures=_first_non_empty(row.get('interventions_procedures'), row.get('interventions'), row.get('activities')),
                 timeline_mins_session=_first_non_empty(row.get('timeline_mins_session'), row.get('timeline'), row.get('session')),
                 individuals_responsible=_first_non_empty(row.get('individuals_responsible'), row.get('responsible'), row.get('individualsResponsible')),

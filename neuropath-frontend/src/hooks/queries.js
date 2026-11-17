@@ -7,6 +7,7 @@ import {
   resourcesAPI,
   trackingAPI,
   scheduleAPI,
+  notificationsAPI,
 } from "../api/client";
 
 export const queryKeys = {
@@ -19,7 +20,8 @@ export const queryKeys = {
   resourceStats: () => ["resources", "dashboard-stats"],
   recentActivity: () => ["recent-activity"],
   scheduleEvents: (params) => ["schedule-events", params ?? "all"],
-  upcomingDeadlines: (days) => ["upcoming-deadlines", days ?? 14],
+  upcomingDeadlines: (days, priorityWindow = false) => ["upcoming-deadlines", days ?? 14, Boolean(priorityWindow)],
+  notifications: (params) => ["notifications", params ?? {}],
 };
 
 
@@ -166,10 +168,59 @@ export function useScheduleEvents(params = {}, options = {}) {
 }
 
 export function useUpcomingDeadlines(days = 14, options = {}) {
+  const { priorityWindow = false, ...restOptions } = options;
   return useQuery({
-    queryKey: queryKeys.upcomingDeadlines(days),
-    queryFn: () => scheduleAPI.getUpcoming(days),
+    queryKey: queryKeys.upcomingDeadlines(days, priorityWindow),
+    queryFn: () => scheduleAPI.getUpcoming(days, { priorityWindow }),
+    ...restOptions,
+  });
+}
+
+// ── Notifications History Queries & Mutations (Issue #311) ──────────────────
+export function useNotifications(params = {}, options = {}) {
+  return useQuery({
+    queryKey: queryKeys.notifications(params),
+    queryFn: () => notificationsAPI.list(params),
+    placeholderData: (previousData) => previousData,
     ...options,
+  });
+}
+
+export function useMarkNotificationRead(options = {}) {
+  const queryClient = useQueryClient();
+  const { onSuccess, ...restOptions } = options;
+
+  return useMutation({
+    mutationFn: (id) => notificationsAPI.markRead(id),
+    onSuccess: async (data, variables, context) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+        queryClient.invalidateQueries({ queryKey: ["upcoming-deadlines"] }),
+      ]);
+      if (onSuccess) {
+        await onSuccess(data, variables, context);
+      }
+    },
+    ...restOptions,
+  });
+}
+
+export function useMarkAllNotificationsRead(options = {}) {
+  const queryClient = useQueryClient();
+  const { onSuccess, ...restOptions } = options;
+
+  return useMutation({
+    mutationFn: () => notificationsAPI.markAllRead(),
+    onSuccess: async (data, variables, context) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+        queryClient.invalidateQueries({ queryKey: ["upcoming-deadlines"] }),
+      ]);
+      if (onSuccess) {
+        await onSuccess(data, variables, context);
+      }
+    },
+    ...restOptions,
   });
 }
 
