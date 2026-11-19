@@ -282,7 +282,7 @@ class BinaryReportRenderEngineTestCase(TestCase):
         self.assertIn('No Section B factors recorded for version 999.', full_text)
         self.assertIn('No learner goals recorded for version 999.', full_text)
 
-    def test_export_record_pdf_with_signature_and_six_pages_landscape(self):
+    def test_export_record_pdf_with_signature_and_five_pages_landscape_no_duplicate_section_c(self):
         import base64
         from PIL import Image
         img = Image.new('RGBA', (100, 40), (255, 255, 255, 0))
@@ -300,7 +300,11 @@ class BinaryReportRenderEngineTestCase(TestCase):
         self.assertEqual(response['Content-Type'], 'application/pdf')
 
         reader = PdfReader(io.BytesIO(response.content))
-        self.assertEqual(len(reader.pages), 6)
+        self.assertEqual(len(reader.pages), 5)
+        full_text = " ".join("".join([page.extract_text() for page in reader.pages]).split())
+        self.assertIn("NON-GRADED LEVEL", full_text)
+        self.assertNotIn("AI-GENERATED IEP SPECIFICATION", full_text)
+
         p1 = reader.pages[0]
         self.assertGreater(p1.mediabox.width, p1.mediabox.height)
         p1_text = p1.extract_text()
@@ -311,8 +315,8 @@ class BinaryReportRenderEngineTestCase(TestCase):
         self.assertIn("CONSIDERATIONS OF SPECIAL FACTORS", p3_text)
         self.assertIn("Based on the teacher's observation, utilize the standardized DepEd assessment matrix below:", p3_text)
 
-        p6_text = " ".join(reader.pages[5].extract_text().split())
-        self.assertIn("Parent / Guardian", p6_text)
+        p5_text = " ".join(reader.pages[4].extract_text().split())
+        self.assertIn("Parent / Guardian", p5_text)
 
 
 class TrackingAuthAndTenantIsolationTests(TestCase):

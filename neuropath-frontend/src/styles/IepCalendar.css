@@ -37,15 +37,37 @@
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
 }
 
+/* Clickable Expanding Legend Pill (Mobile) */
+.calendar-legend-dot-btn {
+  transition: all 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* Web Legend Badge & Hover Tooltip */
+.calendar-web-legend-item {
+  user-select: none;
+}
+
+.calendar-web-legend-tooltip {
+  white-space: normal;
+  text-align: left;
+}
+
 /* Mobile optimizations */
 @media (max-width: 768px) {
   .iep-calendar-container {
     padding: 14px 12px;
   }
 
-  /* Force minimum touch targets for buttons on mobile */
-  .iep-calendar-container button {
+  /* Force minimum touch targets for primary buttons on mobile (excluding compact legend/cell items) */
+  .iep-calendar-container button:not(.calendar-legend-dot-btn):not(.calendar-event-pill) {
     min-height: 40px;
+  }
+
+  .calendar-legend-dot-btn {
+    min-width: 28px;
+    min-height: 28px;
   }
 
   .iep-calendar-container input[type="date"],

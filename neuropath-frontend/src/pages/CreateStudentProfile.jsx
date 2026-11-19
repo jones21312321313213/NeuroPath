@@ -39,6 +39,7 @@ function FormField({
   min,
   max,
   maxLength = type === "number" || type === "date" ? undefined : 255,
+  inputMode,
   required = false,
   error,
 }) {
@@ -62,6 +63,7 @@ function FormField({
         min={min}
         max={max}
         maxLength={maxLength}
+        inputMode={inputMode}
         required={required}
         aria-required={required ? "true" : undefined}
         aria-invalid={error ? "true" : undefined}
@@ -215,6 +217,7 @@ const initialFormState = {
   school: "",
   schoolYear: "",
   learnerName: "",
+  lrn: "",
   age: "",
   gradeLevel: "",
   gender: "",
@@ -510,6 +513,13 @@ export default function CreateStudentProfile({
       }
     }
 
+    if (form.lrn && form.lrn.trim()) {
+      if (!/^\d{12}$/.test(form.lrn.trim())) {
+        errors.lrn =
+          "LRN must be a 12-digit number (leave blank if unavailable).";
+      }
+    }
+
     if (!form.difficultyMarkers || form.difficultyMarkers.length === 0) {
       errors.difficultyMarkers =
         "Please select at least one difficulty marker (needed before Generate IEP).";
@@ -604,6 +614,7 @@ export default function CreateStudentProfile({
       schoolYear: form.schoolYear,
       studentName: form.learnerName,
       learnerName: form.learnerName,
+      lrn: (form.lrn || "").trim(),
       birthdate: form.birthdate,
       disabilityCategory: form.disabilityCategory,
       diagnosisDetails: form.diagnosisDetails,
@@ -761,6 +772,15 @@ export default function CreateStudentProfile({
                   value={form.learnerName}
                   onChange={setField("learnerName")}
                   error={fieldErrors.learnerName}
+                />
+                <FormField
+                  label="LRN (Optional)"
+                  placeholder="12-digit Learner Reference Number"
+                  maxLength={12}
+                  inputMode="numeric"
+                  value={form.lrn}
+                  onChange={setField("lrn")}
+                  error={fieldErrors.lrn}
                 />
                 <FormField
                   label="School"

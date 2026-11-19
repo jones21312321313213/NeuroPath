@@ -336,6 +336,7 @@ export default function UpdateStudentProfile({ studentId: propStudentId, onBack 
           schoolYear: details.schoolYear || "",
           learnerName:
             details.studentName || details.learnerName || data.name || "",
+          lrn: details.lrn || "",
           age: data.age || "",
           gradeLevel: data.grade || "",
           gender: data.gender || "",
@@ -470,6 +471,13 @@ export default function UpdateStudentProfile({ studentId: propStudentId, onBack 
       }
     }
 
+    if (form.lrn && form.lrn.trim()) {
+      if (!/^\d{12}$/.test(form.lrn.trim())) {
+        errors.lrn =
+          "LRN must be a 12-digit number (leave blank if unavailable).";
+      }
+    }
+
     if (!form.difficultyMarkers || form.difficultyMarkers.length === 0) {
       errors.difficultyMarkers =
         "Please select at least one difficulty marker (needed before Generate IEP).";
@@ -560,6 +568,7 @@ export default function UpdateStudentProfile({ studentId: propStudentId, onBack 
       schoolYear: form.schoolYear,
       studentName: form.learnerName,
       learnerName: form.learnerName,
+      lrn: (form.lrn || "").trim(),
       birthdate: form.birthdate,
       disabilityCategory: form.disabilityCategory,
       diagnosisDetails: form.diagnosisDetails,
@@ -734,6 +743,14 @@ export default function UpdateStudentProfile({ studentId: propStudentId, onBack 
                 value={form.learnerName}
                 onChange={setField("learnerName")}
                 error={fieldErrors.learnerName}
+              />
+              <FormField
+                label="LRN (Optional)"
+                placeholder="12-digit Learner Reference Number"
+                maxLength={12}
+                value={form.lrn || ""}
+                onChange={setField("lrn")}
+                error={fieldErrors.lrn}
               />
               <FormField
                 label="School"

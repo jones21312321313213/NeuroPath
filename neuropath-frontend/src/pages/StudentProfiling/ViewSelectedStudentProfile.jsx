@@ -185,6 +185,7 @@ export default function ViewSelectedStudentProfile({ studentId: propStudentId, s
               </div>
               <div className="form-grid-2">
                 <ReadOnlyInput label="Student Name" value={details.studentName || details.learnerName || student.name} />
+                <ReadOnlyInput label="LRN (Optional)" value={details.lrn || "—"} />
                 <ReadOnlyInput label="Age" value={student.age} />
                 <ReadOnlyInput label="Grade Level" value={student.grade} />
                 <ReadOnlyInput label="Gender" value={student.gender} />

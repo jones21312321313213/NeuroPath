@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   useNotifications,
@@ -6,8 +6,16 @@ import {
   useMarkAllNotificationsRead,
 } from "../hooks/queries";
 import { Button } from "../components/ui/Button";
+import "../styles/NotificationsPage.css";
 
 const PAGE_SIZE = 10;
+
+const PRIORITY_FILTER_OPTIONS = [
+  { value: "all", label: "All Priorities", hint: "", dotClass: "bg-[#3d9de8]" },
+  { value: "high", label: "High", hint: "3d lead", dotClass: "bg-red-500" },
+  { value: "medium", label: "Medium", hint: "2d lead", dotClass: "bg-yellow-400" },
+  { value: "low", label: "Low", hint: "1d lead", dotClass: "bg-blue-500" },
+];
 
 const PRIORITY_BADGE_MAP = {
   urgent: {
@@ -54,6 +62,31 @@ export default function NotificationsPage() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [isPriorityMenuOpen, setIsPriorityMenuOpen] = useState(false);
+  const priorityDropdownRef = useRef(null);
+
+  useEffect(() => {
+    if (!isPriorityMenuOpen) return;
+    const handleOutsideClick = (e) => {
+      if (
+        priorityDropdownRef.current &&
+        !priorityDropdownRef.current.contains(e.target)
+      ) {
+        setIsPriorityMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setIsPriorityMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isPriorityMenuOpen]);
 
   const { data, isLoading, isError, error, refetch } = useNotifications({
     page,
@@ -68,7 +101,10 @@ export default function NotificationsPage() {
   const totalCount = data?.count ?? notifications.length;
   const totalPages = Math.max(1, data?.total_pages ?? Math.ceil(totalCount / PAGE_SIZE));
   const unreadCount = data?.unread_count ?? 0;
-  const highPriorityCount = data?.high_priority_count ?? 0;
+
+  const activePriorityOption =
+    PRIORITY_FILTER_OPTIONS.find((opt) => opt.value === priorityFilter) ||
+    PRIORITY_FILTER_OPTIONS[0];
 
   const startItem = totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const endItem = Math.min(page * PAGE_SIZE, totalCount);
@@ -142,8 +178,8 @@ export default function NotificationsPage() {
         </div>
 
         {/* Summary Counters */}
-        <div className="grid grid-cols-3 gap-3 mt-5 pt-4 border-t border-slate-100">
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70">
+        <div className="grid grid-cols-2 gap-3 mt-5 pt-4 border-t border-slate-100">
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">
               Total Logged
             </span>
@@ -151,20 +187,12 @@ export default function NotificationsPage() {
               {totalCount}
             </span>
           </div>
-          <div className="p-3 rounded-xl bg-sky-50/70 border border-sky-200/70">
+          <div className="p-3.5 rounded-xl bg-sky-50/70 border border-sky-200/70">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-sky-700 block">
               Unread Alerts
             </span>
             <span className="text-lg sm:text-xl font-bold text-sky-700" data-testid="notif-unread-count">
               {unreadCount}
-            </span>
-          </div>
-          <div className="p-3 rounded-xl bg-red-50/70 border border-red-200/70">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-red-700 block">
-              High Priority Unread
-            </span>
-            <span className="text-lg sm:text-xl font-bold text-red-700" data-testid="notif-high-count">
-              {highPriorityCount}
             </span>
           </div>
         </div>
@@ -193,21 +221,86 @@ export default function NotificationsPage() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
-          <label htmlFor="notif-priority-filter" className="text-xs font-semibold text-slate-600">
+        <div className="flex items-center gap-2.5 w-full sm:w-auto" ref={priorityDropdownRef}>
+          <span id="notif-priority-label" className="text-xs font-semibold text-slate-600 shrink-0">
             Priority:
-          </label>
-          <select
-            id="notif-priority-filter"
-            value={priorityFilter}
-            onChange={(e) => handlePriorityChange(e.target.value)}
-            className="text-xs font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-sky-500"
-          >
-            <option value="all">All Priorities</option>
-            <option value="high">High (3d lead)</option>
-            <option value="medium">Medium (2d lead)</option>
-            <option value="low">Low (1d lead)</option>
-          </select>
+          </span>
+          <div className="relative flex-1 sm:flex-none sm:w-52">
+            <button
+              type="button"
+              id="notif-priority-filter"
+              aria-labelledby="notif-priority-label notif-priority-filter"
+              aria-haspopup="listbox"
+              aria-expanded={isPriorityMenuOpen}
+              data-testid="notif-priority-trigger"
+              onClick={() => setIsPriorityMenuOpen((prev) => !prev)}
+              className="notif-priority-trigger w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-800 cursor-pointer"
+            >
+              <span className="flex items-center gap-2 truncate">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full shrink-0 ${activePriorityOption.dotClass}`}
+                  aria-hidden="true"
+                />
+                <span className="truncate">
+                  {activePriorityOption.label}
+                  {activePriorityOption.hint ? ` (${activePriorityOption.hint})` : ""}
+                </span>
+              </span>
+              <i
+                className={`ti ti-chevron-down text-sm text-[#0284c7] transition-transform duration-200 shrink-0 ${
+                  isPriorityMenuOpen ? "rotate-180" : ""
+                }`}
+                aria-hidden="true"
+              />
+            </button>
+
+            {isPriorityMenuOpen && (
+              <div
+                role="listbox"
+                aria-label="Filter notifications by priority"
+                data-testid="notif-priority-menu"
+                className="notif-priority-dropdown-menu absolute right-0 left-0 sm:left-auto sm:w-56 mt-2 bg-white rounded-xl py-1.5 z-40 overflow-hidden"
+              >
+                {PRIORITY_FILTER_OPTIONS.map((opt) => {
+                  const isSelected = priorityFilter === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      data-testid={`notif-priority-option-${opt.value}`}
+                      onClick={() => {
+                        handlePriorityChange(opt.value);
+                        setIsPriorityMenuOpen(false);
+                      }}
+                      className={`w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                        isSelected
+                          ? "bg-[#eef6fd] text-[#0284c7] font-bold"
+                          : "text-slate-700 hover:bg-slate-50 font-medium"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <span
+                          className={`w-2.5 h-2.5 rounded-full shrink-0 ${opt.dotClass}`}
+                          aria-hidden="true"
+                        />
+                        <span>{opt.label}</span>
+                        {opt.hint && (
+                          <span className="text-[11px] text-slate-400 font-normal">
+                            ({opt.hint})
+                          </span>
+                        )}
+                      </span>
+                      {isSelected && (
+                        <i className="ti ti-check text-sm text-[#0284c7]" aria-hidden="true" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

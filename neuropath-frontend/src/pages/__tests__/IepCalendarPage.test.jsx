@@ -117,12 +117,15 @@ describe("IepCalendarPage", () => {
     expect(yearSelect.value).toBe(targetYear);
   });
 
-  it("opens Event Details Drawer when an event chip in the month grid is clicked", () => {
+  it("opens Event Details Drawer showing priority badge (no Pending label) when an event chip is clicked", () => {
     renderPage();
     const eventChip = screen.getByTestId("event-pill-10");
     fireEvent.click(eventChip);
 
-    expect(screen.getByTestId("event-details-drawer")).toBeInTheDocument();
+    const drawer = screen.getByTestId("event-details-drawer");
+    expect(drawer).toBeInTheDocument();
+    expect(drawer).toHaveTextContent("Medium");
+    expect(drawer).not.toHaveTextContent("Pending");
     expect(screen.getAllByText("Number recognition targets").length).toBeGreaterThan(0);
     expect(screen.getByText("10 mins 5x/wk")).toBeInTheDocument();
     expect(screen.getByText(new RegExp("@10:00"))).toBeInTheDocument();
@@ -185,5 +188,86 @@ describe("IepCalendarPage", () => {
     await waitFor(() => {
       expect(mockCompleteMutateAsync).toHaveBeenCalledWith(10);
     });
+  });
+
+  it("applies priority and done color backgrounds to event pills (red=high, yellow=med, blue=low, green=done)", () => {
+    queries.useScheduleEvents.mockReturnValue({
+      data: [
+        { eventID: 21, title: "High Event", due_date: testDate, status: "pending", priority: "high" },
+        { eventID: 22, title: "Med Event", due_date: testDate, status: "pending", priority: "medium" },
+        { eventID: 23, title: "Low Event", due_date: testDate, status: "pending", priority: "low" },
+        { eventID: 24, title: "Done Event", due_date: `${yearStr}-${monthStr}-16`, status: "completed", priority: "high" },
+      ],
+      isLoading: false,
+    });
+
+    renderPage();
+
+    expect(screen.getByTestId("event-pill-21").className).toContain("bg-red-100");
+    expect(screen.getByTestId("event-pill-22").className).toContain("bg-yellow-100");
+    expect(screen.getByTestId("event-pill-23").className).toContain("bg-blue-100");
+    expect(screen.getByTestId("event-pill-24").className).toContain("bg-emerald-100");
+  });
+
+  it("opens Day Events Modal when any calendar day cell is clicked and supports adding an event for that day", () => {
+    renderPage();
+
+    // Click day cell with events
+    fireEvent.click(screen.getByTestId(`calendar-cell-${testDate}`));
+    const dayModal = screen.getByTestId("day-events-modal");
+    expect(dayModal).toBeInTheDocument();
+    expect(dayModal).toHaveTextContent("Month 1 Milestone Assessment");
+    expect(dayModal).toHaveTextContent("Parent Consultation");
+
+    // Click 'Add Event for this Day' -> opens Add modal with pre-filled date and no Urgent priority
+    fireEvent.click(screen.getByTestId("add-event-for-day-btn"));
+    expect(screen.getByTestId("add-custom-event-modal")).toBeInTheDocument();
+    expect(screen.getByTestId("event-date-input")).toHaveValue(testDate);
+    expect(screen.getByTestId("add-event-priority-low")).toBeInTheDocument();
+    expect(screen.getByTestId("add-event-priority-medium")).toBeInTheDocument();
+    expect(screen.getByTestId("add-event-priority-high")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /urgent/i })).not.toBeInTheDocument();
+  });
+
+  it("expands mobile legend circle to show text when clicked and collapses on second click", () => {
+    renderPage();
+
+    expect(screen.getByTestId("calendar-color-legend")).toBeInTheDocument();
+    expect(screen.getByTestId("calendar-legend-mobile")).toBeInTheDocument();
+    const highCircle = screen.getByTestId("legend-circle-high");
+    expect(screen.queryByTestId("legend-label-high")).not.toBeInTheDocument();
+
+    fireEvent.click(highCircle);
+    expect(screen.getByTestId("legend-label-high")).toHaveTextContent("High");
+    expect(highCircle).toHaveAttribute("aria-expanded", "true");
+
+    // Click again to collapse
+    fireEvent.click(highCircle);
+    expect(screen.queryByTestId("legend-label-high")).not.toBeInTheDocument();
+
+    // Click Med and Done circles
+    fireEvent.click(screen.getByTestId("legend-circle-medium"));
+    expect(screen.getByTestId("legend-label-medium")).toHaveTextContent("Med");
+
+    fireEvent.click(screen.getByTestId("legend-circle-completed"));
+    expect(screen.getByTestId("legend-label-completed")).toHaveTextContent("Done");
+    expect(screen.queryByTestId("legend-label-medium")).not.toBeInTheDocument();
+  });
+
+  it("displays full Low, Med, High, Done labels on web legend with hover tooltips showing notification lead days", () => {
+    renderPage();
+
+    const webLegend = screen.getByTestId("calendar-legend-web");
+    expect(webLegend).toBeInTheDocument();
+
+    expect(screen.getByTestId("web-legend-item-low")).toHaveTextContent("Low");
+    expect(screen.getByTestId("web-legend-item-medium")).toHaveTextContent("Med");
+    expect(screen.getByTestId("web-legend-item-high")).toHaveTextContent("High");
+    expect(screen.getByTestId("web-legend-item-completed")).toHaveTextContent("Done");
+
+    expect(screen.getByTestId("web-legend-tooltip-low")).toHaveTextContent("1 day before");
+    expect(screen.getByTestId("web-legend-tooltip-medium")).toHaveTextContent("2 days before");
+    expect(screen.getByTestId("web-legend-tooltip-high")).toHaveTextContent("3 days before");
+    expect(screen.getByTestId("web-legend-tooltip-completed")).toHaveTextContent("Completed event");
   });
 });
