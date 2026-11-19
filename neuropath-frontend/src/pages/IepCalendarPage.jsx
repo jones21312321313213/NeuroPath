@@ -19,6 +19,45 @@ const MONTH_NAMES = [
 
 const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+const CALENDAR_LEGEND_ITEMS = [
+  {
+    key: "low",
+    label: "Low",
+    description: "Low Priority",
+    hoverInfo: "Notifies 1 day before & on event day",
+    dotClass: "bg-blue-500",
+    pillClass: "bg-blue-500 text-white ring-blue-200",
+    webBadgeClass: "bg-blue-50/90 text-blue-800 border-blue-200 hover:bg-blue-100/80",
+  },
+  {
+    key: "medium",
+    label: "Med",
+    description: "Medium Priority",
+    hoverInfo: "Notifies 2 days before & on event day",
+    dotClass: "bg-yellow-400",
+    pillClass: "bg-yellow-400 text-slate-900 ring-yellow-200",
+    webBadgeClass: "bg-yellow-50/90 text-yellow-900 border-yellow-200 hover:bg-yellow-100/80",
+  },
+  {
+    key: "high",
+    label: "High",
+    description: "High Priority",
+    hoverInfo: "Notifies 3 days before & on event day",
+    dotClass: "bg-red-500",
+    pillClass: "bg-red-500 text-white ring-red-200",
+    webBadgeClass: "bg-red-50/90 text-red-800 border-red-200 hover:bg-red-100/80",
+  },
+  {
+    key: "completed",
+    label: "Done",
+    description: "Done / Completed",
+    hoverInfo: "Completed event (no pending alerts)",
+    dotClass: "bg-emerald-500",
+    pillClass: "bg-emerald-500 text-white ring-emerald-200",
+    webBadgeClass: "bg-emerald-50/90 text-emerald-800 border-emerald-200 hover:bg-emerald-100/80",
+  },
+];
+
 function formatScheduledDateTime(dateStr, timeStr) {
   if (!dateStr) return "";
   try {
@@ -58,9 +97,11 @@ export default function IepCalendarPage() {
   // Modals & Drawers state
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addModalInitialDate, setAddModalInitialDate] = useState(null);
   const [eventToDelete, setEventToDelete] = useState(null);
   const [isTogglingStatus, setIsTogglingStatus] = useState(false);
-  const [selectedDayEvents, setSelectedDayEvents] = useState(null); // for clicking a day on mobile month grid
+  const [selectedDayEvents, setSelectedDayEvents] = useState(null);
+  const [activeLegendKey, setActiveLegendKey] = useState(null);
 
   // Data queries
   const { data: studentsData = [] } = useStudents(user?.id);
@@ -248,21 +289,32 @@ export default function IepCalendarPage() {
 
   const getEventBadgeStyle = (ev) => {
     if (ev.status === "completed") {
-      return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      return "bg-emerald-100 text-emerald-900 border-emerald-300";
     }
-    if (ev.is_overdue) {
-      return "bg-red-50 text-red-700 border-red-200 font-bold";
+    const prio = String(ev.priority || "low").toLowerCase();
+    if (prio === "high" || prio === "urgent") {
+      return "bg-red-100 text-red-900 border-red-300 font-semibold";
     }
-    if (ev.event_type === "quarterly_review") {
-      return "bg-amber-50 text-amber-800 border-amber-200 font-semibold";
+    if (prio === "medium") {
+      return "bg-yellow-100 text-yellow-900 border-yellow-300 font-medium";
     }
-    if (ev.event_type === "annual_renewal") {
-      return "bg-purple-50 text-purple-800 border-purple-200 font-semibold";
-    }
-    if (ev.event_type === "custom_meeting") {
-      return "bg-indigo-50 text-indigo-700 border-indigo-200";
-    }
-    return "bg-blue-50 text-blue-700 border-blue-200";
+    return "bg-blue-100 text-blue-900 border-blue-300";
+  };
+
+  const getEventDotColor = (ev) => {
+    if (ev.status === "completed") return "bg-emerald-500";
+    const prio = String(ev.priority || "low").toLowerCase();
+    if (prio === "high" || prio === "urgent") return "bg-red-500";
+    if (prio === "medium") return "bg-yellow-400";
+    return "bg-blue-500";
+  };
+
+  const getPriorityBadgeText = (ev) => {
+    if (ev.status === "completed") return "Done";
+    const prio = String(ev.priority || "low").toLowerCase();
+    if (prio === "high" || prio === "urgent") return "High";
+    if (prio === "medium") return "Medium";
+    return "Low";
   };
 
   return (
@@ -287,7 +339,10 @@ export default function IepCalendarPage() {
           {/* Add Custom Event */}
           <button
             type="button"
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={() => {
+              setAddModalInitialDate(null);
+              setIsAddModalOpen(true);
+            }}
             className="btn btn-primary inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-xl bg-[#5aabf0] hover:bg-[#3d9de8] text-white shadow-xs transition-all cursor-pointer"
             data-testid="add-event-btn"
           >
@@ -375,25 +430,112 @@ export default function IepCalendarPage() {
           </div>
         </div>
 
-        {/* Row 2: Filter by Student */}
-        <div className="flex items-center gap-2.5 w-full">
-          <label htmlFor="student-filter" className="text-xs font-semibold text-slate-600 whitespace-nowrap">
-            Filter by Student:
-          </label>
-          <select
-            id="student-filter"
-            value={selectedStudentId}
-            onChange={handleStudentFilterChange}
-            className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-slate-800 w-full max-w-md focus:outline-none focus:ring-2 focus:ring-[#5aabf0]"
-            data-testid="student-filter-select"
+        {/* Row 2: Filter by Student + Hoverable Priority Color Legend */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <label htmlFor="student-filter" className="text-xs font-semibold text-slate-600 whitespace-nowrap">
+              Filter by Student:
+            </label>
+            <select
+              id="student-filter"
+              value={selectedStudentId}
+              onChange={handleStudentFilterChange}
+              className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-slate-800 w-full max-w-md focus:outline-none focus:ring-2 focus:ring-[#5aabf0]"
+              data-testid="student-filter-select"
+            >
+              <option value="">All Students ({studentList.length})</option>
+              {studentList.map((st) => (
+                <option key={st.studentID || st.id} value={st.studentID || st.id}>
+                  {st.name || `Student #${st.studentID || st.id}`}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Event Color Legend: Mobile = Clickable Expanding Circles; Web = Full Text + Hover Days Tooltip */}
+          <div
+            className="flex items-center gap-2 shrink-0 self-start sm:self-center bg-slate-50/80 border border-slate-200/80 rounded-xl px-3 py-1.5"
+            aria-label="Event priority and status color legend"
+            data-testid="calendar-color-legend"
           >
-            <option value="">All Students ({studentList.length})</option>
-            {studentList.map((st) => (
-              <option key={st.studentID || st.id} value={st.studentID || st.id}>
-                {st.name || `Student #${st.studentID || st.id}`}
-              </option>
-            ))}
-          </select>
+            <span className="text-[11px] font-semibold text-slate-500 mr-0.5">
+              Legend:
+            </span>
+
+            {/* Mobile view: Keep clickable expanding circles as-is */}
+            <div className="flex sm:hidden items-center gap-1.5 flex-wrap" data-testid="calendar-legend-mobile">
+              {CALENDAR_LEGEND_ITEMS.map((item) => {
+                const isExpanded = activeLegendKey === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    aria-label={item.description}
+                    aria-expanded={isExpanded}
+                    data-testid={`legend-circle-${item.key}`}
+                    onClick={() =>
+                      setActiveLegendKey((prev) => (prev === item.key ? null : item.key))
+                    }
+                    className={`calendar-legend-dot-btn inline-flex items-center justify-center rounded-full ring-2 shadow-2xs font-bold text-[11px] cursor-pointer focus-visible:outline-none focus-visible:ring-offset-1 focus-visible:ring-[#3d9de8] ${
+                      item.pillClass
+                    } ${isExpanded ? "h-6 px-2.5 gap-1" : "w-5 h-5 px-0"}`}
+                    title={`Click to view ${item.description}`}
+                  >
+                    {isExpanded && (
+                      <span data-testid={`legend-label-${item.key}`}>
+                        {item.label}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Web / Desktop view: Always show full text (Low, Med, High, Done) + Hover Tooltip with lead days */}
+            <div className="hidden sm:flex items-center gap-1.5 flex-wrap" data-testid="calendar-legend-web">
+              {CALENDAR_LEGEND_ITEMS.map((item, idx) => {
+                const isLastItem = idx === CALENDAR_LEGEND_ITEMS.length - 1;
+                return (
+                  <div
+                    key={item.key}
+                    tabIndex={0}
+                    role="note"
+                    aria-label={`${item.description}: ${item.hoverInfo}`}
+                    data-testid={`web-legend-item-${item.key}`}
+                    className={`calendar-web-legend-item group relative inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold transition-colors cursor-help focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3d9de8] ${item.webBadgeClass}`}
+                  >
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${item.dotClass}`}
+                      aria-hidden="true"
+                    />
+                    <span>{item.label}</span>
+
+                    {/* Hover / Focus Tooltip showing notification lead days */}
+                    <span
+                      role="tooltip"
+                      data-testid={`web-legend-tooltip-${item.key}`}
+                      className={`calendar-web-legend-tooltip pointer-events-none absolute bottom-full mb-2 z-30 w-max max-w-[230px] rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-medium text-white shadow-lg opacity-0 translate-y-1 transition-all duration-150 group-hover:opacity-100 group-hover:translate-y-0 group-focus-visible:opacity-100 group-focus-visible:translate-y-0 ${
+                        isLastItem ? "right-0" : "left-1/2 -translate-x-1/2"
+                      }`}
+                    >
+                      <span className="block font-bold text-sky-300 leading-tight">
+                        {item.description}
+                      </span>
+                      <span className="block text-slate-100 leading-snug mt-0.5">
+                        {item.hoverInfo}
+                      </span>
+                      <span
+                        className={`absolute top-full border-4 border-transparent border-t-slate-900 ${
+                          isLastItem ? "right-4" : "left-1/2 -translate-x-1/2"
+                        }`}
+                        aria-hidden="true"
+                      />
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -414,28 +556,32 @@ export default function IepCalendarPage() {
         </div>
 
         {/* Day Grid */}
-        <div className="w-full grid grid-cols-7 divide-x divide-y divide-slate-100 min-h-[600px] sm:min-h-[700px]">
+        <div className="w-full grid grid-cols-7 divide-x divide-y divide-slate-100 min-h-[460px] sm:min-h-[700px]">
           {calendarDays.map((cell) => {
             const dayEvents = eventsByDate[cell.dateString] || [];
-            const hasEvents = dayEvents.length > 0;
 
             return (
               <div
                 key={cell.dateString}
-                onClick={() => {
-                  if (hasEvents) {
-                    if (window.innerWidth <= 768) {
-                      setSelectedDayEvents({ date: cell.dateString, events: dayEvents });
-                    }
+                role="button"
+                tabIndex={0}
+                aria-label={`View events for ${formatScheduledDateTime(cell.dateString)} (${dayEvents.length} ${dayEvents.length === 1 ? "event" : "events"})`}
+                onClick={() =>
+                  setSelectedDayEvents({ date: cell.dateString, events: dayEvents })
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelectedDayEvents({ date: cell.dateString, events: dayEvents });
                   }
                 }}
-                className={`calendar-cell w-full min-w-0 min-h-[110px] sm:min-h-[135px] p-1.5 flex flex-col justify-start transition-colors ${
+                className={`calendar-cell w-full min-w-0 min-h-[82px] sm:min-h-[135px] p-1.5 flex flex-col justify-start transition-colors cursor-pointer hover:bg-[#eef6fd]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#3d9de8] ${
                   !cell.isCurrentMonth
                     ? "bg-slate-50/40 text-slate-300"
                     : cell.isToday
                     ? "bg-blue-50/30 text-slate-900"
                     : "bg-white text-slate-700"
-                } ${hasEvents ? "cursor-pointer hover:bg-slate-50/80" : ""}`}
+                }`}
                 data-testid={`calendar-cell-${cell.dateString}`}
               >
                   {/* Date number */}
@@ -452,18 +598,13 @@ export default function IepCalendarPage() {
                       {cell.dayNumber}
                     </span>
 
-                    {/* Mobile colored indicator dots on small screens */}
-                    <div className="flex md:hidden items-center gap-0.5">
-                      {dayEvents.slice(0, 3).map((ev) => (
+                    {/* Mobile colored indicator dots on small screens (Priority / Done colors) */}
+                    <div className="flex md:hidden items-center gap-0.5 flex-wrap justify-end">
+                      {dayEvents.slice(0, 4).map((ev) => (
                         <span
                           key={ev.eventID}
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            ev.status === "completed"
-                              ? "bg-emerald-500"
-                              : ev.is_overdue
-                              ? "bg-red-500"
-                              : "bg-blue-500"
-                          }`}
+                          className={`w-2 h-2 rounded-full ${getEventDotColor(ev)}`}
+                          title={`${getPriorityBadgeText(ev)}: ${ev.title}`}
                         />
                       ))}
                     </div>
@@ -481,8 +622,8 @@ export default function IepCalendarPage() {
                             e.stopPropagation();
                             setSelectedEvent(ev);
                           }}
-                          className={`w-full text-left text-[11px] px-1.5 py-0.5 rounded border truncate cursor-pointer transition-transform hover:scale-[1.01] ${badgeStyle}`}
-                          title={ev.title}
+                          className={`calendar-event-pill w-full text-left text-[11px] px-1.5 py-0.5 rounded border truncate cursor-pointer transition-transform hover:scale-[1.01] ${badgeStyle}`}
+                          title={`${getPriorityBadgeText(ev)} — ${ev.title}`}
                           data-testid={`event-pill-${ev.eventID}`}
                         >
                           <span className="font-semibold">
@@ -495,7 +636,7 @@ export default function IepCalendarPage() {
                     })}
 
                     {dayEvents.length > 3 && (
-                      <span className="text-[10px] font-bold text-slate-500 px-1">
+                      <span className="text-[10px] font-bold text-slate-600 px-1">
                         +{dayEvents.length - 3} more
                       </span>
                     )}
@@ -522,17 +663,20 @@ export default function IepCalendarPage() {
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <span
-                  className={`text-[11px] font-bold px-2 py-0.5 rounded-full border inline-flex items-center gap-1 mb-1.5 ${getEventBadgeStyle(
-                    selectedEvent,
-                  )}`}
-                >
-                  {selectedEvent.status === "completed"
-                    ? "Completed"
-                    : selectedEvent.is_overdue
-                    ? "Overdue"
-                    : "Pending"}
-                </span>
+                <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                  <span
+                    className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1 ${getEventBadgeStyle(
+                      selectedEvent,
+                    )}`}
+                  >
+                    {getPriorityBadgeText(selectedEvent)}
+                  </span>
+                  {selectedEvent.status !== "completed" && selectedEvent.is_overdue && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-600 text-white">
+                      Overdue
+                    </span>
+                  )}
+                </div>
                 <h3 id="event-drawer-title" className="text-lg font-bold text-slate-900">
                   {selectedEvent.title}
                 </h3>
@@ -628,7 +772,7 @@ export default function IepCalendarPage() {
         </div>
       )}
 
-      {/* ── MOBILE DAY CLICK BOTTOM SHEET MODAL ── */}
+      {/* ── DAY EVENTS MODAL (WEB + MOBILE) ── */}
       {selectedDayEvents && (
         <div
           className="fixed inset-0 z-[1050] bg-slate-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
@@ -638,41 +782,97 @@ export default function IepCalendarPage() {
           data-testid="day-events-modal"
         >
           <div
-            className="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full max-h-[80vh] overflow-y-auto shadow-2xl border border-slate-200 p-5 space-y-3"
+            className="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full max-h-[85vh] overflow-y-auto shadow-2xl border border-slate-200 p-5 space-y-3"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-900">
-                Events for {formatScheduledDateTime(selectedDayEvents.date)}
-              </h3>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 m-0">
+                  Events for {formatScheduledDateTime(selectedDayEvents.date)}
+                </h3>
+                <p className="text-[11px] text-slate-500 m-0 mt-0.5">
+                  {selectedDayEvents.events.length}{" "}
+                  {selectedDayEvents.events.length === 1 ? "scheduled event" : "scheduled events"}
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setSelectedDayEvents(null)}
-                className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"
+                aria-label="Close day events"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer"
               >
                 <i className="ti ti-x" aria-hidden="true" />
               </button>
             </div>
 
-            <div className="divide-y divide-slate-100">
-              {selectedDayEvents.events.map((ev) => (
-                <div key={ev.eventID} className="py-2.5 flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-slate-900 truncate">{ev.title}</p>
-                    <p className="text-[11px] text-slate-500">👤 {ev.student_name}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedDayEvents(null);
-                      setSelectedEvent(ev);
-                    }}
-                    className="text-xs font-semibold text-[#3d9de8] px-2 py-1 rounded bg-[#eef6fd]"
-                  >
-                    View
-                  </button>
+            {selectedDayEvents.events.length === 0 ? (
+              <div className="py-8 text-center space-y-2">
+                <div className="w-11 h-11 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                  <i className="ti ti-calendar-off text-xl" aria-hidden="true" />
                 </div>
-              ))}
+                <p className="text-xs font-semibold text-slate-700 m-0">
+                  No events scheduled for this day
+                </p>
+                <p className="text-[11px] text-slate-500 m-0">
+                  Click below to add an IEP review, milestone check, or parent meeting.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {selectedDayEvents.events.map((ev) => (
+                  <div
+                    key={ev.eventID}
+                    className={`p-3 rounded-xl border flex items-center justify-between gap-2.5 transition-colors ${getEventBadgeStyle(
+                      ev,
+                    )}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${getEventDotColor(ev)}`}
+                          aria-hidden="true"
+                        />
+                        <p className="text-xs font-bold truncate m-0">
+                          {ev.status === "completed" ? "✓ " : ""}
+                          {ev.title}
+                        </p>
+                      </div>
+                      <p className="text-[11px] opacity-80 m-0 mt-0.5 flex items-center gap-2 flex-wrap">
+                        <span>👤 {ev.student_name || "General Classroom Event"}</span>
+                        {ev.due_time && <span>• 🕒 {ev.due_time.slice(0, 5)}</span>}
+                        <span>• {getPriorityBadgeText(ev)}</span>
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDayEvents(null);
+                        setSelectedEvent(ev);
+                      }}
+                      className="text-xs font-bold text-slate-800 bg-white/85 hover:bg-white px-2.5 py-1.5 rounded-lg border border-black/10 shrink-0 cursor-pointer shadow-2xs"
+                    >
+                      View
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  const targetDate = selectedDayEvents.date;
+                  setSelectedDayEvents(null);
+                  setAddModalInitialDate(targetDate);
+                  setIsAddModalOpen(true);
+                }}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl bg-[#5aabf0] hover:bg-[#3d9de8] text-white shadow-xs transition-colors cursor-pointer"
+                data-testid="add-event-for-day-btn"
+              >
+                <i className="ti ti-plus" aria-hidden="true" />
+                <span>Add Event for this Day</span>
+              </button>
             </div>
           </div>
         </div>
@@ -726,12 +926,17 @@ export default function IepCalendarPage() {
       {isAddModalOpen && (
         <AddCustomEventModal
           students={studentList}
-          onClose={() => setIsAddModalOpen(false)}
+          initialDate={addModalInitialDate}
+          onClose={() => {
+            setIsAddModalOpen(false);
+            setAddModalInitialDate(null);
+          }}
           onCreate={async (formData) => {
             try {
               await createMutation.mutateAsync(formData);
               toast.success("Scheduled event created successfully!");
               setIsAddModalOpen(false);
+              setAddModalInitialDate(null);
             } catch (err) {
               toast.error(err.message || "Failed to create event.");
             }
@@ -742,12 +947,12 @@ export default function IepCalendarPage() {
   );
 }
 
-function AddCustomEventModal({ students, onClose, onCreate }) {
+function AddCustomEventModal({ students, initialDate, onClose, onCreate }) {
   const [formData, setFormData] = useState({
     title: "",
     student: "",
     event_type: "custom_meeting",
-    due_date: new Date().toISOString().split("T")[0],
+    due_date: initialDate || new Date().toISOString().split("T")[0],
     due_time: "10:00",
     priority: "medium",
     notes: "",
@@ -882,19 +1087,24 @@ function AddCustomEventModal({ students, onClose, onCreate }) {
             <label className="block text-xs font-semibold text-slate-700 mb-1">
               Priority
             </label>
-            <div className="grid grid-cols-4 gap-1.5 text-center text-xs">
-              {["low", "medium", "high", "urgent"].map((lvl) => (
+            <div className="grid grid-cols-3 gap-2 text-center text-xs">
+              {[
+                { key: "low", label: "Low", activeClass: "bg-blue-500 text-white border-blue-500" },
+                { key: "medium", label: "Medium", activeClass: "bg-yellow-400 text-slate-900 border-yellow-500" },
+                { key: "high", label: "High", activeClass: "bg-red-500 text-white border-red-500" },
+              ].map((opt) => (
                 <button
-                  key={lvl}
+                  key={opt.key}
                   type="button"
-                  onClick={() => setFormData({ ...formData, priority: lvl })}
-                  className={`py-1.5 rounded-lg border font-semibold capitalize cursor-pointer transition-colors ${
-                    formData.priority === lvl
-                      ? "bg-[#5aabf0] text-white border-[#5aabf0]"
+                  onClick={() => setFormData({ ...formData, priority: opt.key })}
+                  data-testid={`add-event-priority-${opt.key}`}
+                  className={`py-2 rounded-lg border font-semibold cursor-pointer transition-colors ${
+                    formData.priority === opt.key
+                      ? opt.activeClass
                       : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
                   }`}
                 >
-                  {lvl}
+                  {opt.label}
                 </button>
               ))}
             </div>

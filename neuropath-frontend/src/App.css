@@ -4131,6 +4131,8 @@ body.tour-open {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   max-width: 480px;
   width: 100%;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -4141,6 +4143,7 @@ body.tour-open {
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.25rem 0.375rem;
+  flex-shrink: 0;
 }
 
 .tutorial-badge {
@@ -4194,6 +4197,9 @@ body.tour-open {
   flex-direction: column;
   align-items: center;
   text-align: center;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .tutorial-icon-wrapper {
@@ -4281,6 +4287,8 @@ body.tour-open {
   align-items: center;
   padding: 0.75rem 1.25rem 1rem;
   border-top: 1px solid #f1f5f9;
+  flex-shrink: 0;
+  background: #ffffff;
 }
 
 .btn-tutorial-secondary {
@@ -4321,6 +4329,113 @@ body.tour-open {
 .btn-tutorial-primary:hover {
   background: #3d9de8;
   box-shadow: 0 4px 8px rgba(90, 171, 240, 0.35);
+}
+
+/* Mobile Walkthrough Sheet Styles */
+.tutorial-mobile-nav-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  margin-bottom: 0.5rem;
+  border-radius: 9999px;
+  background: #eef6fd;
+  border: 1px solid #bae0fb;
+  color: #0369a1;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.tutorial-swipe-hint {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #94a3b8;
+  user-select: none;
+}
+
+.tutorial-mobile-sheet {
+  border-radius: 18px;
+  box-shadow: 0 18px 40px -8px rgba(15, 23, 42, 0.38), 0 0 0 1px rgba(90, 171, 240, 0.45);
+}
+
+.tutorial-mobile-bottom {
+  animation: tourMobileSheetUp 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tutorial-mobile-top {
+  animation: tourCardSlideIn 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes tourMobileSheetUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .tutorial-modal-overlay {
+    padding: 0.875rem;
+  }
+
+  .tutorial-mobile-sheet .tutorial-modal-header {
+    padding: 0.75rem 1rem 0.25rem;
+  }
+
+  .tutorial-mobile-sheet .tutorial-progress-bar {
+    padding: 0 1rem;
+  }
+
+  .tutorial-mobile-sheet .tutorial-modal-body {
+    padding: 0.65rem 1rem 0.75rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tutorial-mobile-sheet .tutorial-icon-wrapper {
+    width: 38px;
+    height: 38px;
+    margin-bottom: 0.4rem;
+  }
+
+  .tutorial-mobile-sheet .tutorial-title {
+    font-size: 1rem;
+  }
+
+  .tutorial-mobile-sheet .tutorial-subtitle {
+    font-size: 0.8rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .tutorial-mobile-sheet .tutorial-description {
+    font-size: 0.8rem;
+    line-height: 1.4;
+    margin-bottom: 0.55rem;
+  }
+
+  .tutorial-mobile-sheet .tutorial-highlights-box {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .tutorial-mobile-sheet .tutorial-highlight-item {
+    font-size: 0.75rem;
+  }
+
+  .tutorial-mobile-sheet .tutorial-modal-footer {
+    padding: 0.65rem 1rem 0.8rem;
+    gap: 8px;
+  }
+
+  .tutorial-mobile-sheet .btn-tutorial-secondary,
+  .tutorial-mobile-sheet .btn-tutorial-primary {
+    min-height: 40px;
+    padding: 0.5rem 1rem;
+    font-size: 0.8125rem;
+  }
 }
 
 /* ── Post-IEP Next Steps / Classroom Tools ──────────── */
