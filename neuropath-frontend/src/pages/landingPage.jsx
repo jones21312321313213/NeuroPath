@@ -533,14 +533,14 @@ export default function LandingPage({ onGetStarted }) {
                   className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm text-white shadow-sm flex-shrink-0"
                   style={{ background: "linear-gradient(135deg, #1a6fa8, #2589c7)" }}
                 >
-                  AS
+                  JD
                 </div>
                 <div className="flex-1 min-w-0 text-left">
                   <p className="text-sm font-bold truncate text-slate-800">
-                    Angelo Singson
+                    John Doe
                   </p>
                   <p className="text-xs font-medium text-[#2589c7]">
-                    Grade 1 · SPED Learner
+                    Grade 1 · Learner with Disability
                   </p>
                 </div>
                 <span

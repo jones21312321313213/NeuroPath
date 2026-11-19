@@ -35,8 +35,8 @@ describe("LandingPage Component", () => {
     expect(screen.getByText(/Active IEP/i)).toBeInTheDocument();
 
     // Student profile
-    expect(screen.getByText("Angelo Singson")).toBeInTheDocument();
-    expect(screen.getByText("Grade 1 · SPED Learner")).toBeInTheDocument();
+    expect(screen.getByText("John Doe")).toBeInTheDocument();
+    expect(screen.getByText("Grade 1 · Learner with Disability")).toBeInTheDocument();
     expect(screen.getAllByText("On Track").length).toBeGreaterThanOrEqual(1);
 
     // Classroom Executive KPIs
