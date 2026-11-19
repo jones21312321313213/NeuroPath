@@ -312,4 +312,84 @@ describe("TeacherTutorialModal", () => {
     Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: origWidth });
     Object.defineProperty(window, "innerHeight", { writable: true, configurable: true, value: origHeight });
   });
+
+  it("keeps Step 5 (Calendar & Schedules) visible and clickable on 390x844 mobile even when mid-screen", async () => {
+    const origWidth = window.innerWidth;
+    const origHeight = window.innerHeight;
+    Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: 390 });
+    Object.defineProperty(window, "innerHeight", { writable: true, configurable: true, value: 844 });
+
+    const scheduleTarget = document.createElement("button");
+    scheduleTarget.setAttribute("data-tour-id", "tour-schedule");
+    scheduleTarget.scrollIntoView = vi.fn();
+    vi.spyOn(scheduleTarget, "getBoundingClientRect").mockReturnValue({
+      top: 410,
+      left: 8,
+      width: 244,
+      height: 44,
+      right: 252,
+      bottom: 454,
+    });
+    document.body.appendChild(scheduleTarget);
+
+    const user = userEvent.setup();
+    const { container } = render(<TeacherTutorialModal onComplete={vi.fn()} />);
+
+    // Advance from Step 1 -> Step 5 (Calendar & Schedules)
+    for (let i = 0; i < 4; i++) {
+      await user.click(screen.getByRole("button", { name: /next/i }));
+    }
+
+    await waitFor(() => {
+      expect(screen.getByText(/step 5 of 6/i)).toBeInTheDocument();
+      expect(screen.getByText(/5\. calendar & schedules/i)).toBeInTheDocument();
+      const dialog = screen.getByRole("dialog");
+      expect(["bottom", "top"]).toContain(dialog.getAttribute("data-mobile-placement"));
+      const card = container.querySelector(".tutorial-mobile-sheet");
+      expect(card).toBeInTheDocument();
+      expect(Number(card.style.zIndex)).toBeGreaterThanOrEqual(10000);
+    });
+
+    // Advance cleanly from Step 5 -> Step 6
+    await user.click(screen.getByRole("button", { name: /next/i }));
+    expect(screen.getByText(/step 6 of 6/i)).toBeInTheDocument();
+
+    document.body.removeChild(scheduleTarget);
+    Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: origWidth });
+    Object.defineProperty(window, "innerHeight", { writable: true, configurable: true, value: origHeight });
+  });
+
+  it("keeps centered mobile fallback card stacked above backdrop on very short screens", async () => {
+    const origWidth = window.innerWidth;
+    const origHeight = window.innerHeight;
+    Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: 390 });
+    Object.defineProperty(window, "innerHeight", { writable: true, configurable: true, value: 460 });
+
+    const midTarget = document.createElement("button");
+    midTarget.setAttribute("data-tour-id", "tour-student-profiling");
+    midTarget.scrollIntoView = vi.fn();
+    vi.spyOn(midTarget, "getBoundingClientRect").mockReturnValue({
+      top: 210,
+      left: 8,
+      width: 244,
+      height: 44,
+      right: 252,
+      bottom: 254,
+    });
+    document.body.appendChild(midTarget);
+
+    const { container } = render(<TeacherTutorialModal onComplete={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toHaveAttribute("data-mobile-placement", "centered");
+      const card = container.querySelector(".tutorial-mobile-sheet");
+      expect(card).toBeInTheDocument();
+      expect(card.style.position).toBe("relative");
+      expect(Number(card.style.zIndex)).toBeGreaterThanOrEqual(10000);
+    });
+
+    document.body.removeChild(midTarget);
+    Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: origWidth });
+    Object.defineProperty(window, "innerHeight", { writable: true, configurable: true, value: origHeight });
+  });
 });
