@@ -848,6 +848,53 @@ describe("Issue #204: Input bounds, accessible validation feedback, and save con
     expect(screen.queryByRole("heading", { name: /Confirm Student Profile Creation/i })).not.toBeInTheDocument();
     expect(await screen.findByText(/Profile Created!/i)).toBeInTheDocument();
   });
+
+  it("renders optional LRN field, validates 12-digit format only when filled, and includes LRN in payload", async () => {
+    studentsAPI.create.mockResolvedValue({
+      studentID: 88,
+      name: "Maria Clara",
+    });
+
+    renderComponent();
+
+    const lrnInput = screen.getByPlaceholderText("12-digit Learner Reference Number");
+    expect(lrnInput).toBeInTheDocument();
+    expect(lrnInput).not.toBeRequired();
+
+    // Fill required Step 1 fields + invalid short LRN
+    fireEvent.change(screen.getByPlaceholderText("Enter student name"), { target: { value: "Maria Clara" } });
+    fireEvent.change(lrnInput, { target: { value: "12345" } });
+    fireEvent.change(screen.getByPlaceholderText("Enter age"), { target: { value: "8" } });
+    fireEvent.change(screen.getByPlaceholderText("Enter grade level"), { target: { value: "3" } });
+    fireEvent.change(screen.getByRole("combobox", { name: /^gender:/i }), { target: { value: "Female" } });
+    fireEvent.click(screen.getByLabelText(/Difficulty in Hearing/i));
+    fireEvent.change(screen.getByPlaceholderText(/Enter parent or guardian name/i), { target: { value: "Tiago Santos" } });
+    fireEvent.click(screen.getByRole("button", { name: /read full consent agreement/i }));
+    fireEvent.click(screen.getByTestId("consent-terms-checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: /i have read & understood the terms/i }));
+    fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
+
+    expect((await screen.findAllByText(/LRN must be a 12-digit number/i)).length).toBeGreaterThanOrEqual(1);
+
+    // Enter valid 12-digit LRN -> advances cleanly and persists in profileDetails
+    fireEvent.change(lrnInput, { target: { value: "123456789012" } });
+    fireEvent.click(screen.getByRole("button", { name: /NEXT/i }));
+
+    fireEvent.change(screen.getByPlaceholderText(/the learner fails to finish tasks/i), { target: { value: "Evaluation" } });
+    fireEvent.change(screen.getByPlaceholderText(/the learner can spell random words/i), { target: { value: "Strengths" } });
+    fireEvent.change(screen.getByPlaceholderText(/needs structured routines/i), { target: { value: "Needs" } });
+    fireEvent.change(screen.getByPlaceholderText(/write concerns shared by the parent/i), { target: { value: "Concerns" } });
+    fireEvent.change(screen.getByPlaceholderText(/the learner has difficulty concentrating/i), { target: { value: "Impact" } });
+    fireEvent.click(screen.getByRole("button", { name: /SUBMIT/i }));
+
+    expect(studentsAPI.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profileDetails: expect.objectContaining({
+          lrn: "123456789012",
+        }),
+      }),
+    );
+  });
 });
 
 

@@ -9,11 +9,16 @@ import {
   CheckIcon,
 } from "./ui/icons";
 
+const TourBellIcon = ({ className = "" }) => (
+  <i className={`ti ti-bell text-2xl text-[#3d9de8] ${className}`} aria-hidden="true" />
+);
+
 const TUTORIAL_STEPS = [
   {
     step: 1,
-    badge: "Step 1 of 5",
+    badge: "Step 1 of 6",
     targetId: "tour-student-profiling",
+    menuLabel: "Student Profiling",
     title: "1. Comprehensive Student Profiling",
     subtitle: "Learner Profiles & Accommodations",
     description:
@@ -26,8 +31,9 @@ const TUTORIAL_STEPS = [
   },
   {
     step: 2,
-    badge: "Step 2 of 5",
+    badge: "Step 2 of 6",
     targetId: "tour-iep-generation",
+    menuLabel: "AI-Based IEP Generation",
     title: "2. Intelligent IEP Goal Generation",
     subtitle: "SMART Goals & DepEd Matrix Alignment",
     description:
@@ -40,8 +46,9 @@ const TUTORIAL_STEPS = [
   },
   {
     step: 3,
-    badge: "Step 3 of 5",
+    badge: "Step 3 of 6",
     targetId: "tour-instructional-support",
+    menuLabel: "Instructional Support",
     title: "3. Classroom Instructional Support",
     subtitle: "Differentiated Plans & Visual Schedules",
     description:
@@ -54,8 +61,9 @@ const TUTORIAL_STEPS = [
   },
   {
     step: 4,
-    badge: "Step 4 of 5",
+    badge: "Step 4 of 6",
     targetId: "tour-outcome-monitoring",
+    menuLabel: "Outcome Monitoring",
     title: "4. Outcome & Progress Monitoring",
     subtitle: "Trial Mastery & Longitudinal Trends",
     description:
@@ -68,8 +76,9 @@ const TUTORIAL_STEPS = [
   },
   {
     step: 5,
-    badge: "Step 5 of 5",
+    badge: "Step 5 of 6",
     targetId: "tour-schedule",
+    menuLabel: "Calendar & Schedules",
     title: "5. Calendar & Schedules",
     subtitle: "Milestone Reminders & Event Planning",
     description:
@@ -77,7 +86,22 @@ const TUTORIAL_STEPS = [
     icon: CalendarIcon,
     highlights: [
       "Automated time-bound IEP milestone reminder schedule",
-      "Interactive calendar and top-bar reminder bell alerts",
+      "Color-coded priority calendar with clickable daily event view",
+    ],
+  },
+  {
+    step: 6,
+    badge: "Step 6 of 6",
+    targetId: "tour-notifications",
+    menuLabel: "Notifications",
+    title: "6. Notifications History",
+    subtitle: "Priority Lead-Time Alerts & Log",
+    description:
+      "View all historical reminders (10 per page) triggered automatically by milestone priority (Low: 1d, Med: 2d, High: 3d) and on the event day.",
+    icon: TourBellIcon,
+    highlights: [
+      "Full paginated notification history with read & priority filters",
+      "Mark alerts as read and jump straight into recording progress",
     ],
   },
 ];
@@ -85,8 +109,14 @@ const TUTORIAL_STEPS = [
 export default function TeacherTutorialModal({ onComplete }) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState(null);
+  const [cardHeight, setCardHeight] = useState(440);
+  const [viewport, setViewport] = useState(() => ({
+    width: typeof window !== "undefined" ? window.innerWidth : 1280,
+    height: typeof window !== "undefined" ? window.innerHeight : 800,
+  }));
   const containerRef = useRef(null);
   const wrapperRef = useRef(null);
+  const touchStartXRef = useRef(null);
 
   useFocusTrap({
     isActive: true,
@@ -110,12 +140,9 @@ export default function TeacherTutorialModal({ onComplete }) {
     document.body.classList.add("tour-open");
 
     const preventScroll = (e) => {
-      // Allow internal scrolling only if the tooltip card itself needs to scroll
+      // Allow internal scrolling and touch swipes inside the walkthrough card
       if (containerRef.current && containerRef.current.contains(e.target)) {
-        const el = containerRef.current;
-        if (el.scrollHeight > el.clientHeight) {
-          return;
-        }
+        return;
       }
       e.preventDefault();
     };
@@ -133,11 +160,55 @@ export default function TeacherTutorialModal({ onComplete }) {
   }, []);
 
   const updateTargetRect = useCallback(() => {
-    if (typeof document === "undefined") return;
+    if (typeof document === "undefined" || typeof window === "undefined") return;
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    setViewport((prev) =>
+      prev.width === vw && prev.height === vh ? prev : { width: vw, height: vh },
+    );
+
+    if (containerRef.current) {
+      const measured = containerRef.current.getBoundingClientRect().height;
+      if (measured > 0) {
+        setCardHeight(Math.ceil(measured));
+      }
+    }
+
     const targetElement = document.querySelector(`[data-tour-id="${currentStep.targetId}"]`);
     if (targetElement) {
-      const rect = targetElement.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
+      let rect = targetElement.getBoundingClientRect();
+      const isHorizontallyVisible = rect.right > 8 && rect.left < vw - 8;
+
+      // Only scroll into view if the target is actually on screen horizontally
+      // (prevents scrolling hidden off-canvas mobile sidebar drawers)
+      if (
+        isHorizontallyVisible &&
+        typeof targetElement.scrollIntoView === "function"
+      ) {
+        const isMobileView = vw <= 768;
+        const needsScroll = isMobileView
+          ? rect.bottom > vh * 0.5 || rect.top < 12
+          : rect.bottom > vh - 16 || rect.top < 16;
+
+        if (needsScroll) {
+          targetElement.scrollIntoView({
+            block: isMobileView ? "start" : "nearest",
+            behavior: "auto",
+          });
+          rect = targetElement.getBoundingClientRect();
+        }
+      }
+
+      const isVisibleInViewport =
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.right > 8 &&
+        rect.left < vw - 8 &&
+        rect.bottom > 8 &&
+        rect.top < vh - 8;
+
+      if (isVisibleInViewport) {
         setTargetRect({
           top: rect.top,
           left: rect.left,
@@ -154,22 +225,49 @@ export default function TeacherTutorialModal({ onComplete }) {
 
   useEffect(() => {
     let animId = null;
+    let settleTimerId = null;
+    let observer = null;
+    let sidebarEl = null;
     const handleUpdate = () => {
       updateTargetRect();
     };
 
     if (typeof window !== "undefined") {
       animId = window.requestAnimationFrame(handleUpdate);
+      // Re-measure after mobile off-canvas drawer slide-in transition (250ms) settles
+      settleTimerId = window.setTimeout(handleUpdate, 280);
       window.addEventListener("resize", handleUpdate);
       window.addEventListener("scroll", handleUpdate, true);
+
+      // Re-clamp immediately if sidebar accordions expand/collapse or drawer finishes animating
+      sidebarEl =
+        document.querySelector(".sidebar") || document.querySelector("aside");
+      if (sidebarEl) {
+        sidebarEl.addEventListener("transitionend", handleUpdate);
+        if (typeof MutationObserver !== "undefined") {
+          observer = new MutationObserver(() => {
+            window.requestAnimationFrame(handleUpdate);
+          });
+          observer.observe(sidebarEl, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+          });
+        }
+      }
     }
 
     return () => {
       if (typeof window !== "undefined") {
         if (animId !== null) window.cancelAnimationFrame(animId);
+        if (settleTimerId !== null) window.clearTimeout(settleTimerId);
         window.removeEventListener("resize", handleUpdate);
         window.removeEventListener("scroll", handleUpdate, true);
       }
+      if (sidebarEl) {
+        sidebarEl.removeEventListener("transitionend", handleUpdate);
+      }
+      if (observer) observer.disconnect();
     };
   }, [updateTargetRect]);
 
@@ -187,53 +285,115 @@ export default function TeacherTutorialModal({ onComplete }) {
     }
   };
 
-  const isMobile = typeof window !== "undefined" && window.innerWidth <= 768;
+  const handleTouchStart = (e) => {
+    if (e.touches && e.touches.length === 1) {
+      touchStartXRef.current = e.touches[0].clientX;
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    if (touchStartXRef.current === null || !e.changedTouches?.length) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartXRef.current;
+    touchStartXRef.current = null;
+    if (deltaX < -50) {
+      handleNext();
+    } else if (deltaX > 50) {
+      handlePrev();
+    }
+  };
+
+  const isMobile = viewport.width <= 768;
 
   let cardStyle = {};
   let caretStyle = {};
+  let mobilePlacement = "centered";
 
   if (targetRect) {
+    const viewportPadding = 16;
+    const maxCardHeight = Math.max(240, viewport.height - viewportPadding * 2);
+
     if (!isMobile) {
+      const effectiveHeight = Math.min(cardHeight || 440, maxCardHeight);
+      const maxTop = Math.max(
+        viewportPadding,
+        viewport.height - effectiveHeight - viewportPadding,
+      );
       const cardWidth = 430;
-      const cardHeight = 350;
-      const left = Math.min(targetRect.right + 16, window.innerWidth - cardWidth - 20);
-      const top = Math.max(16, Math.min(targetRect.top - 14, window.innerHeight - cardHeight - 16));
+      const left = Math.max(
+        viewportPadding,
+        Math.min(targetRect.right + 16, viewport.width - cardWidth - 20),
+      );
+      const top = Math.max(viewportPadding, Math.min(targetRect.top - 14, maxTop));
       cardStyle = {
         position: "fixed",
         left: `${left}px`,
         top: `${top}px`,
         maxWidth: `${cardWidth}px`,
+        maxHeight: `${maxCardHeight}px`,
         width: "100%",
         zIndex: 9999,
       };
-      const caretTop = Math.max(16, Math.min(targetRect.top + targetRect.height / 2 - top - 7, cardHeight - 30));
+      const caretTop = Math.max(
+        16,
+        Math.min(targetRect.top + targetRect.height / 2 - top - 7, effectiveHeight - 30),
+      );
       caretStyle = {
         top: `${caretTop}px`,
       };
     } else {
-      const top = Math.min(targetRect.bottom + 12, window.innerHeight - 340);
-      cardStyle = {
-        position: "fixed",
-        left: "16px",
-        right: "16px",
-        top: `${Math.max(16, top)}px`,
-        maxWidth: "calc(100vw - 32px)",
-        width: "auto",
-        zIndex: 9999,
-      };
+      // Mobile docked sheet placement: keep spotlighted menu tab fully unobstructed
+      const mobilePadding = 12;
+      const mobileMaxCardHeight = Math.min(
+        390,
+        Math.max(230, Math.floor(viewport.height * 0.5)),
+      );
+      const effectiveMobileHeight = Math.min(cardHeight || 340, mobileMaxCardHeight);
+      const bottomSheetTop = viewport.height - effectiveMobileHeight - mobilePadding;
+
+      if (targetRect.bottom <= bottomSheetTop - 8) {
+        mobilePlacement = "bottom";
+        cardStyle = {
+          position: "fixed",
+          left: `${mobilePadding}px`,
+          right: `${mobilePadding}px`,
+          bottom: `${mobilePadding}px`,
+          maxWidth: `calc(100vw - ${mobilePadding * 2}px)`,
+          maxHeight: `${mobileMaxCardHeight}px`,
+          width: "auto",
+          zIndex: 9999,
+        };
+      } else if (targetRect.top >= effectiveMobileHeight + mobilePadding * 2) {
+        mobilePlacement = "top";
+        cardStyle = {
+          position: "fixed",
+          left: `${mobilePadding}px`,
+          right: `${mobilePadding}px`,
+          top: `${mobilePadding}px`,
+          maxWidth: `calc(100vw - ${mobilePadding * 2}px)`,
+          maxHeight: `${mobileMaxCardHeight}px`,
+          width: "auto",
+          zIndex: 9999,
+        };
+      } else {
+        // Short landscape mobile viewports: fall back to clean centered modal without overlapping cutout
+        mobilePlacement = "centered";
+      }
     }
   }
+
+  const showSpotlight = Boolean(targetRect && (!isMobile || mobilePlacement !== "centered"));
 
   return (
     <div
       ref={wrapperRef}
-      className={targetRect ? "tour-spotlight-wrapper" : "tutorial-modal-overlay"}
+      className={showSpotlight ? "tour-spotlight-wrapper" : "tutorial-modal-overlay"}
       role="dialog"
       aria-modal="true"
       aria-labelledby="tutorial-modal-title"
+      data-mobile-placement={isMobile ? mobilePlacement : undefined}
     >
-      {/* Dimmed Spotlight Cutout (when target element found) */}
-      {targetRect && (
+      {/* Dimmed Spotlight Cutout (only when target element is visibly on-screen) */}
+      {showSpotlight && (
         <div
           className="tour-spotlight-cutout"
           style={{
@@ -246,17 +406,21 @@ export default function TeacherTutorialModal({ onComplete }) {
         />
       )}
 
-      {/* Dimmed Backdrop (when no target rect measured) */}
-      {!targetRect && <div className="tour-fallback-backdrop" aria-hidden="true" />}
+      {/* Dimmed Backdrop (when no visible spotlight cutout is active) */}
+      {!showSpotlight && <div className="tour-fallback-backdrop" aria-hidden="true" />}
 
-      {/* Floating Guided Tooltip Card */}
+      {/* Floating Guided Tooltip Card / Mobile Walkthrough Sheet */}
       <div
         ref={containerRef}
         tabIndex={-1}
-        className={`tutorial-modal-container ${targetRect ? "tour-anchored-card" : ""}`}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className={`tutorial-modal-container ${showSpotlight ? "tour-anchored-card" : ""} ${
+          isMobile ? `tutorial-mobile-sheet tutorial-mobile-${mobilePlacement}` : ""
+        }`}
         style={cardStyle}
       >
-        {targetRect && !isMobile && (
+        {showSpotlight && !isMobile && (
           <div className="tutorial-caret-arrow" style={caretStyle} aria-hidden="true" />
         )}
 
@@ -293,6 +457,16 @@ export default function TeacherTutorialModal({ onComplete }) {
 
         {/* Step Content */}
         <div className="tutorial-modal-body">
+          {isMobile && (
+            <div
+              className="tutorial-mobile-nav-hint"
+              data-testid="tutorial-mobile-nav-hint"
+            >
+              <i className="ti ti-menu-2" aria-hidden="true" />
+              <span>Menu &rsaquo; {currentStep.menuLabel}</span>
+            </div>
+          )}
+
           <div className="tutorial-icon-wrapper" aria-hidden="true">
             {typeof currentStep.icon === "function" ? (
               <currentStep.icon className="w-6 h-6 text-[#3d9de8]" aria-hidden="true" />
@@ -331,6 +505,12 @@ export default function TeacherTutorialModal({ onComplete }) {
           >
             Previous
           </button>
+
+          {isMobile && (
+            <span className="tutorial-swipe-hint" aria-hidden="true">
+              Swipe or tap
+            </span>
+          )}
 
           <button
             type="button"

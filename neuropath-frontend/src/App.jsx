@@ -79,12 +79,22 @@ function getBreadcrumb(pathname) {
 function DashboardLayout() {
   const { user, markTutorialComplete } = useAuth();
   const location = useLocation();
+  const [isMobileViewport, setIsMobileViewport] = useState(
+    () => typeof window !== "undefined" && window.innerWidth <= 768,
+  );
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     if (typeof window !== "undefined" && window.innerWidth <= 768) {
       return true;
     }
     return localStorage.getItem("neuropath_sidebar_collapsed") === "true";
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleResize = () => setIsMobileViewport(window.innerWidth <= 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed((prev) => {
@@ -151,27 +161,35 @@ function DashboardLayout() {
     setManualTourRequested(true);
   };
 
+  // On mobile viewports, keep the sidebar drawer open during the interactive walkthrough
+  // so each menu tab is visibly spotlighted, and automatically restore collapsed state after.
+  const effectiveSidebarCollapsed =
+    showTutorial && isMobileViewport ? false : isSidebarCollapsed;
+
   return (
-    <div className={`app-layout ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+    <div className={`app-layout ${effectiveSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <SkipLink targetId="main-content" />
       {showTutorial && (
         <TeacherTutorialModal onComplete={handleTutorialComplete} />
       )}
-      {!isSidebarCollapsed && (
+      {!effectiveSidebarCollapsed && (
         <div
           className="sidebar-backdrop"
-          onClick={() => setIsSidebarCollapsed(true)}
+          onClick={() => {
+            if (!showTutorial) setIsSidebarCollapsed(true);
+          }}
           aria-hidden="true"
         />
       )}
       <Sidebar
-        collapsed={isSidebarCollapsed}
+        collapsed={effectiveSidebarCollapsed}
         onToggleCollapse={toggleSidebar}
+        onStartTour={handleStartTour}
       />
       <div className="main-area">
         <Topbar
           breadcrumb={breadcrumb}
-          collapsed={isSidebarCollapsed}
+          collapsed={effectiveSidebarCollapsed}
           onToggleCollapse={toggleSidebar}
           onStartTour={handleStartTour}
         />

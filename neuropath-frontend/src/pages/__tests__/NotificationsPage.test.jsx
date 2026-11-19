@@ -81,7 +81,8 @@ describe("NotificationsPage (Issue #311)", () => {
 
     expect(screen.getByTestId("notif-total-count")).toHaveTextContent("15");
     expect(screen.getByTestId("notif-unread-count")).toHaveTextContent("2");
-    expect(screen.getByTestId("notif-high-count")).toHaveTextContent("1");
+    expect(screen.queryByTestId("notif-high-count")).not.toBeInTheDocument();
+    expect(screen.queryByText(/High Priority Unread/i)).not.toBeInTheDocument();
 
     const pagination = screen.getByTestId("notifications-pagination");
     expect(pagination).toHaveTextContent("1–10 of 15 notifications (10 per page)");
@@ -126,10 +127,13 @@ describe("NotificationsPage (Issue #311)", () => {
       priority: "all",
     });
 
-    // Select High priority
-    fireEvent.change(screen.getByLabelText("Priority:"), {
-      target: { value: "high" },
-    });
+    // Open custom animated priority dropdown and select High priority
+    const trigger = screen.getByTestId("notif-priority-trigger");
+    fireEvent.click(trigger);
+    expect(screen.getByTestId("notif-priority-menu")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("notif-priority-option-high"));
+    expect(screen.queryByTestId("notif-priority-menu")).not.toBeInTheDocument();
     expect(queries.useNotifications).toHaveBeenLastCalledWith({
       page: 1,
       status: "unread",

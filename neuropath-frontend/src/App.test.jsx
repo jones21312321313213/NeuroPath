@@ -158,6 +158,46 @@ describe("App First-Login Tutorial Modal Integration", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(window.localStorage.getItem("neuropath_tour_dismissed_budskie")).toBeNull();
   });
+
+  it("auto-opens mobile sidebar drawer during walkthrough on 390x844 viewport and collapses it on completion", async () => {
+    const origWidth = window.innerWidth;
+    const origHeight = window.innerHeight;
+    Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: 390 });
+    Object.defineProperty(window, "innerHeight", { writable: true, configurable: true, value: 844 });
+
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({
+      user: {
+        id: 1,
+        email: "mobileteacher@example.com",
+        has_completed_tutorial: true,
+      },
+      isAuthenticated: true,
+      markTutorialComplete: mockMarkTutorialComplete,
+    });
+
+    const { container } = renderWithQueryClient(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    // On mobile initially, sidebar is collapsed
+    expect(container.querySelector(".sidebar.collapsed")).toBeInTheDocument();
+
+    // Launch walkthrough from Topbar info button -> mobile sidebar drawer opens automatically
+    await user.click(screen.getByTestId("topbar-tour-btn"));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(container.querySelector(".sidebar.collapsed")).not.toBeInTheDocument();
+
+    // Complete/skip walkthrough -> mobile sidebar drawer collapses back cleanly
+    await user.click(screen.getByRole("button", { name: /skip walkthrough/i }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(container.querySelector(".sidebar.collapsed")).toBeInTheDocument();
+
+    Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: origWidth });
+    Object.defineProperty(window, "innerHeight", { writable: true, configurable: true, value: origHeight });
+  });
 });
 
 describe("App Router Nested Navigation", () => {

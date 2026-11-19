@@ -410,6 +410,9 @@ body {
   font-family: inherit;
   margin-top: 4px;
 }
+.btn-submit-cancel{
+  
+}
 .btn-submit:hover:not(:disabled) {
   transform: translateY(-2px);
 }
