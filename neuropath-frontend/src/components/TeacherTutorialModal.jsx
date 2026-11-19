@@ -342,12 +342,14 @@ export default function TeacherTutorialModal({ onComplete }) {
       };
     } else {
       // Mobile docked sheet placement: keep spotlighted menu tab fully unobstructed
+      // Using max 44% viewport height (capped at 340px) guarantees every nav item on
+      // standard portrait screens (e.g., 390x844) fits cleanly above or below with zero dead zone.
       const mobilePadding = 12;
       const mobileMaxCardHeight = Math.min(
-        390,
-        Math.max(230, Math.floor(viewport.height * 0.5)),
+        340,
+        Math.max(220, Math.floor(viewport.height * 0.44)),
       );
-      const effectiveMobileHeight = Math.min(cardHeight || 340, mobileMaxCardHeight);
+      const effectiveMobileHeight = Math.min(cardHeight || 320, mobileMaxCardHeight);
       const bottomSheetTop = viewport.height - effectiveMobileHeight - mobilePadding;
 
       if (targetRect.bottom <= bottomSheetTop - 8) {
@@ -360,7 +362,7 @@ export default function TeacherTutorialModal({ onComplete }) {
           maxWidth: `calc(100vw - ${mobilePadding * 2}px)`,
           maxHeight: `${mobileMaxCardHeight}px`,
           width: "auto",
-          zIndex: 9999,
+          zIndex: 10000,
         };
       } else if (targetRect.top >= effectiveMobileHeight + mobilePadding * 2) {
         mobilePlacement = "top";
@@ -372,11 +374,15 @@ export default function TeacherTutorialModal({ onComplete }) {
           maxWidth: `calc(100vw - ${mobilePadding * 2}px)`,
           maxHeight: `${mobileMaxCardHeight}px`,
           width: "auto",
-          zIndex: 9999,
+          zIndex: 10000,
         };
       } else {
-        // Short landscape mobile viewports: fall back to clean centered modal without overlapping cutout
+        // Short landscape mobile viewports: fall back to clean centered modal above backdrop
         mobilePlacement = "centered";
+        cardStyle = {
+          position: "relative",
+          zIndex: 10000,
+        };
       }
     }
   }
@@ -407,7 +413,9 @@ export default function TeacherTutorialModal({ onComplete }) {
       )}
 
       {/* Dimmed Backdrop (when no visible spotlight cutout is active) */}
-      {!showSpotlight && <div className="tour-fallback-backdrop" aria-hidden="true" />}
+      {!showSpotlight && (
+        <div className="tour-fallback-backdrop" aria-hidden="true" />
+      )}
 
       {/* Floating Guided Tooltip Card / Mobile Walkthrough Sheet */}
       <div
